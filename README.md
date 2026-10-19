@@ -49,15 +49,6 @@ Plain deploy **replaces** a dashboard. `--patch` reads what is live, swaps only 
 cards it owns, and refuses to write if anything else moved. Use `--patch` for any
 dashboard that has been edited in the HA UI — otherwise those edits are silently lost.
 
-## Adapting it to another house
-
-The entity ids are hard-coded to one install (89 of them). There is no mapping layer
-yet, so adopting this today means editing the dashboard modules — `design.py` itself
-is entity-agnostic and should need no changes.
-
-Making that a `entities.yaml` of role -> entity is the obvious next step and is not
-done.
-
 ## Layout
 
 ```
@@ -77,3 +68,8 @@ tools/cdp.py   headless-browser driver used to verify renders
 dashboard actually rendered — measuring card sizes, catching clipped labels, clicking
 things and reading back the result. Screenshots alone repeatedly failed to catch
 broken cards here.
+
+## Adapting it to another install
+
+See **[AGENTS.md](AGENTS.md)** — a brief written for an LLM: what to change, what to
+leave alone, how to verify, and the platform traps that are not obvious.
