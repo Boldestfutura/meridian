@@ -13,6 +13,26 @@ and deployed over the websocket API.
 Flat, borderless cards; tints derived from an accent with `color-mix()` so light and
 dark both work from one definition; detail lives in pop-ups rather than dropdowns.
 
+## What they look like
+
+### Computer — the whole house, no scrolling
+![Computer dashboard](docs/images/computer.png)
+
+### Kitchen — fixed 1024x600 wall panel
+![Kitchen panel](docs/images/kitchen.png)
+
+### Tablet — control centre with a room switcher
+![Tablet dashboard](docs/images/tablet.png)
+
+### Phone — light and dark
+<p>
+  <img src="docs/images/phone.png" width="300" alt="Phone dashboard, light">
+  <img src="docs/images/phone-dark.png" width="300" alt="Phone dashboard, dark">
+</p>
+
+Dark mode is not a second palette: surfaces come from the theme's own CSS variables
+and every tint is `color-mix()`'d against whatever surface is current.
+
 ## Why it is generated rather than hand-written YAML
 
 Each dashboard is ~60-280 KB of JSON. The cards are near-identical with different

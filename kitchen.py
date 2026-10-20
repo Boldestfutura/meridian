@@ -59,11 +59,16 @@ def _amp():
 
 def _heatpump():
     c = _fixed(d.heatpump_stepper(), MID)
-    c["styles"]["grid"] = [{"grid-template-areas": '"t p" "m m"'},
-                           {"grid-template-columns": "1fr auto"},
-                           {"grid-template-rows": "1fr 48px"},
-                           {"row-gap": "12px"}, {"column-gap": "10px"},
-                           {"align-items": "center"}]
+    # the column here is ~330px: side-by-side clips "Heatpump . Off" against the
+    # stepper, so stack them instead - MID has the vertical room
+    c["styles"]["grid"] = [{"grid-template-areas": '"t" "p" "m"'},
+                           {"grid-template-rows": "auto auto 48px"},
+                           {"row-gap": "10px"}, {"align-content": "center"}]
+    c["styles"]["custom_fields"] = {
+        "t": [{"justify-self": "start"}, {"text-align": "left"}],
+        "p": [{"justify-self": "start"}],
+        "m": [{"justify-self": "stretch"}, {"width": "100%"}],
+    }
     c["custom_fields"]["m"] = {"card": {"type": "horizontal-stack", "cards": [
         d.mode_btn("Heat", "heat", "mdi:fire", hgt=48),
         d.mode_btn("Cool", "cool", "mdi:snowflake", hgt=48),
