@@ -14,6 +14,34 @@ INK   = "var(--primary-text-color, #1c1d21)"
 MUTED = "var(--secondary-text-color, #80848e)"
 FONT  = "Figtree, system-ui, sans-serif"
 
+# --- the three entities this module has baked into its templates ----------
+# Override before calling any builder, e.g.
+#     design.CLIMATE_ENTITY = "climate.upstairs"
+# _retarget() rewrites them on the way out, so the templates stay readable.
+WEATHER_ENTITY = "weather.forecast_home"
+CLIMATE_ENTITY = "climate.living_room"
+TIME_ENTITY    = "sensor.time"
+
+_DEFAULTS = {"weather.forecast_home": lambda: WEATHER_ENTITY,
+             "climate.living_room":   lambda: CLIMATE_ENTITY,
+             "sensor.time":           lambda: TIME_ENTITY}
+
+
+def retarget(obj):
+    """Swap this module's default entity ids for whatever has been configured.
+
+    Done as a post-pass over the built card rather than threading an `entity`
+    argument through ~15 builders and their %-formatted JS templates, which is
+    where a previous attempt went wrong.
+    """
+    pairs = [(k, v()) for k, v in _DEFAULTS.items() if k != v()]
+    if not pairs:
+        return obj
+    blob = json.dumps(obj)
+    for old, new in pairs:
+        blob = blob.replace(old, new)
+    return json.loads(blob)
+
 
 def mix(colour, pct, base=None):
     """pct% of `colour` over the card surface - follows light/dark automatically."""
@@ -83,7 +111,7 @@ def tint_js(accent_js, pct=16):
 # Wall-panel builders (big targets, for the 1024x600 kitchen screen)
 # ===========================================================================
 
-def header(place, big=34, clock=31, h=None, middle=None, title_nav=None):
+def _header(place, big=34, clock=31, h=None, middle=None, title_nav=None):
     card = [{"background": "transparent"}, {"box-shadow": "none"}, {"border": "none"},
             {"padding": "0 4px"}, {"font-family": FONT}]
     if h:
@@ -141,7 +169,7 @@ def header(place, big=34, clock=31, h=None, middle=None, title_nav=None):
     }
 
 
-def weather(h=None, num=54, icon=96, forecast=False, slots=5):
+def _weather(h=None, num=54, icon=96, forecast=False, slots=5):
     """forecast: False | "below" | "side"."""
     """Current conditions, optionally with the daily forecast inside the same card.
 
@@ -246,7 +274,7 @@ def mode_btn(label, hvac, icon, hgt=52):
     }
 
 
-def heatpump(h=None, num=46):
+def _heatpump(h=None, num=46):
     return {
         "type": "custom:button-card", "entity": "climate.living_room",
         "show_icon": False, "show_name": False, "show_state": False,
@@ -361,10 +389,7 @@ def tile_scene(entity, label, icon, accent=AMBER):
         "styles": {
             "card": [{"height": "56px"}, {"border-radius": "16px"}, {"box-shadow": "none"},
                      {"border": "none"}, {"padding": "0 10px"}, {"font-family": FONT},
-                     {"background": """[[[
-            const s = states['climate.living_room'].state;
-            return s === 'heat' ? '%s' : (s === 'cool' ? '%s' : '%s');
-          ]]]""" % (mix(HEAT, 14), mix(COOLBLU, 13), SURF)}],
+                     {"background": SURF}],
             "grid": [{"grid-template-areas": '"i n"'},
                      {"grid-template-columns": "36px 1fr"}, {"width": "100%"},
                      {"align-items": "center"}, {"column-gap": "10px"}],
@@ -646,14 +671,14 @@ def _temp_btn(delta, icon):
     }
 
 
-def heatpump_stepper(show_label=True):
+def _heatpump_stepper(show_label=True):
     """Heatpump card with a - / setpoint / + stepper beside the reading.
 
     `show_label=False` drops the word "Heatpump" for narrow columns where a
     section header already says it - at ~350px it otherwise collides with the
     stepper and gets cut mid-word.
     """
-    c = heatpump()
+    c = _heatpump()
     c["styles"]["card"] = [
         {"border-radius": "20px"}, {"box-shadow": "none"}, {"border": "none"},
         {"padding": "12px 14px"}, {"font-family": FONT},
@@ -830,3 +855,13 @@ def info_popup(hash_id, title, icon, rows, extra=None):
     cards += (extra or [])
     return {"type": "custom:bubble-card", "card_type": "pop-up",
             "hash": "#" + hash_id, "name": title, "icon": icon, "cards": cards}
+
+
+# --- public builders: thin wrappers so retarget() always runs -------------
+# (the originals are _-prefixed; keeping the wrap here means no builder can be
+#  added later that forgets to retarget)
+
+def header(*a, **k):            return retarget(_header(*a, **k))
+def weather(*a, **k):           return retarget(_weather(*a, **k))
+def heatpump(*a, **k):          return retarget(_heatpump(*a, **k))
+def heatpump_stepper(*a, **k):  return retarget(_heatpump_stepper(*a, **k))
