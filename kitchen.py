@@ -57,6 +57,12 @@ def _amp():
     return c
 
 
+def _weather():
+    c = d.weather(MID, num=46, icon=72)
+    c["tap_action"] = {"action": "navigate", "navigation_path": "/ha-kitchen/weather"}
+    return c
+
+
 def _heatpump():
     c = _fixed(d.heatpump_stepper(), MID)
     # the column here is ~330px: side-by-side clips "Heatpump . Off" against the
@@ -96,7 +102,7 @@ def build():
             _scene("script.heatpump_cool_30min", "Heat/Cool", "mdi:sun-snowflake-variant", d.TEAL),
         ]},
         {"type": "horizontal-stack", "cards": [
-            d.weather(MID, num=46, icon=72), _heatpump(), _amp(),
+            _weather(), _heatpump(), _amp(),
         ]},
         {"type": "horizontal-stack", "cards": [
             d.light("light.kitchen_lights", "Kitchen", LIGHTS, circle=52, glyph=26),
@@ -121,7 +127,57 @@ def build():
         {"title": "Kitchen", "path": "kitchen", "type": "panel",
          "theme": "Overlook", "badges": [], "cards": [wrapper]},
         photo_view(),
+        weather_view(),
     ]}
+
+
+def weather_view():
+    """A panel-compatible custom weather detail view for the Nest Hub."""
+    return {"title": "Weather", "path": "weather", "type": "panel",
+            "theme": "Overlook", "badges": [], "subview": True,
+            "cards": [{"type": "vertical-stack", "cards": [
+                d.header("Weather", big=30, clock=28, h=HDR,
+                         title_nav="/ha-kitchen/kitchen"),
+                d.weather(450, num=46, icon=72, forecast="below", slots=5),
+            ]}]}
+
+
+def apply_weather_detail(cfg):
+    """Patch just the live Kitchen weather tap and add its detail subview."""
+    view = next((v for v in cfg.get("views", []) if v.get("path") == "kitchen"), None)
+    if view is None:
+        raise ValueError("Kitchen view not found")
+    changed = []
+    for card in patch3._cards(view):
+        if (card.get("entity") == "weather.forecast_home"
+                and card.get("type") == "custom:button-card"):
+            card["tap_action"] = {"action": "navigate",
+                                  "navigation_path": "/ha-kitchen/weather"}
+            changed.append("weather tap")
+    if not any(v.get("path") == "weather" for v in cfg.get("views", [])):
+        cfg.setdefault("views", []).append(weather_view())
+        changed.append("weather subview")
+    return changed
+
+
+def apply_temperature_strip(cfg):
+    """Refresh only the Kitchen panel's temperature bubble, preserving its other pills."""
+    view = next((v for v in cfg.get("views", []) if v.get("path") == "kitchen"), None)
+    if view is None:
+        raise ValueError("Kitchen view not found")
+    strips = [card for card in patch3._cards(view) if patch3._is_top_strip(card)]
+    if len(strips) != 1:
+        raise ValueError("expected one Kitchen status strip, found %d" % len(strips))
+    fresh = _no_popup(patch3.top_strip())
+    fields = fresh.get("custom_fields", {})
+    temp_keys = [key for key, value in fields.items()
+                 if isinstance(value, dict) and isinstance(value.get("card"), dict)
+                 and value["card"].get("entity") == "sensor.air_quality_monitor_temperature"]
+    if len(temp_keys) != 1:
+        raise ValueError("could not identify the temperature bubble")
+    key = temp_keys[0]
+    strips[0]["custom_fields"][key] = fields[key]
+    return key
 
 
 def photo_view():

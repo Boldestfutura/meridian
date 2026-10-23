@@ -10,6 +10,12 @@ import design as d
 ROOMS = [("sensor.air_quality_monitor_%s", "Kitchen"),
          ("sensor.air_quality_monitor_%s_2", "Master Bedroom")]
 
+# Sources that exist for one type only. The living room has no temperature
+# sensor - the heatpump reports it as an attribute - so it is listed as
+# "entity:attribute" and both range_pill and the pop-up tile read it that way.
+EXTRA = {"temperature": [("climate.living_room:current_temperature", "Living Room")]}
+LIVING_ROOM_TEMP = "climate.living_room"
+
 TYPES = [
     # key,        label,        icon,                 accent,  decimals
     ("temperature", "Temperature", "mdi:thermometer",   d.RED,   1),
@@ -40,11 +46,52 @@ def person(entity, name):
 
 
 def ents_for(key):
-    return [tmpl % key for tmpl, _ in ROOMS]
+    entities = [tmpl % key for tmpl, _ in ROOMS]
+    if key == "temperature":
+        entities.append(LIVING_ROOM_TEMP)
+    return entities
 
 
 def readings_for(key):
-    return [(tmpl % key, room) for tmpl, room in ROOMS]
+    readings = [(tmpl % key, room) for tmpl, room in ROOMS]
+    if key == "temperature":
+        readings.append((LIVING_ROOM_TEMP, "Living Room"))
+    return readings
+
+
+def temperature_pill():
+    sensors = json.dumps([tmpl % "temperature" for tmpl, _ in ROOMS])
+    text = """(() => {
+        const values = %s.map(id => states[id] && parseFloat(states[id].state));
+        const room = states[%s];
+        if (room) values.push(parseFloat(room.attributes.current_temperature));
+        const vs = values.filter(Number.isFinite);
+        if (!vs.length) return '--';
+        const lo = Math.min(...vs), hi = Math.max(...vs);
+        const f = v => v.toFixed(1);
+        return (lo === hi ? f(lo) : f(lo) + '\\u2013' + f(hi)) + '\\u00b0';
+      })()""" % (sensors, json.dumps(LIVING_ROOM_TEMP))
+    p = d.pill(ents_for("temperature")[0], "mdi:thermometer", text,
+               accent=d.RED, on_test="true")
+    p["tap_action"] = {"action": "navigate", "navigation_path": "#ov-temperature"}
+    p["styles"]["card"][4] = {"padding": "0 11px"}
+    return p
+
+
+def temperature_popup():
+    readings = [d.tile_sensor(tmpl % "temperature", room, "mdi:thermometer",
+                              accent=d.RED)
+                for tmpl, room in ROOMS]
+    current_temp = """[[[
+      const e = states[%s];
+      const t = e && Number(e.attributes.current_temperature);
+      return Number.isFinite(t) ? t.toFixed(1) + '\\u00b0' : '\\u2014';
+    ]]]""" % json.dumps(LIVING_ROOM_TEMP)
+    readings.append(d.tile_sensor(LIVING_ROOM_TEMP, "Living Room", "mdi:thermometer",
+                                  accent=d.RED, state_fn=current_temp))
+    return d.info_popup("ov-temperature", "Temperature", "mdi:thermometer", None,
+                        extra=[{"type": "grid", "columns": 2, "square": False,
+                                "cards": readings}])
 
 
 def nav(card, hash_id):
@@ -65,8 +112,9 @@ def top_strip():
          "cond": "binary_sensor.window_sensor"},
     ]
     for key, label, icon, accent, dec in TYPES:
-        items.append({"card": d.range_pill(label, icon, accent, ents_for(key),
-                                           "ov-" + key, dec)})
+        pill = (temperature_pill() if key == "temperature"
+                else d.range_pill(label, icon, accent, ents_for(key), "ov-" + key, dec))
+        items.append({"card": pill})
     items += [
         {"card": nav(d.pill("update.home_assistant_operating_system_update", "mdi:package-up",
                             q("HA OS update"), accent=d.RED), "ov-updates"),
@@ -115,7 +163,8 @@ def update_tile(entity, label):
 
 
 def popups():
-    out = [d.sensor_popup("ov-" + key, label, icon, readings_for(key), accent)
+    out = [temperature_popup() if key == "temperature"
+           else d.sensor_popup("ov-" + key, label, icon, readings_for(key), accent)
            for key, label, icon, accent, _ in TYPES]
 
     out.append(d.info_popup("ov-cameron", "Cameron", "mdi:account", [
@@ -152,24 +201,87 @@ def popups():
     return out
 
 
+def player_popup(hash_id, title, entity, icon):
+    """Playback and volume controls with a compact now-playing summary."""
+    entity_js = json.dumps(entity)
+    now_playing = """[[[
+      const e = states[%s]; const a = e && e.attributes || {};
+      return a.media_title || (e && e.state === 'playing' ? 'Playing' : 'Nothing playing');
+    ]]]""" % entity_js
+    app = """[[[
+      const e = states[%s]; const a = e && e.attributes || {};
+      return a.app_name || a.source || (e ? e.state : '\u2014');
+    ]]]""" % entity_js
+    return d.info_popup(hash_id, title, icon, None, extra=[
+        {"type": "tile", "entity": entity, "name": title,
+         "state_content": "state", "features_position": "bottom",
+         "features": [{"type": "media-player-playback"},
+                      {"type": "media-player-volume-slider"}]},
+        {"type": "grid", "columns": 2, "square": False, "cards": [
+            d.tile_sensor(entity, "Now playing", "mdi:music-note", accent=d.VIOLET,
+                          state_fn=now_playing),
+            d.tile_sensor(entity, "App / source", "mdi:music-box", accent=d.VIOLET,
+                          state_fn=app),
+        ]},
+    ])
+
+
+def weather_popup():
+    """Current conditions and the daily forecast inside a Bubble Card pop-up."""
+    return d.info_popup("ov-weather", "Weather", "mdi:weather-partly-cloudy", None,
+                        extra=[d.weather(num=46, icon=68, forecast="below", slots=5)])
+
+
+def _contains_entity(value, entity):
+    if isinstance(value, dict):
+        return value.get("entity") == entity or any(
+            _contains_entity(child, entity) for child in value.values())
+    if isinstance(value, list):
+        return any(_contains_entity(child, entity) for child in value)
+    return False
+
+
+def _cards(value, skip_popups=False):
+    if isinstance(value, dict):
+        if (skip_popups and value.get("type") == "custom:bubble-card"
+                and value.get("card_type") == "pop-up"):
+            return
+        yield value
+        for child in value.values():
+            yield from _cards(child, skip_popups=skip_popups)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _cards(child, skip_popups=skip_popups)
+
+
+def _is_top_strip(card):
+    fields = card.get("custom_fields")
+    return (card.get("type") == "custom:button-card"
+            and isinstance(fields, dict) and len(fields) >= 10
+            and all(re.fullmatch(r"p\d+", key) for key in fields))
+
+
 def apply_all(cfg):
     out = []
     view = cfg["views"][0]
-    for sec in view["sections"]:
+    for sec in view.get("sections", []):
         cards = sec.get("cards", [])
         ents = {c.get("entity") for c in cards}
-        has_strip = any(c.get("_ov_top") for c in cards)
+        has_strip = any(c.get("_ov_top") or _is_top_strip(c) for c in cards)
         if not (ents & STATUS_ENTS) and not has_strip:
             continue
         keep = [c for c in cards
                 if c.get("entity") not in STATUS_ENTS
                 and not c.get("_ov_top")
+                and not _is_top_strip(c)
                 and not (c.get("type") == "custom:bubble-card"
                          and str(c.get("hash", "")).startswith("#ov-"))]
         strip = dict(top_strip(), _ov_top=True, grid_options={"columns": "full"})
-        sec["cards"] = [strip] + popups() + keep
-        out.append("top strip rebuilt (%d status + %d range bubbles) + %d pop-ups"
-                   % (4, len(TYPES), len(TYPES)))
+        extras = popups()
+        if _contains_entity(view, "weather.forecast_home"):
+            extras.append(weather_popup())
+        sec["cards"] = [strip] + extras + keep
+        out.append("top strip rebuilt with %d pop-ups" % len(extras))
         break
     return out
 
@@ -433,6 +545,51 @@ def app_picker_tile(h=118):
     }
 
 
+PLANTS = [
+    ("plant-fiddle", "Fiddle leaf fig", "sensor.soil_moisture_sensor_1_humidity",
+     "sensor.soil_moisture_sensor_1_temperature", "sensor.soil_moisture_sensor_1_battery"),
+    ("plant-banana", "Banana Leaf", "sensor.moisture_sensor_2_humidity",
+     "sensor.moisture_sensor_2_temperature", "sensor.moisture_sensor_2_battery"),
+]
+
+
+def plant_popup(slug, name, moisture, temp, battery):
+    """Per-plant pop-up: a week of moisture, then the current readings.
+
+    mini-graph-card (installed) rather than HA's history-graph - it draws a clean
+    line with no axis furniture, which suits these cards.
+    """
+    return d.info_popup("ov-" + slug, name, "mdi:sprout", None, extra=[
+        {"type": "custom:mini-graph-card",
+         "entities": [{"entity": moisture, "name": "Moisture"}],
+         "name": name, "icon": "mdi:water-percent",
+         "hours_to_show": 168, "points_per_hour": 1,
+         "line_color": d.LEAF, "line_width": 3,
+         "font_size": 70, "animate": True,
+         "show": {"labels": True, "extrema": True, "fill": "fade", "icon": False},
+         "grid_options": {"columns": "full"}},
+        {"type": "custom:mini-graph-card",
+         "entities": [{"entity": temp, "name": "Soil temp"}],
+         "name": "Soil temperature", "icon": "mdi:thermometer",
+         "hours_to_show": 168, "points_per_hour": 1,
+         "line_color": d.RED, "line_width": 3,
+         "font_size": 70, "animate": True,
+         "show": {"labels": True, "extrema": True, "fill": "fade", "icon": False},
+         "grid_options": {"columns": "full"}},
+        {"type": "grid", "columns": 2, "square": False, "cards": [
+            d.tile_sensor(moisture, "Moisture", "mdi:water-percent", accent=d.LEAF,
+                          state_fn=d.PRETTY_STATE % moisture),
+            d.tile_sensor(temp, "Soil temp", "mdi:thermometer", accent=d.RED,
+                          state_fn=d.PRETTY_STATE % temp),
+            d.tile_sensor(battery, "Battery", "mdi:battery", accent=d.AMBER,
+                          state_fn=d.PRETTY_STATE % battery),
+            dict(d.tile_sensor("binary_sensor.any_plant_needs_water", "Needs water",
+                               "mdi:watering-can", accent=d.BLUE,
+                               state_fn=d.PRETTY_STATE % "binary_sensor.any_plant_needs_water")),
+        ]},
+    ])
+
+
 def device_popups():
     heat = d.info_popup("ov-heatpump", "Heatpump", "mdi:sun-snowflake-variant", None, extra=[
         {"type": "grid", "columns": 2, "square": False, "cards": [
@@ -525,23 +682,60 @@ def device_popups():
     apps = d.info_popup("ov-atv-apps", "Apple TV apps", "mdi:apps", None, extra=[
         {"type": "grid", "columns": 2, "square": False,
          "cards": [app_tile(n, i) for n, i in ATV_APPS]}])
-    return [heat, fan, swing, amp, sources, atv, apps]
+    display = player_popup("ov-kitchen-display", "Kitchen Display",
+                           "media_player.kitchen_display", "mdi:monitor")
+    kitchen_homepod = player_popup("ov-homepod-kitchen", "Kitchen HomePod",
+                                   "media_player.homepod_mini_kitchen", "mdi:speaker")
+    bedroom_homepod = player_popup("ov-homepod-bedroom", "Bedroom HomePod",
+                                   "media_player.homepod_mini_master_bedroom", "mdi:speaker")
+    return [heat, fan, swing, amp, sources, atv, apps,
+            display, kitchen_homepod, bedroom_homepod] + [plant_popup(*p) for p in PLANTS]
 
 
 NAV_TARGETS = {
     "climate.living_room": "ov-heatpump",
     "media_player.living_room_amp": "ov-amp",
     "media_player.living_room": "ov-appletv",
+    "media_player.kitchen_display": "ov-kitchen-display",
+    "media_player.homepod_mini_kitchen": "ov-homepod-kitchen",
+    "media_player.homepod_mini_master_bedroom": "ov-homepod-bedroom",
 }
 
 
 def attach_nav(cfg):
-    """Point the three Living Room device cards at their pop-ups."""
+    """Point supported card roots at their custom pop-ups."""
     done = []
-    for sec in cfg["views"][0].get("sections", []):
-        for c in sec.get("cards", []):
-            h = NAV_TARGETS.get(c.get("entity"))
-            if h and c.get("type") == "custom:button-card":
-                c["tap_action"] = {"action": "navigate", "navigation_path": "#" + h}
-                done.append(c["entity"])
+    views = cfg.get("views", [])
+    panel = bool(views and views[0].get("type") == "panel")
+    weather_popup_exists = any(c.get("type") == "custom:bubble-card"
+                               and c.get("hash") == "#ov-weather"
+                               for c in _cards(cfg))
+    kitchen_weather_view = any(v.get("path") == "weather" for v in views)
+
+    for view in views:
+        for sec in view.get("sections", []):
+            for c in sec.get("cards", []):
+                h = NAV_TARGETS.get(c.get("entity"))
+                if h and c.get("type") == "custom:button-card":
+                    c["tap_action"] = {"action": "navigate", "navigation_path": "#" + h}
+                    done.append(c["entity"])
+
+    if not panel:
+        for c in _cards(cfg, skip_popups=True):
+            entity = c.get("entity")
+            fields = c.get("custom_fields")
+            if (entity in NAV_TARGETS and c.get("type") == "custom:button-card"
+                    and isinstance(fields, dict) and {"a", "t", "c"}.issubset(fields)):
+                c["tap_action"] = {"action": "navigate",
+                                    "navigation_path": "#" + NAV_TARGETS[entity]}
+                if entity not in done:
+                    done.append(entity)
+            elif (entity == "weather.forecast_home" and weather_popup_exists
+                  and c.get("type") == "custom:button-card"):
+                c["tap_action"] = {"action": "navigate", "navigation_path": "#ov-weather"}
+    elif views and views[0].get("path") == "kitchen" and kitchen_weather_view:
+        for c in _cards(views[0]):
+            if c.get("entity") == "weather.forecast_home" and c.get("type") == "custom:button-card":
+                c["tap_action"] = {"action": "navigate",
+                                    "navigation_path": "/ha-kitchen/weather"}
     return done

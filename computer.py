@@ -30,7 +30,8 @@ def sections():
         # one band of bubbles across every column
         {"type": "grid", "column_span": 4,
          "cards": [dict(patch3.top_strip(), grid_options={"columns": "full"})]
-                  + [dict(p, grid_options={"columns": "full"}) for p in patch3.popups()]},
+                  + [dict(p, grid_options={"columns": "full"}) for p in patch3.popups()]
+                  + [dict(patch3.weather_popup(), grid_options={"columns": "full"})]},
 
         {"type": "grid", "cards": [
             span(d.room_header("Outside", "mdi:weather-partly-cloudy"), FULL),
@@ -66,10 +67,14 @@ def sections():
                   ("play", "vol_down", "vol_up", "mute")),
             media("media_player.living_room", "Apple TV", ("power", "play"),
                   icon="mdi:television"),
-            span(d.tile_sensor("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig",
-                               "mdi:sprout", accent=d.LEAF), HALF),
-            span(d.tile_sensor("sensor.moisture_sensor_2_humidity", "Banana Leaf",
-                               "mdi:sprout", accent=d.LEAF), HALF),
+            span(dict(d.tile_sensor("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig",
+                                    "mdi:sprout", accent=d.LEAF),
+                      tap_action={"action": "navigate",
+                                  "navigation_path": "#ov-plant-fiddle"}), HALF),
+            span(dict(d.tile_sensor("sensor.moisture_sensor_2_humidity", "Banana Leaf",
+                                    "mdi:sprout", accent=d.LEAF),
+                      tap_action={"action": "navigate",
+                                  "navigation_path": "#ov-plant-banana"}), HALF),
         ]},
 
         {"type": "grid", "cards": [

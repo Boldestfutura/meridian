@@ -379,6 +379,16 @@ def tile(entity, label, icon, on_bg=None, on_ac=AMBER, state_fn=None, tap=None):
 
 
 def tile_scene(entity, label, icon, accent=AMBER):
+    """Tints with a darkened version of its own accent while active.
+
+    A `script.*` is 'on' only while running, so that reads as a tap flash.
+    A `scene.*` state is the timestamp it was last activated, so it stays lit
+    until another scene in the same room is used - which is more useful.
+    """
+    if entity.startswith("scene."):
+        sel = "states['%s'].__ov_latest === true" % entity   # set by SCENE_LATEST below
+    else:
+        sel = "states['%s'].state === 'on'" % entity
     return {
         "type": "custom:button-card", "entity": entity, "name": label, "icon": icon,
         "show_state": False,
@@ -389,13 +399,16 @@ def tile_scene(entity, label, icon, accent=AMBER):
         "styles": {
             "card": [{"height": "56px"}, {"border-radius": "16px"}, {"box-shadow": "none"},
                      {"border": "none"}, {"padding": "0 10px"}, {"font-family": FONT},
-                     {"background": SURF}],
+                     {"background": "[[[ return %s ? '%s' : '%s'; ]]]"
+                                    % (sel, mix(accent, 26), SURF)}],
             "grid": [{"grid-template-areas": '"i n"'},
                      {"grid-template-columns": "36px 1fr"}, {"width": "100%"},
                      {"align-items": "center"}, {"column-gap": "10px"}],
-            "img_cell": [{"background": mix(accent, 16)}, {"border-radius": "50%"},
-                         {"width": "36px"}, {"height": "36px"}],
-            "icon": [{"width": "19px"}, {"color": accent}],
+            "img_cell": [{"background": "[[[ return %s ? '%s' : '%s'; ]]]"
+                                        % (sel, accent, mix(accent, 16))},
+                         {"border-radius": "50%"}, {"width": "36px"}, {"height": "36px"}],
+            "icon": [{"width": "19px"},
+                     {"color": "[[[ return %s ? '#ffffff' : '%s'; ]]]" % (sel, accent)}],
             "name": [{"font-size": "14px"}, {"font-weight": "600"}, {"color": INK},
                      {"justify-self": "start"}, {"text-align": "left"},
                      {"white-space": "nowrap"}, {"overflow": "hidden"},
@@ -791,13 +804,20 @@ def pill_strip(items, gap=8, pad="1px 2px"):
 
 
 def range_pill(label, icon, accent, entities, hash_id, decimals=0):
-    """One bubble per sensor TYPE, showing the min-max across its sensors.
+    """One bubble per sensor TYPE, showing the min-max across its sources.
 
-    Taps through to a Bubble Card pop-up (`hash_id`) holding one tile per sensor.
+    A source is `entity` or `entity:attribute` - the living room temperature only
+    exists as `climate.living_room`'s `current_temperature`, never as a sensor.
+    Taps through to a Bubble Card pop-up (`hash_id`) holding one tile per source.
     """
     arr = "[" + ",".join("'%s'" % e for e in entities) + "]"
     txt = """(() => {
-        const es = %s.map(x => states[x]).filter(Boolean);
+        const es = %s.map(x => {
+            const [id, attr] = x.split(':');
+            const s = states[id];
+            if (!s) return null;
+            return attr ? {state: s.attributes[attr], attributes: s.attributes} : s;
+        }).filter(Boolean);
         const vs = es.map(e => parseFloat(e.state)).filter(v => !isNaN(v));
         if (!vs.length) return '--';
         const lo = Math.min(...vs), hi = Math.max(...vs);
@@ -813,14 +833,29 @@ def range_pill(label, icon, accent, entities, hash_id, decimals=0):
 
 
 def sensor_popup(hash_id, title, icon, readings, accent):
-    """Bubble Card pop-up: one tile per individual sensor behind a range bubble."""
+    """Bubble Card pop-up: one tile per source behind a range bubble.
+
+    A source may be `entity` or `entity:attribute`; the latter reads the value
+    off the attribute, which is how the living room temperature gets in.
+    """
+    cards = []
+    for src, lbl in readings:
+        ent = src.split(":", 1)[0]
+        if ":" in src:
+            attr = src.split(":", 1)[1]
+            fn = """[[[
+              const a = states['%s'].attributes;
+              const v = a['%s'];
+              return (v === undefined || v === null) ? '\u2014'
+                   : v + (a.unit_of_measurement || '\u00b0');
+            ]]]""" % (ent, attr)
+        else:
+            fn = PRETTY_STATE % ent
+        cards.append(tile_sensor(ent, lbl, icon, accent=accent, state_fn=fn))
     return {
         "type": "custom:bubble-card", "card_type": "pop-up",
         "hash": "#" + hash_id, "name": title, "icon": icon,
-        "cards": [{
-            "type": "grid", "columns": 2, "square": False,
-            "cards": [tile_sensor(ent, lbl, icon, accent=accent) for ent, lbl in readings],
-        }],
+        "cards": [{"type": "grid", "columns": 2, "square": False, "cards": cards}],
     }
 
 

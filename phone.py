@@ -32,8 +32,10 @@ def plug(entity, label, icon):
     return span(d.tile(entity, label, icon, on_bg=d.BLUE_BG, on_ac=d.BLUE), HALF, entity)
 
 
-def plant(entity, label):
-    return span(d.tile_sensor(entity, label, "mdi:sprout", accent=d.LEAF), HALF, entity)
+def plant(entity, label, slug):
+    return span(dict(d.tile_sensor(entity, label, "mdi:sprout", accent=d.LEAF),
+                     tap_action={"action": "navigate", "navigation_path": "#ov-" + slug}),
+                HALF, entity)
 
 
 def media(entity, label, controls, icon="mdi:speaker"):
@@ -74,8 +76,8 @@ def sections():
                   ("play", "vol_down", "vol_up", "mute")),
             media("media_player.living_room", "Apple TV", ("power", "play"),
                   icon="mdi:television"),
-            plant("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig"),
-            plant("sensor.moisture_sensor_2_humidity", "Banana Leaf"),
+            plant("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig", "plant-fiddle"),
+            plant("sensor.moisture_sensor_2_humidity", "Banana Leaf", "plant-banana"),
             light("light.couch_lamp", "Couch Lamp"),
             light("light.tv_lamp", "TV Lamp"),
             light("light.corner_light", "Corner Light"),

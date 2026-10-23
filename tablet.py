@@ -103,10 +103,12 @@ def panels():
                          controls=("play", "vol_down", "vol_up", "mute")),
             d.media_card("media_player.living_room", "Apple TV", icon="mdi:television",
                          controls=("power", "play")),
-            d.tile_sensor("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig",
+            dict(d.tile_sensor("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig",
                           "mdi:sprout", accent=d.LEAF),
-            d.tile_sensor("sensor.moisture_sensor_2_humidity", "Banana Leaf",
+                 tap_action={"action":"navigate","navigation_path":"#ov-plant-fiddle"}),
+            dict(d.tile_sensor("sensor.moisture_sensor_2_humidity", "Banana Leaf",
                           "mdi:sprout", accent=d.LEAF),
+                 tap_action={"action":"navigate","navigation_path":"#ov-plant-banana"}),
             L("switch.smart_plug", "Smart Plug", "mdi:power-plug",
               on_bg=d.BLUE_BG, on_ac=d.BLUE),
         ],
@@ -175,9 +177,11 @@ def room_header_card():
 
 
 def build():
+    import patch3
     # bubbles get their own full-width band above both columns
     strip = {"type": "grid", "column_span": 2,
-             "cards": [span(status_strip(), "full")]}
+             "cards": [span(status_strip(), "full"),
+                       dict(patch3.weather_popup(), grid_options={"columns": "full"})]}
     rail = {"type": "grid", "cards": [
         span(d.weather(num=52, icon=86), 12),
         span(d.heatpump_stepper(), 12, "climate.living_room"),
