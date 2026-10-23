@@ -128,6 +128,11 @@ def top_strip():
         {"card": nav(d.pill("binary_sensor.any_plant_needs_water", "mdi:watering-can",
                             q("Plant needs water"), accent=d.BLUE), "ov-plants"),
          "cond": "binary_sensor.any_plant_needs_water"},
+        # only visible while guest mode is on; tap it to turn guest mode off
+        {"card": dict(d.pill("input_boolean.guest_mode", "mdi:account-group",
+                             q("Guest mode"), accent=d.MAUVE),
+                      tap_action={"action": "toggle"}),
+         "cond": "input_boolean.guest_mode"},
     ]
     return d.pill_strip(items)
 

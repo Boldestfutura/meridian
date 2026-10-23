@@ -44,6 +44,8 @@ def sections():
             span(d.tile_scene("script.bedroom_dimmed", "Bedroom Dim", "mdi:bed", accent=d.MAUVE), HALF),
             span(d.tile_scene("script.heatpump_cool_30min", "Heat/Cool",
                               "mdi:sun-snowflake-variant", accent=d.TEAL), HALF),
+            span(d.tile("input_boolean.guest_mode", "Guest Mode", "mdi:account-group",
+                        on_bg=d.mix(d.MAUVE, 16), on_ac=d.MAUVE), HALF, "input_boolean.guest_mode"),
         ]},
 
         {"type": "grid", "cards": [
