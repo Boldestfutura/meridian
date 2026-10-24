@@ -78,6 +78,20 @@ service on the same connection, the reader eats the frames and you conclude the
 button is dead. Use two connections, and fire a known-good control call through the
 listener first to prove it can see anything.
 
+**A pop-up existing is not the same as something linking to it.** The hashes and the
+`navigation_path`s are independent halves. Walk the config twice — once collecting
+`custom:bubble-card` `hash` values, once collecting every `tap_action.navigation_path`
+— and diff the two sets in both directions. On this install the phone dashboard
+carried all three plant pop-ups while both plant tiles were still on `more-info`, so
+grepping for `ov-plant` found matches on every dashboard and the feature was dead on
+one of them. Also exclude anything nested inside a pop-up when you rewrite tap
+actions, or a reading inside a pop-up gets a link back to the pop-up it is already in.
+
+**A dashboard can disagree with the generator that made it.** Before changing a
+generator because a feature is missing, diff the live config against it per
+dashboard. The generator was right in the case above; only the saved config was
+stale. Changing `phone.py` would have fixed nothing.
+
 ## Hard constraints
 
 **`card-mod` does not work on HA 2026.10.** It loads, logs `CARD-MOD IS INSTALLED`,
@@ -114,6 +128,21 @@ panel falls back to `more-info` on its pills. A `sections` view caps each column
 
 **Fixed card height plus `grid-template-rows: auto auto` silently shrinks rows below
 their content**, and children overlap. Give the card room or lay things side by side.
+
+**button-card's `styles` cannot express a pseudo-class.** There is no `:active` or
+`:hover` in it — `styles.card` is a flat list of declarations written as an *inline*
+style on `#card`. For a press or hover state use `extra_styles`, a raw CSS string
+injected into the card's own shadow root, and qualify every rule with `!important`
+or the inline style wins. The useful ids inside that root are `#card`, `#container`,
+`#img-cell`, `#icon`, `#name`, `#state`, `#label`. `tile_scene` uses this.
+
+**A momentary entity cannot carry a visual state.** A `script.*` is `on` only while
+it runs, which is milliseconds — a `[[[ ... ]]]` template keyed on `state === 'on'`
+fires and clears before a frame is drawn, so the tint never appears and the template
+looks broken when it is correct. Either key the colour on something durable
+(`scene.*` keeps the timestamp it was last activated; `last_triggered` is readable
+but only updates on a state change, so it latches on), or stop trying to show it as
+state and give the tile a CSS press state instead. That is what scenes do here.
 
 ## Colour
 
