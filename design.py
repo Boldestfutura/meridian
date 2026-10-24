@@ -414,6 +414,15 @@ def tile_scene(entity, label, icon, accent=AMBER):
                      {"white-space": "nowrap"}, {"overflow": "hidden"},
                      {"text-overflow": "ellipsis"}],
         },
+        # A press-state, so the tap is felt in the scene's own colour. The
+        # script's `on` state lasts milliseconds, so it can't carry this.
+        # button-card writes styles.card inline, hence !important.
+        "extra_styles": (
+            "#card{transition:background 90ms ease}"
+            "#card:active{background:%s !important}"
+            "#card:active #img-cell{background:%s !important}"
+            "#card:active #icon{color:#ffffff !important}"
+        ) % (mix(accent, 42), accent),
     }
 
 
