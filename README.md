@@ -33,6 +33,46 @@ dark both work from one definition; detail lives in pop-ups rather than dropdown
 Dark mode is not a second palette: surfaces come from the theme's own CSS variables
 and every tint is `color-mix()`'d against whatever surface is current.
 
+### Pop-ups — where the detail lives
+
+`button-card` cannot draw a dropdown, a slider or a stepper, so anything that needs
+one taps through to a Bubble Card pop-up. There are 23. A tile shows the current
+value; the pop-up holds the controls.
+
+<p>
+  <img src="docs/images/popup-amp.png" width="330" alt="Amp pop-up: volume, source, and the sound-mode toggles">
+  <img src="docs/images/popup-plant.png" width="330" alt="Plant pop-up: a week of soil moisture and temperature">
+</p>
+
+**Amp** is the one that drove most of the styling work. The volume row tints blue and
+turns red when muted, the mute button darkening with it. `Input` and `Source` are
+button-cards that open a second pop-up — pop-ups can open from inside pop-ups. The
+`Bass` and `Treble` sliders are native `tile` cards wrapped in a button-card with
+`--ha-card-background: transparent`, which is how a native control sits flush on a
+tint. **Plant** pairs two `mini-graph-card`s with the current readings underneath.
+
+<p>
+  <img src="docs/images/popup-heatpump.png" width="330" alt="Heatpump pop-up: fan speed, swing, filter state">
+  <img src="docs/images/popup-appletv.png" width="330" alt="Apple TV pop-up: now playing and app picker">
+</p>
+
+**Heatpump** keeps fan speed and swing as tiles that open their own option pickers,
+and `Filter` turns red on its own when it needs attention. **Apple TV** is a
+two-high half-width now-playing card next to the app picker; the transport buttons
+were deliberately removed.
+
+<p>
+  <img src="docs/images/popup-temperature.png" width="330" alt="Temperature pop-up: one bubble per room">
+  <img src="docs/images/popup-weather.png" width="330" alt="Weather pop-up with a five day forecast">
+</p>
+
+**Temperature** is the pattern behind the top strip: the pill shows the range across
+the house, and tapping it breaks the range out per room. Living Room reads `21.7°`
+without a unit because it is sourced from a climate entity's
+`current_temperature` attribute rather than a sensor — forcing a `°C` fallback made
+VOC render as "18–26°", so the fallback is empty on purpose. **Weather** carries the
+five-day forecast as a native card.
+
 ## Why it is generated rather than hand-written YAML
 
 Each dashboard is ~60-280 KB of JSON. The cards are near-identical with different
