@@ -39,8 +39,16 @@ def plant(entity, label, slug):
                 HALF, entity)
 
 
-def media(entity, label, controls, icon="mdi:speaker"):
-    return span(d.media_card(entity, label, controls=controls, icon=icon), HALF, entity)
+def media(entity, label, controls, icon="mdi:speaker", cols=HALF):
+    """A media card. `cols` because a LONE one has to go full width.
+
+    These are ~128px tall against a tile's 56, and an HA grid row takes its
+    height from the tallest card in it. Kitchen and the living room each have
+    two media cards, so they pair with each other and the row is even. The
+    master bedroom has one, so whatever tile landed beside it was stranded
+    at the top of a 128px row with 72px of dead space underneath.
+    """
+    return span(d.media_card(entity, label, controls=controls, icon=icon), cols, entity)
 
 
 def sections():
@@ -84,13 +92,12 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
+            # Full width: it is the only media card in this room, so at HALF
+            # it leaves its partner tile floating over 72px of nothing.
             media("media_player.homepod_mini_master_bedroom", "HomePod",
-                  ("play", "vol_down", "vol_up")),
-            # design.tile, not design.light: the lights beside it are tiles and
-            # this was the tall circular card, 118px against their 56.
-            span(d.tile("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
-                        "mdi:air-humidifier", on_bg=d.BLUE_BG, on_ac=d.BLUE),
-                 HALF, "switch.tp_link_power_strip_6e3f_dehumidifier"),
+                  ("play", "vol_down", "vol_up"), cols=FULL),
+            plug("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
+                 "mdi:air-humidifier"),
             light("light.bedside_left", "Bedside Left"),
             light("light.bedside_right", "Bedside Right"),
             light("light.mushroom_lamp", "Mushroom Lamp"),
