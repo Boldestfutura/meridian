@@ -10,6 +10,7 @@ through patch.py / patch3.py, which read the live config and swap cards by entit
 See [[dont-clobber-user-edits]].
 """
 import design as d
+import scenes
 import patch3
 
 HALF = 6
@@ -52,13 +53,9 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Scenes", "mdi:creation"), FULL),
-            span(d.tile_scene("script.goodnight", "Goodnight", "mdi:weather-night", accent=d.INDIGO), HALF),
-            span(d.tile_scene("script.kitchen_dimmed", "Kitchen Dim", "mdi:lightbulb-on-30", accent=d.AMBER), HALF),
-            span(d.tile_scene("script.bedroom_dimmed", "Bedroom Dim", "mdi:bed", accent=d.MAUVE), HALF),
-            span(d.tile_scene("script.heatpump_cool_30min", "Heat/Cool",
-                              "mdi:sun-snowflake-variant", accent=d.TEAL), HALF),
-            span(d.tile("input_boolean.guest_mode", "Guest Mode", "mdi:account-group",
-                        on_bg=d.mix(d.MAUVE, 16), on_ac=d.MAUVE), HALF, "input_boolean.guest_mode"),
+        ] + [span(c, FULL if c["entity"] == "input_boolean.guest_mode" else HALF,
+                  c["entity"] if c["entity"].startswith("input_boolean") else None)
+             for c in scenes.cards()] + [
         ]},
 
         {"type": "grid", "cards": [

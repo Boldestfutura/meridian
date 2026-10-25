@@ -6,3 +6,4 @@ secrets.yaml
 backup_*.json
 live_*.json
 screenshots/
+.live-backup-*/

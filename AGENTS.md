@@ -168,3 +168,30 @@ deploy replaces everything. Default to `--patch` for anything already in use, ba
 first, and **check the backup contains what you would restore from** — the config
 entries REST endpoint, for instance, returns no `options`, so a "backup" from it is
 useless for restoring a group's members.
+
+## The scene strip lives in `scenes.py`
+
+It used to be copy-pasted into all four layout modules, each with its own
+order and its own subset. Cameron reordered it in the UI and added two dims;
+nothing propagated back, and every generator would have reverted him on the
+next plain deploy. Four dashboards disagreeing with their own generators is
+how that looks from the outside.
+
+One ordered list, four layouts. Add or reorder a scene there and all four
+follow. Two things the list encodes that are easy to lose:
+
+- **`toggle`** separates a mode from a scene. A script fires and has nothing
+  to report; `input_boolean.guest_mode` gates the away automations and one
+  left on silently is a real failure, so where there is room it renders as the
+  two-row tile that spells out On/Off.
+- **`compact`** at the call site is for rows that cannot spare the height -
+  the kitchen's 7-across strip and the tablet rail. There the accent fill is
+  the only state indicator.
+
+Accents must stay distinct *within a row*. Guest Mode is green because mauve
+is Bedroom Dim's, and the two now sit two tiles apart on every dashboard.
+
+Seven tiles across the kitchen's 1024 px leaves 135 px each, which clips
+"Bedroom Dim" at the stock metrics. `kitchen._scene_row()` tightens the icon
+cell, gap and padding to buy the width back. If an eighth scene is ever
+added, that row needs rethinking rather than tightening further.

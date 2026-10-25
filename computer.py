@@ -6,6 +6,7 @@ column near 500px and drops columns to fit, so this gets 4 columns at 1920 and
 3 at 1440 - the column contents are ordered so that reflow stays sensible.
 """
 import design as d
+import scenes
 import patch3
 
 FULL = 12
@@ -39,13 +40,9 @@ def sections():
             span(d.room_header("Heatpump", "mdi:sun-snowflake-variant",), FULL),
             span(d.heatpump_stepper(show_label=False), FULL, "climate.living_room"),
             span(d.room_header("Scenes", "mdi:creation"), FULL),
-            span(d.tile_scene("script.goodnight", "Goodnight", "mdi:weather-night", accent=d.INDIGO), HALF),
-            span(d.tile_scene("script.kitchen_dimmed", "Kitchen Dim", "mdi:lightbulb-on-30", accent=d.AMBER), HALF),
-            span(d.tile_scene("script.bedroom_dimmed", "Bedroom Dim", "mdi:bed", accent=d.MAUVE), HALF),
-            span(d.tile_scene("script.heatpump_cool_30min", "Heat/Cool",
-                              "mdi:sun-snowflake-variant", accent=d.TEAL), HALF),
-            span(d.tile("input_boolean.guest_mode", "Guest Mode", "mdi:account-group",
-                        on_bg=d.mix(d.MAUVE, 16), on_ac=d.MAUVE), HALF, "input_boolean.guest_mode"),
+        ] + [span(c, FULL if c["entity"] == "input_boolean.guest_mode" else HALF,
+                  c["entity"] if c["entity"].startswith("input_boolean") else None)
+             for c in scenes.cards()] + [
         ]},
 
         {"type": "grid", "cards": [

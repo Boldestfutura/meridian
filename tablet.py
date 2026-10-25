@@ -6,6 +6,7 @@ whose contents switch via `input_select.tablet_room`. At portrait width HA
 stacks the two sections; in landscape they sit side by side.
 """
 import design as d
+import scenes
 
 ROOM = "input_select.tablet_room"
 ROOMS = ["Kitchen", "Living Room", "Master Bedroom", "Guest"]
@@ -186,10 +187,8 @@ def build():
         span(d.weather(num=52, icon=86), 12),
         span(d.heatpump_stepper(), 12, "climate.living_room"),
         span(d.room_header("Scenes", "mdi:creation"), 12),
-        span(d.tile_scene("script.goodnight", "Goodnight", "mdi:weather-night", accent=d.INDIGO), 6),
-        span(d.tile_scene("script.kitchen_dimmed", "Kitchen Dim", "mdi:lightbulb-on-30", accent=d.AMBER), 6),
-        span(d.tile_scene("script.bedroom_dimmed", "Bedroom Dim", "mdi:bed", accent=d.MAUVE), 6),
-        span(d.tile_scene("script.heatpump_cool_30min", "Heat/Cool", "mdi:sun-snowflake-variant", accent=d.TEAL), 6),
+    ] + [span(c, 12 if c["entity"] == "input_boolean.guest_mode" else 6)
+         for c in scenes.cards(compact=True)] + [
     ]}
     P = panels()
     rooms_section = {"type": "grid", "cards":

@@ -13,6 +13,7 @@ Height: toolbar takes 56 of 600 -> 544 usable.
 """
 import design as d
 import patch3
+import scenes
 
 HDR, SCENE, MID, LIGHTS = 64, 52, 200, 160
 
@@ -83,11 +84,32 @@ def _heatpump():
     return c
 
 
-def _scene(entity, label, icon, accent):
-    c = d.tile_scene(entity, label, icon, accent=accent)
-    c["styles"]["card"] = [{"height": "%dpx" % SCENE} if "height" in x else x
-                           for x in c["styles"]["card"]]
-    return c
+def _scene_row():
+    """The shared strip, squeezed to fit seven across 1024 px.
+
+    At seven tiles each card is 135 px wide. With the stock 36 px icon cell,
+    10 px gap and 0 10px padding the label gets 69 px and "Bedroom Dim" needs
+    87, so three labels clipped. These three numbers buy the width back; the
+    14px/600 type is untouched, so the row still matches the rest of the panel.
+    """
+    out = []
+    for c in scenes.cards(height=SCENE, compact=True):
+        _set(c["styles"]["card"], "padding", "0 5px")
+        _set(c["styles"]["grid"], "grid-template-columns", "28px 1fr")
+        _set(c["styles"]["grid"], "column-gap", "6px")
+        _set(c["styles"]["img_cell"], "width", "28px")
+        _set(c["styles"]["img_cell"], "height", "28px")
+        _set(c["styles"]["icon"], "width", "17px")
+        out.append(c)
+    return out
+
+
+def _set(lst, prop, val):
+    for item in lst:
+        if prop in item:
+            item[prop] = val
+            return
+    lst.append({prop: val})
 
 
 def build():
@@ -95,12 +117,7 @@ def build():
         d.header("Kitchen", big=30, clock=28, h=HDR,
                  middle=_no_popup(patch3.top_strip()),
                  title_nav="/ha-kitchen/photos"),
-        {"type": "horizontal-stack", "cards": [
-            _scene("script.goodnight", "Goodnight", "mdi:weather-night", d.INDIGO),
-            _scene("script.kitchen_dimmed", "Kitchen Dim", "mdi:lightbulb-on-30", d.AMBER),
-            _scene("script.bedroom_dimmed", "Bedroom Dim", "mdi:bed", d.MAUVE),
-            _scene("script.heatpump_cool_30min", "Heat/Cool", "mdi:sun-snowflake-variant", d.TEAL),
-        ]},
+        {"type": "horizontal-stack", "cards": _scene_row()},
         {"type": "horizontal-stack", "cards": [
             _weather(), _heatpump(), _amp(),
         ]},
