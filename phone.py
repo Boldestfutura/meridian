@@ -92,13 +92,20 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
-            # Full width: it is the only media card in this room, so at HALF
-            # it leaves its partner tile floating over 72px of nothing.
             media("media_player.homepod_mini_master_bedroom", "HomePod",
-                  ("play", "vol_down", "vol_up"), cols=FULL),
-            plug("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
-                 "mdi:air-humidifier"),
-            light("light.bedside_left", "Bedside Left"),
+                  ("play", "vol_down", "vol_up")),
+            # Two tiles in one cell, filling the media card's 124px rather
+            # than one tile floating at the top of the row.
+            span(d.stack([
+                d.only_when_available(
+                    d.tile("switch.tp_link_power_strip_6e3f_dehumidifier",
+                           "Dehumidifier", "mdi:air-humidifier",
+                           on_bg=d.BLUE_BG, on_ac=d.BLUE),
+                    "switch.tp_link_power_strip_6e3f_dehumidifier"),
+                d.only_when_available(
+                    d.tile("light.bedside_left", "Bedside Left", "mdi:lightbulb"),
+                    "light.bedside_left"),
+            ]), HALF),
             light("light.bedside_right", "Bedside Right"),
             light("light.mushroom_lamp", "Mushroom Lamp"),
         ]},

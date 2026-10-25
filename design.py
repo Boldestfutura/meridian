@@ -793,6 +793,43 @@ def _areas(keys, rows):
     return " ".join('"%s"' % " ".join(r) for r in grid)
 
 
+def stack(cards, gap=12, h=None):
+    """Several cards stacked vertically inside ONE grid cell.
+
+    This exists so a tall card can sit beside two short ones. An HA grid row
+    takes its height from its tallest card, so a 56px tile next to a 124px
+    media card floats at the top of the row with 68px of nothing under it.
+    Putting two tiles in one cell fills the row instead.
+
+    The default gap is 12 rather than the 8 used between separate tiles, and
+    it is arithmetic, not taste: two 56px tiles plus a 12px gap is exactly
+    124, the fixed height of a media_card. Change the tile height and this
+    has to change with it or the gap comes back, one row lower.
+
+    Same container trick as pill_strip - one button-card whose custom_fields
+    hold the real cards, so each stays individually tappable.
+    """
+    keys = ["s%d" % i for i in range(len(cards))]
+    card = [{"background": "transparent"}, {"box-shadow": "none"},
+            {"border": "none"}, {"padding": "0"}, {"font-family": FONT}]
+    if h:
+        card.insert(1, {"height": "%dpx" % h})
+    return {
+        "type": "custom:button-card",
+        "show_icon": False, "show_name": False, "show_state": False,
+        "tap_action": {"action": "none"},
+        "styles": {
+            "card": card,
+            "grid": [{"grid-template-areas": " ".join('"%s"' % k for k in keys)},
+                     {"grid-template-columns": "1fr"},
+                     {"row-gap": "%dpx" % gap}],
+            "custom_fields": {k: [{"justify-self": "stretch"},
+                                  {"align-self": "stretch"}] for k in keys},
+        },
+        "custom_fields": {k: {"card": c} for k, c in zip(keys, cards)},
+    }
+
+
 def pill_strip(items, gap=8, pad="1px 2px", rows=1, col_w=None):
     """A horizontally scrollable strip of cards, one row or several.
 
