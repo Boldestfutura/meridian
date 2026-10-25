@@ -129,6 +129,35 @@ dashboard actually rendered — measuring card sizes, catching clipped labels, c
 things and reading back the result. Screenshots alone repeatedly failed to catch
 broken cards here.
 
+## Sizing cards: use HA's own grid, not a wrapper
+
+Home Assistant's sections view (`hui-grid-section`) is a **12-column grid of 56px
+rows with an 8px gap**. Every card takes `grid_options`, and both axes are real:
+
+```python
+{"grid_options": {"columns": 6, "rows": 2}}   # half width, two rows tall
+```
+
+That matters because a grid row takes its height from the tallest card in it. A
+media card here is a fixed 124px against a tile's 56, so a tile placed beside one
+floats at the top of the row with ~68px of dead space underneath it.
+
+The fix is `rows`, not a container. `columns: 6, rows: 2` spans the media card
+over two rows — 56 + 8 + 56 = 120px — and tiles flow around it:
+
+```
+HomePod (6 wide, 2 rows)  |  Dehumidifier
+                          |  Mushroom Lamp
+Bedside Left (6)          |  Bedside Right (6)
+```
+
+**Every tile stays an independent card**, so they can still be dragged anywhere in
+the HA UI and the grid re-packs them. A custom "stack two cards in one cell"
+wrapper was written here first and then deleted: it filled the row, but it fused
+the two tiles into a single card and they could no longer be moved apart. If a
+layout needs cards of different heights to line up, reach for `rows` first — there
+is almost certainly no need to build anything.
+
 ## Adapting it to another install
 
 See **[AGENTS.md](AGENTS.md)** — a brief written for an LLM: what to change, what to

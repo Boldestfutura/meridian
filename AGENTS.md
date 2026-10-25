@@ -92,6 +92,22 @@ generator because a feature is missing, diff the live config against it per
 dashboard. The generator was right in the case above; only the saved config was
 stale. Changing `phone.py` would have fixed nothing.
 
+## Card heights line up with `grid_options.rows`
+
+The sections view is a 12-column grid of **56px rows, 8px gap**, and `grid_options`
+takes `rows` as well as `columns`. A row is as tall as its tallest card, so a 56px
+tile next to the 124px `media_card` strands itself at the top of the row with ~68px
+of nothing beneath it.
+
+`{"columns": 6, "rows": 2}` on the media card spans it over two rows (56 + 8 + 56 =
+120px) and the tiles flow around it. Each tile remains its own card, so the user can
+still drag them anywhere and the grid re-packs — which is the whole point.
+
+A `design.stack()` helper was built for this first, putting two cards inside one
+button-card's `custom_fields`. It worked and was still wrong: it welded the pair
+together so they could not be separated in the UI. It has been deleted. **Do not
+rebuild it.** Check whether HA has the feature before writing a container for it.
+
 ## Hard constraints
 
 **`card-mod` does not work on HA 2026.10.** It loads, logs `CARD-MOD IS INSTALLED`,
