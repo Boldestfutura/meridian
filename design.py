@@ -767,16 +767,53 @@ def data_pill(entity, icon, accent, decimals=0):
     return p
 
 
-def pill_strip(items, gap=8, pad="1px 2px"):
-    """A single horizontally scrollable row of pills.
+def _cols(n, rows):
+    return (n + rows - 1) // rows
 
-    One button-card acts as the scroll container; each pill is a nested card in
+
+def _areas(keys, rows):
+    """grid-template-areas for the strip, filled ROW-major.
+
+    button-card gives every custom_field `grid-area: <fieldname>`, so this
+    string alone decides placement and grid-auto-flow never gets a say.
+
+    Row-major, not column-major, because reading order has to match list
+    order. Filling columns first put Heat/Cool, Guest Mode and Bedroom Dim
+    across the top row of the scene strip - the list order was still in there
+    but you had to read down-then-across to find it, which nobody does.
+
+    A short last row is padded with "." - an unnamed cell. Without the
+    padding the rows are unequal, the browser throws the whole declaration
+    out as malformed, and every card piles into cell one.
+    """
+    cols = _cols(len(keys), rows)
+    grid = [["." for _ in range(cols)] for _ in range(rows)]
+    for i, k in enumerate(keys):
+        grid[i // cols][i % cols] = k
+    return " ".join('"%s"' % " ".join(r) for r in grid)
+
+
+def pill_strip(items, gap=8, pad="1px 2px", rows=1, col_w=None):
+    """A horizontally scrollable strip of cards, one row or several.
+
+    One button-card acts as the scroll container; each item is a nested card in
     its own custom_field, so they stay individually tappable. `grid-auto-columns:
     max-content` is what makes each pill only as wide as its contents instead of
     sharing the row equally.
 
     items: [{card: <card>, cond: <entity>, state: "on"}] - `cond` wraps that pill
     in a conditional so it only appears while the entity is in `state`.
+
+    rows > 1 fills top-to-bottom then left-to-right, so seven cards at rows=2
+    become four columns with the last one half empty. That is the ordinary
+    shape for a scrolling shelf and it beats the alternative here: laid out as
+    a plain grid, seven half-width tiles leave the last one stranded alone on
+    a fourth row.
+
+    col_w fixes every column to that many pixels. Leave it None for the
+    max-content behaviour the status pills want, and set it for anything whose
+    cards should line up as a block - uneven label lengths otherwise give you
+    a ragged grid.
     """
     keys = ["p%d" % i for i in range(len(items))]
     fields = {}
@@ -795,17 +832,21 @@ def pill_strip(items, gap=8, pad="1px 2px"):
         "styles": {
             "card": [{"background": "transparent"}, {"box-shadow": "none"},
                      {"border": "none"}, {"padding": pad}, {"font-family": FONT}],
-            "grid": [{"grid-template-areas": '"%s"' % " ".join(keys)},
-                     {"grid-template-columns": "repeat(%d, max-content)" % len(keys)},
-                     {"grid-auto-flow": "column"},
-                     {"grid-auto-columns": "max-content"},
+            "grid": [{"grid-template-areas": _areas(keys, rows)},
+                     {"grid-template-columns": "repeat(%d, %s)"
+                      % (_cols(len(keys), rows), col_w and "%dpx" % col_w or "max-content")},
+                     {"grid-template-rows": "repeat(%d, auto)" % rows},
+                     {"grid-auto-flow": "row"},
+                     {"grid-auto-columns": col_w and "%dpx" % col_w or "max-content"},
                      {"justify-content": "start"},
                      {"column-gap": "%dpx" % gap},
+                     {"row-gap": "%dpx" % gap},
                      {"overflow-x": "auto"}, {"overflow-y": "hidden"},
                      {"scrollbar-width": "none"},
                      {"-ms-overflow-style": "none"},
                      {"align-items": "center"}],
-            "custom_fields": {k: [{"justify-self": "start"}, {"align-self": "center"}]
+            "custom_fields": {k: [{"justify-self": "stretch" if col_w else "start"},
+                                  {"align-self": "center"}]
                               for k in keys},
         },
         "custom_fields": fields,

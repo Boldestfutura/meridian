@@ -53,7 +53,8 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Scenes", "mdi:creation"), FULL),
-        ] + [span(c, HALF) for c in scenes.cards()] + [
+            span(d.pill_strip([{"card": c} for c in scenes.cards()],
+                          rows=2, col_w=168, gap=8, pad="0"), FULL),
         ]},
 
         {"type": "grid", "cards": [
