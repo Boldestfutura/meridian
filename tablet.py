@@ -187,8 +187,7 @@ def build():
         span(d.weather(num=52, icon=86), 12),
         span(d.heatpump_stepper(), 12, "climate.living_room"),
         span(d.room_header("Scenes", "mdi:creation"), 12),
-    ] + [span(c, 12 if c["entity"] == "input_boolean.guest_mode" else 6)
-         for c in scenes.cards(compact=True)] + [
+    ] + [span(c, 6) for c in scenes.cards()] + [
     ]}
     P = panels()
     rooms_section = {"type": "grid", "cards":

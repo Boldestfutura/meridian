@@ -93,7 +93,7 @@ def _scene_row():
     14px/600 type is untouched, so the row still matches the rest of the panel.
     """
     out = []
-    for c in scenes.cards(height=SCENE, compact=True):
+    for c in scenes.cards(height=SCENE):
         _set(c["styles"]["card"], "padding", "0 5px")
         _set(c["styles"]["grid"], "grid-template-columns", "28px 1fr")
         _set(c["styles"]["grid"], "column-gap", "6px")

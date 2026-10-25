@@ -178,15 +178,18 @@ next plain deploy. Four dashboards disagreeing with their own generators is
 how that looks from the outside.
 
 One ordered list, four layouts. Add or reorder a scene there and all four
-follow. Two things the list encodes that are easy to lose:
+follow.
 
-- **`toggle`** separates a mode from a scene. A script fires and has nothing
-  to report; `input_boolean.guest_mode` gates the away automations and one
-  left on silently is a real failure, so where there is room it renders as the
-  two-row tile that spells out On/Off.
-- **`compact`** at the call site is for rows that cannot spare the height -
-  the kitchen's 7-across strip and the tablet rail. There the accent fill is
-  the only state indicator.
+**Every tile renders identically.** `toggle` in the list changes only the tap
+action - a scene fires a script, guest mode flips a boolean - and nothing
+about how the tile looks. There was briefly a `compact` flag and a two-row
+variant for guest mode, on the reasoning that a mode gating the away
+automations deserves to spell out On/Off. It was the wrong call and Cameron
+pulled it up: `design.tile` only tints when the entity is on, so guest mode
+sat grey in a row where every other tile wears its accent, at double width,
+reading as a broken tile rather than a considered one. Its state is legible
+from the accent fill exactly as every scene's is. Do not reintroduce a
+per-tile rendering variant without a reason that survives looking at the row.
 
 Accents must stay distinct *within a row*. Guest Mode is green because mauve
 is Bedroom Dim's, and the two now sit two tiles apart on every dashboard.

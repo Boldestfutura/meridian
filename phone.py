@@ -53,9 +53,7 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Scenes", "mdi:creation"), FULL),
-        ] + [span(c, FULL if c["entity"] == "input_boolean.guest_mode" else HALF,
-                  c["entity"] if c["entity"].startswith("input_boolean") else None)
-             for c in scenes.cards()] + [
+        ] + [span(c, HALF) for c in scenes.cards()] + [
         ]},
 
         {"type": "grid", "cards": [

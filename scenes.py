@@ -23,27 +23,29 @@ SCENES = [
 ]
 
 
-def card(entity, label, icon, accent, toggle, height=None, compact=False):
-    """One strip tile.
+def card(entity, label, icon, accent, toggle, height=None):
+    """One strip tile. Every scene renders identically - that is the point.
 
-    A scene fires a script and has nothing to report afterwards, so it is a
-    single line. Guest mode is different in kind: it is a *mode* that gates
-    the away automations, and one left on silently is a real failure. Where
-    there is room it gets the two-row tile that spells out On/Off; `compact`
-    drops it back to the one-line scene shape for rows that cannot spare the
-    height, where the accent fill is the only state indicator.
+    Guest mode briefly used design.tile instead, to get a two-row card
+    spelling out On/Off, on the reasoning that a *mode* which gates the away
+    automations deserves explicit state. Wrong call. design.tile only tints
+    when the entity is on, so guest mode sat grey in a row where every other
+    tile wears its accent, and it was twice the width as well. It read as a
+    broken tile, not a considered one. Its state is legible from the accent
+    fill exactly as every scene's is.
+
+    The only thing `toggle` still changes is the tap action, which is
+    behaviour rather than appearance: a scene fires a script, guest mode
+    flips a boolean.
     """
-    if toggle and not compact:
-        c = d.tile(entity, label, icon, on_bg=d.mix(accent, 16), on_ac=accent)
-    else:
-        c = d.tile_scene(entity, label, icon, accent=accent)
-        if toggle:
-            c["tap_action"] = {"action": "toggle"}
+    c = d.tile_scene(entity, label, icon, accent=accent)
+    if toggle:
+        c["tap_action"] = {"action": "toggle"}
     if height is not None:
         c["styles"]["card"] = [{"height": "%dpx" % height} if "height" in x else x
                                for x in c["styles"]["card"]]
     return c
 
 
-def cards(height=None, compact=False):
-    return [card(*s, height=height, compact=compact) for s in SCENES]
+def cards(height=None):
+    return [card(*s, height=height) for s in SCENES]

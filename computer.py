@@ -40,9 +40,7 @@ def sections():
             span(d.room_header("Heatpump", "mdi:sun-snowflake-variant",), FULL),
             span(d.heatpump_stepper(show_label=False), FULL, "climate.living_room"),
             span(d.room_header("Scenes", "mdi:creation"), FULL),
-        ] + [span(c, FULL if c["entity"] == "input_boolean.guest_mode" else HALF,
-                  c["entity"] if c["entity"].startswith("input_boolean") else None)
-             for c in scenes.cards()] + [
+        ] + [span(c, HALF) for c in scenes.cards()] + [
         ]},
 
         {"type": "grid", "cards": [
