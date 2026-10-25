@@ -86,9 +86,10 @@ def sections():
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
             media("media_player.homepod_mini_master_bedroom", "HomePod",
                   ("play", "vol_down", "vol_up")),
-            span(d.light("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
-                         118, circle=46, glyph=23, icon="mdi:air-humidifier",
-                         on_bg=d.BLUE_BG, on_ac=d.BLUE),
+            # design.tile, not design.light: the lights beside it are tiles and
+            # this was the tall circular card, 118px against their 56.
+            span(d.tile("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
+                        "mdi:air-humidifier", on_bg=d.BLUE_BG, on_ac=d.BLUE),
                  HALF, "switch.tp_link_power_strip_6e3f_dehumidifier"),
             light("light.bedside_left", "Bedside Left"),
             light("light.bedside_right", "Bedside Right"),
