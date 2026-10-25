@@ -39,6 +39,13 @@ def plant(entity, label, slug):
                 HALF, entity)
 
 
+def span2(card):
+    """Make a card two grid rows tall. 56 + 8 gap + 56 = 120px."""
+    g = dict(card.get("grid_options", {}))
+    g["rows"] = 2
+    return dict(card, grid_options=g)
+
+
 def media(entity, label, controls, icon="mdi:speaker", cols=HALF):
     """A media card. `cols` because a LONE one has to go full width.
 
@@ -92,22 +99,18 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
-            media("media_player.homepod_mini_master_bedroom", "HomePod",
-                  ("play", "vol_down", "vol_up")),
-            # Two tiles in one cell, filling the media card's 124px rather
-            # than one tile floating at the top of the row.
-            span(d.stack([
-                d.only_when_available(
-                    d.tile("switch.tp_link_power_strip_6e3f_dehumidifier",
-                           "Dehumidifier", "mdi:air-humidifier",
-                           on_bg=d.BLUE_BG, on_ac=d.BLUE),
-                    "switch.tp_link_power_strip_6e3f_dehumidifier"),
-                d.only_when_available(
-                    d.tile("light.bedside_left", "Bedside Left", "mdi:lightbulb"),
-                    "light.bedside_left"),
-            ]), HALF),
-            light("light.bedside_right", "Bedside Right"),
+            # rows=2 is HA's own row spanning: the section grid is 12
+            # columns of 56px rows with an 8px gap, so a media card spanning
+            # two rows is 120px and sits level with two stacked tiles. Every
+            # tile stays a separate card, so they can be dragged freely in
+            # the UI without the dead space coming back.
+            span2(media("media_player.homepod_mini_master_bedroom", "HomePod",
+                        ("play", "vol_down", "vol_up"))),
+            plug("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
+                 "mdi:air-humidifier"),
             light("light.mushroom_lamp", "Mushroom Lamp"),
+            light("light.bedside_left", "Bedside Left"),
+            light("light.bedside_right", "Bedside Right"),
         ]},
 
         {"type": "grid", "cards": [
