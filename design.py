@@ -609,9 +609,9 @@ def room_header(title, icon, group=None, swipe=False):
     elif swipe:
         areas, cols = '"n g"', "1fr auto"
         cf["g"] = [{"justify-self": "end"}, {"align-self": "center"}]
-        fields["g"] = """[[[ return `<ha-icon icon="mdi:chevron-right"
+        fields["g"] = """[[[ return `<ha-icon class="ov-nudge" icon="mdi:chevron-right"
           style="--mdc-icon-size:22px;width:22px;height:22px;color:%s;display:block"></ha-icon>`; ]]]""" % MUTED
-    return {
+    card = {
         "type": "custom:button-card", "show_icon": False, "show_name": False,
         "show_state": False, "tap_action": {"action": "none"},
         "styles": {
@@ -624,6 +624,14 @@ def room_header(title, icon, group=None, swipe=False):
         },
         "custom_fields": fields,
     }
+    if swipe and not group:
+        # two quick nudges to the right, then a rest; still for reduced motion
+        card["extra_styles"] = (
+            "@keyframes ov-nudge { 0%, 40%, 100% { transform: none }"
+            " 10%, 30% { transform: translateX(5px) } 20% { transform: translateX(1px) } }"
+            " .ov-nudge { animation: ov-nudge 2.4s ease-in-out infinite }"
+            " @media (prefers-reduced-motion: reduce) { .ov-nudge { animation: none } }")
+    return card
 
 
 def pill(entity, icon, text_js, accent=AMBER, on_test=None, off_accent=None):
