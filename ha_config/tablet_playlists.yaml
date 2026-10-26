@@ -1,0 +1,41 @@
+  # Playlists for the tablet's Media tab. Music Assistant's library, most
+  # recently played first, minus MA's own generated mixes. State is the count,
+  # which the tablet's eight playlist slots use to hide the empty ones.
+  - trigger:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/30"
+      - trigger: event
+        event_type: tablet_playlists_refresh
+    action:
+      - action: music_assistant.get_library
+        data:
+          config_entry_id: <your music_assistant config entry id>
+          media_type: playlist
+          order_by: last_played_desc
+          limit: 100
+        response_variable: lib
+      - variables:
+          generated:
+            - "500 Random tracks (from library)"
+            - "All favorited tracks"
+            - "Infinite Mix (favorites)"
+            - "Infinite Mix (library)"
+            - "Random Album (from library)"
+            - "Random Artist (from library)"
+            - "Recently added tracks"
+            - "Recently played tracks"
+          picked: >-
+            {% set ns = namespace(out=[]) %}
+            {% for i in lib['items'] if i.name not in generated %}
+              {% set ns.out = ns.out + [{'name': i.name, 'uri': i.uri, 'image': i.image or ''}] %}
+            {% endfor %}
+            {{ ns.out[:8] }}
+    sensor:
+      - name: Tablet Playlists
+        unique_id: tablet_playlists
+        icon: mdi:playlist-music
+        state: "{{ picked | count }}"
+        attributes:
+          items: "{{ picked }}"

@@ -9,14 +9,29 @@ import design as d
 import scenes
 
 ROOM = "input_select.tablet_room"
-ROOMS = ["Kitchen", "Living Room", "Master Bedroom", "Guest"]
+ROOMS = ["Kitchen", "Living Room", "Master Bedroom", "Guest", "Media"]
 ICONS = {"Kitchen": "mdi:fridge", "Living Room": "mdi:sofa",
-         "Master Bedroom": "mdi:bed-king", "Guest": "mdi:bed-double"}
+         "Master Bedroom": "mdi:bed-king", "Guest": "mdi:bed-double",
+         "Media": "mdi:music"}
 SHORT = {"Kitchen": "Kitchen", "Living Room": "Living", "Master Bedroom": "Bedroom",
-         "Guest": "Guest"}
+         "Guest": "Guest", "Media": "Media"}
 GROUPS = {"Kitchen": "light.kitchen_lights", "Living Room": "light.living_room",
           "Master Bedroom": "light.master_bedroom_lights",
-          "Guest": "light.guest_bedroom_lamp"}
+          "Guest": "light.guest_bedroom_lamp", "Media": None}
+
+# The Media tab plays through Music Assistant, which logs in to Spotify itself
+# and reaches the HomePods over AirPlay - HA's own Spotify integration can
+# reach neither them nor the Sonos amp. These are MA's players, not the
+# sonos/apple_tv ones. The Kitchen Display is left out on purpose: casting
+# music to it would replace the photo slideshow.
+SPEAKER = "input_select.tablet_speaker"
+SPEAKERS = [  # (option, tab label, MA player)
+    ("Living Room Amp", "Amp",     "media_player.living_room_amp_2"),
+    ("Kitchen HomePod", "Kitchen", "media_player.homepod_mini_kitchen_2"),
+    ("Bedroom HomePod", "Bedroom", "media_player.homepod_mini_master_bedroom_2"),
+]
+PLAYLISTS = "sensor.tablet_playlists"   # template sensor in configuration.yaml
+SLOTS = 8
 
 
 def span(card, cols, entity=None):
@@ -29,12 +44,17 @@ def q(s):
 
 
 def tab(room):
-    sel = "states['%s'].state === '%s'" % (ROOM, room)
+    return picker(ROOM, room, SHORT[room], ICONS[room])
+
+
+def picker(entity, option, name, icon):
+    """A tab: amber while `entity` is on `option`, tap to select it."""
+    sel = "states['%s'].state === '%s'" % (entity, option)
     return {
-        "type": "custom:button-card", "entity": ROOM,
-        "name": SHORT[room], "icon": ICONS[room], "show_state": False,
+        "type": "custom:button-card", "entity": entity,
+        "name": name, "icon": icon, "show_state": False,
         "tap_action": {"action": "call-service", "service": "input_select.select_option",
-                       "service_data": {"entity_id": ROOM, "option": room}},
+                       "service_data": {"entity_id": entity, "option": option}},
         "styles": {
             "card": [{"height": "62px"}, {"border-radius": "16px"}, {"box-shadow": "none"},
                      {"border": "none"}, {"padding": "6px 4px"}, {"font-family": d.FONT},
@@ -58,6 +78,7 @@ SCENES = {
     "Master Bedroom": [],
     "Kitchen": [],
     "Guest": [],
+    "Media": [],
 }
 
 
@@ -92,6 +113,54 @@ def room_cards(room, cards):
         g = {"columns": 6, **c.get("grid_options", {})}
         out.append(dict(c, grid_options=g, visibility=shown + c.get("visibility", [])))
     return out
+
+
+def playlist_slot(i):
+    """Slot i of the playlist grid. Hidden while the sensor has fewer than
+    i + 1 playlists; tap plays it on the selected speaker, replacing the queue."""
+    it = "states['%s'].attributes.items[%d]" % (PLAYLISTS, i)
+    player = "[[[ return %s[states['%s'].state]; ]]]" % (
+        __import__("json").dumps({o: p for o, _, p in SPEAKERS}), SPEAKER)
+    return {
+        "type": "custom:button-card", "entity": PLAYLISTS,
+        "show_icon": False, "show_name": False, "show_state": False,
+        "tap_action": {"action": "call-service", "service": "music_assistant.play_media",
+                       "service_data": {"entity_id": player,
+                                        "media_id": "[[[ return %s.uri; ]]]" % it,
+                                        "media_type": "playlist", "enqueue": "replace"}},
+        "hold_action": {"action": "none"},
+        "styles": {
+            "card": [{"height": "56px"}, {"border-radius": "16px"}, {"box-shadow": "none"},
+                     {"border": "none"}, {"padding": "0 10px"}, {"background": d.SURF},
+                     {"font-family": d.FONT}],
+            "grid": [{"grid-template-areas": '"x"'}, {"width": "100%"}],
+            "custom_fields": {"x": [{"justify-self": "stretch"}, {"min-width": "0"}]},
+        },
+        "custom_fields": {"x": """[[[
+          const p = %s; if (!p) return '';
+          const art = p.image
+            ? `<img src="${p.image}" style="width:36px;height:36px;border-radius:9px;object-fit:cover;flex:none">`
+            : `<div style="width:36px;height:36px;border-radius:50%%;flex:none;background:%s;display:flex;align-items:center;justify-content:center"><ha-icon icon="mdi:playlist-music" style="--mdc-icon-size:19px;color:%s"></ha-icon></div>`;
+          return `<div style="display:flex;align-items:center;gap:10px;min-width:0">${art}
+            <div style="min-width:0;text-align:left">
+              <div style="font-size:14px;font-weight:600;color:%s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+              <div style="font-size:12px;color:%s">Playlist</div></div></div>`;
+        ]]]""" % (it, d.mix(d.VIOLET, 16), d.VIOLET, d.INK, d.MUTED)},
+        "visibility": [{"condition": "numeric_state", "entity": PLAYLISTS, "above": i}],
+    }
+
+
+def media_panel():
+    """Speaker tabs, the selected speaker's now-playing card, and playlists."""
+    cards = [dict(picker(SPEAKER, o, label, "mdi:speaker"), grid_options={"columns": 4})
+             for o, label, _ in SPEAKERS]
+    cards += [dict(tall(d.media_card(p, o, controls=("prev", "play", "next", "vol_down", "vol_up"))),
+                   grid_options={"columns": 12, "rows": 2},
+                   visibility=[{"condition": "state", "entity": SPEAKER, "state": o}])
+              for o, _, p in SPEAKERS]
+    cards += [dict(d.room_header("Playlists", "mdi:playlist-music"), grid_options={"columns": 12})]
+    cards += [playlist_slot(i) for i in range(SLOTS)]
+    return cards
 
 
 def panels():
@@ -138,6 +207,7 @@ def panels():
         "Guest": [
             L("light.guest_bedroom_lamp", "Guest Lamp", "mdi:lightbulb"),
         ],
+        "Media": media_panel(),
     }
 
 
@@ -156,7 +226,7 @@ def build():
     ]}
     P = panels()
     rooms_section = {"type": "grid", "cards":
-        [span(t, 3) for t in (tab(r) for r in ROOMS)]
+        [span({"type": "horizontal-stack", "cards": [tab(r) for r in ROOMS]}, 12)]
         + [c for r in ROOMS for c in room_cards(r, P[r])]}
     return {"views": [{
         "title": "Home", "path": "home", "type": "sections",

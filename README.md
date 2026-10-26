@@ -96,6 +96,16 @@ holds the card builders; the dashboard modules are thin layouts over it.
 injects no styles at all — see `design.py`. Everything here uses button-card's native
 `styles`, which is why the code looks the way it does.
 
+### Tablet Media tab
+
+The tablet's fifth tab plays music through **Music Assistant**, not HA's Spotify
+integration: Spotify's API cannot drive a Sonos, and HomePods only take AirPlay.
+It needs the Music Assistant integration, an `input_select.tablet_speaker` helper
+(options as in `tablet.SPEAKERS`), a `Media` option on `input_select.tablet_room`,
+and the trigger-based template sensor in
+[`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml) appended to
+the `template:` list in `configuration.yaml`.
+
 ## Use
 
 ```sh
