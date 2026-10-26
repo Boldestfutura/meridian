@@ -239,10 +239,15 @@ def photo_view():
                                     " ? '100vh' : 'calc(100vh - 56px)'; ]]]"}],
                 "grid": [{"grid-template-areas": '"p"'}],
                 "custom_fields": {
-                  # picture-entity sizes itself 16:9 from its width; centre it
-                  # and let the card crop whatever overhangs.
-                  "p": [{"position": "absolute"}, {"left": "0"}, {"right": "0"},
-                        {"top": "50%"}, {"transform": "translateY(-50%)"}],
+                  # picture-entity sizes itself 16:9 from its width. Full width
+                  # alone left it 576 tall on the Hub's 1024x600 - a 12px black
+                  # bar top and bottom. So it is at least as wide as 16:9 of the
+                  # card's height too, centred, and the card crops the sides.
+                  "p": [{"position": "absolute"}, {"left": "50%"}, {"top": "50%"},
+                        {"transform": "translate(-50%, -50%)"},
+                        {"width": "[[[ const h = document.querySelector('hc-main')"
+                                  " ? '100vh' : '(100vh - 56px)';"
+                                  " return `max(100%, calc(${h} * 16 / 9))`; ]]]"}],
                   "o": [{"position": "absolute"}, {"z-index": "1"}, {"left": "0"}, {"right": "0"},
                         {"bottom": "0"}, {"padding": "80px 36px 28px"},
                         {"text-align": "left"}, {"color": "#fff"},
