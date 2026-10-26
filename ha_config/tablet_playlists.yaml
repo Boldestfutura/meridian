@@ -1,5 +1,30 @@
-  # Playlists for the tablet's Media tab. Music Assistant's library, most
-  # recently played first, minus MA's own generated mixes and the Plex
+  # Spotify playlists Cameron has started anywhere (phone, desktop, Sonos),
+  # newest first, for the tablet's playlist order. HA's Spotify integration
+  # can only name playlists the API will return: ones Spotify made (Daily
+  # Mix, Discover Weekly, This Is ...) never appear; DJ does.
+  - trigger:
+      - trigger: state
+        entity_id: media_player.spotify_cameron
+        attribute: media_playlist
+      - trigger: event
+        event_type: tablet_playlists_refresh
+    condition:
+      - condition: template
+        value_template: >-
+          {{ state_attr('media_player.spotify_cameron', 'media_playlist') not in [none, ''] }}
+    sensor:
+      - name: Spotify Recent Playlists
+        unique_id: spotify_recent_playlists
+        icon: mdi:history
+        state: "{{ state_attr('media_player.spotify_cameron', 'media_playlist') }}"
+        attributes:
+          names: >-
+            {% set new = state_attr('media_player.spotify_cameron', 'media_playlist') %}
+            {% set old = this.attributes.names | default([]) %}
+            {{ ([new] + (old | reject('eq', new) | list))[:30] }}
+  # Playlists for the tablet's Media tab. Music Assistant's library, the
+  # ones last started in Spotify first, then MA's most recently played,
+  # minus MA's own generated mixes and the Plex
   # playlists (by name - get_library returns no source). State is the count,
   # which the tablet's eight playlist slots use to hide the empty ones.
   - trigger:
@@ -9,6 +34,8 @@
         minutes: "/30"
       - trigger: event
         event_type: tablet_playlists_refresh
+      - trigger: state
+        entity_id: sensor.spotify_recent_playlists
     action:
       - action: music_assistant.get_library
         data:
@@ -35,8 +62,15 @@
             - "Recently Played"
             - "❤️ Tracks"
           picked: >-
+            {% set recent = state_attr('sensor.spotify_recent_playlists', 'names') or [] %}
+            {% set items = lib['items'] | rejectattr('name', 'in', generated) | list %}
             {% set ns = namespace(out=[]) %}
-            {% for i in lib['items'] if i.name not in generated %}
+            {% for n in recent %}
+              {% for i in items if i.name == n %}
+                {% set ns.out = ns.out + [{'name': i.name, 'uri': i.uri, 'image': i.image or ''}] %}
+              {% endfor %}
+            {% endfor %}
+            {% for i in items if i.name not in recent %}
               {% set ns.out = ns.out + [{'name': i.name, 'uri': i.uri, 'image': i.image or ''}] %}
             {% endfor %}
             {{ ns.out[:8] }}
