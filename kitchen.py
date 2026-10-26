@@ -200,12 +200,8 @@ def apply_temperature_strip(cfg):
 def photo_view():
     """Full-screen Immich slideshow. Tapping anywhere returns to the dashboard.
 
-    The integration's own album-slideshow-card rather than picture-entity, for
-    its cross-fade between slides. Its tap_action can only be none or more-info,
-    so the tap back to the dashboard lives on the button-card wrapper. A click
-    on a nested card never reaches it - button-card stops those - so an empty
-    full-frame field "t" sits on top to take the tap. An iframe would swallow
-    the tap entirely.
+    picture-entity rather than an iframe: an iframe swallows the tap, so there
+    would be no way back out without a card-mod overlay.
 
     Clock and weather sit over the bottom-left corner like the Nest Hub's own
     ambient screen. The wrapper is a button-card on sensor.time so it re-renders
@@ -232,10 +228,7 @@ def photo_view():
               "type": "custom:button-card", "entity": "sensor.time",
               "triggers_update": ["weather.forecast_home"],
               "show_icon": False, "show_name": False, "show_state": False,
-              "tap_action": {"action": "navigate",
-                             "navigation_path": "/ha-kitchen/kitchen"},
-              "hold_action": {"action": "none"},
-              "double_tap_action": {"action": "none"},
+              "tap_action": {"action": "none"},
               "styles": {
                 "card": [{"padding": "0"}, {"border": "none"}, {"border-radius": "0"},
                          {"box-shadow": "none"}, {"background": "#000"},
@@ -246,7 +239,7 @@ def photo_view():
                                     " ? '100vh' : 'calc(100vh - 56px)'; ]]]"}],
                 "grid": [{"grid-template-areas": '"p"'}],
                 "custom_fields": {
-                  # The slideshow card sizes itself 16:9 from its width. Full width
+                  # picture-entity sizes itself 16:9 from its width. Full width
                   # alone left it 576 tall on the Hub's 1024x600 - a 12px black
                   # bar top and bottom. So it is at least as wide as 16:9 of the
                   # card's height too, centred, and the card crops the sides.
@@ -255,7 +248,6 @@ def photo_view():
                         {"width": "[[[ const h = document.querySelector('hc-main')"
                                   " ? '100vh' : '(100vh - 56px)';"
                                   " return `max(100%, calc(${h} * 16 / 9))`; ]]]"}],
-                  "t": [{"position": "absolute"}, {"inset": "0"}, {"z-index": "2"}],
                   "o": [{"position": "absolute"}, {"z-index": "1"}, {"left": "0"}, {"right": "0"},
                         {"bottom": "0"}, {"padding": "80px 36px 28px"},
                         {"text-align": "left"}, {"color": "#fff"},
@@ -264,11 +256,15 @@ def photo_view():
                         {"background": "linear-gradient(to top, rgba(0,0,0,.45), transparent)"}],
                 },
               },
-              "custom_fields": {"o": overlay, "t": " ", "p": {"card": {
-                "type": "custom:album-slideshow-card",
+              "custom_fields": {"o": overlay, "p": {"card": {
+                "type": "picture-entity",
                 "entity": "camera.album_slideshow_family",
-                "transition": "fade", "duration": 1200,
-                "fit": "cover", "aspect_ratio": "16/9",
-                "background": "#000",
+                "camera_view": "auto",
+                "show_name": False, "show_state": False,
+                "fit_mode": "cover",
+                "tap_action": {"action": "navigate",
+                               "navigation_path": "/ha-kitchen/kitchen"},
+                "hold_action": {"action": "none"},
+                "double_tap_action": {"action": "none"},
               }}},
             }]}
