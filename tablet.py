@@ -51,20 +51,11 @@ def tab(room):
 
 SCENES = {
     "Living Room": [
-        ("scene.living_room_bright",     "Bright",     "mdi:white-balance-sunny", d.AMBER),
-        ("scene.living_room_dimmed",     "Dimmed",     "mdi:lightbulb-on-30",     d.MAUVE),
-        ("scene.living_room_relax",      "Relax",      "mdi:sofa",                d.VIOLET),
-        ("scene.living_room_read",       "Read",       "mdi:book-open-variant",   d.TEAL),
-        ("scene.living_room_nightlight", "Nightlight", "mdi:weather-night",       d.INDIGO),
         ("scene.new_scene",              "Movie Time", "mdi:movie-open",          d.RED),
     ],
-    "Master Bedroom": [
-        ("scene.bedroom_bright",     "Bright",     "mdi:white-balance-sunny", d.AMBER),
-        ("scene.bedroom_relax",      "Relax",      "mdi:sofa",                d.VIOLET),
-        ("scene.bedroom_read",       "Read",       "mdi:book-open-variant",   d.TEAL),
-        ("scene.bedroom_nightlight", "Nightlight", "mdi:weather-night",       d.INDIGO),
-    ],
-    # scene.bedroom_dimmed is named "do not use", so it is deliberately absent.
+    # The Hue bridge's Bright/Dimmed/Relax/Read/Nightlight scenes went with the
+    # bridge. Room scenes now live in the shared strip in scenes.py.
+    "Master Bedroom": [],
     "Kitchen": [],
     "Guest": [],
 }
