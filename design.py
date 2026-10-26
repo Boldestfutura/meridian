@@ -581,7 +581,10 @@ def media_card(entity, label, controls=("play", "vol_down", "vol_up"), icon="mdi
 # Room headers (the bubble-card separators, restyled) and status pills
 # ===========================================================================
 
-def room_header(title, icon, group=None):
+def room_header(title, icon, group=None, swipe=False):
+    """`swipe` puts a muted chevron at the right edge: the strip under this
+    header scrolls sideways. Plain icon, no chip, so it reads as a hint and
+    not a button. Only set it where the strip really overflows."""
     fields = {"n": """[[[ return `<div style="display:flex;align-items:center;gap:9px">
         <ha-icon icon="%s" style="--mdc-icon-size:19px;width:19px;height:19px;color:%s"></ha-icon>
         <span style="font-size:16px;font-weight:700;color:%s;letter-spacing:-.01em">%s</span>
@@ -603,6 +606,11 @@ def room_header(title, icon, group=None):
                 "icon": [{"width": "18px"},
                          {"color": "[[[ return %s ? '#ffffff' : '%s'; ]]]" % (on, MUTED)}],
             }}}
+    elif swipe:
+        areas, cols = '"n g"', "1fr auto"
+        cf["g"] = [{"justify-self": "end"}, {"align-self": "center"}]
+        fields["g"] = """[[[ return `<ha-icon icon="mdi:chevron-right"
+          style="--mdc-icon-size:22px;width:22px;height:22px;color:%s;display:block"></ha-icon>`; ]]]""" % MUTED
     return {
         "type": "custom:button-card", "show_icon": False, "show_name": False,
         "show_state": False, "tap_action": {"action": "none"},

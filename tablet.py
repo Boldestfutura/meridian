@@ -220,7 +220,7 @@ def build():
     rail = {"type": "grid", "cards": [
         span(d.weather(num=52, icon=86), 12),
         span(d.heatpump_stepper(), 12, "climate.living_room"),
-        span(d.room_header("Scenes", "mdi:creation"), 12),
+        span(d.room_header("Scenes", "mdi:creation", swipe=True), 12),
         span(d.pill_strip([{"card": c} for c in scenes.cards()],
                           rows=2, col_w=168, gap=8, pad="0"), 12),
     ]}

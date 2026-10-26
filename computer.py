@@ -42,7 +42,7 @@ def sections():
             span(d.weather(num=44, icon=64), FULL),
             span(d.room_header("Heatpump", "mdi:sun-snowflake-variant",), FULL),
             span(d.heatpump_stepper(show_label=False), FULL, "climate.living_room"),
-            span(d.room_header("Scenes", "mdi:creation"), FULL),
+            span(d.room_header("Scenes", "mdi:creation", swipe=True), FULL),
             span(d.pill_strip([{"card": c} for c in scenes.cards()],
                           rows=2, col_w=168, gap=8, pad="0"), FULL),
         ]},
