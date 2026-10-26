@@ -1,5 +1,6 @@
   # Playlists for the tablet's Media tab. Music Assistant's library, most
-  # recently played first, minus MA's own generated mixes. State is the count,
+  # recently played first, minus MA's own generated mixes and the Plex
+  # playlists (by name - get_library returns no source). State is the count,
   # which the tablet's eight playlist slots use to hide the empty ones.
   - trigger:
       - trigger: homeassistant
@@ -26,6 +27,13 @@
             - "Random Artist (from library)"
             - "Recently added tracks"
             - "Recently played tracks"
+            # Plex playlists - this house wants Spotify only on the tablet
+            - "All Music"
+            - "Fresh ❤️"
+            - "Noah Kahan"
+            - "Recently Added"
+            - "Recently Played"
+            - "❤️ Tracks"
           picked: >-
             {% set ns = namespace(out=[]) %}
             {% for i in lib['items'] if i.name not in generated %}
