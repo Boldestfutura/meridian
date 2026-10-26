@@ -215,12 +215,12 @@ def photo_view():
       const d = new Date();
       const tm = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
       const dt = d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-      return `<div style="font-size:72px;font-weight:600;letter-spacing:-.03em;line-height:1">${tm}</div>
-              <div style="display:inline-flex;width:auto;justify-content:flex-start;align-items:center;gap:10px;margin-top:8px;font-size:20px;font-weight:500">
-                <span>${dt}</span><span style="opacity:.6">·</span>
-                <ha-icon icon="${w.ic}" style="--mdc-icon-size:26px"></ha-icon>
-                <span>${t}° ${w.nm}</span>
-              </div>`;
+      return `<div style="font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1">${tm}</div>
+              <div style="display:inline-flex;width:auto;align-items:center;gap:8px;margin-top:8px;font-size:22px;font-weight:500">
+                <ha-icon icon="${w.ic}" style="--mdc-icon-size:26px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))"></ha-icon>
+                <span>${t}\u00B0 ${w.nm}</span>
+              </div>
+              <div style="font-size:18px;font-weight:500;margin-top:4px;opacity:.9">${dt}</div>`;
     ]]]""" % (d.WJS, d.FALLBACK)
     return {"title": "Photos", "path": "photos", "type": "panel",
             "theme": "Overlook", "badges": [], "subview": True,
@@ -247,7 +247,7 @@ def photo_view():
                         {"bottom": "0"}, {"padding": "80px 36px 28px"},
                         {"text-align": "left"}, {"color": "#fff"},
                         {"font-family": d.FONT}, {"pointer-events": "none"},
-                        {"text-shadow": "0 1px 8px rgba(0,0,0,.55)"},
+                        {"text-shadow": "0 1px 3px rgba(0,0,0,.6), 0 2px 12px rgba(0,0,0,.45)"},
                         {"background": "linear-gradient(to top, rgba(0,0,0,.45), transparent)"}],
                 },
               },
