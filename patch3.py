@@ -705,6 +705,11 @@ NAV_TARGETS = {
     "media_player.kitchen_display": "ov-kitchen-display",
     "media_player.homepod_mini_kitchen": "ov-homepod-kitchen",
     "media_player.homepod_mini_master_bedroom": "ov-homepod-bedroom",
+    # the tablet's Media tab uses the Music Assistant players for the same
+    # speakers; same pop-ups, since those drive the hardware directly
+    "media_player.living_room_amp_2": "ov-amp",
+    "media_player.homepod_mini_kitchen_2": "ov-homepod-kitchen",
+    "media_player.homepod_mini_master_bedroom_2": "ov-homepod-bedroom",
 }
 
 
