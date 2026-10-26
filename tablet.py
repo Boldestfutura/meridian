@@ -77,6 +77,11 @@ def room_cards(room, cards):
     rearranged freely; tall() cards span two rows so tiles stack beside them.
     """
     shown = [{"condition": "state", "entity": ROOM, "state": room}]
+    # Each room opens with its own header, so edit mode - which ignores
+    # visibility and shows every card - reads as four labelled groups rather
+    # than one long run of tiles. In use only the selected room's shows.
+    cards = [dict(d.room_header(room, ICONS[room], GROUPS[room]),
+                  grid_options={"columns": 12})] + cards
     sc = SCENES.get(room) or []
     if sc:
         cards = cards + [dict(d.room_header("Scenes", "mdi:palette"),
@@ -136,53 +141,6 @@ def panels():
     }
 
 
-def room_header_card():
-    """One header that renames itself with the selected room."""
-    return {
-        "type": "custom:button-card", "entity": ROOM,
-        "show_icon": False, "show_name": False, "show_state": False,
-        "tap_action": {"action": "none"},
-        "styles": {
-            "card": [{"background": "transparent"}, {"box-shadow": "none"},
-                     {"border": "none"}, {"height": "40px"}, {"padding": "0 2px"},
-                     {"font-family": d.FONT}],
-            "grid": [{"grid-template-areas": '"n g"'},
-                     {"grid-template-columns": "1fr auto"}, {"align-items": "center"}],
-            "custom_fields": {"n": [{"justify-self": "start"}],
-                              "g": [{"justify-self": "end"}]},
-        },
-        "custom_fields": {
-            "n": """[[[
-              const r = states['%s'].state;
-              const I = %s;
-              return `<div style="display:flex;align-items:center;gap:9px">
-                <ha-icon icon="${I[r]||'mdi:home'}" style="--mdc-icon-size:19px;width:19px;height:19px;color:%s"></ha-icon>
-                <span style="font-size:16px;font-weight:700;color:%s;letter-spacing:-.01em">${r}</span></div>`;
-            ]]]""" % (ROOM, __import__("json").dumps(ICONS), d.MUTED, d.INK),
-            "g": {"card": {
-                "type": "custom:button-card", "entity": ROOM,
-                "icon": "mdi:lightbulb-group", "show_name": False, "show_state": False,
-                "tap_action": {"action": "call-service", "service": "light.toggle",
-                               "service_data": {"entity_id": """[[[
-                                 const G = %s; return G[states['%s'].state];
-                               ]]]""" % (__import__("json").dumps(GROUPS), ROOM)}},
-                "styles": {
-                    "card": [{"width": "40px"}, {"height": "32px"}, {"border-radius": "11px"},
-                             {"box-shadow": "none"}, {"border": "none"}, {"padding": "0"},
-                             {"background": """[[[
-                                const G = %s; const g = states[G[states['%s'].state]];
-                                return (g && g.state === 'on') ? '%s' : '%s';
-                             ]]]""" % (__import__("json").dumps(GROUPS), ROOM, d.AMBER, d.NEUTRAL)}],
-                    "icon": [{"width": "18px"},
-                             {"color": """[[[
-                                const G = %s; const g = states[G[states['%s'].state]];
-                                return (g && g.state === 'on') ? '#ffffff' : '%s';
-                             ]]]""" % (__import__("json").dumps(GROUPS), ROOM, d.MUTED)}],
-                }}},
-        },
-    }
-
-
 def build():
     import patch3
     # bubbles get their own full-width band above both columns
@@ -199,7 +157,6 @@ def build():
     P = panels()
     rooms_section = {"type": "grid", "cards":
         [span(t, 3) for t in (tab(r) for r in ROOMS)]
-        + [span(room_header_card(), 12)]
         + [c for r in ROOMS for c in room_cards(r, P[r])]}
     return {"views": [{
         "title": "Home", "path": "home", "type": "sections",
