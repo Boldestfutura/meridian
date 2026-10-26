@@ -1,0 +1,137 @@
+# Overlook — matched to IMG_0951: a light grey ground, pure white cards,
+# large radii, no shadows, and Figtree, which is already loaded as a Lovelace
+# resource. Set as the default theme for both light and dark, so the whole
+# app (sidebar, header, settings, dialogs) wears it, not just the dashboards.
+#
+# Anything not set here falls back to HA's own light or dark default.
+Overlook:
+  # --- shape: the reference's defining trait ------------------------------
+  ha-card-border-radius: "18px"
+  ha-card-border-width: "0px"
+  ha-card-box-shadow: "none"
+  mush-border-radius: "22px"
+  mush-card-border-width: "0px"
+  mush-box-shadow: "none"
+  bubble-border-radius: "22px"
+  button-card-border-radius: "22px"
+
+  # --- type ---------------------------------------------------------------
+  primary-font-family: "Figtree, system-ui, -apple-system, sans-serif"
+  paper-font-common-base_-_font-family: "Figtree, system-ui, sans-serif"
+  paper-font-body1_-_font-family: "Figtree, system-ui, sans-serif"
+
+  # --- amber, used sparingly, exactly as the reference does ---------------
+  primary-color: "#f59e0b"
+  accent-color: "#f59e0b"
+  rgb-primary-color: "245, 158, 11"
+  rgb-accent-color: "245, 158, 11"
+  state-icon-active-color: "#f59e0b"
+  paper-item-icon-active-color: "#f59e0b"
+  state-light-active-color: "#f59e0b"
+  mush-rgb-amber: "245,158,11"
+
+  # HA 2026 draws buttons, toggles and tabs from this scale, not from
+  # primary-color. 50 is the Overlook amber; 40 is the loud fill that white
+  # text sits on, so it is darkened for contrast. HA picks the steps per mode.
+  ha-color-primary-05: "#1f1300"
+  ha-color-primary-10: "#2f1d00"
+  ha-color-primary-20: "#4a2e00"
+  ha-color-primary-30: "#7a4a00"
+  ha-color-primary-40: "#b86e00"
+  ha-color-primary-50: "#f59e0b"
+  ha-color-primary-60: "#f7ad33"
+  ha-color-primary-70: "#fac063"
+  ha-color-primary-80: "#fcd79a"
+  ha-color-primary-90: "#feecc9"
+  ha-color-primary-95: "#fff6e5"
+
+  # --- controls -----------------------------------------------------------
+  switch-checked-button-color: "#f59e0b"
+  switch-checked-track-color: "#f59e0b"
+  input-hover-line-color: "#f59e0b"
+
+  mush-icon-border-radius: "50%"
+
+  # Both modes must be declared. With only modes.dark, HA forces dark on
+  # every device whatever its setting - that is what made this theme dark-only.
+  modes:
+    light:
+      # --- ground and surfaces ------------------------------------------------
+      primary-background-color: "#f6f5f2"
+      secondary-background-color: "#efeee9"
+      card-background-color: "#ffffff"
+      ha-card-background: "#ffffff"
+      divider-color: "rgba(16,20,28,.07)"
+      app-header-background-color: "#f6f5f2"
+      app-header-text-color: "#1a1c1e"
+      app-header-border-bottom: "1px solid var(--divider-color)"
+      lovelace-background: "#f6f5f2"
+      mdc-theme-surface: "#ffffff"
+      ha-dialog-surface-background: "#ffffff"
+      table-row-background-color: "#ffffff"
+      table-row-alternative-background-color: "#f6f5f2"
+      data-table-background-color: "#ffffff"
+      markdown-code-background-color: "#efeee9"
+      code-editor-background-color: "#efeee9"
+      # --- sidebar ------------------------------------------------------------
+      sidebar-background-color: "#ffffff"
+      sidebar-text-color: "#15171a"
+      sidebar-icon-color: "#6b7280"
+      sidebar-selected-text-color: "#b45309"
+      sidebar-selected-icon-color: "#b45309"
+      sidebar-menu-button-background-color: "#ffffff"
+      # --- type ---------------------------------------------------------------
+      primary-text-color: "#15171a"
+      secondary-text-color: "#6b7280"
+      disabled-text-color: "rgba(21,23,26,.38)"
+      text-primary-color: "#15171a"
+      # --- icons ---------------------------------------------------------------
+      state-icon-color: "#8a9099"
+      paper-item-icon-color: "#8a9099"
+      # --- controls -----------------------------------------------------------
+      switch-unchecked-button-color: "#ffffff"
+      switch-unchecked-track-color: "#c9ccd1"
+      input-fill-color: "#efeee9"
+      mdc-text-field-fill-color: "#efeee9"
+      mdc-select-fill-color: "#efeee9"
+      input-ink-color: "#15171a"
+      input-label-ink-color: "#6b7280"
+      input-idle-line-color: "rgba(16,20,28,.18)"
+      ha-card-header-color: "#15171a"
+    dark:
+      primary-background-color: "#111317"
+      secondary-background-color: "#16191d"
+      card-background-color: "#1b1e23"
+      ha-card-background: "#1b1e23"
+      lovelace-background: "#111317"
+      app-header-background-color: "#111317"
+      app-header-text-color: "#eceef1"
+      mdc-theme-surface: "#1b1e23"
+      ha-dialog-surface-background: "#1b1e23"
+      table-row-background-color: "#1b1e23"
+      table-row-alternative-background-color: "#16191d"
+      data-table-background-color: "#1b1e23"
+      markdown-code-background-color: "#111317"
+      code-editor-background-color: "#111317"
+      sidebar-background-color: "#16191d"
+      sidebar-text-color: "#eceef1"
+      sidebar-icon-color: "#9aa1ab"
+      sidebar-selected-text-color: "#f59e0b"
+      sidebar-selected-icon-color: "#f59e0b"
+      sidebar-menu-button-background-color: "#16191d"
+      primary-text-color: "#eceef1"
+      secondary-text-color: "#9aa1ab"
+      disabled-text-color: "rgba(236,238,241,.38)"
+      text-primary-color: "#15171a"
+      divider-color: "rgba(255,255,255,.08)"
+      state-icon-color: "#79828d"
+      paper-item-icon-color: "#79828d"
+      ha-card-header-color: "#eceef1"
+      switch-unchecked-button-color: "#9aa1ab"
+      switch-unchecked-track-color: "#3a3f47"
+      input-fill-color: "#22262c"
+      mdc-text-field-fill-color: "#22262c"
+      mdc-select-fill-color: "#22262c"
+      input-ink-color: "#eceef1"
+      input-label-ink-color: "#9aa1ab"
+      input-idle-line-color: "rgba(255,255,255,.18)"

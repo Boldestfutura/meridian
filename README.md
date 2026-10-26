@@ -85,7 +85,11 @@ holds the card builders; the dashboard modules are thin layouts over it.
 - [`custom:button-card`](https://github.com/custom-cards/button-card) — every card
 - [`Bubble Card`](https://github.com/Clooos/Bubble-Card) — the pop-ups
 - A theme named `Overlook` (any theme works; the dashboards only rely on standard
-  HA CSS variables)
+  HA CSS variables). Ours is in [`themes/overlook.yaml`](themes/overlook.yaml):
+  copy it to `/config/themes/overlook/`, call `frontend.reload_themes`, then
+  `frontend.set_theme` with `name: Overlook` to make it the app-wide default.
+  **A theme needs both `modes.light` and `modes.dark`.** With only `dark`, HA
+  forces dark mode on every device, whatever the device is set to.
 - A long-lived access token at `~/.config/ha/token`
 
 **`card-mod` is deliberately not used.** On HA 2026.10 it loads, logs its banner and
