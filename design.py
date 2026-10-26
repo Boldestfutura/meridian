@@ -825,7 +825,7 @@ def pill_strip(items, gap=8, pad="1px 2px", rows=1, col_w=None):
                                     "state": it.get("state", "on")}],
                     "card": card}
         fields[k] = {"card": card}
-    return {
+    card = {
         "type": "custom:button-card",
         "show_icon": False, "show_name": False, "show_state": False,
         "tap_action": {"action": "none"},
@@ -851,6 +851,15 @@ def pill_strip(items, gap=8, pad="1px 2px", rows=1, col_w=None):
         },
         "custom_fields": fields,
     }
+    if rows == 1 and any(it.get("cond") for it in items):
+        # A hidden conditional still owns a grid column, and column-gap spaces
+        # columns, not cards - so every hidden pill added 8px of dead space.
+        # Space the visible pills with a margin instead; a hidden one has none.
+        grid = card["styles"]["grid"]
+        grid[grid.index({"column-gap": "%dpx" % gap})] = {"column-gap": "0"}
+        card["extra_styles"] = ("#container > div:not(:has(> [hidden])):not(:last-child)"
+                                " { margin-right: %dpx; }" % gap)
+    return card
 
 
 def range_pill(label, icon, accent, entities, hash_id, decimals=0):

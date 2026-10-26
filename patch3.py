@@ -104,6 +104,13 @@ def top_strip():
     items = [
         {"card": nav(person("person.cameron", "Cameron"), "ov-cameron")},
         {"card": nav(person("person.paget", "Paget"), "ov-paget")},
+        # updates straight after the occupants, so they aren't scrolled off the end
+        {"card": nav(d.pill("update.home_assistant_operating_system_update", "mdi:package-up",
+                            q("HA OS update"), accent=d.RED), "ov-updates"),
+         "cond": "update.home_assistant_operating_system_update"},
+        {"card": nav(d.pill("update.home_assistant_core_update", "mdi:package-up",
+                            q("HA Core update"), accent=d.RED), "ov-updates"),
+         "cond": "update.home_assistant_core_update"},
         {"card": nav(d.pill("binary_sensor.door_sensor", "mdi:door-open",
                             q("Door open"), accent=d.AMBER), "ov-openings"),
          "cond": "binary_sensor.door_sensor"},
@@ -116,12 +123,6 @@ def top_strip():
                 else d.range_pill(label, icon, accent, ents_for(key), "ov-" + key, dec))
         items.append({"card": pill})
     items += [
-        {"card": nav(d.pill("update.home_assistant_operating_system_update", "mdi:package-up",
-                            q("HA OS update"), accent=d.RED), "ov-updates"),
-         "cond": "update.home_assistant_operating_system_update"},
-        {"card": nav(d.pill("update.home_assistant_core_update", "mdi:package-up",
-                            q("HA Core update"), accent=d.RED), "ov-updates"),
-         "cond": "update.home_assistant_core_update"},
         {"card": nav(d.pill("binary_sensor.any_device_battery_low", "mdi:battery-alert",
                             q("Battery low"), accent=d.RED), "ov-battery"),
          "cond": "binary_sensor.any_device_battery_low"},
