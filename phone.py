@@ -46,16 +46,17 @@ def span2(card):
     return dict(card, grid_options=g)
 
 
-def media(entity, label, controls, icon="mdi:speaker", cols=HALF):
-    """A media card. `cols` because a LONE one has to go full width.
+def media(entity, label, controls, icon="mdi:speaker"):
+    """A media card, half width and two grid rows tall.
 
-    These are ~128px tall against a tile's 56, and an HA grid row takes its
-    height from the tallest card in it. Kitchen and the living room each have
-    two media cards, so they pair with each other and the row is even. The
-    master bedroom has one, so whatever tile landed beside it was stranded
-    at the top of a 128px row with 72px of dead space underneath.
+    The section grid is 12 columns of 56px rows with an 8px gap, so two rows
+    is 120px: level with two stacked tiles. A media card is ~124px against a
+    tile's 56, and a row takes the height of its tallest card, so without the
+    span any tile dragged beside one was stranded at the top of a tall row.
+    Every media card spans, paired or not, so any arrangement made in the UI
+    stays gap-free.
     """
-    return span(d.media_card(entity, label, controls=controls, icon=icon), cols, entity)
+    return span2(span(d.media_card(entity, label, controls=controls, icon=icon), HALF, entity))
 
 
 def sections():
@@ -99,13 +100,8 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
-            # rows=2 is HA's own row spanning: the section grid is 12
-            # columns of 56px rows with an 8px gap, so a media card spanning
-            # two rows is 120px and sits level with two stacked tiles. Every
-            # tile stays a separate card, so they can be dragged freely in
-            # the UI without the dead space coming back.
-            span2(media("media_player.homepod_mini_master_bedroom", "HomePod",
-                        ("play", "vol_down", "vol_up"))),
+            media("media_player.homepod_mini_master_bedroom", "HomePod",
+                  ("play", "vol_down", "vol_up")),
             plug("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
                  "mdi:air-humidifier"),
             light("light.mushroom_lamp", "Mushroom Lamp"),

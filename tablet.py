@@ -61,40 +61,55 @@ SCENES = {
 }
 
 
-def when(room, cards):
-    """Show these cards only while that room's tab is selected."""
-    inner = [{"type": "grid", "columns": 2, "square": False, "cards": cards}]
+def tall(card):
+    """Two grid rows (56 + 8 + 56 = 120px), level with two stacked tiles."""
+    return dict(card, grid_options={"rows": 2})
+
+
+def room_cards(room, cards):
+    """Every card of a room panel as its own section card, shown only while
+    that room's tab is selected.
+
+    This used to be one conditional card holding a fixed grid, which welded
+    the tiles together: none of them could be dragged in the UI, and a tile
+    beside a media card was stranded at the top of a tall row. Separate cards
+    with a visibility rule switch rooms exactly the same way and can be
+    rearranged freely; tall() cards span two rows so tiles stack beside them.
+    """
+    shown = [{"condition": "state", "entity": ROOM, "state": room}]
     sc = SCENES.get(room) or []
     if sc:
-        inner.append(d.room_header("Scenes", "mdi:palette"))
-        inner.append({"type": "grid", "columns": 2, "square": False,
-                      "cards": [d.tile_scene(e, n, i, accent=a) for e, n, i, a in sc]})
-    return {"type": "conditional",
-            "conditions": [{"condition": "state", "entity": ROOM, "state": room}],
-            "card": {"type": "vertical-stack", "cards": inner}}
+        cards = cards + [dict(d.room_header("Scenes", "mdi:palette"),
+                              grid_options={"columns": 12})] \
+                      + [d.tile_scene(e, n, i, accent=a) for e, n, i, a in sc]
+    out = []
+    for c in cards:
+        g = {"columns": 6, **c.get("grid_options", {})}
+        out.append(dict(c, grid_options=g, visibility=shown + c.get("visibility", [])))
+    return out
 
 
 def panels():
     L = d.tile
     return {
         "Kitchen": [
+            tall(d.media_card("media_player.kitchen_display", "Display", icon="mdi:monitor",
+                              controls=("vol_down", "mute", "vol_up"))),
+            tall(d.media_card("media_player.homepod_mini_kitchen", "HomePod",
+                              controls=("play", "vol_down", "vol_up", "mute"))),
             L("light.kitchen_light_2", "Kitchen Light", "mdi:lightbulb"),
             L("light.bench_lamp", "Bench Lamp", "mdi:lightbulb"),
             L("light.kitchen_lights", "All Kitchen", "mdi:lightbulb-group"),
-            d.media_card("media_player.kitchen_display", "Display", icon="mdi:monitor",
-                         controls=("vol_down", "mute", "vol_up")),
-            d.media_card("media_player.homepod_mini_kitchen", "HomePod",
-                         controls=("play", "vol_down", "vol_up", "mute")),
         ],
         "Living Room": [
             L("light.couch_lamp", "Couch Lamp", "mdi:lightbulb"),
             L("light.tv_lamp", "TV Lamp", "mdi:lightbulb"),
             L("light.corner_light", "Corner Light", "mdi:lightbulb"),
             L("light.living_room", "All Living Room", "mdi:lightbulb-group"),
-            d.media_card("media_player.living_room_amp", "Amp",
-                         controls=("play", "vol_down", "vol_up", "mute")),
-            d.media_card("media_player.living_room", "Apple TV", icon="mdi:television",
-                         controls=("power", "play")),
+            tall(d.media_card("media_player.living_room_amp", "Amp",
+                              controls=("play", "vol_down", "vol_up", "mute"))),
+            tall(d.media_card("media_player.living_room", "Apple TV", icon="mdi:television",
+                              controls=("power", "play"))),
             dict(d.tile_sensor("sensor.soil_moisture_sensor_1_humidity", "Fiddle leaf fig",
                           "mdi:sprout", accent=d.LEAF),
                  tap_action={"action":"navigate","navigation_path":"#ov-plant-fiddle"}),
@@ -109,11 +124,11 @@ def panels():
             L("light.bedside_right", "Bedside Right", "mdi:lightbulb"),
             L("light.mushroom_lamp", "Mushroom Lamp", "mdi:lightbulb"),
             L("light.master_bedroom_lights", "All Bedroom", "mdi:lightbulb-group"),
-            d.media_card("media_player.homepod_mini_master_bedroom", "HomePod",
-                         controls=("play", "vol_down", "vol_up")),
-            d.light("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
-                    118, circle=46, glyph=23, icon="mdi:air-humidifier",
-                    on_bg=d.BLUE_BG, on_ac=d.BLUE),
+            tall(d.media_card("media_player.homepod_mini_master_bedroom", "HomePod",
+                              controls=("play", "vol_down", "vol_up"))),
+            tall(d.light("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
+                         118, circle=46, glyph=23, icon="mdi:air-humidifier",
+                         on_bg=d.BLUE_BG, on_ac=d.BLUE)),
         ],
         "Guest": [
             L("light.guest_bedroom_lamp", "Guest Lamp", "mdi:lightbulb"),
@@ -185,7 +200,7 @@ def build():
     rooms_section = {"type": "grid", "cards":
         [span(t, 3) for t in (tab(r) for r in ROOMS)]
         + [span(room_header_card(), 12)]
-        + [span(when(r, P[r]), 12) for r in ROOMS]}
+        + [c for r in ROOMS for c in room_cards(r, P[r])]}
     return {"views": [{
         "title": "Home", "path": "home", "type": "sections",
         "theme": "Overlook", "max_columns": 2,

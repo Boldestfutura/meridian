@@ -103,6 +103,15 @@ of nothing beneath it.
 120px) and the tiles flow around it. Each tile remains its own card, so the user can
 still drag them anywhere and the grid re-packs — which is the whole point.
 
+**Every media card spans two rows, on every sections dashboard, paired or not.** A pair
+of media cards side by side looks fine without it, right up until someone drags a tile
+next to one. The span is what keeps any arrangement made in the UI gap-free.
+
+**Never wrap a group of cards in a `conditional` or a `grid` to switch them as a unit.**
+The tablet's room panels were built that way and none of their tiles could be dragged.
+Give each card its own `visibility` rule instead (the tablet uses a state condition on
+`input_select.tablet_room`): it switches the same way and every card stays movable.
+
 A `design.stack()` helper was built for this first, putting two cards inside one
 button-card's `custom_fields`. It worked and was still wrong: it welded the pair
 together so they could not be separated in the UI. It has been deleted. **Do not

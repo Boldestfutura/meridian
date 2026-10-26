@@ -23,7 +23,10 @@ def light(entity, label):
 
 
 def media(entity, label, controls, icon="mdi:speaker"):
-    return span(d.media_card(entity, label, controls=controls, icon=icon), FULL, entity)
+    """Half width, two grid rows (120px) - see phone.media for why."""
+    c = span(d.media_card(entity, label, controls=controls, icon=icon), HALF, entity)
+    c["grid_options"]["rows"] = 2
+    return c
 
 
 def sections():
