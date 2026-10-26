@@ -202,10 +202,56 @@ def photo_view():
 
     picture-entity rather than an iframe: an iframe swallows the tap, so there
     would be no way back out without a card-mod overlay.
+
+    Clock and weather sit over the bottom-left corner like the Nest Hub's own
+    ambient screen. The wrapper is a button-card on sensor.time so it re-renders
+    every minute; the overlay has pointer-events:none so taps still reach the
+    photo underneath.
     """
+    overlay = """[[[
+      const W = %s; const e = states['weather.forecast_home'];
+      const w = W[e.state] || %s;
+      const t = Math.round(e.attributes.temperature);
+      const d = new Date();
+      const tm = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
+      const dt = d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+      return `<div style="font-size:72px;font-weight:600;letter-spacing:-.03em;line-height:1">${tm}</div>
+              <div style="display:inline-flex;width:auto;justify-content:flex-start;align-items:center;gap:10px;margin-top:8px;font-size:20px;font-weight:500">
+                <span>${dt}</span><span style="opacity:.6">·</span>
+                <ha-icon icon="${w.ic}" style="--mdc-icon-size:26px"></ha-icon>
+                <span>${t}° ${w.nm}</span>
+              </div>`;
+    ]]]""" % (d.WJS, d.FALLBACK)
     return {"title": "Photos", "path": "photos", "type": "panel",
             "theme": "Overlook", "badges": [], "subview": True,
             "cards": [{
+              "type": "custom:button-card", "entity": "sensor.time",
+              "triggers_update": ["weather.forecast_home"],
+              "show_icon": False, "show_name": False, "show_state": False,
+              "tap_action": {"action": "none"},
+              "styles": {
+                "card": [{"padding": "0"}, {"border": "none"}, {"border-radius": "0"},
+                         {"box-shadow": "none"}, {"background": "#000"},
+                         {"overflow": "hidden"}, {"position": "relative"},
+                         # Fill the screen exactly, so the corner overlay is on it.
+                         # A cast view (hc-main) has no toolbar; a browser has 56px.
+                         {"height": "[[[ return document.querySelector('hc-main')"
+                                    " ? '100vh' : 'calc(100vh - 56px)'; ]]]"}],
+                "grid": [{"grid-template-areas": '"p"'}],
+                "custom_fields": {
+                  # picture-entity sizes itself 16:9 from its width; centre it
+                  # and let the card crop whatever overhangs.
+                  "p": [{"position": "absolute"}, {"left": "0"}, {"right": "0"},
+                        {"top": "50%"}, {"transform": "translateY(-50%)"}],
+                  "o": [{"position": "absolute"}, {"z-index": "1"}, {"left": "0"}, {"right": "0"},
+                        {"bottom": "0"}, {"padding": "80px 36px 28px"},
+                        {"text-align": "left"}, {"color": "#fff"},
+                        {"font-family": d.FONT}, {"pointer-events": "none"},
+                        {"text-shadow": "0 1px 8px rgba(0,0,0,.55)"},
+                        {"background": "linear-gradient(to top, rgba(0,0,0,.45), transparent)"}],
+                },
+              },
+              "custom_fields": {"o": overlay, "p": {"card": {
                 "type": "picture-entity",
                 "entity": "camera.album_slideshow_family",
                 "camera_view": "auto",
@@ -215,4 +261,5 @@ def photo_view():
                                "navigation_path": "/ha-kitchen/kitchen"},
                 "hold_action": {"action": "none"},
                 "double_tap_action": {"action": "none"},
+              }}},
             }]}
