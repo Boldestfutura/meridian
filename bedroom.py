@@ -138,9 +138,20 @@ def page(path, body, entity=None, triggers=None):
 # Clock
 # ---------------------------------------------------------------------------
 
+PHOTOS = "camera.album_slideshow_family"   # the kitchen's Immich Family album
+
+
 def clock():
-    """The ambient screen. The demo's artwork becomes three soft blobs of the
-    bedroom's colours mixed into the surface, so it follows light and dark."""
+    """The ambient screen: the Family album full-bleed, as on the kitchen's
+    photo view, with the clock over it in white.
+
+    The photo is a picture-entity sized to cover the card - at least as wide
+    as 16:9 of the card's height, centred, the card cropping the overflow -
+    the same trick as kitchen.photo_view. A gradient scrim sits between it
+    and the text so a bright photo cannot wash the clock out. If the camera
+    is unavailable the card's own background shows instead: the bedroom
+    blobs, darkened by the same scrim.
+    """
     art = ", ".join([
         "radial-gradient(circle at 18% 88%, " + d.mix(ACCENT, 34) + " 0 28%, transparent 28.5%)",
         "radial-gradient(circle at 92% 8%, " + d.mix(d.INDIGO, 26) + " 0 24%, transparent 24.5%)",
@@ -159,29 +170,52 @@ def clock():
       const dt = n.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
       const r = states['%s'], h = states['%s'];
       const ok = s => s && !['unavailable','unknown'].includes(s.state);
-      const room = ok(r) ? `${Math.round(parseFloat(r.state))}° inside` + (ok(h) ? ` · ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
-      const dot = `<span style="opacity:.5;margin:0 8px">·</span>`;
-      return `<div style="display:flex;align-items:baseline;justify-content:center;gap:10px;color:%s">
+      const room = ok(r) ? `${Math.round(parseFloat(r.state))}\u00B0 inside` + (ok(h) ? ` \u00B7 ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
+      const dot = `<span style="opacity:.6;margin:0 8px">\u00B7</span>`;
+      return `<div style="display:flex;align-items:baseline;justify-content:center;gap:10px">
                 <span style="font-size:min(128px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${hm}</span>
-                <span style="font-size:min(28px, 6vh);font-weight:600;color:%s">${ap}</span></div>
-              <div style="font-size:min(22px, 4.8vh);font-weight:600;color:%s;margin-top:10px">${dt}</div>
+                <span style="font-size:min(28px, 6vh);font-weight:600;opacity:.85">${ap}</span></div>
+              <div style="font-size:min(22px, 4.8vh);font-weight:600;margin-top:10px">${dt}</div>
               <div style="display:inline-flex;align-items:center;margin-top:16px;padding:8px 16px;border-radius:999px;
-                          background:%s;font-size:min(16px, 3.6vh);font-weight:600;color:%s">
-                <ha-icon icon="${w.ic}" style="--mdc-icon-size:20px;color:${w.ac};margin-right:8px"></ha-icon>
-                ${w.nm}${t == null ? '' : ' ' + t + '°'}${room ? dot + room : ''}</div>`;
-    ]]]""" % (d.WJS, d.FALLBACK, TEMP, HUMID, d.INK, d.MUTED, d.INK, d.mix(d.SURF, 70, "transparent"), d.INK)
+                          background:rgba(0,0,0,.32);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+                          text-shadow:none;font-size:min(16px, 3.6vh);font-weight:600">
+                <ha-icon icon="${w.ic}" style="--mdc-icon-size:20px;margin-right:8px"></ha-icon>
+                ${w.nm}${t == null ? '' : ' ' + t + '\u00B0'}${room ? dot + room : ''}</div>`;
+    ]]]""" % (d.WJS, d.FALLBACK, TEMP, HUMID)
+    cover = "max(100%%, calc(%s * 16 / 9))" % less(0)
     return {
         "type": "custom:button-card", "entity": "sensor.time",
         "triggers_update": ["weather.forecast_home", TEMP, HUMID],
         "show_icon": False, "show_name": False, "show_state": False,
         "tap_action": {"action": "none"},
         "styles": {
-            "card": d.base(art, pad="0") + [{"height": FULL}],
+            "card": d.base(art, pad="0") + [{"height": FULL}, {"position": "relative"},
+                                             {"overflow": "hidden"}],
             "grid": [{"grid-template-areas": '"f"'}, {"height": "100%"},
                      {"align-content": "center"}],
-            "custom_fields": {"f": [{"justify-self": "center"}, {"text-align": "center"}]},
+            "custom_fields": {
+                "p": [{"position": "absolute"}, {"left": "50%"}, {"top": "50%"},
+                      {"transform": "translate(-50%, -50%)"}, {"width": cover},
+                      {"pointer-events": "none"}],
+                "s": [{"position": "absolute"}, {"inset": "0"}, {"pointer-events": "none"},
+                      {"background": "radial-gradient(ellipse 75% 70% at 50% 50%,"
+                                     " rgba(0,0,0,.42), rgba(0,0,0,.18))"}],
+                "f": [{"justify-self": "center"}, {"text-align": "center"}, {"z-index": "1"},
+                      {"color": "#fff"},
+                      {"text-shadow": "0 1px 3px rgba(0,0,0,.55), 0 2px 14px rgba(0,0,0,.4)"}],
+            },
         },
-        "custom_fields": {"f": face},
+        "custom_fields": {
+            "p": {"card": {
+                "type": "picture-entity", "entity": PHOTOS,
+                "camera_view": "auto", "fit_mode": "cover",
+                "show_name": False, "show_state": False,
+                "tap_action": {"action": "none"}, "hold_action": {"action": "none"},
+                "double_tap_action": {"action": "none"},
+            }},
+            "s": "",
+            "f": face,
+        },
     }
 
 
