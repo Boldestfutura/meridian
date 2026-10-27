@@ -16,6 +16,8 @@ import patch3
 import scenes
 
 HDR, SCENE, MID, LIGHTS = 64, 52, 200, 160
+TEMP  = "sensor.air_quality_monitor_temperature"   # the kitchen's own monitor
+HUMID = "sensor.air_quality_monitor_humidity"
 
 
 def _no_popup(card):
@@ -203,38 +205,44 @@ def photo_view():
     picture-entity rather than an iframe: an iframe swallows the tap, so there
     would be no way back out without a card-mod overlay.
 
-    Clock and weather sit over the bottom-left corner like the Nest Hub's own
-    ambient screen. The wrapper is a button-card on sensor.time so it re-renders
-    every minute; the overlay has pointer-events:none so taps still reach the
-    photo underneath.
+    Styled like the bedroom screen's clock (bedroom.clock): the photo dimmed to a
+    backdrop, a big centred clock with no am/pm, the date, and a frosted pill
+    with the weather and the kitchen's own temperature and humidity. The
+    wrapper is a button-card on sensor.time so it re-renders every minute; the
+    overlay has pointer-events:none so taps still reach the photo underneath.
     """
     overlay = """[[[
       const W = %s; const e = states['weather.forecast_home'];
-      const w = W[e.state] || %s;
-      const t = Math.round(e.attributes.temperature);
+      const w = (e && W[e.state]) || %s;
+      const t = e ? Math.round(e.attributes.temperature) : null;
       const d = new Date();
       const tm = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'})%s;
       const dt = d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-      return `<div style="font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1">${tm}</div>
-              <div style="display:inline-flex;width:auto;align-items:center;gap:8px;margin-top:8px;font-size:22px;font-weight:500">
-                <ha-icon icon="${w.ic}" style="--mdc-icon-size:26px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))"></ha-icon>
-                <span>${t}\u00B0 ${w.nm}</span>
-              </div>
-              <div style="font-size:18px;font-weight:500;margin-top:4px;opacity:.9">${dt}</div>`;
-    ]]]""" % (d.WJS, d.FALLBACK, d.NOAMPM)
+      const r = states['%s'], h = states['%s'];
+      const ok = s => s && !['unavailable','unknown'].includes(s.state);
+      const room = ok(r) ? `${Math.round(parseFloat(r.state))}° inside` + (ok(h) ? ` · ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
+      const dot = `<span style="opacity:.6;margin:0 8px">·</span>`;
+      return `<div style="font-size:min(150px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${tm}</div>
+              <div style="font-size:min(26px, 4.8vh);font-weight:600;margin-top:12px">${dt}</div>
+              <div style="display:inline-flex;align-items:center;margin-top:18px;padding:9px 18px;border-radius:999px;
+                          background:rgba(0,0,0,.32);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+                          text-shadow:none;font-size:min(19px, 3.6vh);font-weight:600">
+                <ha-icon icon="${w.ic}" style="--mdc-icon-size:22px;margin-right:8px"></ha-icon>
+                ${w.nm}${t == null ? '' : ' ' + t + '°'}${room ? dot + room : ''}</div>`;
+    ]]]""" % (d.WJS, d.FALLBACK, d.NOAMPM, TEMP, HUMID)
     return {"title": "Photos", "path": "photos", "type": "panel",
             "theme": "Overlook", "badges": [], "subview": True,
             "cards": [{
               "type": "custom:button-card", "entity": "sensor.time",
-              "triggers_update": ["weather.forecast_home"],
+              "triggers_update": ["weather.forecast_home", TEMP, HUMID],
               "show_icon": False, "show_name": False, "show_state": False,
               "tap_action": {"action": "none"},
               "styles": {
                 "card": [{"padding": "0"}, {"border": "none"}, {"border-radius": "0"},
                          {"box-shadow": "none"}, {"background": "#000"},
                          {"overflow": "hidden"}, {"position": "relative"},
-                         # Fill the screen exactly, so the corner overlay is on it.
-                         # A cast view (hc-main) has no toolbar; a browser has 56px.
+                         # Fill the screen exactly. A cast view (hc-main) has
+                         # no toolbar; a browser has 56px.
                          {"height": "[[[ return document.querySelector('hc-main')"
                                     " ? '100vh' : 'calc(100vh - 56px)'; ]]]"}],
                 "grid": [{"grid-template-areas": '"p"'}],
@@ -243,17 +251,19 @@ def photo_view():
                   # alone left it 576 tall on the Hub's 1024x600 - a 12px black
                   # bar top and bottom. So it is at least as wide as 16:9 of the
                   # card's height too, centred, and the card crops the sides.
+                  # Dimmed to a backdrop, as on the bedroom screen.
                   "p": [{"position": "absolute"}, {"left": "50%"}, {"top": "50%"},
                         {"transform": "translate(-50%, -50%)"},
+                        {"filter": "brightness(.5) saturate(.8)"},
                         {"width": "[[[ const h = document.querySelector('hc-main')"
                                   " ? '100vh' : '(100vh - 56px)';"
                                   " return `max(100%, calc(${h} * 16 / 9))`; ]]]"}],
-                  "o": [{"position": "absolute"}, {"z-index": "1"}, {"left": "0"}, {"right": "0"},
-                        {"bottom": "0"}, {"padding": "80px 36px 28px"},
-                        {"text-align": "left"}, {"color": "#fff"},
+                  "o": [{"position": "absolute"}, {"z-index": "1"}, {"inset": "0"},
+                        {"display": "flex"}, {"flex-direction": "column"},
+                        {"align-items": "center"}, {"justify-content": "center"},
+                        {"text-align": "center"}, {"color": "#fff"},
                         {"font-family": d.FONT}, {"pointer-events": "none"},
-                        {"text-shadow": "0 1px 3px rgba(0,0,0,.6), 0 2px 12px rgba(0,0,0,.45)"},
-                        {"background": "linear-gradient(to top, rgba(0,0,0,.45), transparent)"}],
+                        {"text-shadow": "0 1px 3px rgba(0,0,0,.55), 0 2px 14px rgba(0,0,0,.4)"}],
                 },
               },
               "custom_fields": {"o": overlay, "p": {"card": {

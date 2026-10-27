@@ -58,6 +58,8 @@ rules.
 - The view-1 photo slideshow is a `picture-entity` on `camera.album_slideshow_family`
   (Immich "Family" album, 20s per slide, `fill_mode` cover). It's sized to cover the
   frame, and a tap navigates back.
+- Styled like the bedroom clock since 2026-10-28: photo dimmed (`brightness(.5)`), big
+  centred clock with no am/pm, and a weather pill with the kitchen's own temperature and humidity.
 - It's cast to `media_player.kitchen_display` by two idle/activity automations, guarded
   on `media_title` ("Kitchen: Photos").
 - **Never use a card that loads images by relative URL here.** The cast receiver runs at
