@@ -520,9 +520,12 @@ def _control(entity, tok):
     raise ValueError(tok)
 
 
-def media_card(entity, label, controls=("play", "vol_down", "vol_up"), icon="mdi:speaker"):
+def media_card(entity, label, controls=("play", "vol_down", "vol_up"), icon="mdi:speaker",
+               volume=False):
+    """`volume` shows the volume level at the top right, set like the heatpump
+    stepper's target temperature. Blank while the player reports none."""
     p = "states['%s'].state === 'playing'" % entity
-    return {
+    card = {
         "type": "custom:button-card", "entity": entity,
         "show_icon": False, "show_name": False, "show_state": False,
         "tap_action": {"action": "more-info"},
@@ -575,6 +578,18 @@ def media_card(entity, label, controls=("play", "vol_down", "vol_up"), icon="mdi
                          "cards": [_control(entity, t) for t in controls]}}},
         },
     }
+    if volume:
+        g = card["styles"]["grid"]
+        g[0] = {"grid-template-areas": '"a t v" "c c c"'}
+        g[1] = {"grid-template-columns": "42px 1fr auto"}
+        card["styles"]["custom_fields"]["v"] = [{"justify-self": "end"}, {"align-self": "center"}]
+        card["custom_fields"]["v"] = """[[[
+          const a = states['%s'].attributes;
+          if (a.is_volume_muted) return `<div style="font-size:13px;font-weight:600;color:%s">Muted</div>`;
+          if (a.volume_level == null) return '';
+          return `<div style="font-size:17px;font-weight:700;color:%s;white-space:nowrap">${Math.round(a.volume_level * 100)}%%</div>`;
+        ]]]""" % (entity, MUTED, INK)
+    return card
 
 
 # ===========================================================================

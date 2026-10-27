@@ -154,7 +154,8 @@ def media_panel():
     """Speaker tabs, the selected speaker's now-playing card, and playlists."""
     cards = [dict(picker(SPEAKER, o, label, "mdi:speaker"), grid_options={"columns": 4})
              for o, label, _ in SPEAKERS]
-    cards += [dict(tall(d.media_card(p, o, controls=("prev", "play", "next", "vol_down", "vol_up"))),
+    cards += [dict(tall(d.media_card(p, o, controls=("prev", "play", "next", "vol_down", "vol_up"),
+                                     volume=True)),
                    grid_options={"columns": 12, "rows": 2},
                    visibility=[{"condition": "state", "entity": SPEAKER, "state": o}])
               for o, _, p in SPEAKERS]
