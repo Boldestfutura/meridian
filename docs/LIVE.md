@@ -95,6 +95,14 @@ rules.
     `get_library` has no provider field.
 - **Next job:** `docs/tasks/paget-spotify.md`.
 
+**ha-bedroom** (Echo Show 5 2nd gen, 960x480, Master Bedroom only; `bedroom.py`)
+- Four panel views (Clock, Lights, Music, Air) with a right-hand rail. Built fresh on
+  2026-10-28, so a plain `./deploy.py bedroom` is safe **until Cameron edits it by hand**.
+  After that, patch it like the others.
+- Nested button-cards need explicit `calc()` heights; `100%` resolves to nothing.
+  Templates inside a nested card can't use `entity`, so name the entity id.
+- Device setup: `docs/tasks/echo-show-bedroom.md`.
+
 **ha-phone** (room list) and **ha-computer** (whole house at once)
 - Media cards are `columns 6, rows 2`, so tiles stack and drag freely.
 - The Scenes header has the same swipe chevron. The 7-scene strip overflows at every size.

@@ -23,6 +23,7 @@ TARGETS = {           # url_path -> (module, title, icon)
     "phone":    ("ha-phone",    "Phone",    "mdi:cellphone"),
     "tablet":   ("ha-tablet",   "Tablet",   "mdi:tablet"),
     "computer": ("ha-computer", "Computer", "mdi:laptop"),
+    "bedroom":  ("ha-bedroom",  "Bedroom",  "mdi:bed-king"),
 }
 
 

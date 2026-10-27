@@ -115,11 +115,12 @@ def room_cards(room, cards):
     return out
 
 
-def playlist_slot(i):
+def playlist_slot(i, player=None):
     """Slot i of the playlist grid. Hidden while the sensor has fewer than
-    i + 1 playlists; tap plays it on the selected speaker, replacing the queue."""
+    i + 1 playlists; tap plays it on the selected speaker, replacing the queue.
+    `player` pins it to one speaker instead (the bedroom screen)."""
     it = "states['%s'].attributes.items[%d]" % (PLAYLISTS, i)
-    player = "[[[ return %s[states['%s'].state]; ]]]" % (
+    player = player or "[[[ return %s[states['%s'].state]; ]]]" % (
         __import__("json").dumps({o: p for o, _, p in SPEAKERS}), SPEAKER)
     return {
         "type": "custom:button-card", "entity": PLAYLISTS,
