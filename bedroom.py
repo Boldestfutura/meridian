@@ -196,7 +196,10 @@ def clock():
             "custom_fields": {
                 "p": [{"position": "absolute"}, {"left": "50%"}, {"top": "50%"},
                       {"transform": "translate(-50%, -50%)"}, {"width": cover},
-                      {"pointer-events": "none"}],
+                      {"pointer-events": "none"},
+                      # a backdrop, not the subject: dimmed and a little
+                      # desaturated so the clock leads
+                      {"filter": "brightness(.5) saturate(.8)"}],
                 "s": [{"position": "absolute"}, {"inset": "0"}, {"pointer-events": "none"},
                       {"background": "radial-gradient(ellipse 75% 70% at 50% 50%,"
                                      " rgba(0,0,0,.42), rgba(0,0,0,.18))"}],
