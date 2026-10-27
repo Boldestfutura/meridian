@@ -166,15 +166,13 @@ def clock():
       const parts = new Intl.DateTimeFormat('en-AU',{hour:'numeric',minute:'2-digit'}).formatToParts(n);
       const hm = parts.filter(p => p.type === 'hour' || p.type === 'minute' || p.type === 'literal' && p.value === ':')
                       .map(p => p.value).join('');
-      const ap = (parts.find(p => p.type === 'dayPeriod') || {}).value || '';
       const dt = n.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
       const r = states['%s'], h = states['%s'];
       const ok = s => s && !['unavailable','unknown'].includes(s.state);
       const room = ok(r) ? `${Math.round(parseFloat(r.state))}\u00B0 inside` + (ok(h) ? ` \u00B7 ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
       const dot = `<span style="opacity:.6;margin:0 8px">\u00B7</span>`;
       return `<div style="display:flex;align-items:baseline;justify-content:center;gap:10px">
-                <span style="font-size:min(128px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${hm}</span>
-                <span style="font-size:min(28px, 6vh);font-weight:600;opacity:.85">${ap}</span></div>
+                <span style="font-size:min(128px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${hm}</span></div>
               <div style="font-size:min(22px, 4.8vh);font-weight:600;margin-top:10px">${dt}</div>
               <div style="display:inline-flex;align-items:center;margin-top:16px;padding:8px 16px;border-radius:999px;
                           background:rgba(0,0,0,.32);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);

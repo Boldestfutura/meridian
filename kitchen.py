@@ -114,7 +114,7 @@ def _set(lst, prop, val):
 
 def build():
     rows = {"type": "vertical-stack", "cards": [
-        d.header("Kitchen", big=30, clock=28, h=HDR,
+        d.header("Kitchen", big=30, clock=28, h=HDR, ampm=False,
                  middle=_no_popup(patch3.top_strip()),
                  title_nav="/ha-kitchen/photos"),
         {"type": "horizontal-stack", "cards": _scene_row()},
@@ -153,7 +153,7 @@ def weather_view():
     return {"title": "Weather", "path": "weather", "type": "panel",
             "theme": "Overlook", "badges": [], "subview": True,
             "cards": [{"type": "vertical-stack", "cards": [
-                d.header("Weather", big=30, clock=28, h=HDR,
+                d.header("Weather", big=30, clock=28, h=HDR, ampm=False,
                          title_nav="/ha-kitchen/kitchen"),
                 d.weather(450, num=46, icon=72, forecast="below", slots=5),
             ]}]}
@@ -213,7 +213,7 @@ def photo_view():
       const w = W[e.state] || %s;
       const t = Math.round(e.attributes.temperature);
       const d = new Date();
-      const tm = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
+      const tm = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'})%s;
       const dt = d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
       return `<div style="font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1">${tm}</div>
               <div style="display:inline-flex;width:auto;align-items:center;gap:8px;margin-top:8px;font-size:22px;font-weight:500">
@@ -221,7 +221,7 @@ def photo_view():
                 <span>${t}\u00B0 ${w.nm}</span>
               </div>
               <div style="font-size:18px;font-weight:500;margin-top:4px;opacity:.9">${dt}</div>`;
-    ]]]""" % (d.WJS, d.FALLBACK)
+    ]]]""" % (d.WJS, d.FALLBACK, d.NOAMPM)
     return {"title": "Photos", "path": "photos", "type": "panel",
             "theme": "Overlook", "badges": [], "subview": True,
             "cards": [{

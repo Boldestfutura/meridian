@@ -91,6 +91,8 @@ WEATHER = {
 WJS = json.dumps(WEATHER)
 FALLBACK = '{"ac":"#78828f","nm":"Unknown","ic":"mdi:weather-cloudy"}'
 SURF_JS = json.dumps(SURF)
+# appended to a toLocaleTimeString() call: '10:55 am' -> '10:55'
+NOAMPM = ".replace(/\\s*[ap]\\.?m\\.?$/i, '')"
 
 
 def base(bg, h=None, pad="16px 20px", radius=26):
@@ -111,7 +113,8 @@ def tint_js(accent_js, pct=16):
 # Wall-panel builders (big targets, for the 1024x600 kitchen screen)
 # ===========================================================================
 
-def _header(place, big=34, clock=31, h=None, middle=None, title_nav=None):
+def _header(place, big=34, clock=31, h=None, middle=None, title_nav=None, ampm=True):
+    """`ampm=False` drops the am/pm from the clock (the kitchen Hub)."""
     card = [{"background": "transparent"}, {"box-shadow": "none"}, {"border": "none"},
             {"padding": "0 4px"}, {"font-family": FONT}]
     if h:
@@ -159,11 +162,11 @@ def _header(place, big=34, clock=31, h=None, middle=None, title_nav=None):
             ]]]""" % (MUTED, big, INK, place)),
             "r": """[[[
               const d = new Date();
-              const t = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
+              const t = d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'})%s;
               const s = d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
               return `<div style="font-size:%dpx;font-weight:600;color:%s;line-height:1.1">${t}</div>
                       <div style="font-size:13px;color:%s;margin-top:3px">${s}</div>`;
-            ]]]""" % (clock, INK, MUTED),
+            ]]]""" % (NOAMPM if not ampm else "", clock, INK, MUTED),
             **({"m": {"card": middle}} if middle else {}),
         },
     }
