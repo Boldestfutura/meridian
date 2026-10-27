@@ -1,5 +1,8 @@
 # Adapting these dashboards to a different home
 
+> **Working on Cameron's own install (192.168.1.117)?** Read `docs/LIVE.md` first. This file
+> is the general guide; that one is the live house, what is deployed, and how to change it safely.
+
 You are an LLM pointed at this repo by someone who wants these dashboards on *their*
 Home Assistant. This file is what you need to do that without rediscovering the
 things that already went wrong once.
