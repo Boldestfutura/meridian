@@ -27,6 +27,12 @@ AMP    = "media_player.living_room_amp"              # Sonos: transport and volu
 AMP_MA = "media_player.living_room_amp_2"            # Music Assistant: playlists
 HEAT   = "climate.living_room"                       # the heatpump, open plan
 
+# the heatpump card's surface, tinted by mode as on the other dashboards
+SURF_BY_MODE = """[[[
+    const s = states['climate.living_room'].state;
+    return s === 'heat' ? '%s' : (s === 'cool' ? '%s' : '%s');
+  ]]]""" % (d.mix(d.HEAT, 14), d.mix(d.COOLBLU, 13), d.SURF)
+
 SCREEN = rs.Screen(
     url="ha-kitchen", title="Kitchen", accent=d.AMBER,
     #        path       title      icon
@@ -42,26 +48,71 @@ SCREEN = rs.Screen(
 
 
 def heatpump():
-    """The heatpump stepper stacked over its three mode buttons, full height.
-    Side by side it clips "Heatpump . Off" against the stepper at this width."""
-    c = d.heatpump_stepper()
-    c["styles"]["card"] = [x for x in c["styles"]["card"] if "height" not in x] \
-                          + [{"height": rs.FULL}, {"border-radius": "26px"}]
-    c["styles"]["grid"] = [{"grid-template-areas": '"t" "p" "m"'},
-                           {"grid-template-rows": "auto auto 56px"},
-                           {"row-gap": "18px"}, {"align-content": "center"},
-                           {"height": "100%"}]
-    c["styles"]["custom_fields"] = {
-        "t": [{"justify-self": "start"}, {"text-align": "left"}],
-        "p": [{"justify-self": "start"}],
-        "m": [{"justify-self": "stretch"}, {"width": "100%"}],
+    """The heatpump as a tall card, filling the column beside the air readings.
+
+    Header like the air cards (icon circle, name, what it is doing), the set
+    temperature large in the middle with the room temperature under it, then
+    full-width - / +, Heat and Cool side by side, and Off under them. The tint follows
+    the mode: orange heating, blue cooling, plain when off.
+    """
+    def step(delta, icon):
+        b = d._temp_btn(delta, icon)
+        # no width: a button-card host has none, so 100% collapsed it to 0
+        b["styles"]["card"] = [{"height": "60px"}, {"border-radius": "16px"},
+                               {"box-shadow": "none"}, {"border": "none"}, {"padding": "0"},
+                               {"background": d.SUBTLE}]
+        b["styles"]["icon"] = [{"width": "28px"}, {"color": d.INK}]
+        return b
+
+    return {
+        "type": "custom:button-card", "entity": HEAT,
+        "show_icon": False, "show_name": False, "show_state": False,
+        "tap_action": {"action": "none"}, "hold_action": {"action": "more-info"},
+        "styles": {
+            "card": d.base(SURF_BY_MODE, pad="14px 16px") + [{"height": rs.FULL}],
+            "grid": [{"grid-template-areas": '"h" "v" "s" "m"'},
+                     {"grid-template-rows": "auto 1fr auto auto"},
+                     {"row-gap": "12px"}, {"height": "100%"}],
+            "custom_fields": {
+                "h": [{"justify-self": "stretch"}, {"text-align": "left"}],
+                "v": [{"justify-self": "center"}, {"align-self": "center"}, {"text-align": "center"}],
+                "s": [{"justify-self": "stretch"}, {"width": "100%"}],
+                "m": [{"justify-self": "stretch"}, {"width": "100%"}],
+            },
+        },
+        "custom_fields": {
+            "h": """[[[
+              const e = states['%s']; const s = e.state;
+              const ac = s === 'heat' ? '%s' : (s === 'cool' ? '%s' : '%s');
+              const ic = s === 'heat' ? 'mdi:fire' : (s === 'cool' ? 'mdi:snowflake' : 'mdi:hvac-off');
+              const st = s === 'off' ? 'Off' : (s === 'heat' ? 'Heating' : (s === 'cool' ? 'Cooling'
+                       : s.replace(/_/g,' ').replace(/\\b\\w/g, c => c.toUpperCase())));
+              return `<div style="display:flex;align-items:center;gap:10px">
+                <div style="width:44px;height:44px;border-radius:50%%;flex:none;display:flex;align-items:center;justify-content:center;
+                            background:color-mix(in srgb, ${ac} 22%%, %s)">
+                  <ha-icon icon="${ic}" style="--mdc-icon-size:22px;color:${ac}"></ha-icon></div>
+                <div><div style="font-size:15px;font-weight:600;color:%s">Heatpump</div>
+                     <div style="font-size:13px;color:${ac};margin-top:2px">${st}</div></div></div>`;
+            ]]]""" % (HEAT, d.HEAT, d.COOLBLU, d.MUTED, d.SURF, d.INK),
+            "v": """[[[
+              const a = states['%s'].attributes;
+              const set = a.temperature == null ? '\u2013' : a.temperature;
+              return `<div style="font-size:13px;font-weight:600;color:%s;letter-spacing:.02em">Set to</div>
+                      <div style="font-size:64px;font-weight:700;color:%s;letter-spacing:-.04em;line-height:1.05">${set}\u00B0</div>
+                      <div style="font-size:14px;color:%s;margin-top:4px">Room ${a.current_temperature}\u00B0</div>`;
+            ]]]""" % (HEAT, d.MUTED, d.INK, d.MUTED),
+            "s": {"card": {"type": "horizontal-stack",
+                           "cards": [step(-1, "mdi:minus"), step(1, "mdi:plus")]}},
+            # Heat and Cool side by side, Off full width under them
+            "m": {"card": {"type": "vertical-stack", "cards": [
+                {"type": "horizontal-stack", "cards": [
+                    d.mode_btn("Heat", "heat", "mdi:fire", hgt=56),
+                    d.mode_btn("Cool", "cool", "mdi:snowflake", hgt=56),
+                ]},
+                d.mode_btn("Off", "off", "mdi:power", hgt=56),
+            ]}},
+        },
     }
-    c["custom_fields"]["m"] = {"card": {"type": "horizontal-stack", "cards": [
-        d.mode_btn("Heat", "heat", "mdi:fire", hgt=56),
-        d.mode_btn("Cool", "cool", "mdi:snowflake", hgt=56),
-        d.mode_btn("Off", "off", "mdi:power", hgt=56),
-    ]}}
-    return c
 
 
 def build():
