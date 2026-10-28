@@ -222,7 +222,6 @@ per-tile rendering variant without a reason that survives looking at the row.
 Accents must stay distinct *within a row*. Guest Mode is green because mauve
 is Bedroom Dim's, and the two now sit two tiles apart on every dashboard.
 
-Seven tiles across the kitchen's 1024 px leaves 135 px each, which clips
-"Bedroom Dim" at the stock metrics. `kitchen._scene_row()` tightens the icon
-cell, gap and padding to buy the width back. If an eighth scene is ever
-added, that row needs rethinking rather than tightening further.
+The kitchen and bedroom screens (`roomscreen.py`) show only their own room's
+scenes, two per row, so they never hit the width problem the old seven-across
+kitchen strip had.
