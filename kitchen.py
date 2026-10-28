@@ -40,7 +40,8 @@ SCREEN = rs.Screen(
            ("lights",  "Lights",  "mdi:lightbulb-group"),
            ("media",   "Media",   "mdi:speaker"),
            ("climate", "Climate", "mdi:thermometer")],
-    busy={"lights":  ("states['%s'].state === 'on'" % LIGHTS, d.AMBER),
+    busy={"lights":  ("['%s', 'light.living_room'].some(e => states[e].state === 'on')"
+                      % LIGHTS, d.AMBER),
           "media":   ("states['%s'].state === 'playing'" % AMP, d.VIOLET),
           "climate": ("!['off','unavailable'].includes(states['%s'].state)" % HEAT, d.HEAT)},
     temp=TEMP, humid=HUMID,
@@ -117,11 +118,13 @@ def heatpump():
 
 def build():
     views = SCREEN.views({
-        "lights": rs.lights_page(
-            [("light.bench_lamp", "Bench Lamp", "mdi:lamp"),
-             ("light.kitchen_light_2", "Kitchen Light", "mdi:ceiling-light"),
-             (LIGHTS, "All Kitchen", "mdi:lightbulb-group")],
-            {"script.kitchen_dimmed", "script.goodnight"}),
+        # the two room groups and Goodnight, full height - no scene row
+        "lights": rs.row([
+            rs.lamp(LIGHTS, "Kitchen", "mdi:countertop", rs.FULL),
+            rs.lamp("light.living_room", "Living Room", "mdi:sofa", rs.FULL),
+            rs.scene_tile("script.goodnight", "Goodnight", "mdi:weather-night",
+                          d.INDIGO, rs.FULL),
+        ]),
         "media": rs.media_page(AMP, "Amp",
                                ("prev", "play", "next", "vol_down", "vol_up", "mute"), AMP_MA),
         "climate": rs.air_page(rs.air_readings(TEMP, HUMID, PM25, VOC), heatpump()),

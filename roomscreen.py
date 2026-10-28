@@ -170,13 +170,45 @@ def air_page(readings, side):
     }
 
 
+def lamp(entity, label, icon, height):
+    """A tall light tile: d.light, centred, at a given height."""
+    c = centred(d.light(entity, label, circle=72, glyph=36, icon=icon))
+    c["styles"]["card"].append({"height": height})
+    return c
+
+
+def scene_tile(entity, label, icon, accent, height):
+    """A scene or script as a tall tile, sized to sit in a row of lamps.
+
+    Like scenes.card it always wears its accent and has no on/off state - a
+    script is 'on' for milliseconds - so the tap is shown as a press state."""
+    return {
+        "type": "custom:button-card", "entity": entity, "name": label, "icon": icon,
+        "show_state": True, "state_display": "Scene",
+        "tap_action": {"action": "call-service",
+                       "service": entity.split(".")[0] + ".turn_on",
+                       "service_data": {"entity_id": entity}},
+        "hold_action": {"action": "none"},
+        "styles": {
+            "card": d.base(d.mix(accent, 14), pad="14px 10px") + [{"height": height}],
+            "grid": [{"grid-template-areas": '"i" "n" "s"'},
+                     {"grid-template-rows": "auto auto auto"}, {"width": "100%"},
+                     {"height": "100%"}, {"align-content": "center"}],
+            "img_cell": [{"background": accent}, {"border-radius": "50%"},
+                         {"width": "72px"}, {"height": "72px"}, {"margin": "0 auto"}],
+            "icon": [{"width": "36px"}, {"color": "#ffffff"}],
+            "name": [{"font-size": "16px"}, {"font-weight": "600"}, {"color": d.INK},
+                     {"margin-top": "10px"}],
+            "state": [{"font-size": "13px"}, {"margin-top": "2px"}, {"color": accent}],
+        },
+        "extra_styles": ("#card{transition:background 90ms ease}"
+                         "#card:active{background:%s !important}") % d.mix(accent, 34),
+    }
+
+
 def lights_page(lamps, scene_ids):
     """A row of tall lamp tiles over a row of scenes from scenes.SCENES."""
-    tiles = []
-    for e, n, i in lamps:
-        c = centred(d.light(e, n, circle=72, glyph=36, icon=i))
-        c["styles"]["card"].append({"height": less(GAP + SCENE_H)})
-        tiles.append(c)
+    tiles = [lamp(e, n, i, less(GAP + SCENE_H)) for e, n, i in lamps]
     sc = [scenes.card(*s, height=SCENE_H) for s in scenes.SCENES if s[0] in scene_ids]
     return stack(row(tiles), {"type": "grid", "columns": len(sc), "square": False, "cards": sc})
 

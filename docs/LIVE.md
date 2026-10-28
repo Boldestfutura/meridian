@@ -56,8 +56,8 @@ rules.
 
 **ha-kitchen** (Nest Hub 1st gen, 1024x600, cast; `kitchen.py`)
 - Since 2026-10-28 a **room screen** like the bedroom (`roomscreen.py`): kitchen things
-  only. Pages: `kitchen` (clock over the dimmed Family album), `lights` (Bench Lamp,
-  Kitchen Light, All Kitchen, plus Goodnight and Kitchen Dim), `media` (the Amp: Sonos entity
+  only. Pages: `kitchen` (clock over the dimmed Family album), `lights` (Kitchen,
+  Living Room and Goodnight, full height), `media` (the Amp: Sonos entity
   for controls, MA `_2` for playlists) and `climate` (the kitchen air monitor plus the
   heatpump). `photos` (the idle cast) and `weather` (the clock's tap) remain.
 - **The paths `kitchen` and `photos` are load-bearing:** three automations cast them to
