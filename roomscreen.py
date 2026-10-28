@@ -25,7 +25,6 @@ import tablet
 GAP = 12
 SCENE_H = 64                  # the scene row under the lamps
 PLAYLIST_H = 3 * 56 + 2 * 8   # three rows of playlist slots, HA grid gap 8px
-PHOTOS = "camera.album_slideshow_family"   # the Immich Family album
 
 
 def less(px, parts=1):
@@ -254,12 +253,16 @@ class Screen:
     pages  [(path, title, icon)], the first is the clock home page
     busy   {path: (js test, accent)} - lights that page's rail icon when true
     temp, humid  the room's own sensors, shown on the clock's weather pill
+    photos the album_slideshow camera behind the clock. One camera has one
+           current photo, so each screen gets its own slideshow of the album
+           or they all show the same picture at the same time.
     """
 
-    def __init__(self, url, title, accent, pages, busy, temp, humid, clock_tap=None):
+    def __init__(self, url, title, accent, pages, busy, temp, humid, photos,
+                 clock_tap=None):
         self.url, self.title, self.accent = url, title, accent
         self.pages, self.busy = pages, busy
-        self.temp, self.humid = temp, humid
+        self.temp, self.humid, self.photos = temp, humid, photos
         self.clock_tap = clock_tap or {"action": "none"}
 
     def rail_button(self, path, title, icon, active):
@@ -386,7 +389,7 @@ class Screen:
             },
             "custom_fields": {
                 "p": {"card": {
-                    "type": "picture-entity", "entity": PHOTOS,
+                    "type": "picture-entity", "entity": self.photos,
                     "camera_view": "auto", "fit_mode": "cover",
                     "show_name": False, "show_state": False,
                     "tap_action": {"action": "none"}, "hold_action": {"action": "none"},

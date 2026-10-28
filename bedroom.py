@@ -24,7 +24,7 @@ SCREEN = rs.Screen(
     busy={"lights": ("states['%s'].state === 'on'" % LIGHTS, d.AMBER),
           "music":  ("states['%s'].state === 'playing'" % PLAYER, d.VIOLET),
           "air":    ("states['%s'].state === 'on'" % DEHUM, d.BLUE)},
-    temp=TEMP, humid=HUMID)
+    temp=TEMP, humid=HUMID, photos="camera.album_slideshow_family_bedroom")
 
 
 def build():

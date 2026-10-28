@@ -64,6 +64,11 @@ rules.
   `media_player.kitchen_display`.
 - The old layout, which Cameron had hand-edited, was replaced at his request. A backup is
   at `~/.config/ha/ha-kitchen.before-roomscreen-2026-10-28.json` (local only).
+- **Each room screen has its own slideshow** of the Immich Family album
+  (`Screen(photos=...)`): the kitchen is `camera.album_slideshow_family`, the bedroom
+  `camera.album_slideshow_family_bedroom` (a second album_slideshow entry, 2026-10-28).
+  One camera has one current photo, so sharing it made both screens show the same
+  picture. Both are random order, 20s, cover. A new room screen needs its own entry.
 - **Never use a card that loads images by relative URL here.** The cast receiver runs at
   cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
   `album-slideshow-card` broke this way and was reverted.

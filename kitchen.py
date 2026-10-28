@@ -44,7 +44,7 @@ SCREEN = rs.Screen(
                       % LIGHTS, d.AMBER),
           "media":   ("states['%s'].state === 'playing'" % AMP, d.VIOLET),
           "climate": ("!['off','unavailable'].includes(states['%s'].state)" % HEAT, d.HEAT)},
-    temp=TEMP, humid=HUMID,
+    temp=TEMP, humid=HUMID, photos="camera.album_slideshow_family",
     clock_tap={"action": "navigate", "navigation_path": "/ha-kitchen/weather"})
 
 
@@ -213,7 +213,7 @@ def photo_view():
               },
               "custom_fields": {"o": overlay, "p": {"card": {
                 "type": "picture-entity",
-                "entity": "camera.album_slideshow_family",
+                "entity": SCREEN.photos,
                 "camera_view": "auto",
                 "show_name": False, "show_state": False,
                 "fit_mode": "cover",
