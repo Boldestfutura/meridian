@@ -256,14 +256,17 @@ class Screen:
     photos the album_slideshow camera behind the clock. One camera has one
            current photo, so each screen gets its own slideshow of the album
            or they all show the same picture at the same time.
+    clock_px   the clock's size; it never takes more than 27% of the height
+    dim        the CSS filter that pushes the photo back behind the clock
     """
 
     def __init__(self, url, title, accent, pages, busy, temp, humid, photos,
-                 clock_tap=None):
+                 clock_tap=None, clock_px=140, dim="brightness(.5) saturate(.8)"):
         self.url, self.title, self.accent = url, title, accent
         self.pages, self.busy = pages, busy
         self.temp, self.humid, self.photos = temp, humid, photos
         self.clock_tap = clock_tap or {"action": "none"}
+        self.clock_px, self.dim = clock_px, dim
 
     def rail_button(self, path, title, icon, active):
         busy, tint = self.busy.get(path, ("false", self.accent))
@@ -353,14 +356,14 @@ class Screen:
           const ok = s => s && !['unavailable','unknown'].includes(s.state);
           const room = ok(r) ? `${Math.round(parseFloat(r.state))}° inside` + (ok(h) ? ` · ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
           const dot = `<span style="opacity:.6;margin:0 8px">·</span>`;
-          return `<div style="font-size:min(140px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${hm}</div>
+          return `<div style="font-size:min(%dpx, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${hm}</div>
                   <div style="font-size:min(24px, 4.8vh);font-weight:600;margin-top:10px">${dt}</div>
                   <div style="display:inline-flex;align-items:center;margin-top:16px;padding:8px 16px;border-radius:999px;
                               background:rgba(0,0,0,.32);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
                               text-shadow:none;font-size:min(17px, 3.6vh);font-weight:600">
                     <ha-icon icon="${w.ic}" style="--mdc-icon-size:20px;margin-right:8px"></ha-icon>
                     ${w.nm}${t == null ? '' : ' ' + t + '°'}${room ? dot + room : ''}</div>`;
-        ]]]""" % (d.WJS, d.FALLBACK, d.NOAMPM, self.temp, self.humid)
+        ]]]""" % (d.WJS, d.FALLBACK, d.NOAMPM, self.temp, self.humid, self.clock_px)
         # the photo's width, as a template like every height here
         cover = ("[[[ const h = document.querySelector('hc-main')"
                  " ? '(100vh - %dpx)' : '(100vh - var(--header-height, 56px) - %dpx)';"
@@ -381,7 +384,7 @@ class Screen:
                           {"pointer-events": "none"},
                           # a backdrop, not the subject: dimmed and a little
                           # desaturated so the clock leads
-                          {"filter": "brightness(.5) saturate(.8)"}],
+                          {"filter": self.dim}],
                     "f": [{"justify-self": "center"}, {"text-align": "center"}, {"z-index": "1"},
                           {"color": "#fff"}, {"pointer-events": "none"},
                           {"text-shadow": "0 1px 3px rgba(0,0,0,.55), 0 2px 14px rgba(0,0,0,.4)"}],

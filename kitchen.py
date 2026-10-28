@@ -45,7 +45,9 @@ SCREEN = rs.Screen(
           "media":   ("states['%s'].state === 'playing'" % AMP, d.VIOLET),
           "climate": ("!['off','unavailable'].includes(states['%s'].state)" % HEAT, d.HEAT)},
     temp=TEMP, humid=HUMID, photos="camera.album_slideshow_family",
-    clock_tap={"action": "navigate", "navigation_path": "/ha-kitchen/weather"})
+    clock_tap={"action": "navigate", "navigation_path": "/ha-kitchen/weather"},
+    # smaller and lighter than the bedroom's: the photos are the point here
+    clock_px=100, dim="brightness(.72) saturate(.9)")
 
 
 def heatpump():
@@ -150,7 +152,7 @@ def photo_view():
     picture-entity rather than an iframe: an iframe swallows the tap, so there
     would be no way back out without a card-mod overlay.
 
-    Styled like the bedroom screen's clock (bedroom.clock): the photo dimmed to a
+    Styled like the room screen clock (roomscreen.Screen.clock): the photo dimmed to a
     backdrop, a big centred clock with no am/pm, the date, and a frosted pill
     with the weather and the kitchen's own temperature and humidity. The
     wrapper is a button-card on sensor.time so it re-renders every minute; the
@@ -167,7 +169,7 @@ def photo_view():
       const ok = s => s && !['unavailable','unknown'].includes(s.state);
       const room = ok(r) ? `${Math.round(parseFloat(r.state))}° inside` + (ok(h) ? ` · ${Math.round(parseFloat(h.state))}%% humidity` : '') : '';
       const dot = `<span style="opacity:.6;margin:0 8px">·</span>`;
-      return `<div style="font-size:min(150px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${tm}</div>
+      return `<div style="font-size:min(110px, 27vh);font-weight:600;letter-spacing:-.045em;line-height:1">${tm}</div>
               <div style="font-size:min(26px, 4.8vh);font-weight:600;margin-top:12px">${dt}</div>
               <div style="display:inline-flex;align-items:center;margin-top:18px;padding:9px 18px;border-radius:999px;
                           background:rgba(0,0,0,.32);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
@@ -196,10 +198,10 @@ def photo_view():
                   # alone left it 576 tall on the Hub's 1024x600 - a 12px black
                   # bar top and bottom. So it is at least as wide as 16:9 of the
                   # card's height too, centred, and the card crops the sides.
-                  # Dimmed to a backdrop, as on the bedroom screen.
+                  # Dimmed a little, less than the bedroom (SCREEN.dim).
                   "p": [{"position": "absolute"}, {"left": "50%"}, {"top": "50%"},
                         {"transform": "translate(-50%, -50%)"},
-                        {"filter": "brightness(.5) saturate(.8)"},
+                        {"filter": SCREEN.dim},
                         {"width": "[[[ const h = document.querySelector('hc-main')"
                                   " ? '100vh' : '(100vh - 56px)';"
                                   " return `max(100%, calc(${h} * 16 / 9))`; ]]]"}],
