@@ -5,17 +5,17 @@ own order and its own subset. Cameron reordered the strip and added two dims
 through the UI, and nothing propagated back - so every generator would have
 reverted his edit on the next deploy. One list, four layouts.
 
-Order is deliberate and was chosen at the panel: the two whole-house actions
-first, then the mode, then the per-room dims. `guest_mode` is a toggle rather
+Order is deliberate: guest mode first (Cameron, 2026-10-31), then the two
+whole-house actions, then the per-room dims. `guest_mode` is a toggle rather
 than a script, so it is flagged and rendered differently.
 """
 import design as d
 
 #        entity                          label          icon                        accent     toggle
 SCENES = [
+    ("input_boolean.guest_mode",         "Guest Mode",  "mdi:account-group",         d.GREEN,  True),
     ("script.heatpump_cool_30min",       "Heat/Cool",   "mdi:sun-snowflake-variant", d.TEAL,   False),
     ("script.goodnight",                 "Goodnight",   "mdi:weather-night",         d.INDIGO, False),
-    ("input_boolean.guest_mode",         "Guest Mode",  "mdi:account-group",         d.GREEN,  True),
     ("script.kitchen_dimmed",            "Kitchen Dim", "mdi:lightbulb-on-30",       d.AMBER,  False),
     ("script.bedroom_dimmed",            "Bedroom Dim", "mdi:bed",                   d.MAUVE,  False),
     ("script.living_room_dimmed",        "Living Dim",  "mdi:sofa",                  d.VIOLET, False),
