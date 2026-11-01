@@ -206,22 +206,23 @@ def popups():
     return out
 
 
-def player_popup(hash_id, title, entity, icon):
-    """Playback and volume controls with a compact now-playing summary."""
+def player_popup(hash_id, title, entity, icon, has_mute=False):
+    """Same layout as the Amp: the big volume slider first, then playback,
+    then a compact pair for what is playing and where it comes from."""
     entity_js = json.dumps(entity)
     now_playing = """[[[
       const e = states[%s]; const a = e && e.attributes || {};
-      return a.media_title || (e && e.state === 'playing' ? 'Playing' : 'Nothing playing');
+      const t = a.media_title, by = a.media_artist;
+      if (t) return by ? t + ' \u00b7 ' + by : t;
+      return e && e.state === 'playing' ? 'Playing' : 'Nothing playing';
     ]]]""" % entity_js
     app = """[[[
       const e = states[%s]; const a = e && e.attributes || {};
-      return a.app_name || a.source || (e ? e.state : '\u2014');
+      return a.app_name || a.source || '\u2014';
     ]]]""" % entity_js
     return d.info_popup(hash_id, title, icon, None, extra=[
-        {"type": "tile", "entity": entity, "name": title,
-         "state_content": "state", "features_position": "bottom",
-         "features": [{"type": "media-player-playback"},
-                      {"type": "media-player-volume-slider"}]},
+        volume_tile(entity, has_mute=has_mute),
+        playback_tile(entity),
         {"type": "grid", "columns": 2, "square": False, "cards": [
             d.tile_sensor(entity, "Now playing", "mdi:music-note", accent=d.VIOLET,
                           state_fn=now_playing),
@@ -407,6 +408,28 @@ def volume_tile(entity, has_mute=True):
         bg = "[[[ return %s ? '%s' : '%s'; ]]]" % (muted, d.mix(d.RED, 13), d.mix(d.BLUE, 14))
     else:
         bg = d.mix(d.BLUE, 14)
+    return tinted(bg, {
+        "type": "tile", "entity": entity,
+        "name": "Volume", "icon": "mdi:volume-high",
+        "state_content": "volume_level",
+        "features_position": "bottom",
+        "features": [{"type": "media-player-volume-slider"}]})
+
+
+def playback_tile(entity):
+    """Previous / play-pause / next on a violet surface, artwork as the icon."""
+    return tinted(d.mix(d.VIOLET, 14), {
+        "type": "tile", "entity": entity,
+        "name": "Playback", "icon": "mdi:play-circle",
+        "show_entity_picture": True,
+        "state_content": "state",
+        "features_position": "bottom",
+        "features": [{"type": "media-player-playback"}]})
+
+
+def tinted(bg, card):
+    """A native tile sitting flush on a tinted button-card surface (the only
+    way to get HA's own sliders and buttons onto our colours)."""
     return {
         "type": "custom:button-card",
         "show_icon": False, "show_name": False, "show_state": False,
@@ -425,12 +448,61 @@ def volume_tile(entity, has_mute=True):
                 {"--ha-card-border-width": "0"},
             ]},
         },
-        "custom_fields": {"v": {"card": {
-            "type": "tile", "entity": entity,
-            "name": "Volume", "icon": "mdi:volume-high",
-            "state_content": "volume_level",
-            "features_position": "bottom",
-            "features": [{"type": "media-player-volume-slider"}]}}},
+        "custom_fields": {"v": {"card": card}},
+    }
+
+
+def step_tile(entity, label, icon):
+    """Name and value over a plain - / + pair. HA's own numeric-input buttons
+    repeat the value between them, which is redundant with it shown above."""
+    e = json.dumps(entity)
+
+    def btn(delta, glyph):
+        # clamp to the entity's own range; Sonos is -10..10 in steps of 1
+        value = """[[[
+          const s = states[%s], a = s.attributes, step = a.step || 1;
+          const v = Number(s.state) + (%d) * step;
+          return Math.min(a.max, Math.max(a.min, v));
+        ]]]""" % (e, delta)
+        return {
+            "type": "custom:button-card", "entity": entity, "icon": glyph,
+            "show_name": False, "show_state": False,
+            "tap_action": {"action": "call-service", "service": "number.set_value",
+                           "service_data": {"entity_id": entity, "value": value}},
+            "styles": {
+                "card": [{"height": "40px"}, {"border-radius": "12px"},
+                         {"box-shadow": "none"}, {"border": "none"}, {"padding": "0"},
+                         {"background": d.SUBTLE}],
+                "icon": [{"width": "20px"}, {"color": d.INK}],
+            },
+        }
+
+    return {
+        "type": "custom:button-card", "entity": entity, "name": label, "icon": icon,
+        "show_state": True, "tap_action": {"action": "none"},
+        "state_display": """[[[
+          const v = Number(states[%s].state);
+          return isNaN(v) ? '\u2014' : (v > 0 ? '+' + v : v < 0 ? '\u2212' + (-v) : '0');
+        ]]]""" % e,
+        "styles": {
+            "card": [{"border-radius": "16px"}, {"box-shadow": "none"}, {"border": "none"},
+                     {"padding": "10px"}, {"font-family": d.FONT}, {"background": d.SURF}],
+            "grid": [{"grid-template-areas": '"i n" "i s" "b b"'},
+                     {"grid-template-columns": "36px 1fr"},
+                     {"grid-template-rows": "18px 18px auto"},
+                     {"align-items": "center"}, {"column-gap": "10px"}, {"row-gap": "2px"}],
+            "img_cell": [{"background": d.NEUTRAL}, {"border-radius": "50%"},
+                         {"width": "36px"}, {"height": "36px"}],
+            "icon": [{"width": "19px"}, {"color": d.MUTED}],
+            "name": [{"font-size": "14px"}, {"font-weight": "600"}, {"color": d.INK},
+                     {"justify-self": "start"}, {"align-self": "end"}],
+            "state": [{"font-size": "12px"}, {"color": d.MUTED}, {"justify-self": "start"},
+                      {"align-self": "start"}],
+            "custom_fields": {"b": [{"justify-self": "stretch"}, {"width": "100%"},
+                                    {"margin-top": "10px"}]},
+        },
+        "custom_fields": {"b": {"card": {"type": "grid", "columns": 2, "square": False,
+                                         "cards": [btn(-1, "mdi:minus"), btn(1, "mdi:plus")]}}},
     }
 
 
@@ -650,12 +722,8 @@ def device_popups():
             sw("switch.living_room_amp_surround_enabled", "Surround", "mdi:surround-sound"),
         ]},
         {"type": "grid", "columns": 2, "square": False, "cards": [
-            {"type": "tile", "entity": "number.living_room_amp_bass", "name": "Bass",
-             "features_position": "bottom", "features": [{"type": "numeric-input",
-                                                          "style": "slider"}]},
-            {"type": "tile", "entity": "number.living_room_amp_treble", "name": "Treble",
-             "features_position": "bottom", "features": [{"type": "numeric-input",
-                                                          "style": "slider"}]},
+            step_tile("number.living_room_amp_bass", "Bass", "mdi:music-clef-bass"),
+            step_tile("number.living_room_amp_treble", "Treble", "mdi:music-clef-treble"),
         ]},
     ])
 
@@ -688,7 +756,8 @@ def device_popups():
         {"type": "grid", "columns": 2, "square": False,
          "cards": [app_tile(n, i) for n, i in ATV_APPS]}])
     display = player_popup("ov-kitchen-display", "Kitchen Display",
-                           "media_player.kitchen_display", "mdi:monitor")
+                           "media_player.kitchen_display", "mdi:monitor",
+                           has_mute=True)
     kitchen_homepod = player_popup("ov-homepod-kitchen", "Kitchen HomePod",
                                    "media_player.homepod_mini_kitchen", "mdi:speaker")
     bedroom_homepod = player_popup("ov-homepod-bedroom", "Bedroom HomePod",
