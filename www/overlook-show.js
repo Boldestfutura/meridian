@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.4.4";
+const VERSION = "0.5.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -51,6 +51,9 @@ class OverlookShow extends LitElement {
     _picker: { state: true },
     _todo: { state: true },
     _events: { state: true },
+    _cal: { state: true },
+    _month: { state: true },
+    _sel: { state: true },
     _forecast: { state: true },
     _now: { state: true },
     _uncovered: { state: true },
@@ -108,7 +111,7 @@ class OverlookShow extends LitElement {
     clearTimeout(this._idleTimer);
     if (!this._config || !this._config.photos) return;
     this._idleTimer = setTimeout(() => {
-      if (this._page === "recipes") { this._poke(); return; }    // never leave Recipes mid-cook
+      if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
       this._page = "photos";
     }, this._config.idle * 1000);
@@ -151,13 +154,9 @@ class OverlookShow extends LitElement {
     this._subscribed = false;
   }
 
-  async _loadEvents() {
-    const cals = this._config.calendars || [];
-    if (!cals.length) { this._events = null; return; }
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    const end = new Date(start); end.setDate(end.getDate() + 2);
+  async _fetchEvents(start, end) {
     const all = [];
-    for (const cal of cals) {
+    for (const cal of this._config.calendars || []) {
       const id = typeof cal === "string" ? cal : cal.entity;
       const colour = (typeof cal === "object" && cal.color) || "var(--accent)";
       try {
@@ -166,8 +165,29 @@ class OverlookShow extends LitElement {
         r.forEach((e) => all.push(Object.assign(e, { colour })));
       } catch (e) { console.warn("overlook-show: calendar", id, e); }
     }
-    const key = (e) => e.start.dateTime || e.start.date;
-    this._events = all.sort((a, b) => key(a).localeCompare(key(b)));
+    return all.sort((a, b) => this._d(a.start) - this._d(b.start));
+  }
+
+  async _loadEvents() {
+    if (!(this._config.calendars || []).length) { this._events = null; return; }
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(start); end.setDate(end.getDate() + 2);
+    this._events = await this._fetchEvents(start, end);
+    if (this._page === "calendar") this._loadMonth();
+  }
+
+  // the month grid plus the 8 days from the selected one, in one fetch
+  async _loadMonth() {
+    if (!(this._config.calendars || []).length) return;
+    const gs = this._gridStart(this._month);
+    const ge = new Date(gs); ge.setDate(ge.getDate() + 42);
+    const sel = this._day(this._sel);
+    const le = new Date(sel); le.setDate(le.getDate() + 8);
+    const start = sel < gs ? sel : gs, end = le > ge ? le : ge;
+    const key = this._ymd(start) + this._ymd(end);
+    this._calKey = key;
+    const ev = await this._fetchEvents(start, end);
+    if (this._calKey === key) this._cal = ev;
   }
 
   // --- helpers --------------------------------------------------------------
@@ -180,7 +200,21 @@ class OverlookShow extends LitElement {
     this._picker = false;
     this._recipe = null;
     if (page !== this._page) this._book = null;
+    if (page === "calendar" && page !== this._page) this._toToday();
     this._page = page;
+  }
+  // an event's start/end -> Date; all-day dates are local midnight, not UTC
+  _d(x) {
+    if (x.dateTime) return new Date(x.dateTime);
+    return this._day(x.date);
+  }
+  _day(ymd) { const [y, m, d] = ymd.split("-").map(Number); return new Date(y, m - 1, d); }
+  _ymd(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  _ampm(d) {
+    const m = d.getMinutes();
+    return `${d.getHours() % 12 || 12}${m ? ":" + String(m).padStart(2, "0") : ""}${d.getHours() < 12 ? "am" : "pm"}`;
   }
   _time(d) {
     const h = d.getHours() % 12 || 12;
@@ -243,6 +277,7 @@ class OverlookShow extends LitElement {
     switch (this._page) {
       case "kitchen": return this._kitchen();
       case "recipes": return this._recipes();
+      case "calendar": return this._calendar();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -252,6 +287,126 @@ class OverlookShow extends LitElement {
         </div>`;
       }
     }
+  }
+
+  // --- calendar: month grid + what's on --------------------------------------
+  _gridStart(first) {
+    const d = new Date(first);
+    d.setDate(d.getDate() - (d.getDay() + 6) % 7);      // back to Monday
+    return d;
+  }
+  _toToday() {
+    const t = new Date();
+    this._month = new Date(t.getFullYear(), t.getMonth(), 1);
+    this._sel = this._ymd(t);
+    this._loadMonth();
+  }
+  _shiftMonth(n) {
+    const m = new Date(this._month.getFullYear(), this._month.getMonth() + n, 1);
+    this._month = m;
+    this._sel = this._ymd(m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear() ? new Date() : m);
+    this._loadMonth();
+  }
+  _pick(ymd) {
+    this._sel = ymd;
+    const d = this._day(ymd);
+    if (d.getMonth() !== this._month.getMonth()) this._month = new Date(d.getFullYear(), d.getMonth(), 1);
+    this._loadMonth();
+  }
+  // each event listed under every day it covers (all-day ends are exclusive)
+  _byDay(events) {
+    const out = {};
+    for (const e of events) {
+      const s = this._d(e.start), end = this._d(e.end);
+      const d = new Date(s); d.setHours(0, 0, 0, 0);
+      for (let i = 0; i < 62 && (i === 0 || d < end); i++) {
+        (out[this._ymd(d)] = out[this._ymd(d)] || []).push(e);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return out;
+  }
+
+  _calendar() {
+    if (!(this._config.calendars || []).length) {
+      return html`<div class="soon card"><ha-icon icon="mdi:calendar-month-outline"></ha-icon>
+        <div class="soon-title">Calendar</div><div class="muted">No calendars set up.</div></div>`;
+    }
+    const m = this._month, today = this._ymd(new Date());
+    const gs = this._gridStart(m);
+    const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    const weeks = Math.ceil(((m.getDay() + 6) % 7 + days) / 7);
+    const byDay = this._byDay(this._cal || []);
+    const cells = Array.from({ length: weeks * 7 }, (_, i) => {
+      const d = new Date(gs); d.setDate(d.getDate() + i); return d;
+    });
+    const thisMonth = m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear();
+    return html`
+      <div class="calendar">
+        <div class="card month">
+          <div class="month-head">
+            <h1>${LONG_MONTHS[m.getMonth()]} <span class="muted">${m.getFullYear()}</span></h1>
+            ${thisMonth && this._sel === today ? nothing
+              : html`<button class="today-btn" @click=${() => this._toToday()}>Today</button>`}
+            <button class="nav-btn" title="Previous month" @click=${() => this._shiftMonth(-1)}>
+              <ha-icon icon="mdi:chevron-left"></ha-icon></button>
+            <button class="nav-btn" title="Next month" @click=${() => this._shiftMonth(1)}>
+              <ha-icon icon="mdi:chevron-right"></ha-icon></button>
+          </div>
+          <div class="dow">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => html`<span>${d}</span>`)}</div>
+          <div class="mgrid" style="--weeks:${weeks}">
+            ${cells.map((d) => {
+              const k = this._ymd(d), ev = byDay[k] || [];
+              return html`
+                <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
+                        @click=${() => this._pick(k)}>
+                  <span class="dnum">${d.getDate()}</span>
+                  ${ev.slice(0, 2).map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
+                  ${ev.length > 2 ? html`<span class="more">+${ev.length - 2} more</span>` : nothing}
+                </button>`;
+            })}
+          </div>
+        </div>
+        ${this._whatsOn(byDay, today)}
+      </div>`;
+  }
+
+  _whatsOn(byDay, today) {
+    const sel = this._day(this._sel);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const groups = [];
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(sel); d.setDate(d.getDate() + i);
+      const k = this._ymd(d), ev = byDay[k] || [];
+      if (!ev.length && i > 0) continue;
+      const label = k === today ? "Today" : k === this._ymd(tomorrow) ? "Tomorrow"
+        : `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
+      groups.push({ k, d, label, ev });
+    }
+    const when = (e, d) => {
+      if (!e.start.dateTime) return "All day";
+      const s = this._d(e.start);
+      return s.toDateString() === d.toDateString() ? this._ampm(s) : "Ongoing";
+    };
+    return html`
+      <div class="card whatson">
+        <div class="card-title">What's on</div>
+        <div class="wo-list">
+          ${this._cal == null ? html`<div class="empty muted">Loading…</div>` : groups.map((g) => html`
+            <div class="wo-day ${g.k === today ? "is-today" : ""}">${g.label}</div>
+            ${g.ev.length ? g.ev.map((e) => html`
+              <div class="wo-ev">
+                <span class="wo-time">${when(e, g.d)}</span>
+                <span class="bar" style="background:${e.colour}"></span>
+                <div class="wo-text">
+                  <div class="ev-name">${e.summary}</div>
+                  ${e.location ? html`<div class="wo-loc muted">${e.location.split(",")[0]}</div>` : nothing}
+                </div>
+              </div>`) : html`<div class="empty muted">Nothing on.</div>`}`)}
+          ${this._cal != null && groups.length === 1 && !groups[0].ev.length
+            ? html`<div class="empty muted">Nothing in the week after, either.</div>` : nothing}
+        </div>
+      </div>`;
   }
 
   // --- recipes: a static copy of Norish, synced to /local/norish ---------------
@@ -704,14 +859,12 @@ class OverlookShow extends LitElement {
     const now = new Date();
     const today = now.toDateString();
     const rows = (ev || []).filter((e) => {
-      const end = new Date(e.end.dateTime || e.end.date);
-      return end > now;
+      return this._d(e.end) > now;
     }).slice(0, 4);
     const fmt = (e) => {
-      if (!e.start.dateTime) return "All day";
-      const s = new Date(e.start.dateTime);
-      const day = s.toDateString() === today ? "" : `${DAYS[s.getDay()][0]}${DAYS[s.getDay()].slice(1).toLowerCase()} `;
-      return day + this._time(s) + (s.getHours() < 12 ? "am" : "pm");
+      const s = this._d(e.start);
+      const day = s.toDateString() === today || s < now ? "" : `${DAYS[s.getDay()][0]}${DAYS[s.getDay()].slice(1).toLowerCase()} `;
+      return e.start.dateTime ? day + this._ampm(s) : (day ? day + "· All day" : "All day");
     };
     return html`
       <div class="card agenda">
@@ -1056,6 +1209,46 @@ class OverlookShow extends LitElement {
                         color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; margin-top: 1px; }
 
     /* placeholder pages */
+    /* calendar */
+    .calendar { display: grid; grid-template-columns: 1.75fr 1fr; gap: 18px; height: 100%; min-height: 0; }
+    .month { padding: 20px 20px 16px; display: flex; flex-direction: column; min-height: 0; }
+    .month-head { display: flex; align-items: center; gap: 10px; padding: 0 4px 12px; }
+    .month-head h1 { font-family: var(--display); font-weight: 700; font-size: 28px; margin: 0 auto 0 0;
+                     letter-spacing: -0.01em; }
+    .month-head h1 .muted { font-weight: 500; }
+    .nav-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--inset); display: grid; place-items: center; }
+    .today-btn { height: 44px; padding: 0 18px; border-radius: 999px; background: var(--accent-soft);
+                 color: var(--accent); font-weight: 600; font-size: 15px; }
+    .dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 0 0 6px; }
+    .dow span { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+                color: var(--muted); padding-left: 10px; }
+    .mgrid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, 1fr);
+             grid-template-rows: repeat(var(--weeks), 1fr); gap: 6px; }
+    .day { min-width: 0; min-height: 0; overflow: hidden; border-radius: 16px; background: var(--inset);
+           padding: 6px 6px 6px; display: flex; flex-direction: column; align-items: stretch; gap: 3px; text-align: left; }
+    .day.out { background: transparent; }
+    .day.out .dnum { color: var(--muted); opacity: 0.6; }
+    .day.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+    .dnum { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
+            font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .day.today .dnum { background: var(--accent); color: #fff; }
+    .chip { font-size: 12px; font-weight: 600; line-height: 1.25; padding: 2px 6px; border-radius: 6px;
+            background: color-mix(in srgb, var(--c) 16%, transparent); border-left: 3px solid var(--c);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+    .more { font-size: 11px; font-weight: 600; color: var(--muted); padding-left: 6px; }
+    .whatson { padding: 20px 20px 8px; display: flex; flex-direction: column; min-height: 0; }
+    .wo-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin-top: 4px; padding-bottom: 12px; }
+    .wo-list::-webkit-scrollbar { display: none; }
+    .wo-day { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+              color: var(--muted); margin: 14px 0 8px; }
+    .wo-day.is-today { color: var(--accent); }
+    .wo-ev { display: grid; grid-template-columns: 62px 4px 1fr; gap: 10px; align-items: stretch;
+             padding: 8px 0; }
+    .wo-time { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 1px; }
+    .wo-ev .bar { border-radius: 4px; }
+    .wo-text { min-width: 0; }
+    .wo-text .ev-name { font-size: 16px; white-space: normal; }
+    .wo-loc { font-size: 13px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .soon { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
     .soon ha-icon { --mdc-icon-size: 48px; color: var(--accent); }
     .soon-title { font-family: var(--display); font-size: 28px; font-weight: 700; }
@@ -1093,7 +1286,17 @@ class OverlookShow extends LitElement {
       .topright { top: calc(env(safe-area-inset-top, 0px) + 12px); right: 22px; }
       .topright .clock { font-size: 28px; }
       .topright .temp { font-size: 22px; }
-      .kitchen, .col { gap: 12px; }
+      .kitchen, .col, .calendar { gap: 12px; }
+      .month { padding: 14px 14px 12px; }
+      .month-head { padding-bottom: 8px; }
+      .month-head h1 { font-size: 22px; }
+      .nav-btn, .today-btn { height: 38px; }
+      .nav-btn { width: 38px; }
+      .mgrid, .dow { gap: 4px; }
+      .day { border-radius: 12px; padding: 4px; }
+      .dnum { width: 24px; height: 24px; font-size: 13px; }
+      .chip { font-size: 11px; }
+      .whatson { padding: 14px 14px 6px; }
       .card { border-radius: 24px; }
       .card-title { font-size: 15px; }
       .date-card { padding: 14px 14px 12px; }

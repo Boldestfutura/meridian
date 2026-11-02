@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.4.4"
+VERSION = "0.5.2"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
@@ -34,7 +34,7 @@ CARD = {
     ],
     "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
     "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
-    "calendars": [],
+    "calendars": [{"entity": "calendar.p_c", "color": "#e5484d"}],
     "todo": "todo.shopping_list",
     "sensors": [
         {"entity": "sensor.air_quality_monitor_temperature", "name": "Temp", "icon": "mdi:thermometer",
