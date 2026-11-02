@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.5.5";
+const VERSION = "0.6.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -55,6 +55,7 @@ class OverlookShow extends LitElement {
     _month: { state: true },
     _sel: { state: true },
     _fit: { state: true },
+    _room: { state: true },
     _forecast: { state: true },
     _now: { state: true },
     _uncovered: { state: true },
@@ -68,7 +69,7 @@ class OverlookShow extends LitElement {
   setConfig(config) {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
-      lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [],
+      lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [],
     }, config);
     this._page = "photos";
     this._drag = null;
@@ -293,6 +294,7 @@ class OverlookShow extends LitElement {
       case "kitchen": return this._kitchen();
       case "recipes": return this._recipes();
       case "calendar": return this._calendar();
+      case "home": return this._home();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -302,6 +304,139 @@ class OverlookShow extends LitElement {
         </div>`;
       }
     }
+  }
+
+  // --- home: a tab per room ----------------------------------------------------
+  _home() {
+    const rooms = this._config.rooms || [];
+    if (!rooms.length) return nothing;
+    const r = rooms.find((x) => x.name === this._room) || rooms[0];
+    return html`
+      <div class="home">
+        <div class="tabs">
+          ${rooms.map((x) => html`
+            <button class="tab ${x === r ? "on" : ""}" @click=${() => { this._room = x.name; }}>
+              <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}
+        </div>
+        ${r.music ? this._musicRoom() : this._room_(r)}
+      </div>`;
+  }
+
+  _room_(r) {
+    const lights = r.lights || [];
+    const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
+    let side = [...(r.media || []).map((m) => this._player(m)),
+                ...(r.switches || []).map((x) => this._switchTile(x)),
+                ...(r.plants || []).map((x) => this._plantTile(x))];
+    // a room with nothing else puts its scenes in the side column instead of along the bottom
+    const scenesAside = !side.length;
+    if (scenesAside) side = (r.scenes || []).map((x) => this._sceneBtn(x, true));
+    return html`
+      <div class="room ${r.climate ? "has-hp" : ""}">
+        <div class="card room-lights">
+          <div class="card-title">Lights <span class="count">${lit ? `${lit} on` : ""}</span>
+            ${r.group && this._st(r.group) ? html`
+              <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+                ${lit ? "All off" : "All on"}</button>` : nothing}
+          </div>
+          <div class="favs room-favs ${r.climate ? "" : "no-hp"}" style="--n:${lights.length}">
+            ${lights.map((l) => this._pill(l))}
+            ${r.climate ? this._thermostat(r.climate) : nothing}
+          </div>
+        </div>
+        ${side.length ? html`<div class="room-side">${side}</div>` : nothing}
+        ${!scenesAside && (r.scenes || []).length ? html`
+          <div class="scenes">
+            ${r.scenes.map((x) => this._sceneBtn(x))}
+          </div>` : nothing}
+      </div>`;
+  }
+
+  _player(m) {
+    const id = m.entity;
+    const e = this._st(id);
+    if (!e) return nothing;
+    const a = e.attributes;
+    const active = ["playing", "paused"].includes(e.state) && a.media_title;
+    const state = e.state === "playing" ? "Playing" : e.state === "paused" ? "Paused"
+      : e.state === "unavailable" ? "Unavailable" : e.state[0].toUpperCase() + e.state.slice(1);
+    const vol = a.volume_level;
+    return html`
+      <div class="card player">
+        <div class="player-row">
+          <div class="art small" style=${active && a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
+            ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
+          </div>
+          <div class="media-text">
+            <div class="media-src">${m.name || a.friendly_name}</div>
+            <div class="player-title">${active ? a.media_title : state}</div>
+            ${active && (a.media_artist || a.app_name) ? html`<div class="media-artist">${a.media_artist || a.app_name}</div>` : nothing}
+          </div>
+          ${active ? html`
+            <button class="round play" @click=${() => this._call("media_player", "media_play_pause", { entity_id: id })}>
+              <ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>` : nothing}
+        </div>
+        ${vol != null && e.state !== "off" ? html`
+          <div class="vol">
+            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
+              <ha-icon icon="mdi:minus"></ha-icon></button>
+            <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
+            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
+              <ha-icon icon="mdi:plus"></ha-icon></button>
+          </div>` : nothing}
+      </div>`;
+  }
+
+  _switchTile(x) {
+    const e = this._st(x.entity);
+    if (!e) return nothing;
+    const on = e.state === "on";
+    return html`
+      <button class="card tile ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x.entity })}>
+        <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x.name}</span>
+          <span class="muted">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+      </button>`;
+  }
+
+  _plantTile(x) {
+    const e = this._st(x.entity);
+    if (!e) return nothing;
+    const v = Number(e.state);
+    return html`
+      <div class="card tile plant">
+        <span class="tile-ico"><ha-icon icon="mdi:sprout"></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x.name}</span>
+          <span class="muted">Soil moisture</span></span>
+        <span class="tile-val">${isNaN(v) ? "–" : Math.round(v)}<small>%</small></span>
+      </div>`;
+  }
+
+  _sceneBtn(x, tile = false) {
+    const [domain] = x.entity.split(".");
+    const e = this._st(x.entity);
+    const on = domain === "input_boolean" && e && e.state === "on";
+    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x.entity })
+      : this._call(domain, "turn_on", { entity_id: x.entity });
+    if (tile) {
+      return html`
+        <button class="card tile ${on ? "on" : ""}" @click=${go}>
+          <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x.name}</span>
+            <span class="muted">${domain === "input_boolean" ? (on ? "On" : "Off") : "Tap to run"}</span></span>
+        </button>`;
+    }
+    return html`
+      <button class="card scene ${on ? "on" : ""}" @click=${go}>
+        <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
+  }
+
+  _musicRoom() {
+    return html`
+      <div class="music">
+        ${this._mediaCard()}
+        <div class="card music-pl">${this._playlists()}</div>
+      </div>`;
   }
 
   // --- calendar: month grid + what's on --------------------------------------
@@ -822,8 +957,8 @@ class OverlookShow extends LitElement {
   }
 
   // --- heat pump: actual temperature, -/+ for the target, a button per mode ----
-  _thermostat() {
-    const e = this._st(this._config.climate);
+  _thermostat(id = this._config.climate) {
+    const e = this._st(id);
     if (!e) return nothing;
     const a = e.attributes, mode = e.state, step = a.target_temp_step || 0.5;
     const pending = this._drag && this._drag.id === e.entity_id ? this._drag.temp : null;
@@ -1226,6 +1361,58 @@ class OverlookShow extends LitElement {
                         color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; margin-top: 1px; }
 
     /* placeholder pages */
+    /* home: room tabs */
+    .home { height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .tabs { display: flex; gap: 8px; flex: none; margin: -66px -8px -8px; padding: 8px; box-sizing: content-box; max-width: calc(100% - 230px); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 999px; flex: none;
+           background: var(--card); box-shadow: var(--shadow); font-weight: 600; font-size: 15px; color: var(--muted); }
+    .tab ha-icon { --mdc-icon-size: 20px; }
+    .tab.on { background: var(--accent); color: #fff; }
+    .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
+    .room.has-hp { grid-template-columns: 1fr 340px; }
+    .room-lights { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .room-favs.no-hp { grid-template-columns: repeat(var(--n, 1), 190px); }
+    .all-btn { margin-left: auto; height: 36px; padding: 0 16px; border-radius: 999px; background: var(--inset);
+               font-size: 14px; font-weight: 600; }
+    .room-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; scrollbar-width: none;
+                 margin: -10px -12px; padding: 10px 12px 24px; }
+    .room-side::-webkit-scrollbar { display: none; }
+    .player { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+    .player-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
+    .art.small { width: 52px; height: 52px; border-radius: 12px; }
+    .player-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px 16px;
+            text-align: left; flex: none; }
+    .tile-ico { width: 44px; height: 44px; border-radius: 50%; background: var(--inset); display: grid; place-items: center; color: var(--muted); }
+    .tile.on .tile-ico { background: var(--warm); color: #fff; }
+    .plant .tile-ico { background: rgba(63, 143, 99, 0.14); color: #3f8f63; }
+    .tile-text { display: flex; flex-direction: column; min-width: 0; }
+    .tile-name { font-weight: 600; font-size: 15px; }
+    .tile-text .muted { font-size: 13px; }
+    .tile-val { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .tile-val small { font-size: 14px; color: var(--muted); margin-left: 1px; }
+    .scenes { grid-column: 1 / -1; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none;
+              margin: -10px -12px -24px; padding: 10px 12px 24px; }
+    .scenes::-webkit-scrollbar { display: none; }
+    .scene { display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 22px 0 18px; border-radius: 20px;
+             font-weight: 600; font-size: 15px; flex: none; }
+    .scene ha-icon { color: var(--accent); }
+    .scene.on { background: var(--accent); color: #fff; }
+    .scene.on ha-icon { color: #fff; }
+    .scene:active, .tile:active { transform: scale(0.98); }
+    .music { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
+    .music .media-card { justify-content: flex-start; gap: 18px; }
+    .music .media-row { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 14px; flex: 1; align-content: center; }
+    .music .art { width: min(240px, 100%); height: auto; aspect-ratio: 1; border-radius: 24px; }
+    .music .art ha-icon { --mdc-icon-size: 64px; }
+    .music .media-title { font-size: 22px; }
+    .music-pl { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .music-pl .pl-title { margin-top: 0; }
+    .music-pl .pl-row { flex: 1; height: auto; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr);
+                        grid-auto-rows: max-content; overflow-y: auto; scroll-snap-type: none; }
+    .music-pl .pl { height: auto; width: 100%; }
+
     /* calendar */
     .calendar { display: grid; grid-template-columns: 2.7fr 1fr; gap: 18px; height: 100%; min-height: 0; }
     .month { padding: 20px 20px 16px; display: flex; flex-direction: column; min-height: 0; }
