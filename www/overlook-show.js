@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.2.1";
+const VERSION = "0.2.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -54,6 +54,7 @@ class OverlookShow extends LitElement {
     _forecast: { state: true },
     _now: { state: true },
     _uncovered: { state: true },
+    _adding: { state: true },
     _speaker: { state: true },
   };
 
@@ -80,6 +81,7 @@ class OverlookShow extends LitElement {
     this._clock = setInterval(() => { this._now = new Date(); }, 15000);
     this._touch = () => this._poke();
     window.addEventListener("pointerdown", this._touch, true);
+    window.addEventListener("keydown", this._touch, true);
     this._poke();
     if (!document.getElementById("overlook-show-fonts")) {
       const l = document.createElement("link");
@@ -95,6 +97,7 @@ class OverlookShow extends LitElement {
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
     window.removeEventListener("pointerdown", this._touch, true);
+    window.removeEventListener("keydown", this._touch, true);
     this._unsub();
   }
 
@@ -530,7 +533,7 @@ class OverlookShow extends LitElement {
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div>
           <div class="pill-state">${mode === "off" ? "Off" : `${mode === "heat_cool" ? "Auto" : mode[0].toUpperCase() + mode.slice(1).replace("_", " ")}`}</div></div>
-        <div class="dial"
+        <div class="dial-box"><div class="dial"
              @pointerdown=${(ev) => this._dialDown(ev, e)}
              @pointermove=${(ev) => this._dialMove(ev, e)}
              @pointerup=${() => this._dialUp(e)}
@@ -551,7 +554,7 @@ class OverlookShow extends LitElement {
               <button class="mode ${mode === m ? "on " + m : ""}"
                       @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e.entity_id, hvac_mode: m })}>${label}</button>`)}
           </div>
-        </div>
+        </div></div>
       </div>`;
   }
 
@@ -623,7 +626,15 @@ class OverlookShow extends LitElement {
     const items = this._todo || [];
     return html`
       <div class="card shopping">
-        <div class="card-title">Shopping list <span class="count">${items.length || ""}</span></div>
+        <div class="card-title">Shopping list <span class="count">${items.length || ""}</span>
+          <button class="add" title="Add an item" @click=${() => this._startAdd()}>
+            <ha-icon icon="mdi:plus"></ha-icon></button></div>
+        ${this._adding ? html`
+          <form class="add-row" @submit=${(ev) => this._addItem(ev)}>
+            <input id="add-item" placeholder="Add an item" autocomplete="off" enterkeyhint="done"
+                   @blur=${(ev) => { if (!ev.target.value.trim()) this._adding = false; }}>
+            <button class="add-go" type="submit">Add</button>
+          </form>` : nothing}
         <div class="items">
           ${items.length ? items.map((i) => html`
             <button class="item" @click=${() => this._call("todo", "update_item",
@@ -632,6 +643,23 @@ class OverlookShow extends LitElement {
             </button>`) : html`<div class="empty muted">All done.</div>`}
         </div>
       </div>`;
+  }
+
+  async _startAdd() {
+    this._adding = true;
+    await this.updateComplete;
+    const i = this.shadowRoot.getElementById("add-item");
+    if (i) i.focus();
+  }
+
+  _addItem(ev) {
+    ev.preventDefault();
+    const input = this.shadowRoot.getElementById("add-item");
+    const text = input.value.trim();
+    if (!text) { this._adding = false; return; }
+    this._call("todo", "add_item", { entity_id: this._config.todo, item: text });
+    input.value = "";          // stays open for the next item; tap away to close
+    input.focus();
   }
 
   _sensors() {
@@ -755,7 +783,7 @@ class OverlookShow extends LitElement {
     .wx-temp { font-size: 30px; font-weight: 600; }
     .wx-side { text-align: right; }
     .wx-cond { font-size: 14px; font-weight: 600; }
-    .wx-hl { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .wx-hl { font-size: 13px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
 
     .media-card { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: space-between; min-height: 0; }
     .media-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 12px; align-items: center; }
@@ -817,17 +845,22 @@ class OverlookShow extends LitElement {
     .pill-state.lit { color: var(--warm); font-weight: 600; }
 
     .thermo { align-items: stretch; }
-    .dial { position: relative; flex: 1; min-height: 0; touch-action: none; display: grid; place-items: center; }
-    .dial svg { width: 100%; height: 100%; max-height: 100%; overflow: visible; }
+    /* the dial is a square as big as the tile allows; the modes hang in the arc's gap and
+       below it, so the box keeps 44px under the square for them */
+    .dial-box { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center;
+                padding: 4px 0 44px; }
+    .dial { position: relative; width: min(100cqw, 100cqh); aspect-ratio: 1; touch-action: none; container-type: inline-size; }
+    .dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
     .track, .arc { fill: none; stroke-width: 14; stroke-linecap: round; }
     .track { stroke: var(--track); }
     .knob { fill: var(--card); stroke-width: 5; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2)); }
-    .dial-mid { position: absolute; inset: 0 0 16% 0; display: flex; flex-direction: column; align-items: center;
+    .dial-mid { position: absolute; inset: 0 0 12% 0; display: flex; flex-direction: column; align-items: center;
                 justify-content: center; pointer-events: none; }
-    .dial-mid ha-icon { --mdc-icon-size: 22px; }
-    .dial-num { font-family: var(--display); font-weight: 700; font-size: clamp(38px, 7vh, 58px); line-height: 1.05; }
-    .dial-mid .muted { font-size: 13px; }
-    .modes { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex;
+    /* text scales with the dial, so a small dial never spills past its ring */
+    .dial-mid ha-icon { --mdc-icon-size: clamp(14px, 9cqi, 22px); }
+    .dial-num { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 22cqi, 58px); line-height: 1.05; }
+    .dial-mid .muted { font-size: clamp(10px, 5.6cqi, 13px); white-space: nowrap; }
+    .modes { position: absolute; left: 50%; top: 74%; transform: translateX(-50%); display: flex;
              flex-direction: column; align-items: center; gap: 2px; }
     .mode { min-width: 64px; height: 26px; padding: 0 12px; border-radius: 999px; background: none; font-weight: 600;
             font-size: 13px; color: var(--muted); }
@@ -844,6 +877,15 @@ class OverlookShow extends LitElement {
     .event .bar { border-radius: 4px; }
     .ev-time { font-size: 12px; }
     .ev-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .add { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft);
+           color: var(--accent); display: grid; place-items: center; }
+    .add ha-icon { --mdc-icon-size: 20px; }
+    .add-row { display: flex; gap: 8px; }
+    .add-row input { flex: 1; min-width: 0; height: 40px; border-radius: 12px; border: 1.5px solid var(--track-strong);
+                     background: var(--inset); color: var(--ink); font: inherit; font-size: 16px; padding: 0 12px;
+                     outline: none; user-select: text; -webkit-user-select: text; }
+    .add-row input:focus { border-color: var(--accent); }
+    .add-go { height: 40px; padding: 0 16px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 600; }
     .items { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 0; }
     .item { display: flex; align-items: center; gap: 12px; text-align: left; font-size: 16px; padding: 7px 0; }
     .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--track-strong); flex: none; }
@@ -882,6 +924,59 @@ class OverlookShow extends LitElement {
     .photo-cap { position: absolute; left: 40px; bottom: 36px; color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,.4); }
     .cap-small { font-size: 18px; font-weight: 500; opacity: 0.9; }
     .cap-big { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
+
+    /* compact: an 8-inch tablet may only be ~600px tall in CSS pixels */
+    @media (max-height: 680px) {
+      .screen { grid-template-columns: 76px 1fr; }
+      .dock { padding: 60px 0 16px 12px; }
+      .dock-btn { width: 46px; height: 46px; border-radius: 15px; }
+      .dock-btn ha-icon { --mdc-icon-size: 23px; }
+      .page { padding: 62px 18px 14px 12px; }
+      .topright { top: calc(env(safe-area-inset-top, 0px) + 12px); right: 22px; }
+      .topright .clock { font-size: 28px; }
+      .topright .temp { font-size: 22px; }
+      .kitchen, .col { gap: 12px; }
+      .card { border-radius: 24px; }
+      .card-title { font-size: 15px; }
+      .date-card { padding: 14px 14px 12px; }
+      .date-top { font-size: 17px; }
+      .date-num { margin: 0 0 8px; }
+      .wx-card { padding: 8px 12px; border-radius: 16px; gap: 6px; }
+      .wx-card ha-icon { --mdc-icon-size: 24px; }
+      .wx-temp { font-size: 22px; }
+      .wx-cond { font-size: 12px; }
+      .wx-hl { font-size: 11px; }
+      .media-card { padding: 12px 14px; gap: 8px; }
+      .media-row { grid-template-columns: 52px 1fr auto; gap: 10px; }
+      .art { width: 52px; height: 52px; border-radius: 12px; }
+      .media-title { font-size: 15px; }
+      .media-artist { font-size: 13px; }
+      .round { width: 40px; height: 40px; }
+      .round.small { width: 32px; height: 32px; }
+      .where { height: 36px; font-size: 14px; }
+      .col-b { padding: 14px 16px 16px; }
+      .favs { margin-top: 10px; gap: 10px; grid-template-columns: minmax(120px, 0.75fr) 1.4fr; }
+      .pill-wrap, .thermo { padding: 10px 12px; border-radius: 18px; }
+      .pill-head { min-height: 34px; }
+      .pill-name { font-size: 14px; }
+      .pill-state { font-size: 12px; }
+      .split { width: 56px; margin-top: 8px; }
+      .seg-bot { padding-bottom: 10px; }
+      .seg-bot ha-icon { --mdc-icon-size: 24px; }
+      .swatch { right: 10px; bottom: 10px; width: 16px; height: 16px; }
+      .dial-box { padding-bottom: 36px; }
+      .mode { height: 22px; font-size: 12px; min-width: 54px; }
+      .pl-title { margin-top: 12px; }
+      .pl-row { height: 96px; margin: 8px -16px -16px; padding: 0 16px 16px; gap: 10px; scroll-padding: 0 16px; }
+      .pl { border-radius: 16px; }
+      .pl-name { font-size: 13px; left: 9px; top: 8px; }
+      .agenda, .shopping { padding: 12px 14px; gap: 6px; }
+      .item { font-size: 15px; padding: 5px 0; }
+      .add { width: 30px; height: 30px; }
+      .sensors { gap: 10px; }
+      .sensor { border-radius: 18px; padding: 8px 10px; }
+      .s-val { font-size: 17px; margin-top: 2px; }
+    }
   `;
 }
 

@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.2.1"
+VERSION = "0.2.3"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
@@ -36,7 +36,7 @@ CARD = {
     "calendars": [],
     "todo": "todo.shopping_list",
     "sensors": [
-        {"entity": "sensor.air_quality_monitor_temperature", "name": "Kitchen", "icon": "mdi:thermometer",
+        {"entity": "sensor.air_quality_monitor_temperature", "name": "Temp", "icon": "mdi:thermometer",
          "unit": "°", "color": "#f39a43"},
         {"entity": "sensor.air_quality_monitor_humidity", "name": "Humidity", "icon": "mdi:water-percent",
          "color": "#3f86f2"},
