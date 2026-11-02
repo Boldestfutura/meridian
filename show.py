@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.6.7"
+VERSION = "0.6.11"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -55,7 +55,6 @@ CARD = {
     "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
     "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
     "calendars": [{"entity": "calendar.p_c", "color": "#e5484d"}],
-    "scenes": KITCHEN_SCENES,               # Favourites card, between the light and the heat pump
     "todo": "todo.shopping_list",
     # Home page: one tab per room, the same things the ha-tablet dashboard shows
     "rooms": [
@@ -111,6 +110,14 @@ CARD = {
          "unit": "", "color": "#3f8f63"},
     ],
 }
+
+
+# Favourites card on the Kitchen page: every scene in the house, in a row under the light + heat pump.
+# House-wide ones first, then each room's, labelled with the room.
+WHOLE_HOME = ["script.goodnight", "script.heatpump_cool_30min", "input_boolean.guest_mode"]
+_all = [dict(s, room=r["name"]) for r in CARD["rooms"] for s in r.get("scenes", [])]
+CARD["scenes"] = ([dict(next(s for s in _all if s["entity"] == e), room="Whole home") for e in WHOLE_HOME]
+                  + [s for s in _all if s["entity"] not in WHOLE_HOME])
 
 
 def build():

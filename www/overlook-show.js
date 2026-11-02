@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.7";
+const VERSION = "0.6.11";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -414,7 +414,6 @@ class OverlookShow extends LitElement {
   }
 
   _sceneBtn(x, tile = false) {
-    if (tile === "mini") return this._miniScene(x);
     const [domain] = x.entity.split(".");
     const e = this._st(x.entity);
     const on = domain === "input_boolean" && e && e.state === "on";
@@ -435,9 +434,15 @@ class OverlookShow extends LitElement {
 
   _miniScene(x) {
     const [domain] = x.entity.split(".");
+    const e = this._st(x.entity);
+    const on = domain === "input_boolean" && e && e.state === "on";
+    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x.entity })
+      : this._call(domain, "turn_on", { entity_id: x.entity });
     return html`
-      <button class="mini-scene" @click=${() => this._call(domain, "turn_on", { entity_id: x.entity })}>
-        <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
+      <button class="mini-scene ${on ? "on" : ""}" @click=${go}>
+        <ha-icon icon=${x.icon}></ha-icon>
+        <span class="ms-text"><span class="ms-name">${x.name}</span>
+          ${x.room ? html`<span class="ms-room">${x.room}</span>` : nothing}</span></button>`;
   }
 
   _musicRoom() {
@@ -729,15 +734,12 @@ class OverlookShow extends LitElement {
         </div>
         <div class="col col-b card">
           <div class="card-title">Favourites</div>
-          <div class="favs ${this._config.scenes.length ? "with-scenes" : ""}" style="--n:${this._config.lights.length}">
+          <div class="favs" style="--n:${this._config.lights.length}">
             ${this._config.lights.map((l) => this._pill(l))}
-            ${this._config.scenes.length ? html`
-              <div class="fav-scenes">
-                <div class="pill-head"><div class="pill-name">Scenes</div></div>
-                ${this._config.scenes.map((x) => this._sceneBtn(x, "mini"))}
-              </div>` : nothing}
             ${this._config.climate ? this._thermostat() : nothing}
           </div>
+          ${this._config.scenes.length ? html`
+            <div class="fav-scenes" title="Scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>` : nothing}
           ${this._playlists()}
         </div>
         <div class="col col-c">
@@ -1234,19 +1236,19 @@ class OverlookShow extends LitElement {
     .col-b { display: flex; flex-direction: column; overflow: hidden; }
     .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(150px, 0.8fr)) 1.4fr;
             gap: 14px; min-height: 0; margin-top: 14px; }
-    .favs.with-scenes { grid-template-columns: repeat(var(--n, 1), minmax(108px, 0.6fr)) minmax(104px, 0.55fr) 1.45fr; gap: 10px; }
-    .with-scenes .thermo { padding: 14px 12px; }
-    .with-scenes .hp-now { flex-direction: column; align-items: flex-start; gap: 0; }
-    .with-scenes .hp-temp { font-size: 44px; }
-    .with-scenes .hp-target { gap: 6px; }
-    .with-scenes .hp-step { width: 48px; height: 48px; }
-    .with-scenes .modes { gap: 6px; }
-    .fav-scenes { background: var(--inset); border-radius: 24px; padding: 14px 10px 10px; display: flex;
-                  flex-direction: column; gap: 8px; min-height: 0; }
-    .fav-scenes .pill-head { min-height: 0; padding: 0 4px 2px; }
-    .mini-scene { flex: 1; min-height: 0; max-height: 120px; border-radius: 18px; background: var(--card);
-                  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-                  font-weight: 600; font-size: 14px; }
+    .fav-scenes { flex: none; display: flex; gap: 10px; margin: 12px -22px 0; padding: 0 22px; overflow-x: auto;
+                  scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding: 0 22px; }
+    .fav-scenes::-webkit-scrollbar { display: none; }
+    .mini-scene { flex: none; height: 54px; padding: 0 16px 0 12px; border-radius: 18px; background: var(--inset);
+                  display: flex; align-items: center; gap: 10px; text-align: left; scroll-snap-align: start; }
+    .mini-scene ha-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+                          background: var(--card); }
+    .mini-scene.on { background: var(--accent); color: #fff; }
+    .mini-scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
+    .ms-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .ms-name { font-weight: 600; font-size: 15px; white-space: nowrap; }
+    .ms-room { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .mini-scene.on .ms-room { color: rgba(255, 255, 255, 0.8); }
     .mini-scene ha-icon { color: var(--accent); }
     .mini-scene:active { transform: scale(0.97); }
     .pill-wrap, .thermo { background: var(--inset); border-radius: 24px; padding: 14px; display: flex;
@@ -1268,8 +1270,9 @@ class OverlookShow extends LitElement {
     .swatch { position: absolute; right: 14px; bottom: 14px; width: 20px; height: 20px; border-radius: 50%;
               box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.25); }
     .pill-wrap { position: relative; }
-    .pl-title { margin-top: 18px; }
-    .pl-row { flex: none; height: clamp(116px, 18vh, 150px); margin: 12px -22px -22px; padding: 0 22px 22px; display: flex; gap: 12px;
+    .pl-title { margin-top: 14px; }
+    .col-b .hp-target { margin-top: 18px; }
+    .pl-row { flex: none; height: clamp(100px, 13.5vh, 120px); margin: 12px -22px -22px; padding: 0 22px 22px; display: flex; gap: 12px;
               overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 22px; scrollbar-width: none; }
     .pl-row::-webkit-scrollbar { display: none; }
     .pl { position: relative; flex: none; height: 100%; aspect-ratio: 1; border-radius: 20px; overflow: hidden;
