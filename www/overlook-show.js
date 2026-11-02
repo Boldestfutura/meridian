@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.4.3";
+const VERSION = "0.4.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -108,7 +108,7 @@ class OverlookShow extends LitElement {
     clearTimeout(this._idleTimer);
     if (!this._config || !this._config.photos) return;
     this._idleTimer = setTimeout(() => {
-      if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
+      if (this._page === "recipes") { this._poke(); return; }    // never leave Recipes mid-cook
       this._picker = false;
       this._page = "photos";
     }, this._config.idle * 1000);
