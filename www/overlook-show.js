@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.5.3";
+const VERSION = "0.5.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -53,7 +53,7 @@ class OverlookShow extends LitElement {
     _events: { state: true },
     _cal: { state: true },
     _month: { state: true },
-    _sel: { state: true },
+    _dayOpen: { state: true },
     _fit: { state: true },
     _forecast: { state: true },
     _now: { state: true },
@@ -114,6 +114,7 @@ class OverlookShow extends LitElement {
     this._idleTimer = setTimeout(() => {
       if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
+      this._dayOpen = null;
       this._page = "photos";
     }, this._config.idle * 1000);
   }
@@ -191,14 +192,14 @@ class OverlookShow extends LitElement {
     if (this._page === "calendar") this._loadMonth();
   }
 
-  // the month grid plus the 8 days from the selected one, in one fetch
+  // the month grid plus today's week (for What's on), in one fetch
   async _loadMonth() {
     if (!(this._config.calendars || []).length) return;
     const gs = this._gridStart(this._month);
     const ge = new Date(gs); ge.setDate(ge.getDate() + 42);
-    const sel = this._day(this._sel);
-    const le = new Date(sel); le.setDate(le.getDate() + 8);
-    const start = sel < gs ? sel : gs, end = le > ge ? le : ge;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const le = new Date(today); le.setDate(le.getDate() + 8);
+    const start = today < gs ? today : gs, end = le > ge ? le : ge;
     const key = this._ymd(start) + this._ymd(end);
     this._calKey = key;
     const ev = await this._fetchEvents(start, end);
@@ -213,6 +214,7 @@ class OverlookShow extends LitElement {
   }
   _go(page) {
     this._picker = false;
+    this._dayOpen = null;
     this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
@@ -251,6 +253,7 @@ class OverlookShow extends LitElement {
           <main class="page">${this._pageBody()}</main>`}
         ${this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
+        ${this._dayOpen ? this._daySheet() : nothing}
       </div>`;
   }
 
@@ -313,19 +316,10 @@ class OverlookShow extends LitElement {
   _toToday() {
     const t = new Date();
     this._month = new Date(t.getFullYear(), t.getMonth(), 1);
-    this._sel = this._ymd(t);
     this._loadMonth();
   }
   _shiftMonth(n) {
-    const m = new Date(this._month.getFullYear(), this._month.getMonth() + n, 1);
-    this._month = m;
-    this._sel = this._ymd(m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear() ? new Date() : m);
-    this._loadMonth();
-  }
-  _pick(ymd) {
-    this._sel = ymd;
-    const d = this._day(ymd);
-    if (d.getMonth() !== this._month.getMonth()) this._month = new Date(d.getFullYear(), d.getMonth(), 1);
+    this._month = new Date(this._month.getFullYear(), this._month.getMonth() + n, 1);
     this._loadMonth();
   }
   // each event listed under every day it covers (all-day ends are exclusive)
@@ -361,7 +355,7 @@ class OverlookShow extends LitElement {
         <div class="card month">
           <div class="month-head">
             <h1>${LONG_MONTHS[m.getMonth()]} <span class="muted">${m.getFullYear()}</span></h1>
-            ${thisMonth && this._sel === today ? nothing
+            ${thisMonth ? nothing
               : html`<button class="today-btn" @click=${() => this._toToday()}>Today</button>`}
             <button class="nav-btn" title="Previous month" @click=${() => this._shiftMonth(-1)}>
               <ha-icon icon="mdi:chevron-left"></ha-icon></button>
@@ -375,8 +369,8 @@ class OverlookShow extends LitElement {
               const fit = this._fit || 2;
               const shown = ev.length <= fit ? ev : ev.slice(0, fit - 1);
               return html`
-                <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
-                        @click=${() => this._pick(k)}>
+                <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._dayOpen ? "sel" : ""}"
+                        @click=${() => { this._dayOpen = k; }}>
                   <span class="dnum">${d.getDate()}</span>
                   ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
                   ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}
@@ -388,38 +382,61 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
+  _dayLabel(d) {
+    const k = this._ymd(d), t = new Date(), tm = new Date();
+    tm.setDate(tm.getDate() + 1);
+    if (k === this._ymd(t)) return "Today";
+    if (k === this._ymd(tm)) return "Tomorrow";
+    return `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
+  }
+
+  _evRow(e, d) {
+    const s = this._d(e.start);
+    const when = !e.start.dateTime ? "All day" : s.toDateString() === d.toDateString() ? this._ampm(s) : "Ongoing";
+    return html`
+      <div class="wo-ev">
+        <span class="wo-time">${when}</span>
+        <span class="bar" style="background:${e.colour}"></span>
+        <div class="wo-text">
+          <div class="ev-name">${e.summary}</div>
+          ${e.location ? html`<div class="wo-loc muted">${e.location.split(",")[0]}</div>` : nothing}
+        </div>
+      </div>`;
+  }
+
+  // tap a day in the month: its events in a sheet, like the speaker picker
+  _daySheet() {
+    const d = this._day(this._dayOpen);
+    const ev = this._byDay(this._cal || [])[this._dayOpen] || [];
+    const close = () => { this._dayOpen = null; };
+    const label = this._dayLabel(d);
+    const long = `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
+    return html`
+      <div class="scrim" @click=${close}>
+        <div class="sheet card day-sheet" @click=${(ev2) => ev2.stopPropagation()}>
+          <div class="card-title">${label === long ? long : html`${label} <span class="muted day-sub">${long}</span>`}</div>
+          <div class="day-list">
+            ${ev.length ? ev.map((e) => this._evRow(e, d)) : html`<div class="empty muted">Nothing on.</div>`}
+          </div>
+        </div>
+      </div>`;
+  }
+
   _whatsOn(byDay, today) {
-    const sel = this._day(this._sel);
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     const groups = [];
     for (let i = 0; i < 8; i++) {
-      const d = new Date(sel); d.setDate(d.getDate() + i);
+      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i);
       const k = this._ymd(d), ev = byDay[k] || [];
       if (!ev.length && i > 0) continue;
-      const label = k === today ? "Today" : k === this._ymd(tomorrow) ? "Tomorrow"
-        : `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
-      groups.push({ k, d, label, ev });
+      groups.push({ k, d, label: this._dayLabel(d), ev });
     }
-    const when = (e, d) => {
-      if (!e.start.dateTime) return "All day";
-      const s = this._d(e.start);
-      return s.toDateString() === d.toDateString() ? this._ampm(s) : "Ongoing";
-    };
     return html`
       <div class="card whatson">
         <div class="card-title">What's on</div>
         <div class="wo-list">
           ${this._cal == null ? html`<div class="empty muted">Loading…</div>` : groups.map((g) => html`
             <div class="wo-day ${g.k === today ? "is-today" : ""}">${g.label}</div>
-            ${g.ev.length ? g.ev.map((e) => html`
-              <div class="wo-ev">
-                <span class="wo-time">${when(e, g.d)}</span>
-                <span class="bar" style="background:${e.colour}"></span>
-                <div class="wo-text">
-                  <div class="ev-name">${e.summary}</div>
-                  ${e.location ? html`<div class="wo-loc muted">${e.location.split(",")[0]}</div>` : nothing}
-                </div>
-              </div>`) : html`<div class="empty muted">Nothing on.</div>`}`)}
+            ${g.ev.length ? g.ev.map((e) => this._evRow(e, g.d)) : html`<div class="empty muted">Nothing on.</div>`}`)}
           ${this._cal != null && groups.length === 1 && !groups[0].ev.length
             ? html`<div class="empty muted">Nothing in the week after, either.</div>` : nothing}
         </div>
@@ -1266,6 +1283,10 @@ class OverlookShow extends LitElement {
     .wo-text { min-width: 0; }
     .wo-text .ev-name { font-size: 16px; white-space: normal; }
     .wo-loc { font-size: 13px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day-sheet { max-height: 80%; }
+    .day-sub { font-weight: 500; font-size: 15px; }
+    .day-list { overflow-y: auto; scrollbar-width: none; min-height: 0; }
+    .day-list::-webkit-scrollbar { display: none; }
     .soon { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
     .soon ha-icon { --mdc-icon-size: 48px; color: var(--accent); }
     .soon-title { font-family: var(--display); font-size: 28px; font-weight: 700; }
