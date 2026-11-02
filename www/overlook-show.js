@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.5.2";
+const VERSION = "0.5.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -54,6 +54,7 @@ class OverlookShow extends LitElement {
     _cal: { state: true },
     _month: { state: true },
     _sel: { state: true },
+    _fit: { state: true },
     _forecast: { state: true },
     _now: { state: true },
     _uncovered: { state: true },
@@ -123,6 +124,20 @@ class OverlookShow extends LitElement {
       this._subscribed = true;
       this._subscribe();
     }
+    if (this._page === "calendar") this._fitChips();
+  }
+
+  // how many event chips fit in a day cell at this screen size
+  _fitChips() {
+    const d = this.shadowRoot.querySelector(".day");
+    if (!d) return;
+    const cs = getComputedStyle(d);
+    const room = d.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      - d.querySelector(".dnum").offsetHeight;
+    const chip = d.querySelector(".chip");
+    const each = (chip ? chip.offsetHeight : 19) + 3;
+    const n = Math.max(1, Math.floor(room / each));
+    if (n !== this._fit) this._fit = n;
   }
 
   async _subscribe() {
@@ -357,12 +372,14 @@ class OverlookShow extends LitElement {
           <div class="mgrid" style="--weeks:${weeks}">
             ${cells.map((d) => {
               const k = this._ymd(d), ev = byDay[k] || [];
+              const fit = this._fit || 2;
+              const shown = ev.length <= fit ? ev : ev.slice(0, fit - 1);
               return html`
                 <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
                         @click=${() => this._pick(k)}>
                   <span class="dnum">${d.getDate()}</span>
-                  ${ev.slice(0, 2).map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
-                  ${ev.length > 2 ? html`<span class="more">+${ev.length - 2} more</span>` : nothing}
+                  ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
+                  ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}
                 </button>`;
             })}
           </div>
@@ -1210,7 +1227,7 @@ class OverlookShow extends LitElement {
 
     /* placeholder pages */
     /* calendar */
-    .calendar { display: grid; grid-template-columns: 1.75fr 1fr; gap: 18px; height: 100%; min-height: 0; }
+    .calendar { display: grid; grid-template-columns: 2.7fr 1fr; gap: 18px; height: 100%; min-height: 0; }
     .month { padding: 20px 20px 16px; display: flex; flex-direction: column; min-height: 0; }
     .month-head { display: flex; align-items: center; gap: 10px; padding: 0 4px 12px; }
     .month-head h1 { font-family: var(--display); font-weight: 700; font-size: 28px; margin: 0 auto 0 0;
@@ -1235,14 +1252,14 @@ class OverlookShow extends LitElement {
     .chip { font-size: 12px; font-weight: 600; line-height: 1.25; padding: 2px 6px; border-radius: 6px;
             background: color-mix(in srgb, var(--c) 16%, transparent); border-left: 3px solid var(--c);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
-    .more { font-size: 11px; font-weight: 600; color: var(--muted); padding-left: 6px; }
+    .more { font-size: 11px; font-weight: 600; line-height: 16px; color: var(--muted); padding-left: 6px; flex: none; }
     .whatson { padding: 20px 20px 8px; display: flex; flex-direction: column; min-height: 0; }
     .wo-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin-top: 4px; padding-bottom: 12px; }
     .wo-list::-webkit-scrollbar { display: none; }
     .wo-day { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
               color: var(--muted); margin: 14px 0 8px; }
     .wo-day.is-today { color: var(--accent); }
-    .wo-ev { display: grid; grid-template-columns: 62px 4px 1fr; gap: 10px; align-items: stretch;
+    .wo-ev { display: grid; grid-template-columns: 56px 4px 1fr; gap: 10px; align-items: stretch;
              padding: 8px 0; }
     .wo-time { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 1px; }
     .wo-ev .bar { border-radius: 4px; }
