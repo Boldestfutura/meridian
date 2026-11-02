@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.3.7"
+VERSION = "0.4.2"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
@@ -33,6 +33,7 @@ CARD = {
          "ma": "media_player.homepod_mini_master_bedroom_2", "auto": False},
     ],
     "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
+    "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
     "calendars": [],
     "todo": "todo.shopping_list",
     "sensors": [

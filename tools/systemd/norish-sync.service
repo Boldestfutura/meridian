@@ -1,0 +1,6 @@
+[Unit]
+Description=Copy Norish recipes to Home Assistant for the kitchen screen
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/overlook-ha/tools/norish_sync.py

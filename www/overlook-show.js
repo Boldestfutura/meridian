@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.3.7";
+const VERSION = "0.4.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -56,6 +56,9 @@ class OverlookShow extends LitElement {
     _uncovered: { state: true },
     _adding: { state: true },
     _speaker: { state: true },
+    _lib: { state: true },
+    _book: { state: true },
+    _recipe: { state: true },
   };
 
   setConfig(config) {
@@ -105,6 +108,7 @@ class OverlookShow extends LitElement {
     clearTimeout(this._idleTimer);
     if (!this._config || !this._config.photos) return;
     this._idleTimer = setTimeout(() => {
+      if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
       this._page = "photos";
     }, this._config.idle * 1000);
@@ -174,6 +178,8 @@ class OverlookShow extends LitElement {
   }
   _go(page) {
     this._picker = false;
+    this._recipe = null;
+    if (page !== this._page) this._book = null;
     this._page = page;
   }
   _time(d) {
@@ -236,6 +242,7 @@ class OverlookShow extends LitElement {
   _pageBody() {
     switch (this._page) {
       case "kitchen": return this._kitchen();
+      case "recipes": return this._recipes();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -245,6 +252,116 @@ class OverlookShow extends LitElement {
         </div>`;
       }
     }
+  }
+
+  // --- recipes: a static copy of Norish, synced to /local/norish ---------------
+  async _loadLib() {
+    if (this._lib && Date.now() - this._libAt < 10 * 60 * 1000) return;
+    try {
+      const r = await fetch(`${this._config.recipes}/index.json?t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      this._lib = await r.json();
+      this._libAt = Date.now();
+    } catch (e) {
+      console.warn("overlook-show: recipes", e);
+      if (!this._lib) this._lib = { error: true };
+    }
+  }
+
+  _img(id) { return `${this._config.recipes}/img/${id}.jpg?v=${(this._lib.recipes[id] || {}).v || 0}`; }
+
+  _recipeCard(id) {
+    const r = this._lib.recipes[id];
+    if (!r) return nothing;
+    return html`
+      <button class="rc" @click=${() => this._openRecipe(id)}>
+        <span class="rc-img" style=${r.img ? `background-image:url('${this._img(id)}')` : ""}>
+          ${r.img ? nothing : html`<ha-icon icon="mdi:silverware-fork-knife"></ha-icon>`}</span>
+        <span class="rc-name">${r.n}</span>
+        ${r.t ? html`<span class="rc-meta muted">${r.t} min</span>` : nothing}
+      </button>`;
+  }
+
+  _bookCard(b) {
+    const covers = b.members.filter((id) => (this._lib.recipes[id] || {}).img).slice(0, 4);
+    return html`
+      <button class="bk" @click=${() => { this._book = b.id; }}>
+        <span class="bk-cover n${covers.length}">
+          ${covers.map((id) => html`<span style="background-image:url('${this._img(id)}')"></span>`)}
+        </span>
+        <span class="rc-name">${b.title}</span>
+        <span class="rc-meta muted">${b.members.length} recipes</span>
+      </button>`;
+  }
+
+  _recipes() {
+    this._loadLib();
+    const L = this._lib;
+    if (!L) return html`<div class="soon card"><div class="muted">Loading recipes…</div></div>`;
+    if (L.error) return html`<div class="soon card"><ha-icon icon="mdi:cloud-off-outline"></ha-icon>
+      <div class="muted">Recipes haven't synced to Home Assistant yet.</div></div>`;
+    const book = this._book && L.cookbooks.find((b) => b.id === this._book);
+    return html`
+      ${this._recipe ? this._recipeSheet() : html`
+      <div class="recipes">
+        ${book ? html`
+          <div class="lib-head">
+            <button class="back" @click=${() => { this._book = null; }}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+            <h1>${book.title}</h1><span class="muted">${book.members.length} recipes</span>
+          </div>
+          <div class="book-grid">${book.members.map((id) => this._recipeCard(id))}</div>` : html`
+          <div class="lib-head"><h1>Recipes</h1></div>
+          <section class="shelf">
+            <div class="card-title">Favourites</div>
+            <div class="shelf-row">
+              ${L.favorites.length ? L.favorites.map((id) => this._recipeCard(id))
+                : html`<div class="empty muted">Heart a recipe in Norish and it shows here.</div>`}
+            </div>
+          </section>
+          <section class="shelf">
+            <div class="card-title">Recently added</div>
+            <div class="shelf-row">${L.recent.map((id) => this._recipeCard(id))}</div>
+          </section>
+          <section class="shelf">
+            <div class="card-title">Cookbooks</div>
+            <div class="shelf-row">${L.cookbooks.map((b) => this._bookCard(b))}</div>
+          </section>`}
+      </div>`}`;
+  }
+
+  async _openRecipe(id) {
+    this._recipe = { id, loading: true };
+    try {
+      const r = await fetch(`${this._config.recipes}/r/${id}.json?v=${(this._lib.recipes[id] || {}).v || 0}`);
+      const d = await r.json();
+      if (this._recipe && this._recipe.id === id) this._recipe = d;
+    } catch (e) {
+      this._recipe = { id, error: true };
+    }
+  }
+
+  _recipeSheet() {
+    const d = this._recipe;
+    const meta = [];
+    if (d.total || d.prep || d.cook) meta.push(`${d.total || (d.prep || 0) + (d.cook || 0)} min`);
+    if (d.servings) meta.push(`Serves ${d.servings}`);
+    return html`
+      <div class="recipe">
+        <div class="recipe-side">
+          <button class="back" @click=${() => { this._recipe = null; }}><ha-icon icon="mdi:close"></ha-icon></button>
+          <div class="recipe-photo" style=${(this._lib.recipes[d.id] || {}).img ? `background-image:url('${this._img(d.id)}')` : ""}></div>
+          <h2>${d.name || (this._lib.recipes[d.id] || {}).n}</h2>
+          ${meta.length ? html`<div class="muted">${meta.join(" · ")}</div>` : nothing}
+          ${d.ingredients ? html`
+            <div class="card-title">Ingredients</div>
+            <ul class="ings">${d.ingredients.map((i) => html`<li>${i}</li>`)}</ul>` : nothing}
+        </div>
+        <div class="recipe-main">
+          ${d.loading ? html`<div class="muted">Loading…</div>` : d.error ? html`<div class="muted">Couldn't load this recipe.</div>` : html`
+            <div class="card-title">Method</div>
+            <ol class="steps">${d.steps.map((s) => html`<li><span>${s}</span></li>`)}</ol>`}
+        </div>
+      </div>`;
   }
 
   // --- photos -------------------------------------------------------------
@@ -865,6 +982,54 @@ class OverlookShow extends LitElement {
     .s-val span { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 1px; }
     .s-name { font-size: 12px; }
 
+    /* recipes */
+    .recipes { height: 100%; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+    .lib-head { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+    .lib-head h1 { font-family: var(--display); font-weight: 700; font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+    .back { width: 44px; height: 44px; border-radius: 50%; background: var(--card); box-shadow: var(--shadow);
+            display: grid; place-items: center; flex: none; }
+    .shelf { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+    .shelf-row { flex: 1; min-height: 0; display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none;
+                 margin: 0 -28px 0 -4px; padding: 2px 28px 6px 4px; scroll-snap-type: x proximity; }
+    .shelf-row::-webkit-scrollbar { display: none; }
+    .shelf-row .empty { align-self: center; }
+    .rc, .bk { flex: none; height: 100%; aspect-ratio: 0.92; display: flex; flex-direction: column; gap: 6px;
+               padding: 8px 8px 10px; border-radius: 22px; background: var(--card); border: 1px solid var(--card-edge);
+               box-shadow: var(--shadow); text-align: left; scroll-snap-align: start; min-height: 0; }
+    .rc:active, .bk:active { transform: scale(0.97); }
+    .rc-img, .bk-cover { flex: 1; min-height: 0; border-radius: 15px; background: var(--inset) center / cover;
+                         display: grid; place-items: center; color: var(--muted); overflow: hidden; }
+    .bk-cover { display: grid; gap: 2px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; place-items: stretch; }
+    .bk-cover span { background: var(--inset) center / cover; }
+    .bk-cover.n1 span, .bk-cover.n2 span, .bk-cover.n3 span:first-child { grid-row: span 2; }
+    .bk-cover.n1 span { grid-column: span 2; }
+    .rc-name { font-size: 14px; font-weight: 600; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2;
+               -webkit-box-orient: vertical; overflow: hidden; flex: none; padding: 0 2px; }
+    .rc-meta { font-size: 12px; flex: none; padding: 0 2px; margin-top: -3px; }
+    .book-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 14px; align-content: start;
+                 grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); padding: 2px 4px 20px; }
+    .book-grid { grid-auto-rows: max-content; }
+    .book-grid .rc { height: auto; aspect-ratio: auto; min-height: auto; }
+    .book-grid .rc-img { flex: none; aspect-ratio: 4 / 3; }
+    .book-grid .rc-name { min-height: 2.4em; }
+
+    .recipe { height: 100%; min-height: 0;
+              display: grid; grid-template-columns: minmax(260px, 0.8fr) 1.2fr; gap: 18px; }
+    .recipe-side, .recipe-main { background: var(--card); border: 1px solid var(--card-edge); border-radius: 30px;
+                                 box-shadow: var(--shadow); padding: 18px 20px; overflow-y: auto; min-height: 0;
+                                 backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
+    .recipe-side { position: relative; display: flex; flex-direction: column; gap: 8px; }
+    .recipe-side .back { position: absolute; top: 26px; left: 28px; z-index: 1; }
+    .recipe-photo { flex: none; aspect-ratio: 4 / 3; border-radius: 20px; background: var(--inset) center / cover; }
+    .recipe h2 { font-size: 20px; line-height: 1.2; margin: 6px 0 0; }
+    .recipe .card-title { margin-top: 10px; }
+    .ings { margin: 0; padding: 0; list-style: none; font-size: 15px; line-height: 1.35; }
+    .ings li { padding: 7px 0; border-bottom: 1px solid var(--track); }
+    .steps { margin: 10px 0 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 14px; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 12px; font-size: 17px; line-height: 1.45; }
+    .steps li::before { content: counter(s); width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft);
+                        color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; margin-top: 1px; }
+
     /* placeholder pages */
     .soon { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
     .soon ha-icon { --mdc-icon-size: 48px; color: var(--accent); }
@@ -950,6 +1115,9 @@ class OverlookShow extends LitElement {
       .sensors { gap: 10px; }
       .sensor { border-radius: 18px; padding: 8px 10px; }
       .s-val { font-size: 17px; margin-top: 2px; }
+      .recipe { gap: 12px; }
+      .lib-head h1 { font-size: 22px; }
+      .rc-name { font-size: 13px; }
     }
   `;
 }
