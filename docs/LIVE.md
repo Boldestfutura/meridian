@@ -115,10 +115,10 @@ rules.
 - Media cards are `columns 6, rows 2`, so tiles stack and drag freely.
 - The Scenes header has the same swipe chevron. The 7-scene strip overflows at every size.
 
-**ha-homey** ("Homey test", `homey.py`, added 2026-11-02)
-- A trial layout copying the Homey app's Devices screen; it replaces nothing. Square
-  tiles three to a row, summary cards opening subviews (lights/speakers/climate/activity).
-- Built fresh, so `./deploy.py homey` is safe until Cameron edits it by hand.
+**ha-homey** ("Homey lights test", `homey_lights.py`, 2026-11-02)
+- The live phone config with only the light tiles swapped for Homey-style ones (outline
+  icon, colour dot in the bulb's real colour, grey when off). Replaces nothing.
+- `./deploy.py homey_lights` re-reads ha-phone each time, so it always tracks his phone edits.
 
 **Shared**
 - `patch3.py` owns the status strip and **all the Bubble Card pop-ups** (`#ov-*`).
