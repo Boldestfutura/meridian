@@ -10,7 +10,27 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.6.4"
+VERSION = "0.6.7"
+def air(suffix=""):
+    """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
+    return [
+        {"entity": f"sensor.air_quality_monitor_temperature{suffix}", "name": "Temp", "icon": "mdi:thermometer",
+         "unit": "°", "color": "#f39a43"},
+        {"entity": f"sensor.air_quality_monitor_humidity{suffix}", "name": "Humidity", "icon": "mdi:water-percent",
+         "color": "#3f86f2"},
+        {"entity": f"sensor.air_quality_monitor_pm2_5{suffix}", "name": "PM2.5", "icon": "mdi:blur",
+         "unit": "", "color": "#3f8f63"},
+        {"entity": f"sensor.air_quality_monitor_voc_index{suffix}", "name": "VOC", "icon": "mdi:air-filter",
+         "unit": "", "color": "#8e5cf0"},
+    ]
+
+
+KITCHEN_SCENES = [
+    {"entity": "script.kitchen_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
+    {"entity": "script.kitchen_evening", "name": "Evening", "icon": "mdi:weather-sunset"},
+    {"entity": "script.kitchen_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
+]
+
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
@@ -35,15 +55,17 @@ CARD = {
     "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
     "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
     "calendars": [{"entity": "calendar.p_c", "color": "#e5484d"}],
+    "scenes": KITCHEN_SCENES,               # Favourites card, between the light and the heat pump
     "todo": "todo.shopping_list",
     # Home page: one tab per room, the same things the ha-tablet dashboard shows
     "rooms": [
         {"name": "Kitchen", "icon": "mdi:stove", "group": "light.kitchen_lights",
          "lights": [{"entity": "light.kitchen_light_2", "name": "Kitchen Light", "icon": "mdi:ceiling-light"},
                     {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:lamp"}],
-         "media": [{"entity": "media_player.kitchen_display", "name": "Nest Hub", "icon": "mdi:google-home"},
+         "sensors": air(),
+         "media": [{"entity": "media_player.kitchen_display", "name": "Nest Hub", "icon": "mdi:monitor-speaker"},
                    {"entity": "media_player.homepod_mini_kitchen", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
-         "scenes": [{"entity": "script.kitchen_dimmed", "name": "Kitchen Dim", "icon": "mdi:lightbulb-on-30"}]},
+         "scenes": KITCHEN_SCENES},
         {"name": "Living Room", "icon": "mdi:sofa", "group": "light.living_room", "climate": "climate.living_room",
          "lights": [{"entity": "light.couch_lamp", "name": "Couch Lamp", "icon": "mdi:floor-lamp"},
                     {"entity": "light.tv_lamp", "name": "TV Lamp", "icon": "mdi:lamp"},
@@ -54,7 +76,10 @@ CARD = {
          "plants": [{"entity": "sensor.soil_moisture_sensor_1_humidity", "name": "Fiddle Leaf Fig"},
                     {"entity": "sensor.moisture_sensor_2_humidity", "name": "Banana Leaf"}],
          "scenes": [{"entity": "scene.new_scene", "name": "Movie Time", "icon": "mdi:movie-open"},
-                    {"entity": "script.living_room_dimmed", "name": "Living Dim", "icon": "mdi:sofa"},
+                    {"entity": "script.living_room_relax", "name": "Relax", "icon": "mdi:sofa-single"},
+                    {"entity": "script.living_room_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
+                    {"entity": "script.living_room_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
+                    {"entity": "script.living_room_night_light", "name": "Night Light", "icon": "mdi:weather-night"},
                     {"entity": "script.heatpump_cool_30min", "name": "Heat/Cool 30 min", "icon": "mdi:sun-snowflake-variant"}]},
         {"name": "Bedroom", "icon": "mdi:bed-king-outline", "group": "light.master_bedroom_lights",
          "lights": [{"entity": "light.bedside_left", "name": "Bedside Left", "icon": "mdi:lamp"},
@@ -63,22 +88,17 @@ CARD = {
          "media": [{"entity": "media_player.homepod_mini_master_bedroom", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
          "switches": [{"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier",
                        "icon": "mdi:air-humidifier"}],
-         # the bedroom's own air monitor (the _2 sensors); the kitchen one is CARD.sensors
-         "sensors": [
-             {"entity": "sensor.air_quality_monitor_temperature_2", "name": "Temp", "icon": "mdi:thermometer",
-              "unit": "°", "color": "#f39a43"},
-             {"entity": "sensor.air_quality_monitor_humidity_2", "name": "Humidity", "icon": "mdi:water-percent",
-              "color": "#3f86f2"},
-             {"entity": "sensor.air_quality_monitor_pm2_5_2", "name": "PM2.5", "icon": "mdi:blur",
-              "unit": "", "color": "#3f8f63"},
-             {"entity": "sensor.air_quality_monitor_voc_index_2", "name": "VOC", "icon": "mdi:air-filter",
-              "unit": "", "color": "#8e5cf0"},
-         ],
-         "scenes": [{"entity": "script.bedroom_dimmed", "name": "Bedroom Dim", "icon": "mdi:bed"},
-                    {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:weather-night"}]},
+         "sensors": air("_2"),   # the bedroom's own monitor
+         "scenes": [{"entity": "script.bedroom_reading", "name": "Reading", "icon": "mdi:book-open-variant"},
+                    {"entity": "script.bedroom_wind_down", "name": "Wind Down", "icon": "mdi:candle"},
+                    {"entity": "script.bedroom_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
+                    {"entity": "script.bedroom_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
+                    {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:power-sleep"}]},
         {"name": "Guest", "icon": "mdi:bed-outline",
          "lights": [{"entity": "light.guest_bedroom_lamp", "name": "Guest Lamp", "icon": "mdi:lamp"}],
-         "scenes": [{"entity": "script.guest_bedroom_dimmed", "name": "Guest Dim", "icon": "mdi:bed-outline"},
+         "scenes": [{"entity": "script.guest_bedroom_welcome", "name": "Welcome", "icon": "mdi:hand-wave"},
+                    {"entity": "script.guest_bedroom_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
+                    {"entity": "script.guest_bedroom_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
                     {"entity": "input_boolean.guest_mode", "name": "Guest Mode", "icon": "mdi:account-group"}]},
         {"name": "Media", "icon": "mdi:music", "music": True},
     ],

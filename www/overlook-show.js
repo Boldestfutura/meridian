@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.4";
+const VERSION = "0.6.7";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -69,7 +69,7 @@ class OverlookShow extends LitElement {
   setConfig(config) {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
-      lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [],
+      lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
     }, config);
     this._page = "photos";
     this._drag = null;
@@ -414,6 +414,7 @@ class OverlookShow extends LitElement {
   }
 
   _sceneBtn(x, tile = false) {
+    if (tile === "mini") return this._miniScene(x);
     const [domain] = x.entity.split(".");
     const e = this._st(x.entity);
     const on = domain === "input_boolean" && e && e.state === "on";
@@ -429,6 +430,13 @@ class OverlookShow extends LitElement {
     }
     return html`
       <button class="card scene ${on ? "on" : ""}" @click=${go}>
+        <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
+  }
+
+  _miniScene(x) {
+    const [domain] = x.entity.split(".");
+    return html`
+      <button class="mini-scene" @click=${() => this._call(domain, "turn_on", { entity_id: x.entity })}>
         <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
   }
 
@@ -720,9 +728,14 @@ class OverlookShow extends LitElement {
           ${this._mediaCard()}
         </div>
         <div class="col col-b card">
-          <div class="card-title">Kitchen</div>
-          <div class="favs" style="--n:${this._config.lights.length}">
+          <div class="card-title">Favourites</div>
+          <div class="favs ${this._config.scenes.length ? "with-scenes" : ""}" style="--n:${this._config.lights.length}">
             ${this._config.lights.map((l) => this._pill(l))}
+            ${this._config.scenes.length ? html`
+              <div class="fav-scenes">
+                <div class="pill-head"><div class="pill-name">Scenes</div></div>
+                ${this._config.scenes.map((x) => this._sceneBtn(x, "mini"))}
+              </div>` : nothing}
             ${this._config.climate ? this._thermostat() : nothing}
           </div>
           ${this._playlists()}
@@ -1221,6 +1234,21 @@ class OverlookShow extends LitElement {
     .col-b { display: flex; flex-direction: column; overflow: hidden; }
     .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(150px, 0.8fr)) 1.4fr;
             gap: 14px; min-height: 0; margin-top: 14px; }
+    .favs.with-scenes { grid-template-columns: repeat(var(--n, 1), minmax(108px, 0.6fr)) minmax(104px, 0.55fr) 1.45fr; gap: 10px; }
+    .with-scenes .thermo { padding: 14px 12px; }
+    .with-scenes .hp-now { flex-direction: column; align-items: flex-start; gap: 0; }
+    .with-scenes .hp-temp { font-size: 44px; }
+    .with-scenes .hp-target { gap: 6px; }
+    .with-scenes .hp-step { width: 48px; height: 48px; }
+    .with-scenes .modes { gap: 6px; }
+    .fav-scenes { background: var(--inset); border-radius: 24px; padding: 14px 10px 10px; display: flex;
+                  flex-direction: column; gap: 8px; min-height: 0; }
+    .fav-scenes .pill-head { min-height: 0; padding: 0 4px 2px; }
+    .mini-scene { flex: 1; min-height: 0; max-height: 120px; border-radius: 18px; background: var(--card);
+                  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+                  font-weight: 600; font-size: 14px; }
+    .mini-scene ha-icon { color: var(--accent); }
+    .mini-scene:active { transform: scale(0.97); }
     .pill-wrap, .thermo { background: var(--inset); border-radius: 24px; padding: 14px; display: flex;
                           flex-direction: column; min-height: 0; }
     .pill-head { min-height: 40px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
@@ -1397,11 +1425,13 @@ class OverlookShow extends LitElement {
     .scenes { grid-column: 1 / -1; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none;
               margin: -10px -12px -24px; padding: 10px 12px 24px; }
     .scenes::-webkit-scrollbar { display: none; }
-    .scene { display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 22px 0 18px; border-radius: 20px;
-             font-weight: 600; font-size: 15px; flex: none; }
-    .scene ha-icon { color: var(--accent); }
+    .scene { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
+             height: 120px; min-width: 150px; padding: 16px 18px; border-radius: 24px; text-align: left;
+             font-weight: 600; font-size: 16px; flex: none; }
+    .scene ha-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+                     background: var(--accent-soft); color: var(--accent); }
     .scene.on { background: var(--accent); color: #fff; }
-    .scene.on ha-icon { color: #fff; }
+    .scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
     .scene:active, .tile:active { transform: scale(0.98); }
     .music { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
     .music .media-card { justify-content: flex-start; gap: 18px; }
