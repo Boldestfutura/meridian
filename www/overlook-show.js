@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.3.6";
+const VERSION = "0.3.7";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -439,7 +439,7 @@ class OverlookShow extends LitElement {
              @pointercancel=${() => { this._drag = null; this._press = null; }}>
           <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
           <div class="seg seg-bot" style="flex-grow:${at}">
-            <ha-icon icon=${l.icon || "mdi:lightbulb-outline"}></ha-icon>
+            <span class="seg-ico"><ha-icon icon=${l.icon || "mdi:lightbulb-outline"}></ha-icon></span>
           </div>
         </div>
         ${lit && rgb ? html`<button class="swatch" style="background:rgb(${rgb.join(",")})"
@@ -480,9 +480,9 @@ class OverlookShow extends LitElement {
   _pillDown(ev, id, pct) {
     ev.currentTarget.setPointerCapture(ev.pointerId);
     const r = ev.currentTarget.getBoundingClientRect();
-    // a tap on the grey top half means "this bright"; a tap on the bottom half toggles
+    // a tap on the bulb icon toggles; a tap anywhere else on the pill means "this bright"
     this._press = { id, y: ev.clientY, rect: r, moved: false, start: pct,
-                    top: !!(ev.target.closest && ev.target.closest(".seg-top")) };
+                    icon: !!(ev.target.closest && ev.target.closest(".seg-ico")) };
   }
 
   _pillMove(ev) {
@@ -498,7 +498,7 @@ class OverlookShow extends LitElement {
     const p = this._press;
     this._press = null;
     if (!p) return;
-    if (!p.moved && !p.top) {
+    if (!p.moved && p.icon) {
       this._call("light", "toggle", { entity_id: p.id });
       return;
     }
@@ -789,7 +789,8 @@ class OverlookShow extends LitElement {
     .seg { min-height: 0; background: var(--track); transition: flex-grow 0.18s ease-out, background 0.2s; }
     .seg-top { border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 6px 6px; }
     .seg-bot { border-radius: 6px 6px calc(var(--w) / 2) calc(var(--w) / 2); display: flex; align-items: flex-end; justify-content: center;
-               padding-bottom: 16px; color: var(--muted); }
+               padding-bottom: 6px; color: var(--muted); }
+    .seg-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; }
     .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
     .split.lit .seg-bot { background: var(--warm); color: #fff; }
     .split.lit .seg-bot ha-icon { opacity: 1; }
@@ -928,7 +929,8 @@ class OverlookShow extends LitElement {
       .pill-name { font-size: 14px; }
       .pill-state { font-size: 12px; }
       .split { --w: 56px; margin-top: 8px; }
-      .seg-bot { padding-bottom: 10px; }
+      .seg-bot { padding-bottom: 4px; }
+      .seg-ico { width: 44px; height: 44px; }
       .seg-bot ha-icon { --mdc-icon-size: 24px; }
       .swatch { right: 10px; bottom: 10px; width: 16px; height: 16px; }
       .thermo { gap: 8px; }
