@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.6.15"
+VERSION = "0.7.1"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -112,8 +112,6 @@ CARD = {
 }
 
 
-# Favourites card on the Kitchen page: every scene in the house, in a row under the light + heat pump.
-# House-wide ones first, then each room's, labelled with the room.
 # Kitchen Favourites row: the few scenes Cameron picked, named for a small square tile
 _all = {s["entity"]: s for r in CARD["rooms"] for s in r.get("scenes", [])}
 FAV_SCENES = [("script.goodnight", "Goodnight"), ("script.heatpump_cool_30min", "Heat/Cool 30 min"),

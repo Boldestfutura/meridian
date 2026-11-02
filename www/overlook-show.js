@@ -4,12 +4,15 @@
 // weather and clock top right, and the pages themselves. It starts on the photo
 // slideshow and drifts back to it after `idle` seconds without a touch.
 //
+// `phone: true` lays the same pieces out for a phone: one scrolling column, a
+// floating tab bar along the bottom, and no photos.
+//
 // Why a card and not button-card: the vertical light slider, the
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.15";
+const VERSION = "0.7.1";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -36,6 +39,14 @@ const WEATHER = {
 const PAGES = [
   ["kitchen", "Kitchen", "mdi:stove"],
   ["home", "Home", "mdi:home-outline"],
+  ["calendar", "Calendar", "mdi:calendar-month-outline"],
+  ["recipes", "Recipes", "mdi:silverware-fork-knife"],
+];
+
+// the phone's tab bar: the same pages, with Kitchen as the overview and Home as the rooms
+const PHONE_PAGES = [
+  ["kitchen", "Home", "mdi:home-variant-outline"],
+  ["home", "Rooms", "mdi:sofa-outline"],
   ["calendar", "Calendar", "mdi:calendar-month-outline"],
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
@@ -70,8 +81,10 @@ class OverlookShow extends LitElement {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
       lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
+      phone: false,
     }, config);
-    this._page = "photos";
+    if (this._config.phone) this._config.photos = null;
+    this._page = this._config.photos ? "photos" : "kitchen";
     this._drag = null;
     this._picker = false;
     this._todo = [];
@@ -125,7 +138,7 @@ class OverlookShow extends LitElement {
       this._subscribed = true;
       this._subscribe();
     }
-    if (this._page === "calendar") this._fitChips();
+    if (this._page === "calendar" && !this._config.phone) this._fitChips();
   }
 
   // how many event chips fit in a day cell at this screen size
@@ -244,6 +257,14 @@ class OverlookShow extends LitElement {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
     }
+    if (this._config.phone) {
+      return html`
+        <div class="screen phone">
+          <main class="page">${this._pageBody()}</main>
+          ${this._tabBar()}
+          ${this._picker ? this._speakerSheet() : nothing}
+        </div>`;
+    }
     const photos = this._page === "photos";
     return html`
       <div class="screen ${photos ? "is-photos" : ""}">
@@ -259,9 +280,7 @@ class OverlookShow extends LitElement {
     const w = this._st(this._config.weather);
     const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
     const t = w && w.attributes.temperature;
-    let hold;
-    const down = () => { hold = setTimeout(() => { this._uncovered = true; }, 1500); };
-    const up = () => clearTimeout(hold);
+    const [down, up] = this._holdToUncover();
     return html`
       <div class="topright ${onPhoto ? "on-photo" : ""}"
            @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
@@ -269,6 +288,65 @@ class OverlookShow extends LitElement {
             style="color:${onPhoto ? "#fff" : cond[2]}"></ha-icon>
           <span class="temp">${Math.round(t)}°</span>` : nothing}
         <span class="clock">${this._time(this._now)}</span>
+      </div>`;
+  }
+
+  // holding for 1.5s uncovers HA underneath, for edit mode
+  _holdToUncover() {
+    let hold;
+    return [() => { hold = setTimeout(() => { this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
+  }
+
+  _tabBar() {
+    return html`
+      <nav class="tabbar">
+        ${PHONE_PAGES.map(([id, name, icon]) => html`
+          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { this._go(id); this._top(); }}>
+            <ha-icon icon=${icon}></ha-icon><span>${name}</span>
+          </button>`)}
+      </nav>`;
+  }
+
+  _top() {
+    const p = this.shadowRoot && this.shadowRoot.querySelector(".page");
+    if (p) p.scrollTop = 0;
+  }
+
+  // --- phone home: everything from the kitchen page, one column ----------------
+  _phoneHome() {
+    const n = this._now, h = n.getHours();
+    const w = this._st(this._config.weather);
+    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const f = this._forecast;
+    const [down, up] = this._holdToUncover();
+    return html`
+      <div class="ph">
+        <header class="ph-head" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
+          <div>
+            <div class="date-top">${DAYS[n.getDay()]} ${n.getDate()} ${MONTHS[n.getMonth()]}</div>
+            <h1>${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}</h1>
+          </div>
+          ${cond ? html`
+            <div class="ph-wx">
+              <div class="ph-wx-now"><ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+                <span>${Math.round(w.attributes.temperature)}°</span></div>
+              ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
+            </div>` : nothing}
+        </header>
+        ${this._mediaCard()}
+        <div class="card ph-favs">
+          <div class="card-title">Favourites</div>
+          <div class="favs" style="--n:${this._config.lights.length}">
+            ${this._config.lights.map((l) => this._pill(l))}
+            ${this._config.climate ? this._thermostat() : nothing}
+          </div>
+          ${this._config.scenes.length ? html`
+            <div class="fav-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>` : nothing}
+        </div>
+        ${this._st(this._config.playlists) ? html`<div class="card ph-pl">${this._playlists()}</div>` : nothing}
+        ${this._agenda()}
+        ${this._shopping()}
+        ${this._sensors()}
       </div>`;
   }
 
@@ -291,7 +369,7 @@ class OverlookShow extends LitElement {
 
   _pageBody() {
     switch (this._page) {
-      case "kitchen": return this._kitchen();
+      case "kitchen": return this._config.phone ? this._phoneHome() : this._kitchen();
       case "recipes": return this._recipes();
       case "calendar": return this._calendar();
       case "home": return this._home();
@@ -526,8 +604,9 @@ class OverlookShow extends LitElement {
                 <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
                         @click=${() => this._pick(k)}>
                   <span class="dnum">${d.getDate()}</span>
-                  ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
-                  ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}
+                  ${this._config.phone ? html`<span class="ev-dots">${ev.slice(0, 3).map((e) => html`<i style="background:${e.colour}"></i>`)}</span>` : html`
+                    ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
+                    ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}`}
                 </button>`;
             })}
           </div>
@@ -1585,6 +1664,106 @@ class OverlookShow extends LitElement {
       .lib-head h1 { font-size: 22px; }
       .rc-name { font-size: 13px; }
     }
+
+    /* phone: one scrolling column, a floating tab bar, every card at its natural height */
+    .screen.phone { display: block; padding-top: 0; }
+    .phone .page { height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+                   padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 104px); }
+    .phone .card { border-radius: 26px; }
+    .tabbar { position: absolute; z-index: 4; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+              display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 28px;
+              background: var(--card); border: 1px solid var(--card-edge); box-shadow: 0 10px 40px rgba(22, 42, 84, 0.18);
+              backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); }
+    .tabbar .dock-btn { width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+    .tabbar .dock-btn ha-icon { --mdc-icon-size: 24px; }
+    .tabbar .dock-btn span { font-size: 11px; font-weight: 600; }
+
+    /* phone home */
+    .ph { display: flex; flex-direction: column; gap: 14px; }
+    .ph-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 4px 4px; }
+    .ph-head .date-top { font-size: 15px; margin: 0; }
+    .ph-head h1 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.15; margin: 4px 0 0;
+                  letter-spacing: -0.01em; }
+    .ph-wx { text-align: right; flex: none; }
+    .ph-wx-now { display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-size: 26px; font-weight: 600; }
+    .ph-wx-now ha-icon { --mdc-icon-size: 28px; }
+    .phone .media-card { flex: none; padding: 16px 18px; }
+    .ph-favs { padding: 18px 18px 18px; }
+    .ph-favs .favs { flex: none; height: 300px; grid-template-columns: 108px 1fr; gap: 10px; margin-top: 12px; }
+    .ph-favs .thermo { padding: 14px 12px 12px; gap: 8px; }
+    .ph-favs .hp-temp { font-size: 38px; }
+    .ph-favs .hp-mode { font-size: 14px; }
+    .ph-favs .hp-target { margin-top: 8px; gap: 6px; }
+    .ph-favs .hp-step { width: 46px; height: 46px; border-radius: 15px; }
+    .ph-favs .hp-set { font-size: 22px; }
+    .ph-favs .modes { height: 58px; gap: 6px; }
+    .ph-favs .mode { flex-direction: column; gap: 2px; font-size: 12px; border-radius: 15px; }
+    .ph-favs .mode ha-icon { --mdc-icon-size: 20px; }
+    .ph-favs .split { --w: 64px; }
+    .phone .fav-scenes { margin: 12px -18px 0; padding: 0 18px; overflow-x: auto; scrollbar-width: none;
+                         scroll-snap-type: x proximity; scroll-padding: 0 18px; }
+    .phone .fav-scenes::-webkit-scrollbar { display: none; }
+    .phone .mini-scene { flex: none; width: 84px; height: 84px; padding: 9px 4px; scroll-snap-align: start; }
+    .ph-pl { padding: 18px 18px 18px; }
+    .ph-pl .pl-title { margin-top: 0; }
+    .phone .pl-row { height: 124px; margin: 12px -18px -18px; padding: 0 18px 18px; scroll-padding: 0 18px; }
+    .phone .agenda, .phone .shopping { flex: none; padding: 18px; }
+    .phone .items { overflow: visible; }
+
+    /* phone rooms */
+    .phone .home { height: auto; gap: 14px; }
+    .phone .tabs { margin: 0 -16px; padding: 4px 16px 10px; max-width: none; box-sizing: border-box; }
+    .phone .tab { height: 42px; padding: 0 16px; font-size: 14px; }
+    .phone .room { display: flex; flex-direction: column; gap: 14px; }
+    .phone .room-lights { padding: 18px; overflow: visible; }
+    .phone .room-favs, .phone .room-favs.no-hp { flex: none; grid-template-columns: repeat(var(--n, 1), 1fr);
+                                                 grid-template-rows: 280px; grid-auto-rows: auto; gap: 10px; }
+    .phone .room-favs .thermo { grid-column: 1 / -1; }
+    .phone .room-favs .hp-target { margin-top: 10px; }
+    .phone .room-favs .modes { margin-top: 14px; }
+    .phone .room-favs .pill-wrap { padding: 12px 10px; }
+    .phone .room-favs .split { --w: 60px; }
+    .phone .room-side { margin: 0; padding: 0; overflow: visible; }
+    .phone .scenes { margin: 0; padding: 0; overflow: visible; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .phone .scene { min-width: 0; height: 100px; padding: 12px 14px; border-radius: 22px; font-size: 14px; }
+    .phone .scene ha-icon { width: 38px; height: 38px; --mdc-icon-size: 20px; }
+    .phone .music { display: flex; flex-direction: column; gap: 14px; }
+    .phone .music .media-card { padding: 22px 18px 18px; }
+    .phone .music-pl { padding: 18px; overflow: visible; }
+    .phone .music-pl .pl-row { margin: 12px 0 0; padding: 0; grid-template-columns: repeat(3, 1fr); height: auto; overflow: visible; }
+
+    /* phone calendar: dots in the grid, the list underneath does the talking */
+    .phone .calendar { display: flex; flex-direction: column; gap: 14px; height: auto; }
+    .phone .month { padding: 16px 12px 12px; }
+    .phone .month-head { padding: 0 4px 10px; gap: 8px; }
+    .phone .month-head h1 { font-size: 22px; }
+    .phone .nav-btn { width: 40px; height: 40px; }
+    .phone .today-btn { height: 40px; padding: 0 14px; font-size: 14px; }
+    .phone .dow, .phone .mgrid { gap: 4px; }
+    .phone .dow span { padding: 0; text-align: center; font-size: 11px; letter-spacing: 0.02em; }
+    .phone .mgrid { flex: none; grid-template-rows: repeat(var(--weeks), 50px); }
+    .phone .day { border-radius: 12px; padding: 4px 2px; align-items: center; gap: 4px; }
+    .phone .dnum { width: 26px; height: 26px; font-size: 14px; }
+    .ev-dots { display: flex; gap: 3px; }
+    .ev-dots i { width: 6px; height: 6px; border-radius: 50%; }
+    .phone .whatson { padding: 18px 18px 6px; }
+    .phone .wo-list { overflow: visible; }
+
+    /* phone recipes */
+    .phone .recipes { height: auto; gap: 16px; }
+    .phone .lib-head h1 { font-size: 24px; }
+    .phone .shelf { flex: none; }
+    .phone .shelf-row { flex: none; height: 200px; margin: 0 -16px; padding: 2px 16px 8px; scroll-padding: 0 16px; }
+    .phone .book-grid { overflow: visible; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 2px 0 0; }
+    .phone .recipe { display: flex; flex-direction: column; gap: 14px; height: auto; }
+    .phone .recipe-side, .phone .recipe-main { overflow: visible; border-radius: 26px; padding: 14px 16px 18px; }
+    .phone .recipe-side .back { top: 22px; left: 24px; }
+    .phone .heart { top: 22px; right: 24px; }
+    .phone .steps li { font-size: 16px; }
+
+    /* phone speaker picker: a sheet from the bottom */
+    .phone .scrim { position: fixed; place-items: end stretch; padding: 0 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+    .phone .sheet { width: 100%; border-radius: 28px; }
   `;
 }
 

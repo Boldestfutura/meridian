@@ -26,6 +26,7 @@ TARGETS = {           # url_path -> (module, title, icon)
     "bedroom":  ("ha-bedroom",  "Bedroom",  "mdi:bed-king"),
     "homey_lights": ("ha-homey", "Homey lights test", "mdi:lightbulb-outline"),
     "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
+    "showphone": ("ha-show-phone", "Phone Show", "mdi:cellphone-text"),
 }
 
 
@@ -102,7 +103,7 @@ def main():
                        title=title, icon=icon, show_in_sidebar=True, require_admin=False)
             print("created %s" % url)
 
-        if name == "show" and not a.dry_run:
+        if name in ("show", "showphone") and not a.dry_run:
             push_show(ws, ids)
 
         if a.patch:
