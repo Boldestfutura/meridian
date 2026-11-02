@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.6.3"
+VERSION = "0.6.4"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
@@ -63,6 +63,17 @@ CARD = {
          "media": [{"entity": "media_player.homepod_mini_master_bedroom", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
          "switches": [{"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier",
                        "icon": "mdi:air-humidifier"}],
+         # the bedroom's own air monitor (the _2 sensors); the kitchen one is CARD.sensors
+         "sensors": [
+             {"entity": "sensor.air_quality_monitor_temperature_2", "name": "Temp", "icon": "mdi:thermometer",
+              "unit": "°", "color": "#f39a43"},
+             {"entity": "sensor.air_quality_monitor_humidity_2", "name": "Humidity", "icon": "mdi:water-percent",
+              "color": "#3f86f2"},
+             {"entity": "sensor.air_quality_monitor_pm2_5_2", "name": "PM2.5", "icon": "mdi:blur",
+              "unit": "", "color": "#3f8f63"},
+             {"entity": "sensor.air_quality_monitor_voc_index_2", "name": "VOC", "icon": "mdi:air-filter",
+              "unit": "", "color": "#8e5cf0"},
+         ],
          "scenes": [{"entity": "script.bedroom_dimmed", "name": "Bedroom Dim", "icon": "mdi:bed"},
                     {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:weather-night"}]},
         {"name": "Guest", "icon": "mdi:bed-outline",

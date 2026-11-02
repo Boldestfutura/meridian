@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.3";
+const VERSION = "0.6.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -327,7 +327,8 @@ class OverlookShow extends LitElement {
     const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
     let side = [...(r.media || []).map((m) => this._player(m)),
                 ...(r.switches || []).map((x) => this._switchTile(x)),
-                ...(r.plants || []).map((x) => this._plantTile(x))];
+                ...(r.plants || []).map((x) => this._plantTile(x)),
+                ...((r.sensors || []).length ? [html`<div class="room-env">${this._sensors(r.sensors)}</div>`] : [])];
     // a room with nothing else puts its scenes in the side column instead of along the bottom
     const scenesAside = !side.length;
     if (scenesAside) side = (r.scenes || []).map((x) => this._sceneBtn(x, true));
@@ -1072,8 +1073,7 @@ class OverlookShow extends LitElement {
     input.focus();
   }
 
-  _sensors() {
-    const s = this._config.sensors || [];
+  _sensors(s = this._config.sensors || []) {
     if (!s.length) return nothing;
     return html`
       <div class="sensors">
@@ -1392,6 +1392,8 @@ class OverlookShow extends LitElement {
     .tile-text .muted { font-size: 13px; }
     .tile-val { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .tile-val small { font-size: 14px; color: var(--muted); margin-left: 1px; }
+    .room-env { flex: none; }
+    .room-env .sensors { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
     .scenes { grid-column: 1 / -1; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none;
               margin: -10px -12px -24px; padding: 10px 12px 24px; }
     .scenes::-webkit-scrollbar { display: none; }
