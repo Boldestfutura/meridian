@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.2.5"
+VERSION = "0.3.1"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",

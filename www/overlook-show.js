@@ -4,12 +4,12 @@
 // weather and clock top right, and the pages themselves. It starts on the photo
 // slideshow and drifts back to it after `idle` seconds without a touch.
 //
-// Why a card and not button-card: the vertical light slider, the thermostat
-// dial, the speaker picker and the idle return all need pointer handling and
+// Why a card and not button-card: the vertical light slider, the
+// speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.2.5";
+const VERSION = "0.3.1";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -507,90 +507,53 @@ class OverlookShow extends LitElement {
     setTimeout(() => { if (this._drag && this._drag.id === p.id) this._drag = null; }, 1500);
   }
 
-  // --- thermostat: drag the knob round the arc ------------------------------
+  // --- heat pump: actual temperature, -/+ for the target, a button per mode ----
   _thermostat() {
     const e = this._st(this._config.climate);
     if (!e) return nothing;
-    const a = e.attributes;
-    const min = a.min_temp, max = a.max_temp, step = a.target_temp_step || 0.5;
-    const mode = e.state;
-    const target = this._drag && this._drag.id === e.entity_id ? this._drag.temp : a.temperature;
-    const colour = mode === "heat" ? "var(--warm)" : mode === "cool" ? "var(--cool)"
-      : mode === "off" ? "var(--track-strong)" : "var(--accent)";
-    // 270 degree arc with the gap at the bottom
-    const R = 80, C = 100, START = 135, SWEEP = 270;
-    const pt = (deg) => [C + R * Math.cos(deg * Math.PI / 180), C + R * Math.sin(deg * Math.PI / 180)];
-    const arc = (from, to) => {
-      const [x1, y1] = pt(from), [x2, y2] = pt(to);
-      return `M ${x1} ${y1} A ${R} ${R} 0 ${to - from > 180 ? 1 : 0} 1 ${x2} ${y2}`;
-    };
-    const frac = clamp((target - min) / (max - min), 0, 1);
-    const knob = START + SWEEP * frac;
-    const [kx, ky] = pt(knob);
-    const modes = [["heat", "Heat"], ["cool", "Cool"], ["off", "Off"]]
+    const a = e.attributes, mode = e.state, step = a.target_temp_step || 0.5;
+    const pending = this._drag && this._drag.id === e.entity_id ? this._drag.temp : null;
+    const target = pending != null ? pending : a.temperature;
+    const label = mode === "off" ? "Off" : mode === "heat_cool" ? "Auto"
+      : mode[0].toUpperCase() + mode.slice(1).replace("_", " ");
+    const fmt = (t) => (t == null ? "–" : `${Math.round(t / step) * step}°`);
+    const modes = [["heat", "Heat", "mdi:fire"], ["cool", "Cool", "mdi:snowflake"], ["off", "Off", "mdi:power"]]
       .filter(([m]) => (a.hvac_modes || []).includes(m));
     return html`
       <div class="thermo">
-        <div class="pill-head"><div class="pill-name">Heat pump</div>
-          <div class="pill-state">${mode === "off" ? "Off" : `${mode === "heat_cool" ? "Auto" : mode[0].toUpperCase() + mode.slice(1).replace("_", " ")}`}</div></div>
-        <div class="dial-box"><div class="dial"
-             @pointerdown=${(ev) => this._dialDown(ev, e)}
-             @pointermove=${(ev) => this._dialMove(ev, e)}
-             @pointerup=${() => this._dialUp(e)}
-             @pointercancel=${() => { this._dialPress = null; this._drag = null; }}>
-          <svg viewBox="0 0 200 200">
-            <path d=${arc(START, START + SWEEP)} class="track"></path>
-            ${frac > 0.001 ? svg`<path d=${arc(START, knob)} class="arc" style="stroke:${colour}"></path>` : nothing}
-            <circle cx=${kx} cy=${ky} r="11" class="knob" style="stroke:${colour}"></circle>
-          </svg>
-          <div class="dial-mid">
-            <ha-icon icon=${mode === "cool" ? "mdi:snowflake" : mode === "off" ? "mdi:power" : "mdi:fire"}
-                     style="color:${colour}"></ha-icon>
-            <div class="dial-num" style="color:${mode === "off" ? "var(--ink)" : colour}">${Math.round(target / step) * step}°</div>
-            <div class="muted">Currently ${a.current_temperature != null ? Math.round(a.current_temperature * 10) / 10 : "–"}°</div>
-          </div>
-          <div class="modes">
-            ${modes.map(([m, label]) => html`
-              <button class="mode ${mode === m ? "on " + m : ""}"
-                      @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e.entity_id, hvac_mode: m })}>${label}</button>`)}
-          </div>
-        </div></div>
+        <div class="pill-head"><div class="pill-name">Heat pump</div></div>
+        <div class="hp-now">
+          <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
+          <span class="hp-mode ${mode}">${label}</span>
+        </div>
+        <div class="hp-target">
+          <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
+            <ha-icon icon="mdi:minus"></ha-icon></button>
+          <div class="hp-set"><span class="muted">Target</span>${fmt(target)}</div>
+          <button class="hp-step" title="Warmer" @click=${() => this._nudge(e, step)}>
+            <ha-icon icon="mdi:plus"></ha-icon></button>
+        </div>
+        <div class="modes">
+          ${modes.map(([m, name, icon]) => html`
+            <button class="mode ${mode === m ? "on " + m : ""}"
+                    @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e.entity_id, hvac_mode: m })}>
+              <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
+        </div>
       </div>`;
   }
 
-  _dialTemp(ev, e) {
-    const r = this._dialPress.rect;
-    const x = ev.clientX - (r.left + r.width / 2), y = ev.clientY - (r.top + r.height / 2);
-    let deg = Math.atan2(y, x) * 180 / Math.PI;      // -180..180, 0 = right
-    if (deg < 0) deg += 360;
-    let rel = deg - 135;
-    if (rel < 0) rel += 360;
-    if (rel > 270) rel = rel > 315 ? 0 : 270;         // the gap snaps to the nearer end
-    const a = e.attributes, step = a.target_temp_step || 0.5;
-    return clamp(Math.round((a.min_temp + rel / 270 * (a.max_temp - a.min_temp)) / step) * step, a.min_temp, a.max_temp);
-  }
-
-  _dialDown(ev, e) {
-    if (ev.target.closest(".mode")) return;
-    ev.currentTarget.setPointerCapture(ev.pointerId);
-    this._dialPress = { rect: ev.currentTarget.getBoundingClientRect(), x: ev.clientX, y: ev.clientY, moved: false };
-  }
-
-  _dialMove(ev, e) {
-    const p = this._dialPress;
-    if (!p) return;
-    if (!p.moved && Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < 8) return;
-    p.moved = true;
-    this._drag = { id: e.entity_id, temp: this._dialTemp(ev, e) };
-  }
-
-  _dialUp(e) {
-    const p = this._dialPress;
-    this._dialPress = null;
-    if (!p || !p.moved || !this._drag) return;
-    const t = this._drag.temp;
-    this._call("climate", "set_temperature", { entity_id: e.entity_id, temperature: t });
-    setTimeout(() => { if (this._drag && this._drag.id === e.entity_id) this._drag = null; }, 2500);
+  // taps add up locally and go to HA once they stop, so three quick taps are one call
+  _nudge(e, delta) {
+    const a = e.attributes;
+    const from = this._drag && this._drag.id === e.entity_id ? this._drag.temp : a.temperature;
+    const temp = clamp(from + delta, a.min_temp, a.max_temp);
+    this._drag = { id: e.entity_id, temp };
+    fireHaptic();
+    clearTimeout(this._nudgeTimer);
+    this._nudgeTimer = setTimeout(() => {
+      this._call("climate", "set_temperature", { entity_id: e.entity_id, temperature: temp });
+      setTimeout(() => { if (this._drag && this._drag.id === e.entity_id && this._drag.temp === temp) this._drag = null; }, 2500);
+    }, 700);
   }
 
   // --- right column ---------------------------------------------------------
@@ -844,29 +807,29 @@ class OverlookShow extends LitElement {
     .pill-state { font-size: 13px; color: var(--muted); margin-top: 2px; }
     .pill-state.lit { color: var(--warm); font-weight: 600; }
 
-    .thermo { align-items: stretch; }
-    /* the dial is a square as big as the tile allows; the modes hang in the arc's gap and
-       below it, so the box keeps 44px under the square for them */
-    .dial-box { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center;
-                padding: 14px 0 56px; }
-    .dial { position: relative; width: min(84cqw, 100cqh); aspect-ratio: 1; touch-action: none; container-type: inline-size; }
-    .dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
-    .track, .arc { fill: none; stroke-width: 14; stroke-linecap: round; }
-    .track { stroke: var(--track); }
-    .knob { fill: var(--card); stroke-width: 5; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2)); }
-    .dial-mid { position: absolute; inset: 0 0 12% 0; display: flex; flex-direction: column; align-items: center;
-                justify-content: center; pointer-events: none; }
-    /* text scales with the dial, so a small dial never spills past its ring */
-    .dial-mid ha-icon { --mdc-icon-size: clamp(14px, 9cqi, 22px); }
-    .dial-num { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 22cqi, 58px); line-height: 1.05; }
-    .dial-mid .muted { font-size: clamp(10px, 5.6cqi, 13px); white-space: nowrap; }
-    .modes { position: absolute; left: 50%; top: 80%; transform: translateX(-50%); display: flex;
-             flex-direction: column; align-items: center; gap: 2px; }
-    .mode { min-width: 64px; height: 26px; padding: 0 12px; border-radius: 999px; background: none; font-weight: 600;
-            font-size: 13px; color: var(--muted); }
+    /* heat pump: rows spread down the tile, the mode buttons take what is left */
+    .thermo { gap: 12px; }
+    .hp-now { display: flex; align-items: baseline; gap: 10px; }
+    .hp-temp { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vh, 48px); line-height: 1;
+               letter-spacing: -0.02em; }
+    .hp-mode { font-size: 16px; font-weight: 600; color: var(--muted); }
+    .hp-mode.heat { color: var(--warm); }
+    .hp-mode.cool { color: var(--cool); }
+    .hp-target { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+    .hp-step { width: 52px; height: 52px; border-radius: 16px; background: var(--card); display: grid; place-items: center; }
+    .hp-step:active { transform: scale(0.94); }
+    .hp-step ha-icon { --mdc-icon-size: 24px; }
+    .hp-set { display: flex; flex-direction: column; align-items: center; font-size: 26px; font-weight: 700; line-height: 1.1; }
+    .hp-set .muted { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .modes { flex: 1; min-height: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .mode { border-radius: 18px; background: var(--card); display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 4px; font-weight: 600; font-size: 14px; color: var(--ink); }
+    .mode ha-icon { --mdc-icon-size: 24px; color: var(--muted); }
+    .mode:active { transform: scale(0.96); }
     .mode.on.heat { background: var(--warm); color: #fff; }
     .mode.on.cool { background: var(--cool); color: #fff; }
     .mode.on.off { background: var(--ink); color: var(--card); }
+    .mode.on ha-icon { color: inherit; }
 
     /* right column */
     .agenda, .shopping { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
@@ -964,8 +927,11 @@ class OverlookShow extends LitElement {
       .seg-bot { padding-bottom: 10px; }
       .seg-bot ha-icon { --mdc-icon-size: 24px; }
       .swatch { right: 10px; bottom: 10px; width: 16px; height: 16px; }
-      .dial-box { padding: 8px 0 44px; }
-      .mode { height: 22px; font-size: 12px; min-width: 54px; }
+      .thermo { gap: 8px; }
+      .hp-step { width: 42px; height: 42px; border-radius: 13px; }
+      .hp-set { font-size: 21px; }
+      .mode { border-radius: 14px; font-size: 12px; }
+      .mode ha-icon { --mdc-icon-size: 20px; }
       .pl-title { margin-top: 12px; }
       .pl-row { height: 96px; margin: 8px -16px -16px; padding: 0 16px 16px; gap: 10px; scroll-padding: 0 16px; }
       .pl { border-radius: 16px; }
