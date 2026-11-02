@@ -25,7 +25,26 @@ TARGETS = {           # url_path -> (module, title, icon)
     "computer": ("ha-computer", "Computer", "mdi:laptop"),
     "bedroom":  ("ha-bedroom",  "Bedroom",  "mdi:bed-king"),
     "homey_lights": ("ha-homey", "Homey lights test", "mdi:lightbulb-outline"),
+    "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
 }
+
+
+def push_show(ws, ids):
+    """Copy the show card to /config/www and point its resource at this version."""
+    import show, subprocess
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
+                    "-i", os.path.expanduser("~/.config/ha/vmkey"),
+                    os.path.join(here, "www/overlook-show.js"), os.path.join(here, "www/lit-all.min.js"),
+                    "root@%s:/config/www/" % HOST], check=True)
+    url = "/local/overlook-show.js?v=" + show.VERSION
+    res = ha_ws.call(ws, next(ids), type="lovelace/resources")["result"]
+    mine = [r for r in res if r["url"].startswith("/local/overlook-show.js")]
+    if not mine:
+        ha_ws.call(ws, next(ids), type="lovelace/resources/create", res_type="module", url=url)
+    elif mine[0]["url"] != url:
+        ha_ws.call(ws, next(ids), type="lovelace/resources/update", resource_id=mine[0]["id"],
+                   res_type="module", url=url)
 
 
 def connect():
@@ -82,6 +101,9 @@ def main():
             ha_ws.call(ws, next(ids), type="lovelace/dashboards/create", url_path=url,
                        title=title, icon=icon, show_in_sidebar=True, require_admin=False)
             print("created %s" % url)
+
+        if name == "show" and not a.dry_run:
+            push_show(ws, ids)
 
         if a.patch:
             import patch3
