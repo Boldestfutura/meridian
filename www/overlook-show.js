@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.11";
+const VERSION = "0.6.14";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -441,8 +441,7 @@ class OverlookShow extends LitElement {
     return html`
       <button class="mini-scene ${on ? "on" : ""}" @click=${go}>
         <ha-icon icon=${x.icon}></ha-icon>
-        <span class="ms-text"><span class="ms-name">${x.name}</span>
-          ${x.room ? html`<span class="ms-room">${x.room}</span>` : nothing}</span></button>`;
+        <span class="ms-name">${x.name}</span></button>`;
   }
 
   _musicRoom() {
@@ -1236,19 +1235,15 @@ class OverlookShow extends LitElement {
     .col-b { display: flex; flex-direction: column; overflow: hidden; }
     .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(150px, 0.8fr)) 1.4fr;
             gap: 14px; min-height: 0; margin-top: 14px; }
-    .fav-scenes { flex: none; display: flex; gap: 10px; margin: 12px -22px 0; padding: 0 22px; overflow-x: auto;
-                  scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding: 0 22px; }
-    .fav-scenes::-webkit-scrollbar { display: none; }
-    .mini-scene { flex: none; height: 54px; padding: 0 16px 0 12px; border-radius: 18px; background: var(--inset);
-                  display: flex; align-items: center; gap: 10px; text-align: left; scroll-snap-align: start; }
+    .fav-scenes { flex: none; display: flex; gap: 10px; margin-top: 12px; }
+    .mini-scene { flex: 1 1 0; min-width: 0; height: 96px; padding: 10px 6px; border-radius: 18px; background: var(--inset);
+                  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;
+                  text-align: center; }
     .mini-scene ha-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
                           background: var(--card); }
     .mini-scene.on { background: var(--accent); color: #fff; }
     .mini-scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
-    .ms-text { display: flex; flex-direction: column; line-height: 1.2; }
-    .ms-name { font-weight: 600; font-size: 15px; white-space: nowrap; }
-    .ms-room { font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .mini-scene.on .ms-room { color: rgba(255, 255, 255, 0.8); }
+    .ms-name { font-weight: 600; font-size: 12px; line-height: 1.15; text-wrap: balance; max-width: 100%; }
     .mini-scene ha-icon { color: var(--accent); }
     .mini-scene:active { transform: scale(0.97); }
     .pill-wrap, .thermo { background: var(--inset); border-radius: 24px; padding: 14px; display: flex;
@@ -1300,9 +1295,9 @@ class OverlookShow extends LitElement {
     .hp-step ha-icon { --mdc-icon-size: 28px; }
     .hp-set { display: flex; flex-direction: column; align-items: center; font-size: 26px; font-weight: 700; line-height: 1.1; }
     /* short buttons sat at the foot of the tile, the free space opens above them */
-    .modes { flex: none; height: 108px; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .mode { border-radius: 18px; background: var(--card); display: flex; flex-direction: column; align-items: center;
-            justify-content: center; gap: 4px; font-weight: 600; font-size: 14px; color: var(--ink); }
+    .modes { flex: none; height: 64px; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .mode { border-radius: 18px; background: var(--card); display: flex; align-items: center;
+            justify-content: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--ink); }
     .mode ha-icon { --mdc-icon-size: 24px; color: var(--muted); }
     .mode:active { transform: scale(0.96); }
     .mode.on.heat { background: var(--warm); color: #fff; }
@@ -1568,7 +1563,11 @@ class OverlookShow extends LitElement {
       .thermo { gap: 8px; }
       .hp-step { width: 48px; height: 48px; border-radius: 14px; }
       .hp-set { font-size: 21px; }
-      .modes { height: 78px; gap: 8px; }
+      .modes { height: 52px; gap: 8px; }
+      .fav-scenes { margin-top: 8px; gap: 8px; }
+      .mini-scene { height: 68px; padding: 6px 4px; gap: 4px; border-radius: 14px; }
+      .mini-scene ha-icon { width: 28px; height: 28px; --mdc-icon-size: 18px; }
+      .ms-name { font-size: 11px; }
       .hp-target { margin-top: 14px; }
       .mode { border-radius: 14px; font-size: 12px; }
       .mode ha-icon { --mdc-icon-size: 20px; }
