@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.6.14";
+const VERSION = "0.6.15";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -1237,7 +1237,7 @@ class OverlookShow extends LitElement {
             gap: 14px; min-height: 0; margin-top: 14px; }
     .fav-scenes { flex: none; display: flex; gap: 10px; margin-top: 12px; }
     .mini-scene { flex: 1 1 0; min-width: 0; height: 96px; padding: 10px 6px; border-radius: 18px; background: var(--inset);
-                  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;
+                  display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 6px;
                   text-align: center; }
     .mini-scene ha-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
                           background: var(--card); }
@@ -1565,7 +1565,7 @@ class OverlookShow extends LitElement {
       .hp-set { font-size: 21px; }
       .modes { height: 52px; gap: 8px; }
       .fav-scenes { margin-top: 8px; gap: 8px; }
-      .mini-scene { height: 68px; padding: 6px 4px; gap: 4px; border-radius: 14px; }
+      .mini-scene { height: 68px; padding: 7px 4px; gap: 4px; border-radius: 14px; }
       .mini-scene ha-icon { width: 28px; height: 28px; --mdc-icon-size: 18px; }
       .ms-name { font-size: 11px; }
       .hp-target { margin-top: 14px; }
