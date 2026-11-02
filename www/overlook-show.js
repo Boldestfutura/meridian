@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.4.2";
+const VERSION = "0.4.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -329,6 +329,25 @@ class OverlookShow extends LitElement {
       </div>`}`;
   }
 
+  _isFav(id) { return !!(this._lib && this._lib.favorites && this._lib.favorites.includes(id)); }
+
+  // HA signs in to Norish and toggles it (shell_command.norish_favourite); the heart
+  // changes at once and the index is re-read once HA is done
+  async _toggleFav(id) {
+    const want = !this._isFav(id);
+    const before = this._lib.favorites;
+    this._lib = Object.assign({}, this._lib, {
+      favorites: want ? [id, ...before] : before.filter((x) => x !== id) });
+    try {
+      await this._call("shell_command", "norish_favourite", { recipe: id, favourite: want ? "true" : "false" });
+      this._libAt = 0;
+      this._loadLib();
+    } catch (e) {
+      console.warn("overlook-show: favourite", e);
+      this._lib = Object.assign({}, this._lib, { favorites: before });
+    }
+  }
+
   async _openRecipe(id) {
     this._recipe = { id, loading: true };
     try {
@@ -349,6 +368,8 @@ class OverlookShow extends LitElement {
       <div class="recipe">
         <div class="recipe-side">
           <button class="back" @click=${() => { this._recipe = null; }}><ha-icon icon="mdi:close"></ha-icon></button>
+          <button class="heart ${this._isFav(d.id) ? "on" : ""}" title="Favourite" @click=${() => this._toggleFav(d.id)}>
+            <ha-icon icon=${this._isFav(d.id) ? "mdi:heart" : "mdi:heart-outline"}></ha-icon></button>
           <div class="recipe-photo" style=${(this._lib.recipes[d.id] || {}).img ? `background-image:url('${this._img(d.id)}')` : ""}></div>
           <h2>${d.name || (this._lib.recipes[d.id] || {}).n}</h2>
           ${meta.length ? html`<div class="muted">${meta.join(" · ")}</div>` : nothing}
@@ -1020,6 +1041,10 @@ class OverlookShow extends LitElement {
                                  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
     .recipe-side { position: relative; display: flex; flex-direction: column; gap: 8px; }
     .recipe-side .back { position: absolute; top: 26px; left: 28px; z-index: 1; }
+    .heart { position: absolute; top: 26px; right: 28px; z-index: 1; width: 44px; height: 44px; border-radius: 50%;
+             background: var(--card); box-shadow: var(--shadow); display: grid; place-items: center; color: var(--muted); }
+    .heart.on { color: #e5484d; }
+    .heart:active { transform: scale(0.9); }
     .recipe-photo { flex: none; aspect-ratio: 4 / 3; border-radius: 20px; background: var(--inset) center / cover; }
     .recipe h2 { font-size: 20px; line-height: 1.2; margin: 6px 0 0; }
     .recipe .card-title { margin-top: 10px; }
