@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.2.3";
+const VERSION = "0.2.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -817,11 +817,11 @@ class OverlookShow extends LitElement {
     .dots { width: 30px; height: 30px; margin: -4px -6px 0 0; border-radius: 50%; display: grid; place-items: center;
             color: var(--muted); }
     .dots ha-icon { --mdc-icon-size: 20px; }
-    .split { flex: 1; min-height: 0; width: 72px; margin: 12px auto 4px; display: flex; flex-direction: column;
-             gap: 5px; touch-action: none; cursor: pointer; }
+    .split { --w: 72px; flex: 1; min-height: 0; width: var(--w); margin: 12px auto 4px; display: flex;
+             flex-direction: column; gap: 6px; touch-action: none; cursor: pointer; }
     .seg { min-height: 0; background: var(--track); transition: flex-grow 0.18s ease-out, background 0.2s; }
-    .seg-top { border-radius: 999px 999px 12px 12px; }
-    .seg-bot { border-radius: 12px 12px 999px 999px; display: flex; align-items: flex-end; justify-content: center;
+    .seg-top { border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 14px 14px; }
+    .seg-bot { border-radius: 14px 14px calc(var(--w) / 2) calc(var(--w) / 2); display: flex; align-items: flex-end; justify-content: center;
                padding-bottom: 16px; color: var(--muted); }
     .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
     .split.lit .seg-bot { background: var(--warm); color: #fff; }
@@ -848,8 +848,8 @@ class OverlookShow extends LitElement {
     /* the dial is a square as big as the tile allows; the modes hang in the arc's gap and
        below it, so the box keeps 44px under the square for them */
     .dial-box { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center;
-                padding: 4px 0 44px; }
-    .dial { position: relative; width: min(100cqw, 100cqh); aspect-ratio: 1; touch-action: none; container-type: inline-size; }
+                padding: 14px 0 56px; }
+    .dial { position: relative; width: min(84cqw, 100cqh); aspect-ratio: 1; touch-action: none; container-type: inline-size; }
     .dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
     .track, .arc { fill: none; stroke-width: 14; stroke-linecap: round; }
     .track { stroke: var(--track); }
@@ -860,7 +860,7 @@ class OverlookShow extends LitElement {
     .dial-mid ha-icon { --mdc-icon-size: clamp(14px, 9cqi, 22px); }
     .dial-num { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 22cqi, 58px); line-height: 1.05; }
     .dial-mid .muted { font-size: clamp(10px, 5.6cqi, 13px); white-space: nowrap; }
-    .modes { position: absolute; left: 50%; top: 74%; transform: translateX(-50%); display: flex;
+    .modes { position: absolute; left: 50%; top: 80%; transform: translateX(-50%); display: flex;
              flex-direction: column; align-items: center; gap: 2px; }
     .mode { min-width: 64px; height: 26px; padding: 0 12px; border-radius: 999px; background: none; font-weight: 600;
             font-size: 13px; color: var(--muted); }
@@ -960,11 +960,11 @@ class OverlookShow extends LitElement {
       .pill-head { min-height: 34px; }
       .pill-name { font-size: 14px; }
       .pill-state { font-size: 12px; }
-      .split { width: 56px; margin-top: 8px; }
+      .split { --w: 56px; margin-top: 8px; }
       .seg-bot { padding-bottom: 10px; }
       .seg-bot ha-icon { --mdc-icon-size: 24px; }
       .swatch { right: 10px; bottom: 10px; width: 16px; height: 16px; }
-      .dial-box { padding-bottom: 36px; }
+      .dial-box { padding: 8px 0 44px; }
       .mode { height: 22px; font-size: 12px; min-width: 54px; }
       .pl-title { margin-top: 12px; }
       .pl-row { height: 96px; margin: 8px -16px -16px; padding: 0 16px 16px; gap: 10px; scroll-padding: 0 16px; }
