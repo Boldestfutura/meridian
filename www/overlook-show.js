@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.3.1";
+const VERSION = "0.3.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -529,7 +529,7 @@ class OverlookShow extends LitElement {
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
             <ha-icon icon="mdi:minus"></ha-icon></button>
-          <div class="hp-set"><span class="muted">Target</span>${fmt(target)}</div>
+          <div class="hp-set">${fmt(target)}</div>
           <button class="hp-step" title="Warmer" @click=${() => this._nudge(e, step)}>
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
@@ -820,8 +820,8 @@ class OverlookShow extends LitElement {
     .hp-step:active { transform: scale(0.94); }
     .hp-step ha-icon { --mdc-icon-size: 24px; }
     .hp-set { display: flex; flex-direction: column; align-items: center; font-size: 26px; font-weight: 700; line-height: 1.1; }
-    .hp-set .muted { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-    .modes { flex: 1; min-height: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    /* short buttons sat at the foot of the tile, the free space opens above them */
+    .modes { flex: none; height: 84px; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .mode { border-radius: 18px; background: var(--card); display: flex; flex-direction: column; align-items: center;
             justify-content: center; gap: 4px; font-weight: 600; font-size: 14px; color: var(--ink); }
     .mode ha-icon { --mdc-icon-size: 24px; color: var(--muted); }
@@ -930,6 +930,7 @@ class OverlookShow extends LitElement {
       .thermo { gap: 8px; }
       .hp-step { width: 42px; height: 42px; border-radius: 13px; }
       .hp-set { font-size: 21px; }
+      .modes { height: 62px; gap: 8px; }
       .mode { border-radius: 14px; font-size: 12px; }
       .mode ha-icon { --mdc-icon-size: 20px; }
       .pl-title { margin-top: 12px; }
