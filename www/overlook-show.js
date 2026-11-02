@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.1";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -276,6 +276,7 @@ class OverlookShow extends LitElement {
             ${this._config.lights.map((l) => this._pill(l))}
             ${this._config.climate ? this._thermostat() : nothing}
           </div>
+          ${this._playlists()}
         </div>
         <div class="col col-c">
           ${this._agenda()}
@@ -411,23 +412,66 @@ class OverlookShow extends LitElement {
     const on = e.state === "on";
     const real = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
     const drag = this._drag && this._drag.id === l.entity ? this._drag.pct : null;
+    this._last = this._last || {};
+    if (on) this._last[l.entity] = real;
     const pct = drag != null ? drag : real;
     const lit = drag != null ? drag > 0 : on;
+    // the split sits at the brightness; an off light keeps it where it was last
+    const at = clamp(lit ? pct : (this._last[l.entity] || 50), 22, 88);
+    const rgb = e.attributes.rgb_color;
     return html`
       <div class="pill-wrap">
         <div class="pill-head">
-          <div class="pill-name">${l.name || e.attributes.friendly_name}</div>
-          <div class="pill-state ${lit ? "lit" : ""}">${lit ? `${pct}%` : "Off"}</div>
+          <div>
+            <div class="pill-name">${l.name || e.attributes.friendly_name}</div>
+            <div class="pill-state ${lit ? "lit" : ""}">${lit ? (pct >= 100 ? "On" : `On · ${pct}%`) : "Off"}</div>
+          </div>
+          <button class="dots" @click=${() => this._moreInfo(l.entity)}>
+            <ha-icon icon="mdi:dots-vertical"></ha-icon></button>
         </div>
-        <div class="pill ${lit ? "lit" : ""}"
+        <div class="split ${lit ? "lit" : ""}"
              @pointerdown=${(ev) => this._pillDown(ev, l.entity, pct)}
              @pointermove=${(ev) => this._pillMove(ev)}
              @pointerup=${(ev) => this._pillUp(ev)}
-             @pointercancel=${() => { this._drag = null; }}>
-          <div class="pill-fill" style="height:${lit ? Math.max(pct, 14) : 0}%"></div>
-          <ha-icon class="pill-icon" icon=${l.icon || "mdi:lightbulb-outline"}></ha-icon>
+             @pointercancel=${() => { this._drag = null; this._press = null; }}>
+          <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
+          <div class="seg seg-bot" style="flex-grow:${at}">
+            <ha-icon icon=${l.icon || "mdi:lightbulb-outline"}></ha-icon>
+          </div>
         </div>
+        ${lit && rgb ? html`<button class="swatch" style="background:rgb(${rgb.join(",")})"
+            @click=${() => this._moreInfo(l.entity)}></button>` : nothing}
       </div>`;
+  }
+
+  _moreInfo(entityId) {
+    this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  // --- playlists: cover tiles, tap plays on the Active Media speaker ---------
+  _playlists() {
+    const e = this._st(this._config.playlists);
+    const items = (e && e.attributes.items) || [];
+    if (!items.length) return nothing;
+    return html`
+      <div class="card-title pl-title">Playlists</div>
+      <div class="pl-row">
+        ${items.map((p) => html`
+          <button class="pl" style=${p.image ? `background-image:url('${p.image}')` : ""}
+                  @click=${() => this._playList(p)}>
+            <span class="pl-shade"></span>
+            <span class="pl-name">${p.name}</span>
+          </button>`)}
+      </div>`;
+  }
+
+  _playList(p) {
+    const sp = this._activeSpeaker();
+    if (!sp || !sp.ma) return;
+    this._speaker = sp.name;
+    try { localStorage.setItem("overlook-show-speaker", sp.name); } catch (e) {}
+    this._call("music_assistant", "play_media",
+      { entity_id: sp.ma, media_id: p.uri, media_type: "playlist", enqueue: "replace" });
   }
 
   _pillDown(ev, id, pct) {
@@ -502,11 +546,11 @@ class OverlookShow extends LitElement {
             <div class="dial-num" style="color:${mode === "off" ? "var(--ink)" : colour}">${Math.round(target / step) * step}°</div>
             <div class="muted">Currently ${a.current_temperature != null ? Math.round(a.current_temperature * 10) / 10 : "–"}°</div>
           </div>
-        </div>
-        <div class="modes">
-          ${modes.map(([m, label]) => html`
-            <button class="mode ${mode === m ? "on " + m : ""}"
-                    @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e.entity_id, hvac_mode: m })}>${label}</button>`)}
+          <div class="modes">
+            ${modes.map(([m, label]) => html`
+              <button class="mode ${mode === m ? "on " + m : ""}"
+                      @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e.entity_id, hvac_mode: m })}>${label}</button>`)}
+          </div>
         </div>
       </div>`;
   }
@@ -524,6 +568,7 @@ class OverlookShow extends LitElement {
   }
 
   _dialDown(ev, e) {
+    if (ev.target.closest(".mode")) return;
     ev.currentTarget.setPointerCapture(ev.pointerId);
     this._dialPress = { rect: ev.currentTarget.getBoundingClientRect(), x: ev.clientX, y: ev.clientY, moved: false };
   }
@@ -735,22 +780,41 @@ class OverlookShow extends LitElement {
 
     /* favourites */
     .col-b { padding: 20px 22px 22px; }
-    .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 2), minmax(92px, 0.5fr)) 2fr;
+    .col-b { display: flex; flex-direction: column; overflow: hidden; }
+    .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(150px, 0.8fr)) 1.4fr;
             gap: 14px; min-height: 0; margin-top: 14px; }
     .pill-wrap, .thermo { background: var(--inset); border-radius: 24px; padding: 14px; display: flex;
                           flex-direction: column; min-height: 0; }
-    .pill-head { min-height: 40px; }
+    .pill-head { min-height: 40px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+    .dots { width: 30px; height: 30px; margin: -4px -6px 0 0; border-radius: 50%; display: grid; place-items: center;
+            color: var(--muted); }
+    .dots ha-icon { --mdc-icon-size: 20px; }
+    .split { flex: 1; min-height: 0; width: 72px; margin: 12px auto 4px; display: flex; flex-direction: column;
+             gap: 5px; touch-action: none; cursor: pointer; }
+    .seg { min-height: 0; background: var(--track); transition: flex-grow 0.18s ease-out, background 0.2s; }
+    .seg-top { border-radius: 999px 999px 12px 12px; }
+    .seg-bot { border-radius: 12px 12px 999px 999px; display: flex; align-items: flex-end; justify-content: center;
+               padding-bottom: 16px; color: var(--muted); }
+    .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
+    .split.lit .seg-bot { background: var(--warm); color: #fff; }
+    .split.lit .seg-bot ha-icon { opacity: 1; }
+    .swatch { position: absolute; right: 14px; bottom: 14px; width: 20px; height: 20px; border-radius: 50%;
+              box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.25); }
+    .pill-wrap { position: relative; }
+    .pl-title { margin-top: 18px; }
+    .pl-row { flex: none; height: clamp(116px, 18vh, 150px); margin: 12px -22px -22px; padding: 0 22px 22px; display: flex; gap: 12px;
+              overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 22px; scrollbar-width: none; }
+    .pl-row::-webkit-scrollbar { display: none; }
+    .pl { position: relative; flex: none; height: 100%; aspect-ratio: 1; border-radius: 20px; overflow: hidden;
+          background: var(--inset) center / cover; scroll-snap-align: start; text-align: left; }
+    .pl:active { transform: scale(0.97); }
+    .pl-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 55%); }
+    .pl-name { position: absolute; left: 12px; right: 12px; top: 10px; color: #fff; font-weight: 600; font-size: 15px;
+               line-height: 1.2; text-shadow: 0 1px 6px rgba(0,0,0,.35); display: -webkit-box; -webkit-line-clamp: 2;
+               -webkit-box-orient: vertical; overflow: hidden; }
     .pill-name { font-size: 15px; font-weight: 600; line-height: 1.15; }
     .pill-state { font-size: 13px; color: var(--muted); margin-top: 2px; }
     .pill-state.lit { color: var(--warm); font-weight: 600; }
-    .pill { position: relative; flex: 1; margin: 10px auto 0; width: 100%; max-width: 92px; border-radius: 999px;
-            background: var(--track); overflow: hidden; touch-action: none; cursor: pointer; }
-    .pill-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--warm);
-                 border-radius: 0 0 999px 999px; transition: height 0.18s ease-out; }
-    .pill.lit .pill-fill { border-radius: 26px 26px 999px 999px; }
-    .pill-icon { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); --mdc-icon-size: 28px;
-                 color: var(--muted); }
-    .pill.lit .pill-icon { color: #fff; }
 
     .thermo { align-items: stretch; }
     .dial { position: relative; flex: 1; min-height: 0; touch-action: none; display: grid; place-items: center; }
@@ -758,14 +822,15 @@ class OverlookShow extends LitElement {
     .track, .arc { fill: none; stroke-width: 14; stroke-linecap: round; }
     .track { stroke: var(--track); }
     .knob { fill: var(--card); stroke-width: 5; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2)); }
-    .dial-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    .dial-mid { position: absolute; inset: 0 0 16% 0; display: flex; flex-direction: column; align-items: center;
                 justify-content: center; pointer-events: none; }
     .dial-mid ha-icon { --mdc-icon-size: 22px; }
     .dial-num { font-family: var(--display); font-weight: 700; font-size: clamp(38px, 7vh, 58px); line-height: 1.05; }
     .dial-mid .muted { font-size: 13px; }
-    .modes { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
-    .mode { flex: 1; max-width: 96px; height: 38px; border-radius: 999px; background: var(--card); font-weight: 600;
-            font-size: 14px; color: var(--muted); }
+    .modes { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex;
+             flex-direction: column; align-items: center; gap: 2px; }
+    .mode { min-width: 64px; height: 26px; padding: 0 12px; border-radius: 999px; background: none; font-weight: 600;
+            font-size: 13px; color: var(--muted); }
     .mode.on.heat { background: var(--warm); color: #fff; }
     .mode.on.cool { background: var(--cool); color: #fff; }
     .mode.on.off { background: var(--ink); color: var(--card); }

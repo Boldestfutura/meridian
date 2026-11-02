@@ -10,15 +10,14 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.1.2"
+VERSION = "0.2.1"
 CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
     "weather": "weather.forecast_home",
     "idle": 300,
     "lights": [
-        {"entity": "light.kitchen_light_2", "name": "Kitchen Light", "icon": "mdi:ceiling-light-outline"},
-        {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:desk-lamp"},
+        {"entity": "light.kitchen_lights", "name": "Kitchen Lights", "icon": "mdi:lightbulb-group"},
     ],
     "climate": "climate.living_room",
     # each speaker lists its plain entity first, then the Music Assistant one
@@ -33,6 +32,7 @@ CARD = {
          "entities": ["media_player.homepod_mini_master_bedroom_2"],
          "ma": "media_player.homepod_mini_master_bedroom_2", "auto": False},
     ],
+    "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
     "calendars": [],
     "todo": "todo.shopping_list",
     "sensors": [
