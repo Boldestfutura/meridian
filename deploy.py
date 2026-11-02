@@ -24,6 +24,7 @@ TARGETS = {           # url_path -> (module, title, icon)
     "tablet":   ("ha-tablet",   "Tablet",   "mdi:tablet"),
     "computer": ("ha-computer", "Computer", "mdi:laptop"),
     "bedroom":  ("ha-bedroom",  "Bedroom",  "mdi:bed-king"),
+    "homey":    ("ha-homey",    "Homey test", "mdi:view-grid-outline"),
 }
 
 
