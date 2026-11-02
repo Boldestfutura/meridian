@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.3.4";
+const VERSION = "0.3.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -821,7 +821,7 @@ class OverlookShow extends LitElement {
     .hp-step ha-icon { --mdc-icon-size: 28px; }
     .hp-set { display: flex; flex-direction: column; align-items: center; font-size: 26px; font-weight: 700; line-height: 1.1; }
     /* short buttons sat at the foot of the tile, the free space opens above them */
-    .modes { flex: none; height: 96px; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .modes { flex: none; height: 108px; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .mode { border-radius: 18px; background: var(--card); display: flex; flex-direction: column; align-items: center;
             justify-content: center; gap: 4px; font-weight: 600; font-size: 14px; color: var(--ink); }
     .mode ha-icon { --mdc-icon-size: 24px; color: var(--muted); }
@@ -930,7 +930,7 @@ class OverlookShow extends LitElement {
       .thermo { gap: 8px; }
       .hp-step { width: 48px; height: 48px; border-radius: 14px; }
       .hp-set { font-size: 21px; }
-      .modes { height: 70px; gap: 8px; }
+      .modes { height: 78px; gap: 8px; }
       .hp-target { margin-top: 14px; }
       .mode { border-radius: 14px; font-size: 12px; }
       .mode ha-icon { --mdc-icon-size: 20px; }
