@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.2.4";
+const VERSION = "0.2.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -818,10 +818,10 @@ class OverlookShow extends LitElement {
             color: var(--muted); }
     .dots ha-icon { --mdc-icon-size: 20px; }
     .split { --w: 72px; flex: 1; min-height: 0; width: var(--w); margin: 12px auto 4px; display: flex;
-             flex-direction: column; gap: 6px; touch-action: none; cursor: pointer; }
+             flex-direction: column; gap: 3px; touch-action: none; cursor: pointer; }
     .seg { min-height: 0; background: var(--track); transition: flex-grow 0.18s ease-out, background 0.2s; }
-    .seg-top { border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 14px 14px; }
-    .seg-bot { border-radius: 14px 14px calc(var(--w) / 2) calc(var(--w) / 2); display: flex; align-items: flex-end; justify-content: center;
+    .seg-top { border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 6px 6px; }
+    .seg-bot { border-radius: 6px 6px calc(var(--w) / 2) calc(var(--w) / 2); display: flex; align-items: flex-end; justify-content: center;
                padding-bottom: 16px; color: var(--muted); }
     .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
     .split.lit .seg-bot { background: var(--warm); color: #fff; }
