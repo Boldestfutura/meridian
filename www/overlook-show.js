@@ -9,7 +9,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.3.5";
+const VERSION = "0.3.6";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -480,7 +480,9 @@ class OverlookShow extends LitElement {
   _pillDown(ev, id, pct) {
     ev.currentTarget.setPointerCapture(ev.pointerId);
     const r = ev.currentTarget.getBoundingClientRect();
-    this._press = { id, y: ev.clientY, rect: r, moved: false, start: pct };
+    // a tap on the grey top half means "this bright"; a tap on the bottom half toggles
+    this._press = { id, y: ev.clientY, rect: r, moved: false, start: pct,
+                    top: !!(ev.target.closest && ev.target.closest(".seg-top")) };
   }
 
   _pillMove(ev) {
@@ -496,11 +498,13 @@ class OverlookShow extends LitElement {
     const p = this._press;
     this._press = null;
     if (!p) return;
-    if (!p.moved) {
+    if (!p.moved && !p.top) {
       this._call("light", "toggle", { entity_id: p.id });
       return;
     }
-    const pct = this._drag ? this._drag.pct : p.start;
+    const at = clamp(Math.round((p.rect.bottom - p.y) / p.rect.height * 100), 1, 100);
+    const pct = p.moved ? (this._drag ? this._drag.pct : p.start) : at;
+    if (!p.moved) this._drag = { id: p.id, pct };
     if (pct <= 1) this._call("light", "turn_off", { entity_id: p.id });
     else this._call("light", "turn_on", { entity_id: p.id, brightness_pct: pct });
     // hold the dragged value until HA reports back, so the fill doesn't jump
