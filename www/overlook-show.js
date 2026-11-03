@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.11.6";
+const VERSION = "0.11.10";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -274,7 +274,7 @@ class OverlookShow extends LitElement {
     if (this._config.phone) {
       return html`
         <div class="screen phone">
-          <main class="page">${this._pageBody()}</main>
+          <main class="page" @scroll=${() => { this._scrolledAt = performance.now(); }}>${this._pageBody()}</main>
           ${this._tabBar()}
           ${this._picker ? this._speakerSheet() : nothing}
           ${this._pop ? this._popSheet() : nothing}
@@ -418,12 +418,30 @@ class OverlookShow extends LitElement {
     if (!e) return nothing;
     const on = e.state === "on";
     const pct = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
-    let timer, held = false;
-    const down = () => { held = false; timer = setTimeout(() => { held = true; fireHaptic("medium"); this._openLight(l.entity); }, 500); };
-    const up = () => clearTimeout(timer);
+    // A hold only counts if the finger stays put. Scrolling over a tile used to
+    // open its sheet: iOS doesn't always send pointercancel when a scroll takes
+    // over, and a finger that stops momentum scrolling lands as a fresh press.
+    // Press state lives on the card, not in this render: HA re-renders on every
+    // state change, and a fresh closure mid-press forgot the hold and toggled anyway.
+    const P = () => this._press || {};
+    const up = () => clearTimeout(P().timer);
+    const down = (ev) => {
+      up();
+      // a touch that stops a scroll is just stopping it: no sheet, no toggle
+      const scrolling = performance.now() - (this._scrolledAt || 0) < 250;
+      const p = this._press = { id: l.entity, held: scrolling, x0: ev.clientX, y0: ev.clientY };
+      if (scrolling) return;
+      p.timer = setTimeout(() => {
+        if (performance.now() - (this._scrolledAt || 0) < 500) return;
+        p.held = true; fireHaptic("medium"); this._openLight(l.entity);
+      }, 500);
+    };
+    const move = (ev) => { const p = P(); if (Math.abs(ev.clientX - p.x0) > 8 || Math.abs(ev.clientY - p.y0) > 8) up(); };
+    const click = () => { const p = P(); if (p.id === l.entity && p.held) return; this._call("light", "toggle", { entity_id: l.entity }); };
     return html`
-      <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}
-              @click=${() => { if (!held) this._call("light", "toggle", { entity_id: l.entity }); }}>
+      <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
+              @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
+              @click=${click}>
         <span class="tile-ico"><ha-icon icon=${l.icon || "mdi:lightbulb"}></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${l.name || e.attributes.friendly_name}</span>
           <span class="muted">${on ? (pct >= 100 ? "On" : `On · ${pct}%`) : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
@@ -1370,6 +1388,7 @@ class OverlookShow extends LitElement {
     fireHaptic("light");
     this._pop = null;
     this._light = id;
+    this._lightAt = performance.now();
   }
 
   _lightSheet() {
@@ -1390,10 +1409,12 @@ class OverlookShow extends LitElement {
     const rgb = a.rgb_color;
     const members = Array.isArray(a.entity_id) ? a.entity_id.filter((m) => this._st(m)) : [];
     const close = () => { this._light = null; };
+    // the lift that ends the hold arrives as a click on the scrim: don't let it close the sheet it opened
+    const scrimClose = () => { if (performance.now() - (this._lightAt || 0) > 700) close(); };
     const full = () => { this._light = null; this._moreInfo(id); };
     const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
     return html`
-      <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+      <div class="scrim pop-scrim" @click=${scrimClose} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
         <div class="sheet pop lsheet ${this._config.phone ? "" : "two"}" @click=${(ev) => ev.stopPropagation()}
              @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
