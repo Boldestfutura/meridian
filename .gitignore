@@ -7,5 +7,3 @@ backup_*.json
 live_*.json
 screenshots/
 .live-backup-*/
-.deployed/
-www/overlook-popups.json

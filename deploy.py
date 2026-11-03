@@ -8,8 +8,7 @@
 
 `--patch` is the safe mode for a dashboard that has been edited by hand: it
 reads what is live, swaps only the cards it owns, and refuses to write if
-anything else moved. Plain deploy overwrites the whole config, except on the
-Show dashboards, whose layout is only written until someone edits it in HA (edited_live).
+anything else moved. Plain deploy overwrites the whole config.
 """
 import argparse, copy, itertools, json, os, sys
 
@@ -39,11 +38,6 @@ def push_show(ws, ids):
                     "-i", os.path.expanduser("~/.config/ha/vmkey"),
                     os.path.join(here, "www/overlook-show.js"), os.path.join(here, "www/lit-all.min.js"),
                     "root@%s:/config/www/" % HOST], check=True)
-    import showphone
-    pj = os.path.join(here, "www/overlook-popups.json")
-    json.dump(showphone.popups_json(), open(pj, "w"))
-    subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
-                    "-i", os.path.expanduser("~/.config/ha/vmkey"), pj, "root@%s:/config/www/" % HOST], check=True)
     url = "/local/overlook-show.js?v=" + show.VERSION
     res = ha_ws.call(ws, next(ids), type="lovelace/resources")["result"]
     mine = [r for r in res if r["url"].startswith("/local/overlook-show.js")]
@@ -83,19 +77,6 @@ def diff(a, b, p=""):
             for i, (x, y) in enumerate(zip(a, b)): yield from diff(x, y, p + "[%d]" % i)
     elif a != b:
         yield p
-
-
-SNAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deployed")
-
-
-def edited_live(name, live):
-    """True once the live dashboard is no longer what deploy last wrote, i.e. someone
-    changed it in HA's editor. The Show dashboards are edited there, so their layout is
-    written only until then; the card JS and pop-ups still ship."""
-    try:
-        return json.load(open(os.path.join(SNAP, name + ".json"))) != live
-    except FileNotFoundError:
-        return False
 
 
 def main():
@@ -140,12 +121,6 @@ def main():
             cfg = live
         else:
             cfg = build(name)
-            built = cfg
-            if name in ("show", "showphone") and not a.dry_run:
-                live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
-                if edited_live(name, live):
-                    print("%-9s edited in HA - kept the live layout (card JS and pop-ups shipped)" % name)
-                    continue
 
         if a.dry_run:
             live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
@@ -153,9 +128,6 @@ def main():
             print("%-9s dry run: %d values would change" % (name, n))
             continue
         r = ha_ws.call(ws, next(ids), type="lovelace/config/save", url_path=url, config=cfg)
-        if r.get("success") and not a.patch and name in ("show", "showphone"):
-            os.makedirs(SNAP, exist_ok=True)
-            json.dump(built, open(os.path.join(SNAP, name + ".json"), "w"), indent=1)
         print("%-9s -> %-13s %s" % (name, url, "ok" if r.get("success") else json.dumps(r.get("error"))[:120]))
 
 

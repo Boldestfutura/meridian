@@ -100,10 +100,8 @@ phone layout. All phone-only CSS sits under `.phone`.
    ./deploy.py show showphone
    ```
    This copies the JS to `/config/www` over SSH, points the resource at the new version and
-   writes `/config/www/overlook-popups.json` (the phone pop-ups) and the two layouts. A
-   layout is only written while it is still what deploy last wrote (`.deployed/`, not in
-   git). Once Cameron has changed it in HA's editor, deploy says `edited in HA - kept the
-   live layout` and leaves it: patch the live config by key from then on.
+   rewrites both dashboards. A plain deploy is right here: neither dashboard holds UI edits,
+   so all the config lives in the Python.
 4. Check **both** dashboards, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 (the ALLDOCUBE tablet)
    - Phone Show `/ha-show-phone/phone` at 390 wide
@@ -116,18 +114,8 @@ phone layout. All phone-only CSS sits under `.phone`.
 - **A phone pop-up:** add a sheet to `POPUPS` in `showphone.py`. Its sections are `tiles`,
   `choices`, `player` or `graph`. Then add `LINKS[entity] = "<popup id>"` so tapping that
   entity opens it. Anything without a link opens HA's normal more-info.
-- **A phone room or tile:** in HA's own editor (pencil, top right). Phone Show's Home is an
-  ordinary sections view of small cards from the same JS file, all in the card picker:
-  - `custom:overlook-tile` - `entity`, optional `name`, `icon`, `kind` (`light`, `switch`,
-    `media`, `climate`, `plant`, `sensor`, `scene`; blank = from the entity's domain)
-  - `custom:overlook-scene` - a square scene/script button
-  - `custom:overlook-heading` - a room's `name`, `icon` and all-lights `group`
-  - `custom:overlook-status` - `status` pills and `status_air` readings (YAML)
-
-  `ROOMS` and `SCENES` in `showphone.py` were only the starting layout.
-  Light sheets and pop-ups open in one shared layer (`overlook-overlay`, on `<body>`).
-- **The reading pills** (`status_air`) cover the house: each lists `sources`, every room's
-  sensor (plus the heat pump's own temperature and humidity), and shows low-high.
+- **A phone room or tile:** `ROOMS` in `showphone.py`. It copies ha-phone tile for tile.
+  **If ha-phone changes, update `ROOMS`/`SCENES` by hand.** Nothing syncs them.
 
 ### Using it
 
@@ -136,10 +124,8 @@ phone layout. All phone-only CSS sits under `.phone`.
   (only on bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the
   corner opens HA's standard dialog (settings, history, effects).
 
-- **Edit the phone dashboard:** HA's normal Edit dashboard. Drag cards and sections, resize
-  them, + to add an Overlook card, the pencil on a card for its form. Calendar and Recipes
-  are HA views (the tabs in the header).
-- **Get back to normal HA on the tablet:** hold the clock 1.5 s.
+- **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet, or
+  the Home tab on the phone.
 - **Tablet idle:** after 5 minutes it goes to the photo slideshow (not while a recipe is open).
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.

@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.11.5";
+const VERSION = "0.11.6";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -43,14 +43,12 @@ const PAGES = [
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
 
-const loadFonts = () => {
-  if (document.getElementById("overlook-show-fonts")) return;
-  const l = document.createElement("link");
-  l.id = "overlook-show-fonts";
-  l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
-  document.head.appendChild(l);
-};
+// the phone's tab bar: one Home page laid out like ha-phone, plus the calendar and recipes
+const PHONE_PAGES = [
+  ["kitchen", "Home", "mdi:home-variant-outline"],
+  ["calendar", "Calendar", "mdi:calendar-month-outline"],
+  ["recipes", "Recipes", "mdi:silverware-fork-knife"],
+];
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // HA's companion app turns a window "haptic" event into a real tap on the phone (iPhones
@@ -58,26 +56,6 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // colour presets for the light sheet: hue, saturation, name
 const SWATCHES = [[0, 90, "Red"], [25, 95, "Orange"], [45, 90, "Yellow"], [120, 70, "Green"],
   [180, 70, "Cyan"], [220, 85, "Blue"], [270, 75, "Purple"], [320, 70, "Pink"]];
-
-// the Overlook tile card: what an entity becomes, and the icons it falls back to
-const DOMAIN_TYPE = {
-  light: "light", media_player: "media", climate: "climate", switch: "switch", input_boolean: "switch",
-  fan: "switch", cover: "switch", sensor: "sensor", binary_sensor: "sensor", lock: "sensor",
-  scene: "scene", script: "scene",
-};
-const DOMAIN_ICON = {
-  light: "mdi:lightbulb", media_player: "mdi:speaker", climate: "mdi:thermostat", switch: "mdi:toggle-switch-outline",
-  input_boolean: "mdi:toggle-switch-outline", fan: "mdi:fan", cover: "mdi:window-shutter", sensor: "mdi:eye-outline",
-  binary_sensor: "mdi:checkbox-blank-circle-outline", lock: "mdi:lock", scene: "mdi:palette", script: "mdi:script-text-outline",
-};
-const CLASS_ICON = {
-  temperature: "mdi:thermometer", humidity: "mdi:water-percent", moisture: "mdi:water", battery: "mdi:battery",
-  power: "mdi:flash", energy: "mdi:lightning-bolt", illuminance: "mdi:brightness-5", pm25: "mdi:blur",
-  door: "mdi:door", window: "mdi:window-closed-variant", motion: "mdi:motion-sensor", occupancy: "mdi:home-account",
-  carbon_dioxide: "mdi:molecule-co2", volatile_organic_compounds_parts: "mdi:air-filter", aqi: "mdi:air-filter",
-};
-const TYPE_ICON = { light: "mdi:lightbulb", media: "mdi:speaker", climate: "mdi:thermostat", plant: "mdi:sprout",
-                    switch: "mdi:toggle-switch-outline", sensor: "mdi:eye-outline", scene: "mdi:palette" };
 
 const fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
@@ -114,11 +92,10 @@ class OverlookShow extends LitElement {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
       lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
-      phone: false, page: null, status: [], status_air: [], popups: {}, links: {},
+      phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.page || (this._config.photos ? "photos" : "kitchen");
-    if (this._page === "calendar") { this._month = null; this._page = null; this._go("calendar"); }
+    this._page = this._config.photos ? "photos" : "kitchen";
     this._drag = null;
     this._picker = false;
     this._todo = [];
@@ -138,7 +115,13 @@ class OverlookShow extends LitElement {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
-    loadFonts();
+    if (!document.getElementById("overlook-show-fonts")) {
+      const l = document.createElement("link");
+      l.id = "overlook-show-fonts";
+      l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
+      document.head.appendChild(l);
+    }
   }
 
   disconnectedCallback() {
@@ -250,7 +233,6 @@ class OverlookShow extends LitElement {
 
   // --- helpers --------------------------------------------------------------
   _st(id) { return id && this.hass ? this.hass.states[id] : undefined; }
-  _links() { return this._config.links || {}; }
   _call(domain, service, data) {
     fireHaptic();
     return this.hass.callService(domain, service, data);
@@ -289,11 +271,11 @@ class OverlookShow extends LitElement {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
     }
-    // phone: one page (Calendar or Recipes) inside an HA view; Home is the separate cards below
     if (this._config.phone) {
       return html`
-        <div class="screen phone embedded">
+        <div class="screen phone">
           <main class="page">${this._pageBody()}</main>
+          ${this._tabBar()}
           ${this._picker ? this._speakerSheet() : nothing}
           ${this._pop ? this._popSheet() : nothing}
           ${this._light ? this._lightSheet() : nothing}
@@ -333,6 +315,24 @@ class OverlookShow extends LitElement {
     return [() => { hold = setTimeout(() => { fireHaptic("medium"); this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
   }
 
+  // holding the Home tab uncovers HA (the phone has no clock to hold)
+  _tabBar() {
+    const [down, up] = this._holdToUncover();
+    return html`
+      <nav class="tabbar">
+        ${PHONE_PAGES.map(([id, name, icon]) => html`
+          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { fireHaptic("selection"); this._go(id); this._top(); }}
+                  @pointerdown=${id === "kitchen" ? down : null} @pointerup=${up} @pointerleave=${up}>
+            <ha-icon icon=${icon}></ha-icon><span>${name}</span>
+          </button>`)}
+      </nav>`;
+  }
+
+  _top() {
+    const p = this.shadowRoot && this.shadowRoot.querySelector(".page");
+    if (p) p.scrollTop = 0;
+  }
+
   // --- status pills: who's home, then anything that needs a look ---------------
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
@@ -370,6 +370,46 @@ class OverlookShow extends LitElement {
           <small>${x.name}</small></button>`;
     });
     return html`<div class="status">${pills}${air}</div>`;
+  }
+
+  // --- phone home: ha-phone's order (status, scenes, each room) in this look ----
+  _phoneHome() {
+    return html`
+      <div class="ph">
+        ${this._status()}
+        ${this._config.scenes.length ? html`
+          <section>
+            <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
+            <div class="fav-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>
+          </section>` : nothing}
+        ${this._config.phone_rooms.map((r) => this._phoneRoom(r))}
+      </div>`;
+  }
+
+  _phoneRoom(r) {
+    const g = this._st(r.group);
+    const lit = g && g.state === "on";
+    return html`
+      <section>
+        <div class="ph-sec"><ha-icon icon=${r.icon}></ha-icon><span>${r.name}</span>
+          ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
+              @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+              <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
+        </div>
+        <div class="ph-grid">
+          ${r.items.map((x) => {
+            const e = this._st(x.entity);
+            if (!e) return nothing;
+            switch (x.type) {
+              case "climate": return html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`;
+              case "media": return e.state === "unavailable" ? nothing : this._player(x);
+              case "plant": return this._plantTile(x);
+              case "switch": return this._switchTile(x);
+              default: return this._lightTile(x);
+            }
+          })}
+        </div>
+      </section>`;
   }
 
   // a small light tile: tap toggles, hold for the full controls
@@ -447,7 +487,7 @@ class OverlookShow extends LitElement {
   // the body at the top and moves down.
   _swStart(ev, close) {
     const t = ev.touches[0];
-    if (ev.touches.length > 1 || (ev.target.closest && ev.target.closest(".split, .ctbar, .pl-row, input"))) {
+    if (ev.touches.length > 1 || (ev.target.closest && ev.target.closest(".split, .ctbar, .pl-row"))) {
       this._sw = null;
       return;
     }
@@ -688,7 +728,7 @@ class OverlookShow extends LitElement {
 
   _pageBody() {
     switch (this._page) {
-      case "kitchen": return this._kitchen();
+      case "kitchen": return this._config.phone ? this._phoneHome() : this._kitchen();
       case "recipes": return this._recipes();
       case "calendar": return this._calendar();
       case "home": return this._home();
@@ -761,7 +801,7 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level;
     return html`
       <div class="card player">
-        <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
+        <div class="player-row" @click=${() => { if (this._config.links[id]) this._open(id); }}>
           <div class="art small" style=${active && a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
@@ -794,20 +834,6 @@ class OverlookShow extends LitElement {
         <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${x.name}</span>
           <span class="muted">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
-      </button>`;
-  }
-
-  // any other reading: its state as HA formats it; tap for the pop-up or HA's dialog
-  _sensorTile(x) {
-    const e = this._st(x.entity);
-    if (!e) return nothing;
-    const val = this.hass.formatEntityState ? this.hass.formatEntityState(e)
-      : `${e.state}${e.attributes.unit_of_measurement ? " " + e.attributes.unit_of_measurement : ""}`;
-    return html`
-      <button class="card tile" @click=${() => this._open(x.entity)}>
-        <span class="tile-ico"><ha-icon icon=${x.icon || e.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x.name || e.attributes.friendly_name}</span>
-          <span class="muted">${val}</span></span>
       </button>`;
   }
 
@@ -1399,7 +1425,8 @@ class OverlookShow extends LitElement {
   }
 
   _lightName(id) {
-    const l = (this._config.lights || []).find((x) => x.entity === id && x.name) || { name: (this._names || {})[id] };
+    const l = [...(this._config.lights || []), ...this._config.phone_rooms.flatMap((r) => r.items || [])]
+      .find((x) => x.entity === id && x.name);
     const e = this._st(id);
     return (l && l.name) || (e && e.attributes.friendly_name) || id;
   }
@@ -1594,10 +1621,10 @@ class OverlookShow extends LitElement {
     return html`
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
-        <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => { if (this._links()[id]) this._open(id); }}>
+        <div class="hp-now ${this._config.links[id] ? "linked" : ""}" @click=${() => { if (this._config.links[id]) this._open(id); }}>
           <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
           <span class="hp-mode ${mode}">${label}</span>
-          ${this._links()[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
+          ${this._config.links[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
@@ -2238,7 +2265,7 @@ class OverlookShow extends LitElement {
                            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
                            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 55%);
                            mask-image: linear-gradient(to bottom, transparent, #000 55%); }
-    .tabbar .dock-btn { -webkit-touch-callout: none; width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+    .tabbar .dock-btn { width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
     .tabbar .dock-btn ha-icon { --mdc-icon-size: 24px; }
     .tabbar .dock-btn span { font-size: 11px; font-weight: 600; }
 
@@ -2337,46 +2364,6 @@ class OverlookShow extends LitElement {
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
-
-    /* a Calendar/Recipes page inside an HA view (below its header) */
-    .screen.embedded { position: relative; inset: auto; z-index: auto; background: none;
-                       height: calc(100vh - var(--header-height, 56px) - env(safe-area-inset-top, 0px)); }
-    .screen.embedded::after { display: none; }
-    .embedded .page { padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 24px); }
-    /* one tile = one HA card: fill the grid cell HA gives it */
-    .piece { height: 100%; font-family: var(--body); color: var(--ink); user-select: none; -webkit-user-select: none; }
-    .piece > * { height: 100%; width: 100%; }
-    .piece .card { border-radius: 22px; }
-    .piece .tile { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px;
-                   min-height: 0; text-align: left; }
-    .piece .tile-ico { width: 36px; height: 36px; }
-    .piece .tile-ico ha-icon { --mdc-icon-size: 20px; }
-    .piece .tile-text { min-width: 0; }
-    .piece .tile-name { font-size: 14px; line-height: 1.2; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .piece .tile-text .muted { font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .piece .plant .tile-text .muted { display: none; }
-    .piece .tile-val { font-size: 18px; }
-    .piece .player { padding: 10px 12px; gap: 8px; justify-content: space-between; min-width: 0; }
-    .piece .player-row { grid-template-columns: 40px 1fr; gap: 10px; }
-    .piece .player-row .round.play { position: absolute; width: 0; height: 0; overflow: hidden; }
-    .piece .art.small { width: 40px; height: 40px; border-radius: 10px; }
-    .piece .player-title { font-size: 14px; }
-    .piece .media-artist { font-size: 12px; }
-    .piece .vol { gap: 6px; }
-    .piece .vol .round { width: 34px; height: 34px; }
-    .piece .vol .round ha-icon { --mdc-icon-size: 18px; }
-    .piece .player-row { align-items: start; }
-    .piece .media-src { font-size: 10px; }
-    .piece .ph-hp { height: auto; }
-    .piece .mini-scene { height: 100%; flex: none; justify-content: center; background: var(--card); box-shadow: var(--shadow); }
-    .piece .mini-scene.on { background: var(--accent); }
-    .piece .status { margin: 0 -4px; padding: 2px 4px 8px; }
-    .piece .missing { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 13px; color: var(--muted); }
-    .piece-sec { display: flex; align-items: center; gap: 9px; height: 100%; padding: 0 4px; font-size: 17px; font-weight: 700;
-                 letter-spacing: -0.01em; }
-    .piece-sec > ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
-    .screen.overlay { background: none; pointer-events: none; z-index: 20; }
-    .screen.overlay > * { pointer-events: auto; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
     .pop-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
                display: grid; place-items: center; }
@@ -2471,257 +2458,6 @@ class OverlookShow extends LitElement {
 // a typed --ov-at can transition; an untyped custom property would jump
 try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
 if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
-// --- Phone Show: every tile is its own card, so HA's own dashboard editor arranges them ---
-// The cards share this file's drawing code (they extend OverlookShow) but none of its
-// subscriptions or timers. Sheets (a light's controls, the pop-ups) open in one layer on
-// <body> so they cover the whole app; pop-ups and their links come from
-// /local/overlook-popups.json, which deploy.py writes from showphone.py.
-let OVERLAY = null;
-const overlay = (hass) => {
-  if (!OVERLAY) {
-    OVERLAY = document.createElement("overlook-overlay");
-    document.body.appendChild(OVERLAY);
-  }
-  if (hass && OVERLAY.hass !== hass) OVERLAY.hass = hass;
-  return OVERLAY;
-};
-
-class OverlookPiece extends OverlookShow {
-  setConfig(config) {
-    if (!config) throw new Error("No configuration");
-    this._config = Object.assign({ phone: true, lights: [], popups: {}, links: {}, status: [], status_air: [],
-                                   calendars: [], speakers: [], scenes: [] }, config);
-    this._drag = null;
-  }
-
-  connectedCallback() {
-    LitElement.prototype.connectedCallback.call(this);
-    loadFonts();
-    this.style.height = "100%";   // fill the grid cell HA sizes for the card
-    this._relink = () => this.requestUpdate();
-    window.addEventListener("overlook-popups", this._relink);
-  }
-
-  disconnectedCallback() {
-    LitElement.prototype.disconnectedCallback.call(this);
-    window.removeEventListener("overlook-popups", this._relink);
-  }
-
-  updated(changed) {
-    if (!changed.has("hass") || !this.hass) return;
-    if (this._drag) this._settle();
-    overlay(this.hass);
-  }
-
-  _openLight(id) { overlay(this.hass).openLight(id, this._config.name); }
-  _open(id) { overlay(this.hass)._open(id); }
-  _links() { return overlay()._links(); }
-  getCardSize() { return 1; }
-}
-
-class OverlookOverlay extends OverlookShow {
-  constructor() {
-    super();
-    this.setConfig({ phone: true, weather: null });
-    this._names = {};
-    fetch(`/local/overlook-popups.json?v=${VERSION}`).then((r) => r.json()).then((j) => {
-      this._config = Object.assign({}, this._config, { popups: j.popups || {}, links: j.links || {} });
-      window.dispatchEvent(new Event("overlook-popups"));
-    }).catch((e) => console.warn("overlook: pop-ups", e));
-  }
-
-  connectedCallback() {
-    LitElement.prototype.connectedCallback.call(this);
-    loadFonts();
-  }
-
-  disconnectedCallback() { LitElement.prototype.disconnectedCallback.call(this); }
-
-  updated(changed) { if (changed.has("hass") && this._drag) this._settle(); }
-
-  openLight(id, name) {
-    if (name) this._names[id] = name;
-    OverlookShow.prototype._openLight.call(this, id);
-  }
-
-  // HA listens for more-info on its own root, which this layer sits outside of
-  _moreInfo(entityId) {
-    const ha = document.querySelector("home-assistant");
-    if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
-  }
-
-  render() {
-    if (!this.hass || !(this._pop || this._light)) return nothing;
-    return html`
-      <div class="screen phone overlay">
-        ${this._pop ? this._popSheet() : nothing}
-        ${this._light ? this._lightSheet() : nothing}
-      </div>`;
-  }
-}
-if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
-
-const TILE_KINDS = [["light", "Light"], ["switch", "Switch"], ["media", "Speaker / TV"], ["climate", "Heat pump"],
-  ["plant", "Plant"], ["sensor", "Reading"], ["scene", "Scene / script"]];
-
-// one entity, drawn the way its kind is drawn on the phone (picked from the domain)
-class OverlookTile extends OverlookPiece {
-  static getConfigForm() {
-    return {
-      schema: [
-        { name: "entity", required: true, selector: { entity: {} } },
-        { type: "grid", name: "", schema: [
-          { name: "name", selector: { text: {} } },
-          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
-        ] },
-        { name: "kind", selector: { select: { mode: "dropdown", options: TILE_KINDS.map(([value, label]) => ({ value, label })) } } },
-      ],
-      computeLabel: (s) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)" })[s.name],
-    };
-  }
-
-  static getStubConfig(hass) {
-    const id = Object.keys(hass.states).find((e) => e.startsWith("light.")) || Object.keys(hass.states)[0];
-    return { entity: id };
-  }
-
-  _kind() {
-    const c = this._config, e = this._st(c.entity);
-    if (c.kind) return c.kind;
-    const dom = (c.entity || "").split(".")[0];
-    if (dom === "sensor" && e && e.attributes.device_class === "moisture") return "plant";
-    return DOMAIN_TYPE[dom] || "sensor";
-  }
-
-  _item() {
-    const c = this._config, e = this._st(c.entity);
-    return { entity: c.entity, name: c.name || (e && e.attributes.friendly_name) || c.entity,
-             icon: c.icon || (e && (e.attributes.icon || CLASS_ICON[e.attributes.device_class])) || TYPE_ICON[this._kind()] };
-  }
-
-  getGridOptions() {
-    switch (this._kind()) {
-      case "climate": return { columns: 12, min_columns: 6 };
-      case "media": return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 };
-      default: return { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
-    }
-  }
-
-  render() {
-    if (!this.hass || !this._config) return nothing;
-    const x = this._item();
-    if (!this._st(x.entity)) {
-      return html`<div class="piece"><div class="card missing"><ha-icon icon="mdi:help-circle-outline"></ha-icon>
-        ${x.entity || "Pick an entity"} isn't there</div></div>`;
-    }
-    let body;
-    switch (this._kind()) {
-      case "climate": body = html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`; break;
-      case "media": body = this._player(x); break;
-      case "plant": body = this._plantTile(x); break;
-      case "switch": body = this._switchTile(x); break;
-      case "sensor": body = this._sensorTile(x); break;
-      case "scene": body = this._sceneBtn(x, true); break;
-      default: body = this._lightTile(x);
-    }
-    return html`<div class="piece">${body}</div>`;
-  }
-}
-if (!customElements.get("overlook-tile")) customElements.define("overlook-tile", OverlookTile);
-
-// a square scene button (the Scenes row); four to a row by default
-class OverlookScene extends OverlookPiece {
-  static getConfigForm() {
-    return {
-      schema: [
-        { name: "entity", required: true, selector: { entity: { domain: ["scene", "script", "input_boolean", "automation"] } } },
-        { type: "grid", name: "", schema: [
-          { name: "name", selector: { text: {} } },
-          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
-        ] },
-      ],
-    };
-  }
-
-  static getStubConfig(hass) {
-    return { entity: Object.keys(hass.states).find((e) => e.startsWith("script.") || e.startsWith("scene.")) };
-  }
-
-  getGridOptions() { return { columns: 3, rows: 2, min_columns: 3, min_rows: 2 }; }
-
-  render() {
-    if (!this.hass || !this._config) return nothing;
-    const c = this._config, e = this._st(c.entity);
-    const x = { entity: c.entity, name: c.name || (e && e.attributes.friendly_name) || c.entity,
-                icon: c.icon || (e && e.attributes.icon) || DOMAIN_ICON[(c.entity || "").split(".")[0]] || "mdi:palette" };
-    return html`<div class="piece">${this._miniScene(x)}</div>`;
-  }
-}
-if (!customElements.get("overlook-scene")) customElements.define("overlook-scene", OverlookScene);
-
-// a room's heading, with its all-lights button
-class OverlookHeading extends OverlookPiece {
-  static getConfigForm() {
-    return {
-      schema: [
-        { type: "grid", name: "", schema: [
-          { name: "name", required: true, selector: { text: {} } },
-          { name: "icon", selector: { icon: {} } },
-        ] },
-        { name: "group", selector: { entity: { domain: "light" } } },
-      ],
-      computeLabel: (s) => ({ name: "Name", icon: "Icon", group: "All-lights button (a light group)" })[s.name],
-    };
-  }
-
-  static getStubConfig() { return { name: "Room", icon: "mdi:sofa" }; }
-
-  getGridOptions() { return { columns: 12, rows: 1, min_columns: 6 }; }
-
-  render() {
-    if (!this.hass || !this._config) return nothing;
-    const c = this._config, g = this._st(c.group), lit = g && g.state === "on";
-    return html`
-      <div class="piece"><div class="piece-sec">
-        <ha-icon icon=${c.icon || "mdi:door"}></ha-icon><span>${c.name}</span>
-        ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
-            @click=${() => { fireHaptic("light"); this._call("light", lit ? "turn_off" : "turn_on", { entity_id: c.group }); }}>
-            <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
-      </div></div>`;
-  }
-}
-if (!customElements.get("overlook-heading")) customElements.define("overlook-heading", OverlookHeading);
-
-// who's home, what needs a look, and the house's readings (low-high across the rooms)
-class OverlookStatus extends OverlookPiece {
-  static getConfigForm() {
-    return {
-      schema: [
-        { name: "status", selector: { object: {} } },
-        { name: "status_air", selector: { object: {} } },
-      ],
-      computeLabel: (s) => ({ status: "Pills (people always; the rest only while on)",
-                              status_air: "Readings (each with its sources)" })[s.name],
-    };
-  }
-
-  static getStubConfig() { return { status: [], status_air: [] }; }
-
-  getGridOptions() { return { columns: 12, min_columns: 12 }; }
-
-  render() {
-    if (!this.hass || !this._config) return nothing;
-    return html`<div class="piece">${this._status()}</div>`;
-  }
-}
-if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
-
 window.customCards = window.customCards || [];
-window.customCards.push(
-  { type: "overlook-tile", name: "Overlook tile", description: "One light, switch, speaker, heat pump, plant, reading or scene", preview: true },
-  { type: "overlook-scene", name: "Overlook scene button", description: "A square button for a scene or script", preview: true },
-  { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
-  { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
-);
 window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
