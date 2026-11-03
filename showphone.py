@@ -1,12 +1,12 @@
 """Test dashboard (ha-show-phone): ha-phone's layout in the Kitchen Show look.
 
-Same card as show.py with `phone: true`. The Home page follows ha-phone's order:
-status pills, Scenes, then each room's tiles. Calendar and Recipes are extra
-pages on the floating tab bar. No photo slideshow and no header.
-Hold the Home tab for 1s to edit it on the phone (drag, rename, add, remove);
-Save writes into the live config, and deploy.py keeps those edits (keep_screen_edits).
+Home is a normal HA sections view of small Overlook cards (status, scene buttons, room
+headings, one tile per entity), in ha-phone's order, so Cameron edits it in HA's own
+editor. Calendar and Recipes are views holding the full card on that page.
 
-`./deploy.py showphone` ships the card (shared with ha-show) and saves this config.
+`./deploy.py showphone` ships the card (shared with ha-show) and the pop-ups JSON. It only
+writes this layout while the live one is still what it last wrote: once Cameron has edited
+it in HA, his version stays.
 """
 import show
 
@@ -222,12 +222,53 @@ for k, b in zip(show.air(), show.air("_2")):
     extra = [dict(entity=CLIMATE, **x) for x in HOUSE.get(kind, [])]
     STATUS_AIR.append(dict(k, sources=[{"entity": k["entity"]}, {"entity": b["entity"]}, *extra]))
 
-CARD = dict(show.CARD, phone=True, scenes=SCENES, phone_rooms=ROOMS, status_air=STATUS_AIR,
-            popups=POPUPS, links=LINKS)
-CARD.pop("photos", None)
-CARD.pop("idle", None)
+# what overlook-tile picks by itself from the domain; anything else says its kind
+AUTO = {"light": "light", "media_player": "media", "climate": "climate", "switch": "switch"}
+
+
+def tile(x):
+    card = {"type": "custom:overlook-tile", "entity": x["entity"]}
+    for k in ("name", "icon"):
+        if x.get(k):
+            card[k] = x[k]
+    if AUTO.get(x["entity"].split(".")[0]) != x["type"]:
+        card["kind"] = x["type"]
+    return card
+
+
+def section(*cards):
+    return {"type": "grid", "cards": list(cards)}
+
+
+def heading(name, icon, group=None):
+    h = {"type": "custom:overlook-heading", "name": name, "icon": icon}
+    if group:
+        h["group"] = group
+    return h
+
+
+# The Home view is ordinary HA sections of small cards, so it is edited in HA's own
+# editor (pencil, drag, resize, + Add card). Calendar and Recipes are the full card's pages.
+PAGE = dict(show.CARD, phone=True)
+for k in ("photos", "idle", "rooms", "scenes", "sensors", "status"):
+    PAGE.pop(k, None)
 
 
 def build():
-    return {"title": "Phone Show",
-            "views": [{"title": "Phone", "path": "phone", "type": "panel", "cards": [CARD]}]}
+    home = [section({"type": "custom:overlook-status", "status": show.CARD["status"], "status_air": STATUS_AIR}),
+            section(heading("Scenes", "mdi:creation"),
+                    *[{"type": "custom:overlook-scene", **x} for x in SCENES])]
+    home += [section(heading(r["name"], r["icon"], r.get("group")), *[tile(x) for x in r["items"]]) for r in ROOMS]
+    return {"title": "Phone Show", "views": [
+        {"title": "Home", "path": "phone", "icon": "mdi:home-variant-outline", "type": "sections",
+         "max_columns": 4, "sections": home},
+        {"title": "Calendar", "path": "calendar", "icon": "mdi:calendar-month-outline", "type": "panel",
+         "cards": [dict(PAGE, page="calendar")]},
+        {"title": "Recipes", "path": "recipes", "icon": "mdi:silverware-fork-knife", "type": "panel",
+         "cards": [dict(PAGE, page="recipes")]},
+    ]}
+
+
+def popups_json():
+    """Served as /local/overlook-popups.json: every Overlook card's pop-ups and what opens them."""
+    return {"popups": POPUPS, "links": LINKS}

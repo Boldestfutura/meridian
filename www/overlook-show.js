@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.10.5";
+const VERSION = "0.11.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -43,12 +43,14 @@ const PAGES = [
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
 
-// the phone's tab bar: one Home page laid out like ha-phone, plus the calendar and recipes
-const PHONE_PAGES = [
-  ["kitchen", "Home", "mdi:home-variant-outline"],
-  ["calendar", "Calendar", "mdi:calendar-month-outline"],
-  ["recipes", "Recipes", "mdi:silverware-fork-knife"],
-];
+const loadFonts = () => {
+  if (document.getElementById("overlook-show-fonts")) return;
+  const l = document.createElement("link");
+  l.id = "overlook-show-fonts";
+  l.rel = "stylesheet";
+  l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
+  document.head.appendChild(l);
+};
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // HA's companion app turns a window "haptic" event into a real tap on the phone (iPhones
@@ -57,7 +59,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const SWATCHES = [[0, 90, "Red"], [25, 95, "Orange"], [45, 90, "Yellow"], [120, 70, "Green"],
   [180, 70, "Cyan"], [220, 85, "Blue"], [270, 75, "Purple"], [320, 70, "Pink"]];
 
-// edit mode: what a new tile becomes, and the icons and labels it falls back to
+// the Overlook tile card: what an entity becomes, and the icons it falls back to
 const DOMAIN_TYPE = {
   light: "light", media_player: "media", climate: "climate", switch: "switch", input_boolean: "switch",
   fan: "switch", cover: "switch", sensor: "sensor", binary_sensor: "sensor", lock: "sensor",
@@ -76,8 +78,6 @@ const CLASS_ICON = {
 };
 const TYPE_ICON = { light: "mdi:lightbulb", media: "mdi:speaker", climate: "mdi:thermostat", plant: "mdi:sprout",
                     switch: "mdi:toggle-switch-outline", sensor: "mdi:eye-outline", scene: "mdi:palette" };
-const TYPE_NAME = { light: "Light", media: "Speaker", climate: "Heat pump", plant: "Plant", switch: "Switch",
-                    sensor: "Sensor", scene: "Scene" };
 
 const fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
@@ -108,20 +108,17 @@ class OverlookShow extends LitElement {
     _light: { state: true },
     _ct: { state: true },
     _hist: { state: true },
-    _edit: { state: true },
-    _esheet: { state: true },
-    _eq: { state: true },
-    _esaving: { state: true },
   };
 
   setConfig(config) {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
       lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
-      phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
+      phone: false, page: null, status: [], status_air: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.photos ? "photos" : "kitchen";
+    this._page = this._config.page || (this._config.photos ? "photos" : "kitchen");
+    if (this._page === "calendar") { this._month = null; this._page = null; this._go("calendar"); }
     this._drag = null;
     this._picker = false;
     this._todo = [];
@@ -129,8 +126,6 @@ class OverlookShow extends LitElement {
     this._forecast = null;
     this._now = new Date();
     this._uncovered = false;
-    this._edit = null;
-    this._esheet = null;
     try { this._speaker = localStorage.getItem("overlook-show-speaker"); } catch (e) {}
   }
 
@@ -143,13 +138,7 @@ class OverlookShow extends LitElement {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
-    if (!document.getElementById("overlook-show-fonts")) {
-      const l = document.createElement("link");
-      l.id = "overlook-show-fonts";
-      l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
-      document.head.appendChild(l);
-    }
+    loadFonts();
   }
 
   disconnectedCallback() {
@@ -261,6 +250,7 @@ class OverlookShow extends LitElement {
 
   // --- helpers --------------------------------------------------------------
   _st(id) { return id && this.hass ? this.hass.states[id] : undefined; }
+  _links() { return this._config.links || {}; }
   _call(domain, service, data) {
     fireHaptic();
     return this.hass.callService(domain, service, data);
@@ -299,19 +289,11 @@ class OverlookShow extends LitElement {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
     }
-    if (this._config.phone && this._edit) {
-      return html`
-        <div class="screen phone editing">
-          <main class="page">${this._editHome()}</main>
-          ${this._editBar()}
-          ${this._esheet ? this._editSheet() : nothing}
-        </div>`;
-    }
+    // phone: one page (Calendar or Recipes) inside an HA view; Home is the separate cards below
     if (this._config.phone) {
       return html`
-        <div class="screen phone">
+        <div class="screen phone embedded">
           <main class="page">${this._pageBody()}</main>
-          ${this._tabBar()}
           ${this._picker ? this._speakerSheet() : nothing}
           ${this._pop ? this._popSheet() : nothing}
           ${this._light ? this._lightSheet() : nothing}
@@ -351,35 +333,6 @@ class OverlookShow extends LitElement {
     return [() => { hold = setTimeout(() => { fireHaptic("medium"); this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
   }
 
-  // holding the Home tab opens edit mode (admins; anyone else gets HA underneath)
-  _tabBar() {
-    let hold;
-    const down = () => {
-      hold = setTimeout(() => {
-        fireHaptic("medium");
-        if (this.hass.user && this.hass.user.is_admin) this._startEdit();
-        else this._uncovered = true;
-      }, 1000);
-    };
-    // only lifting the finger cancels: a long press makes the browser send pointercancel
-    // (then pointerleave) at about half a second, which used to kill the hold on phones
-    const up = () => clearTimeout(hold);
-    return html`
-      <nav class="tabbar">
-        ${PHONE_PAGES.map(([id, name, icon]) => html`
-          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { fireHaptic("selection"); this._go(id); this._top(); }}
-                  @pointerdown=${id === "kitchen" ? down : null} @pointerup=${up} @touchend=${up}
-                  @contextmenu=${(ev) => ev.preventDefault()}>
-            <ha-icon icon=${icon}></ha-icon><span>${name}</span>
-          </button>`)}
-      </nav>`;
-  }
-
-  _top() {
-    const p = this.shadowRoot && this.shadowRoot.querySelector(".page");
-    if (p) p.scrollTop = 0;
-  }
-
   // --- status pills: who's home, then anything that needs a look ---------------
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
@@ -417,48 +370,6 @@ class OverlookShow extends LitElement {
           <small>${x.name}</small></button>`;
     });
     return html`<div class="status">${pills}${air}</div>`;
-  }
-
-  // --- phone home: ha-phone's order (status, scenes, each room) in this look ----
-  _phoneHome() {
-    return html`
-      <div class="ph">
-        ${this._status()}
-        ${this._config.scenes.length ? html`
-          <section>
-            <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
-            <div class="fav-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>
-          </section>` : nothing}
-        ${this._config.phone_rooms.map((r) => this._phoneRoom(r))}
-      </div>`;
-  }
-
-  _phoneRoom(r) {
-    const g = this._st(r.group);
-    const lit = g && g.state === "on";
-    return html`
-      <section>
-        <div class="ph-sec"><ha-icon icon=${r.icon}></ha-icon><span>${r.name}</span>
-          ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
-              @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
-              <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
-        </div>
-        <div class="ph-grid">
-          ${r.items.map((x) => {
-            const e = this._st(x.entity);
-            if (!e) return nothing;
-            switch (x.type) {
-              case "climate": return html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`;
-              case "media": return e.state === "unavailable" ? nothing : this._player(x);
-              case "plant": return this._plantTile(x);
-              case "switch": return this._switchTile(x);
-              case "sensor": return this._sensorTile(x);
-              case "scene": return this._sceneBtn(x, true);
-              default: return this._lightTile(x);
-            }
-          })}
-        </div>
-      </section>`;
   }
 
   // a small light tile: tap toggles, hold for the full controls
@@ -525,401 +436,6 @@ class OverlookShow extends LitElement {
           </div>
           <div class="pop-body">${p.sections.map((s) => this._popSection(s))}</div>
         </div>
-      </div>`;
-  }
-
-  // --- edit mode (phone): hold Home -------------------------------------------------
-  // Works on a copy of the scenes and rooms. Hold a tile and drag to move it (between
-  // rooms too), tap it to rename, re-icon or move it, x to remove, + to add from a search
-  // of every entity. Save writes the copy into this card's config on the dashboard, the
-  // same place HA's own editor saves to; Cancel throws it away.
-  _startEdit() {
-    const copy = (v) => JSON.parse(JSON.stringify(v || []));
-    this._edit = { scenes: copy(this._config.scenes), rooms: copy(this._config.phone_rooms), err: null };
-    this._edT0 = performance.now();   // the finger that held Home lifts onto Cancel; ignore that click
-    this._esheet = null;
-    this._pop = null;
-    this._light = null;
-    this._picker = false;
-    this._page = "kitchen";
-    this._top();
-  }
-
-  _endEdit() {
-    this._edDrop();
-    this._edit = null;
-    this._esheet = null;
-  }
-
-  _edDirty() { this.requestUpdate(); }
-
-  async _saveEdit() {
-    if (this._esaving) return;
-    this._esaving = true;
-    const { scenes, rooms } = this._edit;
-    try {
-      const url_path = location.pathname.split("/")[1];
-      const cfg = await this.hass.callWS({ type: "lovelace/config", url_path });
-      const card = (cfg.views || []).flatMap((v) => v.cards || [])
-        .find((c) => c.type === "custom:overlook-show" && c.phone);
-      if (!card) throw new Error("this card isn't in the dashboard's config");
-      card.scenes = scenes;
-      card.phone_rooms = rooms;
-      await this.hass.callWS({ type: "lovelace/config/save", url_path, config: cfg });
-      // HA sends the saved config back in a moment; show it now so nothing flickers
-      this._config = Object.assign({}, this._config, { scenes, phone_rooms: rooms });
-      fireHaptic("success");
-      this._endEdit();
-    } catch (e) {
-      this._edit = Object.assign({}, this._edit, { err: `Couldn't save: ${e.message || e.code || e}` });
-      fireHaptic("failure");
-    } finally {
-      this._esaving = false;
-    }
-  }
-
-  _editBar() {
-    const settled = (fn) => () => { if (performance.now() - this._edT0 > 700) fn(); };
-    return html`
-      <nav class="tabbar editbar">
-        <button class="eb-btn" @click=${settled(() => this._endEdit())}>Cancel</button>
-        <button class="eb-btn" title="HA's own editor, for the pills and pop-ups"
-                @click=${settled(() => { this._endEdit(); this._uncovered = true; })}>HA editor</button>
-        <button class="eb-btn save" ?disabled=${this._esaving} @click=${settled(() => this._saveEdit())}>
-          ${this._esaving ? "Saving…" : "Save"}</button>
-      </nav>`;
-  }
-
-  _edIcon(x, e) {
-    return x.icon || (e && e.attributes.icon) || TYPE_ICON[x.type || "light"] || "mdi:help-circle-outline";
-  }
-
-  _edName(x, e) { return x.name || (e ? e.attributes.friendly_name : x.entity); }
-
-  _edX(remove) {
-    return html`<button class="ed-x" title="Remove"
-      @click=${(ev) => { ev.stopPropagation(); fireHaptic("light"); remove(); this._edDirty(); }}>
-      <ha-icon icon="mdi:minus"></ha-icon></button>`;
-  }
-
-  _edTap(sheet) {
-    if (performance.now() - (this._edDragEnd || 0) < 400) return;   // the release of a drag
-    fireHaptic("selection");
-    this._esheet = sheet;
-  }
-
-  _editHome() {
-    const { scenes, rooms, err } = this._edit;
-    return html`
-      <div class="ph ed" @touchstart=${(ev) => this._edTouch(ev)}
-           @pointerdown=${(ev) => this._edMouse(ev)} @contextmenu=${(ev) => ev.preventDefault()}>
-        <div class="ed-head">
-          <span class="ed-title">Edit Home</span>
-          <span class="muted">Hold and drag to move. Tap to change.</span>
-          ${err ? html`<span class="ed-err">${err}</span>` : nothing}
-        </div>
-        <section>
-          <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
-          <div class="ed-scenes" data-list="s">
-            ${scenes.map((x, i) => html`
-              <div class="mini-scene ed-item" data-list="s" data-i=${i} @click=${() => this._edTap({ kind: "scene", i })}>
-                ${this._edX(() => scenes.splice(i, 1))}
-                <ha-icon icon=${x.icon}></ha-icon><span class="ms-name">${x.name}</span></div>`)}
-            <button class="mini-scene ed-add" data-list="s" @click=${() => this._edAdd("s")}>
-              <ha-icon icon="mdi:plus"></ha-icon><span class="ms-name">Add</span></button>
-          </div>
-        </section>
-        ${rooms.map((r, ri) => html`
-          <section>
-            <button class="ph-sec ed-room" @click=${() => this._edTap({ kind: "room", ri })}>
-              <ha-icon icon=${r.icon || "mdi:door"}></ha-icon><span>${r.name}</span>
-              <ha-icon class="ed-pen" icon="mdi:pencil-outline"></ha-icon></button>
-            <div class="ph-grid ed-grid" data-list=${ri}>
-              ${r.items.map((x, ii) => {
-                const e = this._st(x.entity);
-                return html`
-                  <div class="card tile ed-item" data-list=${ri} data-i=${ii} @click=${() => this._edTap({ kind: "tile", ri, ii })}>
-                    ${this._edX(() => r.items.splice(ii, 1))}
-                    <span class="tile-ico"><ha-icon icon=${this._edIcon(x, e)}></ha-icon></span>
-                    <span class="tile-text"><span class="tile-name">${this._edName(x, e)}</span>
-                      <span class="muted">${e ? TYPE_NAME[x.type || "light"] : "Missing"}</span></span>
-                  </div>`;
-              })}
-              <button class="tile ed-add" data-list=${ri} @click=${() => this._edAdd(ri)}>
-                <ha-icon icon="mdi:plus"></ha-icon><span>Add</span></button>
-            </div>
-          </section>`)}
-        <button class="ed-add ed-newroom" @click=${() => {
-          rooms.push({ name: "New room", icon: "mdi:door", items: [] });
-          this._edDirty();
-          this._esheet = { kind: "room", ri: rooms.length - 1, fresh: true };
-        }}><ha-icon icon="mdi:plus"></ha-icon><span>Add room</span></button>
-      </div>`;
-  }
-
-  // --- drag: hold 350ms to lift (touch), or just move (mouse) ----------------------
-  // While lifted the item is moved in the copy as the finger passes over other items,
-  // so the grid reflows under it the way the iPhone home screen does.
-  _edTouch(ev) {
-    const t = ev.touches[0];
-    const el = ev.target.closest && ev.target.closest(".ed-item");
-    if (ev.touches.length > 1 || !el || ev.target.closest(".ed-x")) return;
-    this._edDrop();
-    const d = this._ed = { el, x: t.clientX, y: t.clientY, x0: t.clientX, y0: t.clientY, lifted: false };
-    d.timer = setTimeout(() => this._edLift(d), 350);
-    // touch events keep going to the element first touched, even once a reorder has taken
-    // it out of the page (then they no longer bubble), so listen on it directly
-    const move = (e) => this._edTouchMove(e), end = () => this._edDrop();
-    el.addEventListener("touchmove", move, { passive: false });
-    el.addEventListener("touchend", end);
-    el.addEventListener("touchcancel", end);
-    d.off = () => { el.removeEventListener("touchmove", move); el.removeEventListener("touchend", end);
-                    el.removeEventListener("touchcancel", end); };
-  }
-
-  _edTouchMove(ev) {
-    const d = this._ed;
-    if (!d) return;
-    const t = ev.touches[0];
-    if (!d.lifted) {
-      if (Math.hypot(t.clientX - d.x0, t.clientY - d.y0) > 8) this._edDrop();   // a scroll, not a drag
-      return;
-    }
-    ev.preventDefault();
-    this._edMove(t.clientX, t.clientY);
-  }
-
-  _edMouse(ev) {
-    if (ev.pointerType !== "mouse" || ev.button !== 0) return;
-    const el = ev.target.closest(".ed-item");
-    if (!el || ev.target.closest(".ed-x")) return;
-    const d = this._ed = { el, x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, lifted: false };
-    const move = (e) => {
-      if (!d.lifted && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 5) this._edLift(d);
-      if (d.lifted) this._edMove(e.clientX, e.clientY);
-    };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); this._edDrop(); };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
-  _edLift(d) {
-    if (this._ed !== d) return;
-    const r = d.el.getBoundingClientRect();
-    d.lifted = true;
-    d.list = d.el.dataset.list;
-    d.i = Number(d.el.dataset.i);
-    d.dx = d.x0 - r.left;
-    d.dy = d.y0 - r.top;
-    const g = d.ghost = d.el.cloneNode(true);
-    g.classList.add("ed-ghost");
-    Object.assign(g.style, { width: `${r.width}px`, height: `${r.height}px`, left: "0", top: "0",
-                             transform: `translate(${r.left}px, ${r.top}px) scale(1.05)` });
-    this.shadowRoot.querySelector(".screen").appendChild(g);
-    this._edMark();
-    fireHaptic("medium");
-    const scroll = () => {
-      if (this._ed !== d) return;
-      const page = this.shadowRoot.querySelector(".page");
-      const h = window.innerHeight;
-      const v = d.y < 90 ? -(90 - d.y) / 6 : d.y > h - 150 ? (d.y - (h - 150)) / 6 : 0;
-      if (v && page) { page.scrollTop += v; this._edMove(d.x, d.y); }
-      d.raf = requestAnimationFrame(scroll);
-    };
-    d.raf = requestAnimationFrame(scroll);
-  }
-
-  // which list and slot is under the finger; scenes only reorder among themselves
-  _edMove(x, y) {
-    const d = this._ed;
-    d.x = x;
-    d.y = y;
-    d.ghost.style.transform = `translate(${x - d.dx}px, ${y - d.dy}px) scale(1.05)`;
-    const hit = this.shadowRoot.elementFromPoint(x, y);
-    const over = hit && hit.closest("[data-list]");
-    if (!over) return;
-    const list = over.dataset.list;
-    if ((list === "s") !== (d.list === "s")) return;
-    const arr = (l) => (l === "s" ? this._edit.scenes : this._edit.rooms[Number(l)].items);
-    const to = arr(list);
-    let j = over.dataset.i != null ? Number(over.dataset.i) : to.length;
-    if (list === d.list && j === d.i) return;
-    const [item] = arr(d.list).splice(d.i, 1);
-    if (list === d.list && j > to.length) j = to.length;
-    to.splice(j, 0, item);
-    d.list = list;
-    d.i = j;
-    fireHaptic("selection");
-    this._edDirty();
-    this.updateComplete.then(() => this._edMark());
-  }
-
-  // Lit reuses the DOM nodes, so the faded "hole" follows the item's new slot by attribute
-  _edMark() {
-    const d = this._ed;
-    this.shadowRoot.querySelectorAll(".ed-item.lifted").forEach((e) => e.classList.remove("lifted"));
-    if (!d || !d.lifted) return;
-    const el = this.shadowRoot.querySelector(`.ed-item[data-list="${d.list}"][data-i="${d.i}"]`);
-    if (el) el.classList.add("lifted");
-  }
-
-  _edDrop() {
-    const d = this._ed;
-    this._ed = null;
-    if (!d) return;
-    clearTimeout(d.timer);
-    cancelAnimationFrame(d.raf);
-    if (d.off) d.off();
-    if (d.ghost) d.ghost.remove();
-    if (d.lifted) {
-      this._edDragEnd = performance.now();
-      this._edMark();
-    }
-  }
-
-  // --- the sheets ---------------------------------------------------------------
-  _edAdd(target) {
-    if (performance.now() - (this._edDragEnd || 0) < 400) return;
-    fireHaptic("selection");
-    this._eq = "";
-    this._esheet = { kind: "add", target };
-  }
-
-  _editSheet() {
-    const sh = this._esheet;
-    const close = () => { this._esheet = null; };
-    const { scenes, rooms } = this._edit;
-    let title, icon, body;
-    if (sh.kind === "add") {
-      title = sh.target === "s" ? "Add a scene" : `Add to ${rooms[sh.target].name}`;
-      icon = "mdi:plus";
-      body = this._edAddBody(sh.target, close);
-    } else if (sh.kind === "room") {
-      const r = rooms[sh.ri];
-      if (!r) return nothing;
-      title = r.name;
-      icon = r.icon || "mdi:door";
-      const groups = Object.keys(this.hass.states).filter((id) => id.startsWith("light.")
-        && Array.isArray(this.hass.states[id].attributes.entity_id)).sort();
-      body = html`
-        ${this._edField("Name", r.name, (v) => { r.name = v; })}
-        ${this._edField("Icon", r.icon || "", (v) => { r.icon = v || "mdi:door"; }, "mdi:sofa")}
-        <div class="pop-sub">All-lights button</div>
-        <div class="ed-chips">
-          <button class="ed-chip ${r.group ? "" : "on"}" @click=${() => { delete r.group; this._edDirty(); }}>None</button>
-          ${groups.map((g) => html`<button class="ed-chip ${r.group === g ? "on" : ""}"
-              @click=${() => { r.group = g; this._edDirty(); }}>${this.hass.states[g].attributes.friendly_name || g}</button>`)}
-        </div>
-        <div class="ed-btns">
-          <button class="ed-btn" ?disabled=${sh.ri === 0} @click=${() => this._edMoveRoom(sh.ri, -1)}>
-            <ha-icon icon="mdi:arrow-up"></ha-icon>Move up</button>
-          <button class="ed-btn" ?disabled=${sh.ri === rooms.length - 1} @click=${() => this._edMoveRoom(sh.ri, 1)}>
-            <ha-icon icon="mdi:arrow-down"></ha-icon>Move down</button>
-        </div>
-        <div class="ed-btns">
-          <button class="ed-btn danger" @click=${() => {
-            if (r.items.length && !sh.sure) { this._esheet = Object.assign({}, sh, { sure: true }); return; }
-            rooms.splice(sh.ri, 1); close(); this._edDirty();
-          }}>${sh.sure ? `Remove it and its ${r.items.length} tiles` : "Remove room"}</button>
-          <button class="ed-btn primary" @click=${close}>Done</button>
-        </div>`;
-    } else {
-      const list = sh.kind === "scene" ? scenes : (rooms[sh.ri] || { items: [] }).items;
-      const i = sh.kind === "scene" ? sh.i : sh.ii;
-      const x = list[i];
-      if (!x) return nothing;
-      const e = this._st(x.entity);
-      title = this._edName(x, e);
-      icon = this._edIcon(x, e);
-      const named = x.type !== "climate";
-      body = html`
-        <div class="ed-entity muted">${x.entity}</div>
-        ${named ? this._edField("Name", this._edName(x, e), (v) => { x.name = v; }) : nothing}
-        ${named && x.type !== "plant" ? this._edField("Icon", this._edIcon(x, e), (v) => { x.icon = v; }, "mdi:lamp") : nothing}
-        ${sh.kind === "tile" ? html`
-          <div class="pop-sub">Room</div>
-          <div class="ed-chips">
-            ${rooms.map((r, ri) => html`<button class="ed-chip ${ri === sh.ri ? "on" : ""}" @click=${() => {
-              if (ri === sh.ri) return;
-              rooms[ri].items.push(...list.splice(i, 1));
-              this._esheet = { kind: "tile", ri, ii: rooms[ri].items.length - 1 };
-              fireHaptic("selection");
-            }}>${r.name}</button>`)}
-          </div>` : nothing}
-        <div class="ed-btns">
-          <button class="ed-btn danger" @click=${() => { list.splice(i, 1); close(); this._edDirty(); }}>Remove</button>
-          <button class="ed-btn primary" @click=${close}>Done</button>
-        </div>`;
-    }
-    return html`
-      <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
-        <div class="sheet pop ed-sheet" @click=${(ev) => ev.stopPropagation()}
-             @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
-          <div class="grabber"></div>
-          <div class="pop-head">
-            <span class="pop-ico"><ha-icon icon=${icon}></ha-icon></span>
-            <span class="pop-title">${title}</span>
-            <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
-          </div>
-          <div class="pop-body">${body}</div>
-        </div>
-      </div>`;
-  }
-
-  _edField(label, value, set, placeholder = "") {
-    return html`
-      <label class="ed-field"><span class="pop-sub">${label}</span>
-        <input class="ed-input" .value=${value} placeholder=${placeholder} autocomplete="off" autocapitalize="sentences"
-               @input=${(ev) => { set(ev.target.value.trim()); this._edDirty(); }}
-               @keydown=${(ev) => { if (ev.key === "Enter") ev.target.blur(); }}></label>`;
-  }
-
-  _edMoveRoom(ri, by) {
-    const rooms = this._edit.rooms;
-    const [r] = rooms.splice(ri, 1);
-    rooms.splice(ri + by, 0, r);
-    this._esheet = { kind: "room", ri: ri + by };
-    fireHaptic("selection");
-  }
-
-  // every entity that makes sense as a tile, best matches first
-  _edAddBody(target, close) {
-    const scenes = target === "s";
-    const have = new Set((scenes ? this._edit.scenes : this._edit.rooms[target].items).map((x) => x.entity));
-    const domains = scenes ? ["scene", "script", "input_boolean"] : Object.keys(DOMAIN_TYPE);
-    const q = (this._eq || "").toLowerCase().trim();
-    const hits = Object.values(this.hass.states).filter((e) => {
-      const [dom] = e.entity_id.split(".");
-      if (!domains.includes(dom) || have.has(e.entity_id) || e.attributes.hidden) return false;
-      return !q || `${e.attributes.friendly_name || ""} ${e.entity_id}`.toLowerCase().includes(q);
-    }).sort((a, b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id))
-      .slice(0, 80);
-    const add = (e) => {
-      const [dom] = e.entity_id.split(".");
-      const name = e.attributes.friendly_name || e.entity_id;
-      const icon = e.attributes.icon || CLASS_ICON[e.attributes.device_class] || DOMAIN_ICON[dom] || "mdi:circle-outline";
-      if (scenes) this._edit.scenes.push({ entity: e.entity_id, name, icon });
-      else {
-        let type = DOMAIN_TYPE[dom];
-        if (dom === "sensor" && e.attributes.device_class === "moisture") type = "plant";
-        const x = { type, entity: e.entity_id };
-        if (type !== "climate") Object.assign(x, { name, icon });
-        this._edit.rooms[target].items.push(x);
-      }
-      fireHaptic("success");
-      close();
-      this._edDirty();
-    };
-    return html`
-      <input class="ed-input ed-search" placeholder="Search lights, speakers, sensors…" .value=${this._eq || ""}
-             autocomplete="off" @input=${(ev) => { this._eq = ev.target.value; }}>
-      <div class="ed-list">
-        ${hits.length ? hits.map((e) => html`
-          <button class="ed-row" @click=${() => add(e)}>
-            <ha-icon icon=${e.attributes.icon || CLASS_ICON[e.attributes.device_class] || DOMAIN_ICON[e.entity_id.split(".")[0]] || "mdi:circle-outline"}></ha-icon>
-            <span class="ed-row-text"><span>${e.attributes.friendly_name || e.entity_id}</span>
-              <span class="muted">${e.entity_id}</span></span>
-          </button>`) : html`<div class="muted ed-none">Nothing matches.</div>`}
       </div>`;
   }
 
@@ -1172,7 +688,7 @@ class OverlookShow extends LitElement {
 
   _pageBody() {
     switch (this._page) {
-      case "kitchen": return this._config.phone ? this._phoneHome() : this._kitchen();
+      case "kitchen": return this._kitchen();
       case "recipes": return this._recipes();
       case "calendar": return this._calendar();
       case "home": return this._home();
@@ -1245,7 +761,7 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level;
     return html`
       <div class="card player">
-        <div class="player-row" @click=${() => { if (this._config.links[id]) this._open(id); }}>
+        <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
           <div class="art small" style=${active && a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
@@ -1883,8 +1399,7 @@ class OverlookShow extends LitElement {
   }
 
   _lightName(id) {
-    const l = [...(this._config.lights || []), ...this._config.phone_rooms.flatMap((r) => r.items || [])]
-      .find((x) => x.entity === id && x.name);
+    const l = (this._config.lights || []).find((x) => x.entity === id && x.name) || { name: (this._names || {})[id] };
     const e = this._st(id);
     return (l && l.name) || (e && e.attributes.friendly_name) || id;
   }
@@ -2079,10 +1594,10 @@ class OverlookShow extends LitElement {
     return html`
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
-        <div class="hp-now ${this._config.links[id] ? "linked" : ""}" @click=${() => { if (this._config.links[id]) this._open(id); }}>
+        <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => { if (this._links()[id]) this._open(id); }}>
           <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
           <span class="hp-mode ${mode}">${label}</span>
-          ${this._config.links[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
+          ${this._links()[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
@@ -2823,58 +2338,45 @@ class OverlookShow extends LitElement {
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
 
-    /* edit mode */
-    .ed-head { display: flex; flex-direction: column; gap: 2px; padding: 4px 4px 0; }
-    .ed-title { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -0.01em; }
-    .ed-head .muted { font-size: 14px; }
-    .ed-err { color: #e5484d; font-size: 14px; font-weight: 600; margin-top: 4px; }
-    .ed-room { width: 100%; text-align: left; }
-    .ed-room .ed-pen { margin-left: auto; color: var(--accent); }
-    .ed-scenes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .ed-scenes .mini-scene { height: 88px; }
-    .ed-item { position: relative; -webkit-touch-callout: none; cursor: grab; transition: opacity 0.15s; }
-    .ed-item.lifted { opacity: 0.25; }
-    .ed-grid .tile { cursor: grab; }
-    .ed-x { position: absolute; z-index: 1; top: -7px; left: -7px; width: 26px; height: 26px; border-radius: 50%;
-            background: var(--muted); color: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
-    .ed-x ha-icon { --mdc-icon-size: 16px; width: auto; height: auto; background: none !important; color: #fff !important; }
-    .ed-add { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 62px; border-radius: 20px;
-              border: 1.5px dashed var(--track-strong); background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
-    .ed-add ha-icon { --mdc-icon-size: 20px; }
-    .mini-scene.ed-add { flex-direction: column; }
-    .mini-scene.ed-add ha-icon { background: none; color: var(--muted); }
-    .ed-newroom { width: 100%; }
-    .ed-ghost { position: fixed; z-index: 30; pointer-events: none; margin: 0; box-shadow: 0 18px 44px rgba(22, 42, 84, 0.28);
-                transition: none; opacity: 0.96; }
-    .ed-ghost .ed-x { display: none; }
-    .editbar .eb-btn { height: 54px; border-radius: 22px; font-weight: 700; font-size: 15px; }
-    .editbar .eb-btn.save { background: var(--accent); color: #fff; }
-    .editbar .eb-btn:disabled { opacity: 0.6; }
-    .ed-sheet .pop-body { gap: 12px; }
-    .ed-entity { font-size: 13px; padding: 0 2px; word-break: break-all; }
-    .ed-field { display: flex; flex-direction: column; gap: 6px; }
-    .ed-input { flex: none; width: 100%; height: 46px; border-radius: 14px; border: 1.5px solid var(--track-strong); background: var(--inset);
-                color: var(--ink); font: inherit; font-size: 16px; padding: 0 14px; outline: none;
-                user-select: text; -webkit-user-select: text; }
-    .ed-input:focus { border-color: var(--accent); }
-    .ed-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-    .ed-chip { padding: 9px 14px; border-radius: 999px; background: var(--inset); font-weight: 600; font-size: 14px; }
-    .ed-chip.on { background: var(--accent); color: #fff; }
-    .ed-btns { display: flex; gap: 10px; }
-    .ed-btn { flex: 1; height: 48px; border-radius: 16px; background: var(--inset); font-weight: 700; font-size: 15px;
-              display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .ed-btn ha-icon { --mdc-icon-size: 18px; }
-    .ed-btn:disabled { opacity: 0.4; }
-    .ed-btn.primary { background: var(--accent); color: #fff; }
-    .ed-btn.danger { color: #e5484d; }
-    .ed-list { display: flex; flex-direction: column; min-height: 50vh; }
-    .ed-row { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 10px; padding: 10px 6px;
-              border-radius: 14px; text-align: left; }
-    .ed-row:active { background: var(--inset); }
-    .ed-row ha-icon { --mdc-icon-size: 22px; color: var(--accent); justify-self: center; }
-    .ed-row-text { display: flex; flex-direction: column; min-width: 0; font-weight: 600; }
-    .ed-row-text .muted { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ed-none { padding: 20px 6px; }
+    /* a Calendar/Recipes page inside an HA view (below its header) */
+    .screen.embedded { position: relative; inset: auto; z-index: auto; background: none;
+                       height: calc(100vh - var(--header-height, 56px) - env(safe-area-inset-top, 0px)); }
+    .screen.embedded::after { display: none; }
+    .embedded .page { padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+    /* one tile = one HA card: fill the grid cell HA gives it */
+    .piece { height: 100%; font-family: var(--body); color: var(--ink); user-select: none; -webkit-user-select: none; }
+    .piece > * { height: 100%; width: 100%; }
+    .piece .card { border-radius: 22px; }
+    .piece .tile { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px;
+                   min-height: 0; text-align: left; }
+    .piece .tile-ico { width: 36px; height: 36px; }
+    .piece .tile-ico ha-icon { --mdc-icon-size: 20px; }
+    .piece .tile-text { min-width: 0; }
+    .piece .tile-name { font-size: 14px; line-height: 1.2; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .piece .tile-text .muted { font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .piece .plant .tile-text .muted { display: none; }
+    .piece .tile-val { font-size: 18px; }
+    .piece .player { padding: 10px 12px; gap: 8px; justify-content: space-between; min-width: 0; }
+    .piece .player-row { grid-template-columns: 40px 1fr; gap: 10px; }
+    .piece .player-row .round.play { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .piece .art.small { width: 40px; height: 40px; border-radius: 10px; }
+    .piece .player-title { font-size: 14px; }
+    .piece .media-artist { font-size: 12px; }
+    .piece .vol { gap: 6px; }
+    .piece .vol .round { width: 34px; height: 34px; }
+    .piece .vol .round ha-icon { --mdc-icon-size: 18px; }
+    .piece .player-row { align-items: start; }
+    .piece .media-src { font-size: 10px; }
+    .piece .ph-hp { height: auto; }
+    .piece .mini-scene { height: 100%; flex: none; justify-content: center; background: var(--card); box-shadow: var(--shadow); }
+    .piece .mini-scene.on { background: var(--accent); }
+    .piece .status { margin: 0 -4px; padding: 2px 4px 8px; }
+    .piece .missing { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 13px; color: var(--muted); }
+    .piece-sec { display: flex; align-items: center; gap: 9px; height: 100%; padding: 0 4px; font-size: 17px; font-weight: 700;
+                 letter-spacing: -0.01em; }
+    .piece-sec > ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+    .screen.overlay { background: none; pointer-events: none; z-index: 20; }
+    .screen.overlay > * { pointer-events: auto; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
     .pop-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
                display: grid; place-items: center; }
@@ -2969,6 +2471,257 @@ class OverlookShow extends LitElement {
 // a typed --ov-at can transition; an untyped custom property would jump
 try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
 if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
+// --- Phone Show: every tile is its own card, so HA's own dashboard editor arranges them ---
+// The cards share this file's drawing code (they extend OverlookShow) but none of its
+// subscriptions or timers. Sheets (a light's controls, the pop-ups) open in one layer on
+// <body> so they cover the whole app; pop-ups and their links come from
+// /local/overlook-popups.json, which deploy.py writes from showphone.py.
+let OVERLAY = null;
+const overlay = (hass) => {
+  if (!OVERLAY) {
+    OVERLAY = document.createElement("overlook-overlay");
+    document.body.appendChild(OVERLAY);
+  }
+  if (hass && OVERLAY.hass !== hass) OVERLAY.hass = hass;
+  return OVERLAY;
+};
+
+class OverlookPiece extends OverlookShow {
+  setConfig(config) {
+    if (!config) throw new Error("No configuration");
+    this._config = Object.assign({ phone: true, lights: [], popups: {}, links: {}, status: [], status_air: [],
+                                   calendars: [], speakers: [], scenes: [] }, config);
+    this._drag = null;
+  }
+
+  connectedCallback() {
+    LitElement.prototype.connectedCallback.call(this);
+    loadFonts();
+    this.style.height = "100%";   // fill the grid cell HA sizes for the card
+    this._relink = () => this.requestUpdate();
+    window.addEventListener("overlook-popups", this._relink);
+  }
+
+  disconnectedCallback() {
+    LitElement.prototype.disconnectedCallback.call(this);
+    window.removeEventListener("overlook-popups", this._relink);
+  }
+
+  updated(changed) {
+    if (!changed.has("hass") || !this.hass) return;
+    if (this._drag) this._settle();
+    overlay(this.hass);
+  }
+
+  _openLight(id) { overlay(this.hass).openLight(id, this._config.name); }
+  _open(id) { overlay(this.hass)._open(id); }
+  _links() { return overlay()._links(); }
+  getCardSize() { return 1; }
+}
+
+class OverlookOverlay extends OverlookShow {
+  constructor() {
+    super();
+    this.setConfig({ phone: true, weather: null });
+    this._names = {};
+    fetch(`/local/overlook-popups.json?v=${VERSION}`).then((r) => r.json()).then((j) => {
+      this._config = Object.assign({}, this._config, { popups: j.popups || {}, links: j.links || {} });
+      window.dispatchEvent(new Event("overlook-popups"));
+    }).catch((e) => console.warn("overlook: pop-ups", e));
+  }
+
+  connectedCallback() {
+    LitElement.prototype.connectedCallback.call(this);
+    loadFonts();
+  }
+
+  disconnectedCallback() { LitElement.prototype.disconnectedCallback.call(this); }
+
+  updated(changed) { if (changed.has("hass") && this._drag) this._settle(); }
+
+  openLight(id, name) {
+    if (name) this._names[id] = name;
+    OverlookShow.prototype._openLight.call(this, id);
+  }
+
+  // HA listens for more-info on its own root, which this layer sits outside of
+  _moreInfo(entityId) {
+    const ha = document.querySelector("home-assistant");
+    if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  render() {
+    if (!this.hass || !(this._pop || this._light)) return nothing;
+    return html`
+      <div class="screen phone overlay">
+        ${this._pop ? this._popSheet() : nothing}
+        ${this._light ? this._lightSheet() : nothing}
+      </div>`;
+  }
+}
+if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
+
+const TILE_KINDS = [["light", "Light"], ["switch", "Switch"], ["media", "Speaker / TV"], ["climate", "Heat pump"],
+  ["plant", "Plant"], ["sensor", "Reading"], ["scene", "Scene / script"]];
+
+// one entity, drawn the way its kind is drawn on the phone (picked from the domain)
+class OverlookTile extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: {} } },
+        { type: "grid", name: "", schema: [
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
+        ] },
+        { name: "kind", selector: { select: { mode: "dropdown", options: TILE_KINDS.map(([value, label]) => ({ value, label })) } } },
+      ],
+      computeLabel: (s) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)" })[s.name],
+    };
+  }
+
+  static getStubConfig(hass) {
+    const id = Object.keys(hass.states).find((e) => e.startsWith("light.")) || Object.keys(hass.states)[0];
+    return { entity: id };
+  }
+
+  _kind() {
+    const c = this._config, e = this._st(c.entity);
+    if (c.kind) return c.kind;
+    const dom = (c.entity || "").split(".")[0];
+    if (dom === "sensor" && e && e.attributes.device_class === "moisture") return "plant";
+    return DOMAIN_TYPE[dom] || "sensor";
+  }
+
+  _item() {
+    const c = this._config, e = this._st(c.entity);
+    return { entity: c.entity, name: c.name || (e && e.attributes.friendly_name) || c.entity,
+             icon: c.icon || (e && (e.attributes.icon || CLASS_ICON[e.attributes.device_class])) || TYPE_ICON[this._kind()] };
+  }
+
+  getGridOptions() {
+    switch (this._kind()) {
+      case "climate": return { columns: 12, min_columns: 6 };
+      case "media": return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 };
+      default: return { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
+    }
+  }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const x = this._item();
+    if (!this._st(x.entity)) {
+      return html`<div class="piece"><div class="card missing"><ha-icon icon="mdi:help-circle-outline"></ha-icon>
+        ${x.entity || "Pick an entity"} isn't there</div></div>`;
+    }
+    let body;
+    switch (this._kind()) {
+      case "climate": body = html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`; break;
+      case "media": body = this._player(x); break;
+      case "plant": body = this._plantTile(x); break;
+      case "switch": body = this._switchTile(x); break;
+      case "sensor": body = this._sensorTile(x); break;
+      case "scene": body = this._sceneBtn(x, true); break;
+      default: body = this._lightTile(x);
+    }
+    return html`<div class="piece">${body}</div>`;
+  }
+}
+if (!customElements.get("overlook-tile")) customElements.define("overlook-tile", OverlookTile);
+
+// a square scene button (the Scenes row); four to a row by default
+class OverlookScene extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: { domain: ["scene", "script", "input_boolean", "automation"] } } },
+        { type: "grid", name: "", schema: [
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
+        ] },
+      ],
+    };
+  }
+
+  static getStubConfig(hass) {
+    return { entity: Object.keys(hass.states).find((e) => e.startsWith("script.") || e.startsWith("scene.")) };
+  }
+
+  getGridOptions() { return { columns: 3, rows: 2, min_columns: 3, min_rows: 2 }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const c = this._config, e = this._st(c.entity);
+    const x = { entity: c.entity, name: c.name || (e && e.attributes.friendly_name) || c.entity,
+                icon: c.icon || (e && e.attributes.icon) || DOMAIN_ICON[(c.entity || "").split(".")[0]] || "mdi:palette" };
+    return html`<div class="piece">${this._miniScene(x)}</div>`;
+  }
+}
+if (!customElements.get("overlook-scene")) customElements.define("overlook-scene", OverlookScene);
+
+// a room's heading, with its all-lights button
+class OverlookHeading extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { type: "grid", name: "", schema: [
+          { name: "name", required: true, selector: { text: {} } },
+          { name: "icon", selector: { icon: {} } },
+        ] },
+        { name: "group", selector: { entity: { domain: "light" } } },
+      ],
+      computeLabel: (s) => ({ name: "Name", icon: "Icon", group: "All-lights button (a light group)" })[s.name],
+    };
+  }
+
+  static getStubConfig() { return { name: "Room", icon: "mdi:sofa" }; }
+
+  getGridOptions() { return { columns: 12, rows: 1, min_columns: 6 }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const c = this._config, g = this._st(c.group), lit = g && g.state === "on";
+    return html`
+      <div class="piece"><div class="piece-sec">
+        <ha-icon icon=${c.icon || "mdi:door"}></ha-icon><span>${c.name}</span>
+        ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
+            @click=${() => { fireHaptic("light"); this._call("light", lit ? "turn_off" : "turn_on", { entity_id: c.group }); }}>
+            <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
+      </div></div>`;
+  }
+}
+if (!customElements.get("overlook-heading")) customElements.define("overlook-heading", OverlookHeading);
+
+// who's home, what needs a look, and the house's readings (low-high across the rooms)
+class OverlookStatus extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "status", selector: { object: {} } },
+        { name: "status_air", selector: { object: {} } },
+      ],
+      computeLabel: (s) => ({ status: "Pills (people always; the rest only while on)",
+                              status_air: "Readings (each with its sources)" })[s.name],
+    };
+  }
+
+  static getStubConfig() { return { status: [], status_air: [] }; }
+
+  getGridOptions() { return { columns: 12, min_columns: 12 }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    return html`<div class="piece">${this._status()}</div>`;
+  }
+}
+if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
+
 window.customCards = window.customCards || [];
+window.customCards.push(
+  { type: "overlook-tile", name: "Overlook tile", description: "One light, switch, speaker, heat pump, plant, reading or scene", preview: true },
+  { type: "overlook-scene", name: "Overlook scene button", description: "A square button for a scene or script", preview: true },
+  { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
+  { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
+);
 window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
