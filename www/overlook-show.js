@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.16";
+const VERSION = "0.9.17";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -353,14 +353,20 @@ class OverlookShow extends LitElement {
         <button class="tab st ${x.tone || "warn"}" @click=${tap}>
           <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
     });
+    // each reading covers the whole house: every room's sensor, shown low–high like Apple Home
     const air = (this._config.status_air || []).map((x) => {
       const e = this._st(x.entity);
       if (!e) return nothing;
-      const v = Number(e.state);
+      const vals = (x.sources || [{ entity: x.entity }]).map((src) => {
+        const s = this._st(src.entity);
+        return s ? Number(src.attr ? s.attributes[src.attr] : s.state) : NaN;
+      }).filter((v) => isFinite(v)).map((v) => Math.round(v));
+      if (!vals.length) return nothing;
+      const lo = Math.min(...vals), hi = Math.max(...vals);
       return html`
         <button class="tab st reading" @click=${() => this._open(x.entity)}>
           <ha-icon icon=${x.icon} style="color:${x.color || "var(--accent)"}"></ha-icon>
-          <span>${isNaN(v) ? e.state : Math.round(v)}${x.unit != null ? x.unit : (e.attributes.unit_of_measurement || "")}</span>
+          <span>${lo === hi ? lo : `${lo}–${hi}`}${x.unit != null ? x.unit : (e.attributes.unit_of_measurement || "")}</span>
           <small>${x.name}</small></button>`;
     });
     return html`<div class="status">${pills}${air}</div>`;

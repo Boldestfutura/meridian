@@ -110,7 +110,8 @@ POPUPS = {
                              "sensor.air_quality_monitor_temperature", "sensor.air_quality_monitor_temperature_2",
                              [t(CLIMATE, "Living Room", "mdi:thermometer", attr="current_temperature", unit="°")]),
     "humidity": air_popup("humidity", "Humidity", "mdi:water-percent",
-                          "sensor.air_quality_monitor_humidity", "sensor.air_quality_monitor_humidity_2"),
+                          "sensor.air_quality_monitor_humidity", "sensor.air_quality_monitor_humidity_2",
+                          [t(CLIMATE, "Living Room", "mdi:water-percent", attr="current_humidity", unit="%")]),
     "pm2_5": air_popup("pm2_5", "PM2.5", "mdi:blur",
                        "sensor.air_quality_monitor_pm2_5", "sensor.air_quality_monitor_pm2_5_2"),
     "voc": air_popup("voc", "VOC", "mdi:air-filter",
@@ -208,7 +209,19 @@ LINKS = {
     "sensor.soil_moisture_sensor_1_humidity": "plant_fiddle", "sensor.moisture_sensor_2_humidity": "plant_banana",
 }
 
-CARD = dict(show.CARD, phone=True, scenes=SCENES, phone_rooms=ROOMS, status_air=show.air(),
+# the reading pills cover the whole house: both air monitors, plus the heat pump's own
+# thermometer and hygrometer in the living room
+HOUSE = {
+    "temperature": [{"attr": "current_temperature"}],
+    "humidity": [{"attr": "current_humidity"}],
+}
+STATUS_AIR = []
+for k, b in zip(show.air(), show.air("_2")):
+    kind = k["entity"].split("air_quality_monitor_")[1].replace("voc_index", "voc")
+    extra = [dict(entity=CLIMATE, **x) for x in HOUSE.get(kind, [])]
+    STATUS_AIR.append(dict(k, sources=[{"entity": k["entity"]}, {"entity": b["entity"]}, *extra]))
+
+CARD = dict(show.CARD, phone=True, scenes=SCENES, phone_rooms=ROOMS, status_air=STATUS_AIR,
             popups=POPUPS, links=LINKS)
 CARD.pop("photos", None)
 CARD.pop("idle", None)
