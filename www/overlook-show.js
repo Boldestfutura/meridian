@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.14";
+const VERSION = "0.9.16";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -459,8 +459,9 @@ class OverlookShow extends LitElement {
     if (!p) return nothing;
     const close = () => { this._pop = null; };
     return html`
-      <div class="scrim pop-scrim" @click=${close}>
-        <div class="sheet pop" @click=${(ev) => ev.stopPropagation()}>
+      <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+        <div class="sheet pop" @click=${(ev) => ev.stopPropagation()}
+             @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
           <div class="pop-head">
             <span class="pop-ico"><ha-icon icon=${p.icon}></ha-icon></span>
@@ -470,6 +471,58 @@ class OverlookShow extends LitElement {
           <div class="pop-body">${p.sections.map((s) => this._popSection(s))}</div>
         </div>
       </div>`;
+  }
+
+  // --- swipe a sheet down to close it ----------------------------------------
+  // Any vertical drag on a sheet that isn't on a control moves the sheet with the finger;
+  // let go past 90px (or flick) and it slides away. preventDefault on touchmove is what
+  // stops the HA app's pull-to-refresh, which used to reload the dashboard behind the sheet.
+  // The scrolling body still scrolls: a drag only becomes a dismiss when it starts with
+  // the body at the top and moves down.
+  _swStart(ev, close) {
+    const t = ev.touches[0];
+    if (ev.touches.length > 1 || (ev.target.closest && ev.target.closest(".split, .ctbar, .pl-row"))) {
+      this._sw = null;
+      return;
+    }
+    const sheet = ev.currentTarget;
+    const body = ev.target.closest && ev.target.closest(".pop-body");
+    this._sw = { sheet, close, body, y0: t.clientY, x0: t.clientX, y: t.clientY, t: performance.now(), v: 0, mode: null };
+  }
+
+  _swMove(ev) {
+    const w = this._sw;
+    if (!w) return;
+    const t = ev.touches[0], dy = t.clientY - w.y0;
+    if (!w.mode) {
+      if (Math.abs(dy) < 6 && Math.abs(t.clientX - w.x0) < 6) return;
+      // down with nothing scrolled = dismiss; anything else is the body's own scroll
+      w.mode = dy > 0 && Math.abs(dy) > Math.abs(t.clientX - w.x0) && (!w.body || w.body.scrollTop <= 0) ? "drag" : "pass";
+      if (w.mode === "drag") w.sheet.style.transition = "none";
+    }
+    if (w.mode !== "drag") return;
+    ev.preventDefault();
+    const now = performance.now();
+    w.v = (t.clientY - w.y) / Math.max(1, now - w.t);
+    w.y = t.clientY;
+    w.t = now;
+    w.sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+  }
+
+  _swEnd(cancel = false) {
+    const w = this._sw;
+    this._sw = null;
+    if (!w || w.mode !== "drag") return;
+    const dy = w.y - w.y0;
+    w.sheet.style.transition = "transform 0.22s ease-out";
+    if (!cancel && (dy > 90 || (dy > 30 && w.v > 0.6))) {
+      w.sheet.style.transform = "translateY(110%)";
+      const scrim = w.sheet.parentElement;
+      if (scrim) { scrim.style.transition = "opacity 0.22s"; scrim.style.opacity = "0"; }
+      setTimeout(() => w.close(), 200);
+    } else {
+      w.sheet.style.transform = "";
+    }
   }
 
   _popSection(s) {
@@ -1216,8 +1269,9 @@ class OverlookShow extends LitElement {
   _speakerSheet() {
     const active = this._activeSpeaker();
     return html`
-      <div class="scrim" @click=${() => { this._picker = false; }}>
-        <div class="sheet card" @click=${(ev) => ev.stopPropagation()}>
+      <div class="scrim" @click=${() => { this._picker = false; }} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+        <div class="sheet card" @click=${(ev) => ev.stopPropagation()}
+             @touchstart=${(ev) => this._swStart(ev, () => { this._picker = false; })} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="card-title">Play on</div>
           ${this._speakers().map((s) => {
             const a = s.shown ? s.shown.attributes : {};
@@ -1293,7 +1347,8 @@ class OverlookShow extends LitElement {
            @pointerdown=${(ev) => this._pillDown(ev, id, pct)}
            @pointermove=${(ev) => this._pillMove(ev)}
            @pointerup=${(ev) => this._pillUp(ev)}
-           @pointercancel=${() => this._pillCancel()}>
+           @pointercancel=${() => this._pillCancel()}
+           @touchmove=${(ev) => ev.preventDefault()}>
         <div class="seg seg-top"></div>
         <div class="seg seg-bot">
           <span class="seg-ico"><ha-icon icon=${icon || "mdi:lightbulb-outline"}></ha-icon></span>
@@ -1332,8 +1387,9 @@ class OverlookShow extends LitElement {
     const full = () => { this._light = null; this._moreInfo(id); };
     const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
     return html`
-      <div class="scrim pop-scrim" @click=${close}>
-        <div class="sheet pop lsheet ${this._config.phone ? "" : "two"}" @click=${(ev) => ev.stopPropagation()}>
+      <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+        <div class="sheet pop lsheet ${this._config.phone ? "" : "two"}" @click=${(ev) => ev.stopPropagation()}
+             @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
           <div class="pop-head">
             <span class="pop-ico ${lit ? "lit" : ""}"><ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></span>
@@ -1392,7 +1448,7 @@ class OverlookShow extends LitElement {
     };
     return html`
       <div class="pop-sub">White</div>
-      <div class="ctbar" @pointerdown=${down} @pointermove=${move} @pointerup=${up}
+      <div class="ctbar" @pointerdown=${down} @pointermove=${move} @pointerup=${up} @touchmove=${(ev) => ev.preventDefault()}
            @pointercancel=${() => { this._ctPress = null; this._ct = null; }}>
         <span class="ct-end"><ha-icon icon="mdi:weather-sunset"></ha-icon></span>
         <span class="ct-end cool"><ha-icon icon="mdi:snowflake-variant"></ha-icon></span>
