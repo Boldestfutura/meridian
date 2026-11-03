@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.6";
+const VERSION = "0.9.8";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -53,6 +53,10 @@ const PHONE_PAGES = [
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // HA's companion app turns a window "haptic" event into a real tap on the phone (iPhones
 // have no navigator.vibrate); this is the same event button-card fires
+// colour presets for the light sheet: hue, saturation, name
+const SWATCHES = [[0, 90, "Red"], [25, 95, "Orange"], [45, 90, "Yellow"], [120, 70, "Green"],
+  [180, 70, "Cyan"], [220, 85, "Blue"], [270, 75, "Purple"], [320, 70, "Pink"]];
+
 const fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
 };
@@ -79,6 +83,8 @@ class OverlookShow extends LitElement {
     _book: { state: true },
     _recipe: { state: true },
     _pop: { state: true },
+    _light: { state: true },
+    _ct: { state: true },
     _hist: { state: true },
   };
 
@@ -233,6 +239,7 @@ class OverlookShow extends LitElement {
   _go(page) {
     this._picker = false;
     this._pop = null;
+    this._light = null;
     this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
@@ -270,6 +277,7 @@ class OverlookShow extends LitElement {
           ${this._tabBar()}
           ${this._picker ? this._speakerSheet() : nothing}
           ${this._pop ? this._popSheet() : nothing}
+          ${this._light ? this._lightSheet() : nothing}
         </div>`;
     }
     const photos = this._page === "photos";
@@ -281,6 +289,7 @@ class OverlookShow extends LitElement {
           ${this._page === "kitchen" ? this._status() : nothing}`}
         ${this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
+        ${this._light ? this._lightSheet() : nothing}
       </div>`;
   }
 
@@ -403,7 +412,7 @@ class OverlookShow extends LitElement {
     const on = e.state === "on";
     const pct = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
     let timer, held = false;
-    const down = () => { held = false; timer = setTimeout(() => { held = true; fireHaptic("medium"); this._moreInfo(l.entity); }, 500); };
+    const down = () => { held = false; timer = setTimeout(() => { held = true; fireHaptic("medium"); this._openLight(l.entity); }, 500); };
     const up = () => clearTimeout(timer);
     return html`
       <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}
@@ -1262,26 +1271,155 @@ class OverlookShow extends LitElement {
             <div class="pill-name">${l.name || e.attributes.friendly_name}</div>
             <div class="pill-state ${lit ? "lit" : ""}">${lit ? (pct >= 100 ? "On" : `On · ${pct}%`) : "Off"}</div>
           </div>
-          <button class="dots" @click=${() => this._moreInfo(l.entity)}>
+          <button class="dots" @click=${() => this._openLight(l.entity)}>
             <ha-icon icon="mdi:dots-vertical"></ha-icon></button>
         </div>
-        <div class="split ${lit ? "lit" : ""}"
-             @pointerdown=${(ev) => this._pillDown(ev, l.entity, pct)}
-             @pointermove=${(ev) => this._pillMove(ev)}
-             @pointerup=${(ev) => this._pillUp(ev)}
-             @pointercancel=${() => { this._drag = null; this._press = null; }}>
-          <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
-          <div class="seg seg-bot" style="flex-grow:${at}">
-            <span class="seg-ico"><ha-icon icon=${l.icon || "mdi:lightbulb-outline"}></ha-icon></span>
-          </div>
-        </div>
+        ${this._split(l.entity, l.icon, lit, pct, at)}
         ${lit && rgb ? html`<button class="swatch" style="background:rgb(${rgb.join(",")})"
-            @click=${() => this._moreInfo(l.entity)}></button>` : nothing}
+            @click=${() => this._openLight(l.entity)}></button>` : nothing}
       </div>`;
   }
 
   _moreInfo(entityId) {
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  // the split pill itself: drag to dim, tap = that brightness, tap the bulb = on/off
+  _split(id, icon, lit, pct, at, cls = "", style = "") {
+    return html`
+      <div class="split ${lit ? "lit" : ""} ${cls}" style=${style}
+           @pointerdown=${(ev) => this._pillDown(ev, id, pct)}
+           @pointermove=${(ev) => this._pillMove(ev)}
+           @pointerup=${(ev) => this._pillUp(ev)}
+           @pointercancel=${() => { this._drag = null; this._press = null; }}>
+        <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
+        <div class="seg seg-bot" style="flex-grow:${at}">
+          <span class="seg-ico"><ha-icon icon=${icon || "mdi:lightbulb-outline"}></ha-icon></span>
+        </div>
+      </div>`;
+  }
+
+  // --- light sheet: HA's light dialog laid out the same way, in this look --------
+  // brightness pill, power, warm/cool white, colour swatches, then the group's bulbs.
+  // The corner button still opens HA's own dialog for settings, history and effects.
+  _openLight(id) {
+    if (!this._st(id)) return;
+    fireHaptic("light");
+    this._pop = null;
+    this._light = id;
+  }
+
+  _lightSheet() {
+    const id = this._light, e = this._st(id);
+    if (!e) return nothing;
+    const a = e.attributes, on = e.state === "on";
+    const modes = a.supported_color_modes || [];
+    const dims = modes.some((m) => m !== "onoff");
+    const hasCt = modes.includes("color_temp");
+    const hasCol = modes.some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+    const real = on ? Math.round((a.brightness || 255) / 2.55) : 0;
+    const drag = this._drag && this._drag.id === id ? this._drag.pct : null;
+    const pct = drag != null ? drag : real;
+    const lit = drag != null ? drag > 0 : on;
+    this._last = this._last || {};
+    if (on) this._last[id] = real;
+    const at = clamp(lit ? pct : (this._last[id] || 50), 8, 96);
+    const rgb = a.rgb_color;
+    const members = Array.isArray(a.entity_id) ? a.entity_id.filter((m) => this._st(m)) : [];
+    const close = () => { this._light = null; };
+    const full = () => { this._light = null; this._moreInfo(id); };
+    const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
+    return html`
+      <div class="scrim pop-scrim" @click=${close}>
+        <div class="sheet pop lsheet ${this._config.phone ? "" : "two"}" @click=${(ev) => ev.stopPropagation()}>
+          <div class="grabber"></div>
+          <div class="pop-head">
+            <span class="pop-ico ${lit ? "lit" : ""}"><ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></span>
+            <span class="pop-title">${this._lightName(id)}<span class="lsheet-state ${lit ? "lit" : ""}">${state}</span></span>
+            <button class="round small" title="More settings" @click=${full}><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>
+            <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
+          </div>
+          <div class="pop-body lsheet-body">
+            <div class="lsheet-main">
+              ${dims ? this._split(id, a.icon, lit, pct, at, "big", rgb && lit ? `--lit-c:rgb(${rgb.join(",")})` : "")
+                : html`<button class="lsheet-onoff ${lit ? "lit" : ""}" @click=${() => this._call("light", "toggle", { entity_id: id })}>
+                    <ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></button>`}
+              <button class="lsheet-power ${on ? "on" : ""}" title=${on ? "Turn off" : "Turn on"}
+                      @click=${() => this._call("light", "toggle", { entity_id: id })}>
+                <ha-icon icon="mdi:power"></ha-icon></button>
+            </div>
+            <div class="lsheet-side">
+              ${hasCt ? this._ctBar(id, a) : nothing}
+              ${hasCol ? this._swatches(id, a) : nothing}
+              ${members.length ? html`
+                <div class="pop-sub">Lights in this group</div>
+                <div class="pop-grid">${members.map((m) => this._memberTile(m))}</div>` : nothing}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  _lightName(id) {
+    const l = [...(this._config.lights || []), ...this._config.phone_rooms.flatMap((r) => r.items || [])]
+      .find((x) => x.entity === id && x.name);
+    const e = this._st(id);
+    return (l && l.name) || (e && e.attributes.friendly_name) || id;
+  }
+
+  // warm on the left, cool on the right, like HA's own slider
+  _ctBar(id, a) {
+    const lo = a.min_color_temp_kelvin || 2000, hi = a.max_color_temp_kelvin || 6500;
+    const pend = this._ct && this._ct.id === id ? this._ct.k : null;
+    const cur = pend != null ? pend : (a.color_mode === "color_temp" && a.color_temp_kelvin) || null;
+    const pos = cur != null ? clamp((cur - lo) / (hi - lo) * 100, 0, 100) : null;
+    const k = (ev, r) => Math.round(lo + clamp((ev.clientX - r.left) / r.width, 0, 1) * (hi - lo));
+    const down = (ev) => {
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      const r = ev.currentTarget.getBoundingClientRect();
+      this._ctPress = r;
+      this._ct = { id, k: k(ev, r) };
+    };
+    const move = (ev) => { if (this._ctPress) this._ct = { id, k: k(ev, this._ctPress) }; };
+    const up = () => {
+      if (!this._ctPress || !this._ct) return;
+      this._ctPress = null;
+      const val = this._ct.k;
+      this._call("light", "turn_on", { entity_id: id, color_temp_kelvin: val });
+      setTimeout(() => { if (this._ct && this._ct.k === val) this._ct = null; }, 1500);
+    };
+    return html`
+      <div class="pop-sub">White</div>
+      <div class="ctbar" @pointerdown=${down} @pointermove=${move} @pointerup=${up}
+           @pointercancel=${() => { this._ctPress = null; this._ct = null; }}>
+        <span class="ct-end"><ha-icon icon="mdi:weather-sunset"></ha-icon></span>
+        <span class="ct-end cool"><ha-icon icon="mdi:snowflake-variant"></ha-icon></span>
+        ${pos != null ? html`<span class="ct-thumb" style="left:${pos}%"></span>` : nothing}
+      </div>`;
+  }
+
+  _swatches(id, a) {
+    const hs = a.color_mode !== "color_temp" && a.hs_color;
+    return html`
+      <div class="pop-sub">Colour</div>
+      <div class="swatches">
+        ${SWATCHES.map(([h, sat, label]) => {
+          const near = hs && hs[1] > 40 && Math.min(Math.abs(hs[0] - h), 360 - Math.abs(hs[0] - h)) < 16;
+          return html`<button class="sw ${near ? "on" : ""}" title=${label} style="--c:hsl(${h} ${sat}% 58%)"
+            @click=${() => this._call("light", "turn_on", { entity_id: id, hs_color: [h, sat] })}></button>`;
+        })}
+      </div>`;
+  }
+
+  _memberTile(m) {
+    const e = this._st(m), on = e.state === "on";
+    const pct = on && e.attributes.brightness ? Math.round(e.attributes.brightness / 2.55) : null;
+    return html`
+      <button class="ptile ${on ? "on" : ""}" @click=${() => this._call("light", "toggle", { entity_id: m })}>
+        <span class="tile-ico"><ha-icon icon=${e.attributes.icon || "mdi:lightbulb"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${this._lightName(m)}</span>
+          <span class="muted">${e.state === "unavailable" ? "Unavailable" : on ? (pct != null && pct < 100 ? `On · ${pct}%` : "On") : "Off"}</span></span>
+      </button>`;
   }
 
   // --- playlists: cover tiles, tap plays on the Active Media speaker ---------
@@ -2113,6 +2251,41 @@ class OverlookShow extends LitElement {
     .ptile.alert .tile-ico { color: var(--warm); }
     .ptile:active { transform: scale(0.98); }
     .ptile.stepper { grid-column: 1 / -1; grid-template-columns: 38px 1fr auto; }
+    /* light sheet */
+    .lsheet-state { display: block; font-family: var(--body); font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .lsheet-state.lit { color: var(--warm); }
+    .pop-ico.lit { background: color-mix(in srgb, var(--warm) 20%, transparent); color: var(--warm); }
+    .lsheet-body { gap: 4px; }
+    .lsheet-main { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 4px 0 6px; }
+    .split.big { --w: 104px; flex: none; height: min(250px, 31vh); margin: 0 auto; }
+    .split.big .seg-ico { width: 64px; height: 64px; }
+    .split.big .seg-bot ha-icon { --mdc-icon-size: 34px; }
+    .split.big.lit .seg-bot { background: var(--lit-c, var(--warm)); }
+    .lsheet-onoff { width: 112px; height: min(220px, 30vh); border-radius: 56px; background: var(--track); display: grid; place-items: center; }
+    .lsheet-onoff ha-icon { --mdc-icon-size: 40px; opacity: 0.7; }
+    .lsheet-onoff.lit { background: var(--warm); color: #fff; }
+    .lsheet-onoff.lit ha-icon { opacity: 1; }
+    .lsheet-power { width: 56px; height: 56px; border-radius: 50%; background: var(--inset); display: grid; place-items: center; flex: none; }
+    .lsheet-power ha-icon { --mdc-icon-size: 26px; }
+    .lsheet-power.on { background: var(--ink); color: var(--card); }
+    .lsheet-power:active, .sw:active { transform: scale(0.94); }
+    .ctbar { position: relative; height: 52px; border-radius: 18px; touch-action: none; cursor: pointer; flex: none;
+             background: linear-gradient(90deg, #ffa95a, #ffd9a8 35%, #f4f1ea 60%, #cfe2ff); }
+    .ct-end { position: absolute; top: 0; bottom: 0; left: 14px; display: grid; place-items: center; color: rgba(60, 40, 10, 0.55); pointer-events: none; }
+    .ct-end.cool { left: auto; right: 14px; color: rgba(20, 50, 100, 0.5); }
+    .ct-end ha-icon { --mdc-icon-size: 20px; }
+    .ct-thumb { position: absolute; top: 6px; bottom: 6px; width: 8px; margin-left: -4px; border-radius: 4px; background: #fff;
+                box-shadow: 0 0 0 2px rgba(16, 25, 46, 0.55), 0 2px 6px rgba(0, 0, 0, 0.2); pointer-events: none; }
+    .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+    .sw { aspect-ratio: 1; width: 100%; max-width: 52px; justify-self: center; border-radius: 50%; background: var(--c);
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+    .sw.on { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--c); }
+    .lsheet-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    /* tablet: the pill on the left, everything else beside it */
+    .lsheet.two { width: min(760px, 100%); }
+    .lsheet.two .lsheet-body { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: start; }
+    .lsheet.two .split.big { height: min(340px, 52vh); }
+    .lsheet.two .lsheet-side .pop-sub:first-child { margin-top: 0; }
     .steps-btns { display: flex; gap: 8px; }
     .steps-btns .round.small { background: var(--card); }
     .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

@@ -119,6 +119,11 @@ phone layout. All phone-only CSS sits under `.phone`.
 
 ### Using it
 
+- **Lights:** tap = on/off. Hold a phone light tile, or tap ⋮ on a tablet light pill, and our
+  own light sheet opens: brightness pill, power, warm/cool white bar, 8 colour swatches
+  (only on bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the
+  corner opens HA's standard dialog (settings, history, effects).
+
 - **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet, or
   the Home tab on the phone.
 - **Tablet idle:** after 5 minutes it goes to the photo slideshow (not while a recipe is open).
