@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.8.4";
+const VERSION = "0.8.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -297,11 +297,14 @@ class OverlookShow extends LitElement {
     return [() => { hold = setTimeout(() => { this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
   }
 
+  // holding the Home tab uncovers HA (the phone has no clock to hold)
   _tabBar() {
+    const [down, up] = this._holdToUncover();
     return html`
       <nav class="tabbar">
         ${PHONE_PAGES.map(([id, name, icon]) => html`
-          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { this._go(id); this._top(); }}>
+          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { this._go(id); this._top(); }}
+                  @pointerdown=${id === "kitchen" ? down : null} @pointerup=${up} @pointerleave=${up}>
             <ha-icon icon=${icon}></ha-icon><span>${name}</span>
           </button>`)}
       </nav>`;
@@ -347,25 +350,8 @@ class OverlookShow extends LitElement {
 
   // --- phone home: ha-phone's order (status, scenes, each room) in this look ----
   _phoneHome() {
-    const n = this._now, h = n.getHours();
-    const w = this._st(this._config.weather);
-    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
-    const f = this._forecast;
-    const [down, up] = this._holdToUncover();
     return html`
       <div class="ph">
-        <header class="ph-head" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
-          <div>
-            <div class="date-top">${DAYS[n.getDay()]} ${n.getDate()} ${MONTHS[n.getMonth()]}</div>
-            <h1>${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}</h1>
-          </div>
-          ${cond ? html`
-            <div class="ph-wx">
-              <div class="ph-wx-now"><ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
-                <span>${Math.round(w.attributes.temperature)}°</span></div>
-              ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
-            </div>` : nothing}
-        </header>
         ${this._status()}
         ${this._config.scenes.length ? html`
           <section>
@@ -1766,13 +1752,6 @@ class OverlookShow extends LitElement {
     /* phone home: ha-phone's order */
     .ph { display: flex; flex-direction: column; gap: 18px; }
     .ph section { display: flex; flex-direction: column; gap: 10px; }
-    .ph-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 4px 0; }
-    .ph-head .date-top { font-size: 15px; margin: 0; }
-    .ph-head h1 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.15; margin: 4px 0 0;
-                  letter-spacing: -0.01em; }
-    .ph-wx { text-align: right; flex: none; }
-    .ph-wx-now { display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-size: 26px; font-weight: 600; }
-    .ph-wx-now ha-icon { --mdc-icon-size: 28px; }
     .ph-sec { display: flex; align-items: center; gap: 9px; padding: 0 4px; min-height: 40px; font-size: 17px; font-weight: 700;
               letter-spacing: -0.01em; }
     .ph-sec ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
