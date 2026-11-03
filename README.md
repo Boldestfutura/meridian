@@ -1,7 +1,13 @@
 # Overlook for Home Assistant
 
-Four Home Assistant dashboards sharing one design language, generated from Python
-and deployed over the websocket API.
+Home Assistant dashboards generated from Python and deployed over the websocket API.
+
+**There are two kinds, kept side by side:** the classic button-card dashboards below,
+and the newer Echo Show-style **Show** dashboards (Kitchen Show, Phone Show) built on one
+custom Lit card. How to change and deploy each safely is in
+**[docs/DASHBOARDS.md](docs/DASHBOARDS.md)**. Read that first.
+
+The classic set:
 
 | dashboard | shape | built for |
 |---|---|---|

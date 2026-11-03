@@ -5,6 +5,9 @@ is for working on **this** one: Home Assistant at `http://192.168.1.117:8123`, H
 Handed over from Claude Code on 2026-10-27. Read `AGENTS.md` first anyway, for the general
 rules.
 
+**Two kinds of dashboard live here: classic and Show.** `docs/DASHBOARDS.md` says which is which
+and how to deploy each without clobbering anything.
+
 ## The five rules that matter most
 
 1. **Cameron hand-edits these dashboards. Never deploy a full rebuild over them.**

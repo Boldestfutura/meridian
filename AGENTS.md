@@ -7,7 +7,8 @@ You are an LLM pointed at this repo by someone who wants these dashboards on *th
 Home Assistant. This file is what you need to do that without rediscovering the
 things that already went wrong once.
 
-Read `README.md` first for what the four dashboards are.
+Read `README.md` first for what the dashboards are, and `docs/DASHBOARDS.md` for the
+two kinds (classic button-card and the Lit-based Show) and how each is deployed.
 
 ## What you are changing, and what you are not
 
