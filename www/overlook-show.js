@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.8.5";
+const VERSION = "0.8.6";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -51,7 +51,11 @@ const PHONE_PAGES = [
 ];
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const fireHaptic = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };
+// HA's companion app turns a window "haptic" event into a real tap on the phone (iPhones
+// have no navigator.vibrate); this is the same event button-card fires
+const fireHaptic = (type = "light") => {
+  window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
+};
 
 class OverlookShow extends LitElement {
   static properties = {
@@ -294,7 +298,7 @@ class OverlookShow extends LitElement {
   // holding for 1.5s uncovers HA underneath, for edit mode
   _holdToUncover() {
     let hold;
-    return [() => { hold = setTimeout(() => { this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
+    return [() => { hold = setTimeout(() => { fireHaptic("medium"); this._uncovered = true; }, 1500); }, () => clearTimeout(hold)];
   }
 
   // holding the Home tab uncovers HA (the phone has no clock to hold)
@@ -303,7 +307,7 @@ class OverlookShow extends LitElement {
     return html`
       <nav class="tabbar">
         ${PHONE_PAGES.map(([id, name, icon]) => html`
-          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { this._go(id); this._top(); }}
+          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => { fireHaptic("selection"); this._go(id); this._top(); }}
                   @pointerdown=${id === "kitchen" ? down : null} @pointerup=${up} @pointerleave=${up}>
             <ha-icon icon=${icon}></ha-icon><span>${name}</span>
           </button>`)}
@@ -395,7 +399,7 @@ class OverlookShow extends LitElement {
     const on = e.state === "on";
     const pct = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
     let timer, held = false;
-    const down = () => { held = false; timer = setTimeout(() => { held = true; this._moreInfo(l.entity); }, 500); };
+    const down = () => { held = false; timer = setTimeout(() => { held = true; fireHaptic("medium"); this._moreInfo(l.entity); }, 500); };
     const up = () => clearTimeout(timer);
     return html`
       <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}
@@ -1245,6 +1249,7 @@ class OverlookShow extends LitElement {
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
+      --bar: rgba(255, 255, 255, 0.55);
       --card-edge: rgba(255, 255, 255, 0.95);
       --inset: #eef3fb;
       --ink: #142038;
@@ -1264,6 +1269,7 @@ class OverlookShow extends LitElement {
       :host {
         --bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%);
         --card: rgba(29, 35, 50, 0.82);
+        --bar: rgba(29, 35, 50, 0.55);
         --card-edge: rgba(255, 255, 255, 0.05);
         --inset: rgba(255, 255, 255, 0.05);
         --ink: #eef2fb;
@@ -1743,8 +1749,13 @@ class OverlookShow extends LitElement {
     .phone .card { border-radius: 26px; }
     .tabbar { position: absolute; z-index: 4; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
               display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 7px; border-radius: 28px;
-              background: var(--card); border: 1px solid var(--card-edge); box-shadow: 0 10px 40px rgba(22, 42, 84, 0.18);
-              backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); }
+              background: var(--bar); border: 1px solid var(--card-edge); box-shadow: 0 10px 40px rgba(22, 42, 84, 0.18);
+              backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); }
+    .screen.phone::after { content: ""; position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; pointer-events: none;
+                           height: calc(env(safe-area-inset-bottom, 0px) + 120px);
+                           backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                           -webkit-mask-image: linear-gradient(to bottom, transparent, #000 55%);
+                           mask-image: linear-gradient(to bottom, transparent, #000 55%); }
     .tabbar .dock-btn { width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
     .tabbar .dock-btn ha-icon { --mdc-icon-size: 24px; }
     .tabbar .dock-btn span { font-size: 11px; font-weight: 600; }
