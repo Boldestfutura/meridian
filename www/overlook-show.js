@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.12.4";
+const VERSION = "0.12.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -2716,11 +2716,25 @@ const NATIVE_GRID = `
   @media (prefers-color-scheme: dark) {
     :host { --lovelace-background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); }
   }`;
-const NATIVE_VIEW = `
+const HIDE_HEADER = `
   .header { display: none !important; }
-  hui-view-container { padding-top: var(--safe-area-inset-top, 0px) !important;
-                       --view-container-padding-bottom: 104px; }
+  hui-view-container { padding-top: var(--safe-area-inset-top, 0px) !important; }`;
+const DOCK_ROOM = `
+  hui-view-container { --view-container-padding-bottom: 104px; }
   hui-view-container > * { margin-top: -4px; }`;
+
+// one style element in HA's view root; css "" removes it
+function styleHuiRoot(r, css) {
+  if (!r || !r.shadowRoot) return;
+  let s = r.shadowRoot.getElementById("overlook-native");
+  if (!css) { if (s) s.remove(); return; }
+  if (!s) {
+    s = document.createElement("style");
+    s.id = "overlook-native";
+    r.shadowRoot.appendChild(s);
+  }
+  if (s.textContent !== css) s.textContent = css;
+}
 
 const DOCK_USERS = new Set();
 let DOCK = null;
@@ -2773,10 +2787,7 @@ class OverlookDockBar extends OverlookShow {
 
   updated() {}
 
-  _unstyle() {
-    const s = this._root && this._root.shadowRoot && this._root.shadowRoot.getElementById("overlook-native");
-    if (s) s.remove();
-  }
+  _unstyle() { styleHuiRoot(this._root, ""); }
 
   _sync() {
     const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
@@ -2784,14 +2795,7 @@ class OverlookDockBar extends OverlookShow {
     if (!r || !r.shadowRoot) return;
     const lv = r.lovelace;
     const edit = !!(lv && lv.editMode);
-    let s = r.shadowRoot.getElementById("overlook-native");
-    if (!s) {
-      s = document.createElement("style");
-      s.id = "overlook-native";
-      r.shadowRoot.appendChild(s);
-    }
-    const css = NATIVE_GRID + (edit ? "" : NATIVE_VIEW);
-    if (s.textContent !== css) s.textContent = css;
+    styleHuiRoot(r, NATIVE_GRID + (edit ? "" : HIDE_HEADER + DOCK_ROOM));
     const views = ((lv && lv.config && lv.config.views) || [])
       .map((v, i) => ({ path: v.path || String(i), title: v.title || `View ${i + 1}`, icon: v.icon || "mdi:view-dashboard",
                         hide: v.subview || v.visible === false }))
@@ -2869,6 +2873,63 @@ class OverlookDock extends OverlookPiece {
   }
 }
 if (!customElements.get("overlook-dock")) customElements.define("overlook-dock", OverlookDock);
+
+// For a dashboard with no dock (ha-phone): hides HA's header, and puts an "Edit dashboard"
+// button where the card sits (the bottom of the page). The header comes back while editing.
+class OverlookEditButton extends LitElement {
+  static get properties() { return { hass: { attribute: false }, editMode: { type: Boolean } }; }
+  static getConfigForm() { return { schema: [] }; }
+  static getStubConfig() { return {}; }
+  setConfig() {}
+  getCardSize() { return 1; }
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._tick = setInterval(() => this._sync(), 400);
+    this._sync();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._tick);
+    styleHuiRoot(this._root, "");
+  }
+
+  _sync() {
+    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    if (r !== this._root) { styleHuiRoot(this._root, ""); this._root = r; }
+    const edit = !!(r && r.lovelace && r.lovelace.editMode);
+    styleHuiRoot(r, edit ? "" : HIDE_HEADER);
+  }
+
+  _edit() {
+    const lv = this._root && this._root.lovelace;
+    if (!lv || !lv.setEditMode) return;
+    fireHaptic("medium");
+    lv.setEditMode(true);
+  }
+
+  render() {
+    if (this.editMode) {
+      return html`<div class="note"><ha-icon icon="mdi:pencil-off-outline"></ha-icon>
+        Edit button: hides HA's header on this dashboard</div>`;
+    }
+    return html`<button @click=${() => this._edit()}><ha-icon icon="mdi:pencil-outline"></ha-icon>Edit dashboard</button>`;
+  }
+
+  static styles = css`
+    :host { display: flex; justify-content: center; padding: 4px 0 calc(env(safe-area-inset-bottom, 0px) + 8px); }
+    button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 0; border-radius: 999px;
+             font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--secondary-text-color);
+             background: var(--ha-card-background, var(--card-background-color));
+             box-shadow: var(--ha-card-box-shadow, none); -webkit-tap-highlight-color: transparent; }
+    button:active { transform: scale(0.97); }
+    ha-icon { --mdc-icon-size: 18px; }
+    .note { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--secondary-text-color); padding: 10px; }
+  `;
+}
+if (!customElements.get("overlook-edit-button")) customElements.define("overlook-edit-button", OverlookEditButton);
 
 const TILE_KINDS = [["light", "Light"], ["switch", "Switch"], ["media", "Speaker / TV"], ["climate", "Heat pump"],
   ["plant", "Plant"], ["sensor", "Reading"], ["scene", "Scene / script"]];
@@ -3029,6 +3090,7 @@ window.customCards.push(
   { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
   { type: "overlook-scenes", name: "Overlook scenes", description: "The row of scene buttons" },
   { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
+  { type: "overlook-edit-button", name: "Overlook edit button", description: "Hides HA's header; an Edit dashboard button at the bottom" },
   { type: "overlook-dock", name: "Overlook dock", description: "The dashboard's views as a floating tab bar, in place of HA's header" },
 );
 
