@@ -79,6 +79,36 @@ without a unit because it is sourced from a climate entity's
 VOC render as "18–26°", so the fallback is empty on purpose. **Weather** carries the
 five-day forecast as a native card.
 
+## The Show dashboards
+
+An Echo Show-style look built as one custom Lit card (`www/overlook-show.js`), kept
+alongside the classic dashboards rather than replacing them. How to change and deploy
+them: [docs/DASHBOARDS.md](docs/DASHBOARDS.md).
+
+### Kitchen Show: 8" kitchen tablet, 1280x800
+![Kitchen Show, kitchen page](docs/images/show/tablet-kitchen.png)
+![Kitchen Show, dark](docs/images/show/tablet-kitchen-dark.png)
+
+**Home** goes room by room, with lights as split pills you drag to dim. **Recipes** come
+from Norish, synced into HA every 30 minutes.
+![Kitchen Show, Home page](docs/images/show/tablet-home.png)
+![Kitchen Show, Recipes](docs/images/show/tablet-recipes.png)
+
+### Phone Show: ha-phone's layout in the Show look
+<p>
+  <img src="docs/images/show/phone-home.png" width="260" alt="Phone Show, light">
+  <img src="docs/images/show/phone-home-dark.png" width="260" alt="Phone Show, dark">
+</p>
+
+Tapping a speaker, plant, heat pump or status pill opens a bottom sheet instead of a
+Bubble Card pop-up:
+<p>
+  <img src="docs/images/show/phone-popup-amp.png" width="260" alt="Amp sheet">
+  <img src="docs/images/show/phone-popup-heatpump.png" width="260" alt="Heat pump sheet">
+</p>
+
+*Calendar and shopping-list entries in these screenshots are placeholders.*
+
 ## Why it is generated rather than hand-written YAML
 
 Each dashboard is ~60-280 KB of JSON. The cards are near-identical with different

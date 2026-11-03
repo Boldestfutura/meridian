@@ -65,6 +65,13 @@ More detail: `AGENTS.md` (general) and `docs/LIVE.md` (this house).
 
 ## Show dashboards
 
+<p>
+  <img src="images/show/tablet-kitchen.png" width="520" alt="Kitchen Show">
+  <img src="images/show/phone-home.png" width="180" alt="Phone Show">
+</p>
+
+More screenshots in the [README](../README.md#the-show-dashboards).
+
 ### What lives where
 
 | file | what it is |
