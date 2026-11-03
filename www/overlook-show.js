@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.8";
+const VERSION = "0.9.9";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -145,6 +145,7 @@ class OverlookShow extends LitElement {
 
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
+    if (changed.has("hass") && this._drag) this._settle();
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
       this._subscribe();
@@ -1256,7 +1257,7 @@ class OverlookShow extends LitElement {
     if (!e) return nothing;
     const on = e.state === "on";
     const real = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
-    const drag = this._drag && this._drag.id === l.entity ? this._drag.pct : null;
+    const drag = this._dragPct(l.entity);
     this._last = this._last || {};
     if (on) this._last[l.entity] = real;
     const pct = drag != null ? drag : real;
@@ -1287,11 +1288,12 @@ class OverlookShow extends LitElement {
   // the split pill itself: drag to dim, tap = that brightness, tap the bulb = on/off
   _split(id, icon, lit, pct, at, cls = "", style = "") {
     return html`
-      <div class="split ${lit ? "lit" : ""} ${cls}" style=${style}
+      <div class="split ${lit ? "lit" : ""} ${cls} ${this._press && this._press.id === id && this._press.moved ? "dragging" : ""}"
+           style=${style} data-lo=${cls === "big" ? 8 : 22} data-hi=${cls === "big" ? 96 : 88}
            @pointerdown=${(ev) => this._pillDown(ev, id, pct)}
            @pointermove=${(ev) => this._pillMove(ev)}
            @pointerup=${(ev) => this._pillUp(ev)}
-           @pointercancel=${() => { this._drag = null; this._press = null; }}>
+           @pointercancel=${() => this._pillCancel()}>
         <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
         <div class="seg seg-bot" style="flex-grow:${at}">
           <span class="seg-ico"><ha-icon icon=${icon || "mdi:lightbulb-outline"}></ha-icon></span>
@@ -1318,7 +1320,7 @@ class OverlookShow extends LitElement {
     const hasCt = modes.includes("color_temp");
     const hasCol = modes.some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
     const real = on ? Math.round((a.brightness || 255) / 2.55) : 0;
-    const drag = this._drag && this._drag.id === id ? this._drag.pct : null;
+    const drag = this._dragPct(id);
     const pct = drag != null ? drag : real;
     const lit = drag != null ? drag > 0 : on;
     this._last = this._last || {};
@@ -1449,37 +1451,69 @@ class OverlookShow extends LitElement {
   }
 
   _pillDown(ev, id, pct) {
-    ev.currentTarget.setPointerCapture(ev.pointerId);
-    const r = ev.currentTarget.getBoundingClientRect();
+    const el = ev.currentTarget;
+    el.setPointerCapture(ev.pointerId);
     // a tap on the bulb icon toggles; a tap anywhere else on the pill means "this bright"
-    this._press = { id, y: ev.clientY, rect: r, moved: false, start: pct,
+    this._press = { id, el, y: ev.clientY, rect: el.getBoundingClientRect(), moved: false, start: pct, pct,
+                    lo: Number(el.dataset.lo) || 22, hi: Number(el.dataset.hi) || 88,
                     icon: !!(ev.target.closest && ev.target.closest(".seg-ico")) };
   }
 
+  // While a finger is down the pill is painted straight onto the DOM every move, with
+  // no transition; the card itself redraws at most every 80ms for the % labels.
+  // A full redraw per pointermove was too slow on the Nest Hub and made it stutter.
   _pillMove(ev) {
     const p = this._press;
     if (!p) return;
-    if (!p.moved && Math.abs(ev.clientY - p.y) < 8) return;
-    p.moved = true;
-    const pct = clamp(Math.round((p.rect.bottom - ev.clientY) / p.rect.height * 100), 0, 100);
-    this._drag = { id: p.id, pct };
+    if (!p.moved && Math.abs(ev.clientY - p.y) < 4) return;
+    if (!p.moved) { p.moved = true; p.el.classList.add("dragging"); }
+    p.pct = clamp(Math.round((p.rect.bottom - ev.clientY) / p.rect.height * 100), 0, 100);
+    const at = clamp(p.pct, p.lo, p.hi);
+    const [top, bot] = p.el.querySelectorAll(".seg");
+    if (top) top.style.flexGrow = 100 - at;
+    if (bot) bot.style.flexGrow = at;
+    p.el.classList.toggle("lit", p.pct > 0);
+    if (!this._dragTick) this._dragTick = setTimeout(() => { this._dragTick = 0; this.requestUpdate(); }, 80);
+  }
+
+  _pillCancel() {
+    if (this._press && this._press.el) this._press.el.classList.remove("dragging");
+    this._press = null;
+    this._drag = null;
+  }
+
+  // the value to draw for a light: the finger while dragging, then what was sent until HA agrees
+  _dragPct(id) {
+    const p = this._press;
+    if (p && p.id === id && p.moved) return p.pct;
+    return this._drag && this._drag.id === id && "pct" in this._drag ? this._drag.pct : null;
   }
 
   _pillUp() {
     const p = this._press;
     this._press = null;
     if (!p) return;
+    p.el.classList.remove("dragging");
     if (!p.moved && p.icon) {
       this._call("light", "toggle", { entity_id: p.id });
       return;
     }
-    const at = clamp(Math.round((p.rect.bottom - p.y) / p.rect.height * 100), 1, 100);
-    const pct = p.moved ? (this._drag ? this._drag.pct : p.start) : at;
-    if (!p.moved) this._drag = { id: p.id, pct };
+    const pct = p.moved ? p.pct : clamp(Math.round((p.rect.bottom - p.y) / p.rect.height * 100), 1, 100);
+    // hold what was sent until HA reports it (see updated()), so the fill never jumps back
+    this._drag = { id: p.id, pct, until: Date.now() + 6000 };
+    setTimeout(() => this._settle(true), 6100);
     if (pct <= 1) this._call("light", "turn_off", { entity_id: p.id });
     else this._call("light", "turn_on", { entity_id: p.id, brightness_pct: pct });
-    // hold the dragged value until HA reports back, so the fill doesn't jump
-    setTimeout(() => { if (this._drag && this._drag.id === p.id) this._drag = null; }, 1500);
+  }
+
+  // drop the held brightness once HA's state matches it (or after 6 s, whatever HA says)
+  _settle(timeout = false) {
+    const d = this._drag;
+    if (!d || !("pct" in d)) return;
+    const e = this._st(d.id);
+    const real = e && e.state === "on" ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
+    const done = d.pct <= 1 ? real === 0 : Math.abs(real - d.pct) <= 2;
+    if (done || (timeout && Date.now() >= d.until)) this._drag = null;
   }
 
   // --- heat pump: actual temperature, -/+ for the target, a button per mode ----
@@ -1775,6 +1809,7 @@ class OverlookShow extends LitElement {
     .seg-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; }
     .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
     .split.lit .seg-bot { background: var(--warm); color: #fff; }
+    .split.dragging .seg { transition: background 0.2s; }
     .split.lit .seg-bot ha-icon { opacity: 1; }
     .swatch { position: absolute; right: 14px; bottom: 14px; width: 20px; height: 20px; border-radius: 50%;
               box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.25); }
