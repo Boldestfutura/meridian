@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.9";
+const VERSION = "0.9.14";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -1270,7 +1270,7 @@ class OverlookShow extends LitElement {
         <div class="pill-head">
           <div>
             <div class="pill-name">${l.name || e.attributes.friendly_name}</div>
-            <div class="pill-state ${lit ? "lit" : ""}">${lit ? (pct >= 100 ? "On" : `On · ${pct}%`) : "Off"}</div>
+            <div class="pill-state ${lit ? "lit" : ""}"><span class="txt">${lit ? (pct >= 100 ? "On" : `On · ${pct}%`) : "Off"}</span><span class="livetxt"></span></div>
           </div>
           <button class="dots" @click=${() => this._openLight(l.entity)}>
             <ha-icon icon="mdi:dots-vertical"></ha-icon></button>
@@ -1289,13 +1289,13 @@ class OverlookShow extends LitElement {
   _split(id, icon, lit, pct, at, cls = "", style = "") {
     return html`
       <div class="split ${lit ? "lit" : ""} ${cls} ${this._press && this._press.id === id && this._press.moved ? "dragging" : ""}"
-           style=${style} data-lo=${cls === "big" ? 8 : 22} data-hi=${cls === "big" ? 96 : 88}
+           style="--ov-at:${at};${style}" data-lo=${cls === "big" ? 8 : 22} data-hi=${cls === "big" ? 96 : 88}
            @pointerdown=${(ev) => this._pillDown(ev, id, pct)}
            @pointermove=${(ev) => this._pillMove(ev)}
            @pointerup=${(ev) => this._pillUp(ev)}
            @pointercancel=${() => this._pillCancel()}>
-        <div class="seg seg-top" style="flex-grow:${100 - at}"></div>
-        <div class="seg seg-bot" style="flex-grow:${at}">
+        <div class="seg seg-top"></div>
+        <div class="seg seg-bot">
           <span class="seg-ico"><ha-icon icon=${icon || "mdi:lightbulb-outline"}></ha-icon></span>
         </div>
       </div>`;
@@ -1337,7 +1337,7 @@ class OverlookShow extends LitElement {
           <div class="grabber"></div>
           <div class="pop-head">
             <span class="pop-ico ${lit ? "lit" : ""}"><ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></span>
-            <span class="pop-title">${this._lightName(id)}<span class="lsheet-state ${lit ? "lit" : ""}">${state}</span></span>
+            <span class="pop-title">${this._lightName(id)}<span class="lsheet-state ${lit ? "lit" : ""}"><span class="txt">${state}</span><span class="livetxt"></span></span></span>
             <button class="round small" title="More settings" @click=${full}><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>
             <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
@@ -1454,30 +1454,58 @@ class OverlookShow extends LitElement {
     const el = ev.currentTarget;
     el.setPointerCapture(ev.pointerId);
     // a tap on the bulb icon toggles; a tap anywhere else on the pill means "this bright"
-    this._press = { id, el, y: ev.clientY, rect: el.getBoundingClientRect(), moved: false, start: pct, pct,
-                    lo: Number(el.dataset.lo) || 22, hi: Number(el.dataset.hi) || 88,
+    const box = el.closest(".pill-wrap, .lsheet");
+    this._press = { id, el, box, labels: box ? [...box.querySelectorAll(".pill-state, .lsheet-state")] : [], y: ev.clientY, rect: el.getBoundingClientRect(),
+                    moved: false, start: pct, pct, lo: Number(el.dataset.lo) || 22, hi: Number(el.dataset.hi) || 88,
                     icon: !!(ev.target.closest && ev.target.closest(".seg-ico")) };
   }
 
-  // While a finger is down the pill is painted straight onto the DOM every move, with
-  // no transition; the card itself redraws at most every 80ms for the % labels.
-  // A full redraw per pointermove was too slow on the Nest Hub and made it stutter.
+  // While a finger is down nothing re-renders. Once per animation frame the pill gets one
+  // CSS variable (--ov-at, read by the two clip-paths) and the label's plain-text twin is
+  // rewritten. Clip-path changes repaint the pill only: no layout, no Lit, so it keeps up
+  // with the display (60/120 Hz) even on the Nest Hub.
   _pillMove(ev) {
     const p = this._press;
     if (!p) return;
     if (!p.moved && Math.abs(ev.clientY - p.y) < 4) return;
-    if (!p.moved) { p.moved = true; p.el.classList.add("dragging"); }
+    if (!p.moved) {
+      p.moved = true;
+      p.el.classList.add("dragging");
+      if (p.box) p.box.classList.add("live");
+    }
     p.pct = clamp(Math.round((p.rect.bottom - ev.clientY) / p.rect.height * 100), 0, 100);
-    const at = clamp(p.pct, p.lo, p.hi);
-    const [top, bot] = p.el.querySelectorAll(".seg");
-    if (top) top.style.flexGrow = 100 - at;
-    if (bot) bot.style.flexGrow = at;
+    if (!p.raf) p.raf = requestAnimationFrame(() => this._paint(p));
+  }
+
+  _paint(p) {
+    p.raf = 0;
+    p.el.style.setProperty("--ov-at", clamp(p.pct, p.lo, p.hi));
     p.el.classList.toggle("lit", p.pct > 0);
-    if (!this._dragTick) this._dragTick = setTimeout(() => { this._dragTick = 0; this.requestUpdate(); }, 80);
+    // the text changes width, which costs a layout, so it updates at ~20 Hz; the fill every frame
+    const now = performance.now();
+    if (now - (p.textAt || 0) >= 50 || p.pct === 0) {
+      p.textAt = now;
+      // .livetxt has no Lit bindings inside it, so writing its text directly is safe
+      for (const l of p.labels) {
+        l.lastElementChild.textContent = p.pct === 0 ? "Off"
+          : l.classList.contains("pill-state") ? `On · ${p.pct}%` : `${p.pct}%`;
+        l.classList.toggle("zero", p.pct === 0);
+      }
+    }
+  }
+
+  _endLive(p) {
+    if (p.raf) cancelAnimationFrame(p.raf);
+    p.el.classList.remove("dragging");
+    // keep the CSS text up until Lit has drawn the real one, so it never flashes stale
+    if (p.box) this.updateComplete.then(() => {
+      p.box.classList.remove("live");
+      for (const l of p.labels) l.classList.remove("zero");
+    });
   }
 
   _pillCancel() {
-    if (this._press && this._press.el) this._press.el.classList.remove("dragging");
+    if (this._press) this._endLive(this._press);
     this._press = null;
     this._drag = null;
   }
@@ -1493,7 +1521,7 @@ class OverlookShow extends LitElement {
     const p = this._press;
     this._press = null;
     if (!p) return;
-    p.el.classList.remove("dragging");
+    this._endLive(p);
     if (!p.moved && p.icon) {
       this._call("light", "toggle", { entity_id: p.id });
       return;
@@ -1800,16 +1828,27 @@ class OverlookShow extends LitElement {
     .dots { width: 30px; height: 30px; margin: -4px -6px 0 0; border-radius: 50%; display: grid; place-items: center;
             color: var(--muted); }
     .dots ha-icon { --mdc-icon-size: 20px; }
-    .split { --w: 72px; flex: 1; min-height: 0; width: var(--w); margin: 12px auto 4px; display: flex;
-             flex-direction: column; gap: 3px; touch-action: none; cursor: pointer; }
-    .seg { min-height: 0; background: var(--track); transition: flex-grow 0.18s ease-out, background 0.2s; }
-    .seg-top { border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 6px 6px; }
-    .seg-bot { border-radius: 6px 6px calc(var(--w) / 2) calc(var(--w) / 2); display: flex; align-items: flex-end; justify-content: center;
-               padding-bottom: 6px; color: var(--muted); }
+    /* two full-size layers, each cut by a clip-path at --ov-at (0-100), 3px apart. Moving the split
+       is a repaint of this one element: no layout. --ov-at is registered (see the bottom of the
+       file) so it can transition when HA changes the light; the transition is off while dragging. */
+    .split { --w: 72px; --r: calc(var(--w) / 2); flex: 1; min-height: 0; width: var(--w); margin: 12px auto 4px;
+             position: relative; touch-action: none; cursor: pointer; contain: strict; will-change: transform;
+             transition: --ov-at 0.18s ease-out; }
+    .split.dragging { transition: none; }
+    .seg { position: absolute; inset: 0; background: var(--track); transition: background 0.2s; }
+    .seg-top { clip-path: inset(0 0 calc(var(--ov-at) * 1% + 1.5px) 0 round var(--r) var(--r) 6px 6px); }
+    .seg-bot { clip-path: inset(calc((100 - var(--ov-at)) * 1% + 1.5px) 0 0 0 round 6px 6px var(--r) var(--r));
+               display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; color: var(--muted); }
+    .livetxt, .live .txt { display: none; }
+    .live .livetxt { display: inline; }
+    .live .pill-state, .live .lsheet-state { color: var(--warm); }
+    /* fixed height + strict containment: a changing % re-lays out the label only, not the page */
+    .pill-state, .lsheet-state { height: 18px; line-height: 18px; contain: strict; white-space: nowrap; }
+    .live .pill-state { font-weight: 600; }
+    .live .pill-state.zero, .live .lsheet-state.zero { color: var(--muted); }
     .seg-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; }
     .seg-bot ha-icon { --mdc-icon-size: 30px; opacity: 0.7; }
     .split.lit .seg-bot { background: var(--warm); color: #fff; }
-    .split.dragging .seg { transition: background 0.2s; }
     .split.lit .seg-bot ha-icon { opacity: 1; }
     .swatch { position: absolute; right: 14px; bottom: 14px; width: 20px; height: 20px; border-radius: 50%;
               box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.25); }
@@ -2354,6 +2393,8 @@ class OverlookShow extends LitElement {
   `;
 }
 
+// a typed --ov-at can transition; an untyped custom property would jump
+try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
 if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
 window.customCards = window.customCards || [];
 window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
