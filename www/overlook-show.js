@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.8.3";
+const VERSION = "0.8.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -1813,7 +1813,7 @@ class OverlookShow extends LitElement {
     .ph-hp .modes { grid-area: modes; height: 46px; margin: 0; gap: 8px; }
     .ph-hp .mode { background: var(--inset); border-radius: 14px; font-size: 13px; }
     .ph-hp .mode ha-icon { --mdc-icon-size: 19px; }
-    .phone .fav-scenes { margin: 0 -16px; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none;
+    .phone .fav-scenes { margin: -10px -16px -18px; padding: 10px 16px 22px; overflow-x: auto; scrollbar-width: none;
                          scroll-snap-type: x proximity; scroll-padding: 0 16px; }
     .phone .fav-scenes::-webkit-scrollbar { display: none; }
     .phone .mini-scene { flex: none; width: 84px; height: 84px; padding: 9px 4px; scroll-snap-align: start;
