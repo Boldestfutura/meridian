@@ -25,10 +25,11 @@ and how to deploy each without clobbering anything.
    - Check 1280x800 for the tablet, 390 wide for the phone, and 1440x820 / 1920x950 for
      the computer.
    - A screenshot alone is not proof.
-3. **Repo is private.** Before every push, `curl -s -o /dev/null -w '%{http_code}'
-   https://api.github.com/repos/Boldestfutura/overlook-ha` must print `404`.
-   - Pushing over SSH works while it's private, so never ask for it to be made public.
-   - Scan diffs for tokens. Write the MA config entry id as a placeholder in the repo.
+3. **Repo is PUBLIC** (Cameron made it public on purpose, 2026-11-03). Everything pushed is
+   world-readable, history included.
+   - Before every push, scan the diff for tokens, passwords and keys. Credentials stay in
+     files on HA/luna (`~/.config/...`, `/config/.norish.json`) and are only ever *read*.
+   - Write the MA config entry id as a placeholder in the repo.
 4. **Audio tests only when nobody is home**: `person.cameron` and `person.paget` both
    `not_home`. Pause afterwards.
 5. **Never print the HA token** (`~/.config/ha/token`), the Immich key
