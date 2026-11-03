@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.11.10";
+const VERSION = "0.12.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -57,6 +57,35 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const SWATCHES = [[0, 90, "Red"], [25, 95, "Orange"], [45, 90, "Yellow"], [120, 70, "Green"],
   [180, 70, "Cyan"], [220, 85, "Blue"], [270, 75, "Purple"], [320, 70, "Pink"]];
 
+// the Overlook tile card: what an entity becomes, and the icons it falls back to
+const DOMAIN_TYPE = {
+  light: "light", media_player: "media", climate: "climate", switch: "switch", input_boolean: "switch",
+  fan: "switch", cover: "switch", sensor: "sensor", binary_sensor: "sensor", lock: "sensor",
+  scene: "scene", script: "scene",
+};
+const DOMAIN_ICON = {
+  light: "mdi:lightbulb", media_player: "mdi:speaker", climate: "mdi:thermostat", switch: "mdi:toggle-switch-outline",
+  input_boolean: "mdi:toggle-switch-outline", fan: "mdi:fan", cover: "mdi:window-shutter", sensor: "mdi:eye-outline",
+  binary_sensor: "mdi:checkbox-blank-circle-outline", lock: "mdi:lock", scene: "mdi:palette", script: "mdi:script-text-outline",
+};
+const CLASS_ICON = {
+  temperature: "mdi:thermometer", humidity: "mdi:water-percent", moisture: "mdi:water", battery: "mdi:battery",
+  power: "mdi:flash", energy: "mdi:lightning-bolt", illuminance: "mdi:brightness-5", pm25: "mdi:blur",
+  door: "mdi:door", window: "mdi:window-closed-variant", motion: "mdi:motion-sensor", occupancy: "mdi:home-account",
+  carbon_dioxide: "mdi:molecule-co2", volatile_organic_compounds_parts: "mdi:air-filter", aqi: "mdi:air-filter",
+};
+const TYPE_ICON = { light: "mdi:lightbulb", media: "mdi:speaker", climate: "mdi:thermostat", plant: "mdi:sprout",
+                    switch: "mdi:toggle-switch-outline", sensor: "mdi:eye-outline", scene: "mdi:palette" };
+
+const loadFonts = () => {
+  if (document.getElementById("overlook-show-fonts")) return;
+  const l = document.createElement("link");
+  l.id = "overlook-show-fonts";
+  l.rel = "stylesheet";
+  l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
+  document.head.appendChild(l);
+};
+
 const fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
 };
@@ -95,7 +124,8 @@ class OverlookShow extends LitElement {
       phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.photos ? "photos" : "kitchen";
+    this._page = this._config.page || (this._config.photos ? "photos" : "kitchen");
+    if (this._page === "calendar") { this._page = null; this._go("calendar"); }
     this._drag = null;
     this._picker = false;
     this._todo = [];
@@ -115,6 +145,7 @@ class OverlookShow extends LitElement {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
+    if (this._config && this._config.dock) dockMount(this);
     if (!document.getElementById("overlook-show-fonts")) {
       const l = document.createElement("link");
       l.id = "overlook-show-fonts";
@@ -129,6 +160,7 @@ class OverlookShow extends LitElement {
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
     window.removeEventListener("pointerdown", this._touch, true);
+    dockUnmount(this);
     window.removeEventListener("keydown", this._touch, true);
     this._unsub();
   }
@@ -233,6 +265,7 @@ class OverlookShow extends LitElement {
 
   // --- helpers --------------------------------------------------------------
   _st(id) { return id && this.hass ? this.hass.states[id] : undefined; }
+  _links() { return this._config.links || {}; }
   _call(domain, service, data) {
     fireHaptic();
     return this.hass.callService(domain, service, data);
@@ -270,6 +303,15 @@ class OverlookShow extends LitElement {
     if (this._uncovered) {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
+    }
+    if (this._config.phone && this._config.embedded) {
+      return html`
+        <div class="screen phone embedded">
+          <main class="page" @scroll=${() => { this._scrolledAt = performance.now(); }}>${this._pageBody()}</main>
+          ${this._picker ? this._speakerSheet() : nothing}
+          ${this._pop ? this._popSheet() : nothing}
+          ${this._light ? this._lightSheet() : nothing}
+        </div>`;
     }
     if (this._config.phone) {
       return html`
@@ -452,7 +494,7 @@ class OverlookShow extends LitElement {
   // config.popups[id] = {title, icon, sections}; config.links[entity] = id says which
   // tap opens which sheet. Anything without a link falls back to HA's more-info.
   _open(entityId) {
-    const id = this._config.links[entityId];
+    const id = this._links()[entityId];
     if (!id || !this._config.popups[id]) { this._moreInfo(entityId); return; }
     fireHaptic("light");
     this._pop = id;
@@ -505,7 +547,7 @@ class OverlookShow extends LitElement {
   // the body at the top and moves down.
   _swStart(ev, close) {
     const t = ev.touches[0];
-    if (ev.touches.length > 1 || (ev.target.closest && ev.target.closest(".split, .ctbar, .pl-row"))) {
+    if (ev.touches.length > 1 || (ev.target.closest && ev.target.closest(".split, .ctbar, .pl-row, input"))) {
       this._sw = null;
       return;
     }
@@ -819,7 +861,7 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level;
     return html`
       <div class="card player">
-        <div class="player-row" @click=${() => { if (this._config.links[id]) this._open(id); }}>
+        <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
           <div class="art small" style=${active && a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
@@ -852,6 +894,20 @@ class OverlookShow extends LitElement {
         <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${x.name}</span>
           <span class="muted">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+      </button>`;
+  }
+
+  // any other reading: its state as HA formats it; tap for the pop-up or HA's dialog
+  _sensorTile(x) {
+    const e = this._st(x.entity);
+    if (!e) return nothing;
+    const val = this.hass.formatEntityState ? this.hass.formatEntityState(e)
+      : `${e.state}${e.attributes.unit_of_measurement ? " " + e.attributes.unit_of_measurement : ""}`;
+    return html`
+      <button class="card tile" @click=${() => this._open(x.entity)}>
+        <span class="tile-ico"><ha-icon icon=${x.icon || e.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x.name || e.attributes.friendly_name}</span>
+          <span class="muted">${val}</span></span>
       </button>`;
   }
 
@@ -1446,8 +1502,8 @@ class OverlookShow extends LitElement {
   }
 
   _lightName(id) {
-    const l = [...(this._config.lights || []), ...this._config.phone_rooms.flatMap((r) => r.items || [])]
-      .find((x) => x.entity === id && x.name);
+    const l = [...(this._config.lights || []), ...(this._config.phone_rooms || []).flatMap((r) => r.items || [])]
+      .find((x) => x.entity === id && x.name) || { name: (this._names || {})[id] };
     const e = this._st(id);
     return (l && l.name) || (e && e.attributes.friendly_name) || id;
   }
@@ -1642,10 +1698,10 @@ class OverlookShow extends LitElement {
     return html`
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
-        <div class="hp-now ${this._config.links[id] ? "linked" : ""}" @click=${() => { if (this._config.links[id]) this._open(id); }}>
+        <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => { if (this._links()[id]) this._open(id); }}>
           <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
           <span class="hp-mode ${mode}">${label}</span>
-          ${this._config.links[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
+          ${this._links()[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
@@ -2473,12 +2529,510 @@ class OverlookShow extends LitElement {
     .hp-now.linked { cursor: pointer; }
     .hp-more { --mdc-icon-size: 20px; color: var(--muted); align-self: center; }
     .player-row { cursor: pointer; }
+
+    /* native cards: each one draws a piece of the phone home in the same CSS as .ph */
+    .screen.embedded { position: relative; inset: auto; z-index: auto; background: none;
+                       height: calc(100vh - env(safe-area-inset-top, 0px)); }
+    .screen.embedded::after { display: none; }
+    .embedded .page { padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 104px); }
+    .piece { height: 100%; color: var(--ink); font-family: var(--body); user-select: none; -webkit-user-select: none; }
+    .piece .ph-grid.one { display: block; height: 100%; }
+    .piece .ph-grid.one > * { height: 100%; width: 100%; }
+    .piece .ph-sec { height: 100%; }
+    .piece .missing { display: flex; align-items: center; gap: 8px; height: 100%; min-height: 62px; padding: 0 14px;
+                      font-size: 13px; color: var(--muted); }
+    .piece .dock-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+    .screen.overlay { background: none; pointer-events: none; z-index: 20; }
+    .screen.overlay::after { display: none; }
+    .screen.overlay > * { pointer-events: auto; }
+    .screen.dockscreen { position: fixed; inset: auto 0 0 0; height: calc(env(safe-area-inset-bottom, 0px) + 120px);
+                         background: none; pointer-events: none; z-index: 5; overflow: visible; }
+    .dockscreen .tabbar { pointer-events: auto; }
+    .tabbar .dock-btn { -webkit-touch-callout: none; }
   `;
 }
 
 // a typed --ov-at can transition; an untyped custom property would jump
 try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
 if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
+
+// --- native cards: the phone home as ordinary HA cards --------------------------------
+// Each card draws one piece of the phone home with the same markup and CSS as the
+// single-card version (.phone, .ph-grid, .ph-sec ...), so they look the same. HA's own
+// editor arranges them: the dock card sets HA's grid to the design's sizes (62px rows,
+// 10px gaps) and swaps HA's header for the floating dock. Sheets open in one shared
+// layer on <body>; pop-ups and their links come from /local/overlook-popups.json.
+
+// last time anything on the page scrolled: a light under a scrolling finger is not a hold
+let LAST_SCROLL = 0;
+let SCROLL_HOOKED = false;
+
+// HA's view root (header, view container): the dock reads the views and styles it
+function findHuiRoot() {
+  const walk = (root, depth) => {
+    if (!root || depth > 12) return null;
+    const hit = root.querySelector("hui-root");
+    if (hit) return hit;
+    for (const el of root.querySelectorAll("*")) {
+      if (el.shadowRoot) {
+        const r = walk(el.shadowRoot, depth + 1);
+        if (r) return r;
+      }
+    }
+    return null;
+  };
+  const ha = document.querySelector("home-assistant");
+  return ha ? walk(ha.shadowRoot, 0) : null;
+}
+
+// HA fixes a card's height at its rows; the phone design lets a tile grow when its name
+// wraps (and the player beside it with it). In the grid sections holding Overlook cards,
+// the rows are a minimum instead.
+const GROW_ROWS = `.card.fit-rows { height: auto !important;
+  min-height: calc((var(--row-size, 1) * (var(--row-height) + var(--row-gap))) - var(--row-gap)); }`;
+function growRows(card) {
+  let node = card;
+  for (let i = 0; i < 4 && node; i++) {
+    const root = node.getRootNode();
+    if (!(root instanceof ShadowRoot)) return;
+    if (root.host.localName === "hui-grid-section") {
+      if (!root.getElementById("overlook-rows")) {
+        const st = document.createElement("style");
+        st.id = "overlook-rows";
+        st.textContent = GROW_ROWS;
+        root.appendChild(st);
+      }
+      return;
+    }
+    node = root.host;
+  }
+}
+
+let OVERLAY = null;
+const overlay = (hass) => {
+  if (!OVERLAY) {
+    OVERLAY = document.createElement("overlook-overlay");
+    document.body.appendChild(OVERLAY);
+  }
+  if (hass && OVERLAY.hass !== hass) OVERLAY.hass = hass;
+  return OVERLAY;
+};
+
+class OverlookPiece extends OverlookShow {
+  setConfig(config) {
+    if (!config) throw new Error("No configuration");
+    this._config = Object.assign({ phone: true, lights: [], popups: {}, links: {}, status: [], status_air: [],
+                                   calendars: [], speakers: [], scenes: [], phone_rooms: [] }, config);
+    this._drag = null;
+  }
+
+  get _scrolledAt() { return LAST_SCROLL; }
+  set _scrolledAt(v) { LAST_SCROLL = v; }
+
+  connectedCallback() {
+    LitElement.prototype.connectedCallback.call(this);
+    loadFonts();
+    this.style.height = "100%";   // fill the grid cell HA sizes for the card
+    growRows(this);
+    if (!SCROLL_HOOKED) {
+      SCROLL_HOOKED = true;
+      window.addEventListener("scroll", () => { LAST_SCROLL = performance.now(); }, { capture: true, passive: true });
+    }
+    this._relink = () => this.requestUpdate();
+    window.addEventListener("overlook-popups", this._relink);
+  }
+
+  disconnectedCallback() {
+    LitElement.prototype.disconnectedCallback.call(this);
+    window.removeEventListener("overlook-popups", this._relink);
+  }
+
+  updated(changed) {
+    if (!changed.has("hass") || !this.hass) return;
+    if (this._drag) this._settle();
+    overlay(this.hass);
+  }
+
+  _openLight(id) { overlay(this.hass).openLight(id, this._config.name); }
+  _open(id) { overlay(this.hass)._open(id); }
+  _links() { return overlay()._links(); }
+  getCardSize() { return 1; }
+}
+
+// the one layer every card's light sheet and pop-up opens in, above the whole app
+class OverlookOverlay extends OverlookShow {
+  constructor() {
+    super();
+    this.setConfig({ phone: true, weather: null });
+    this._names = {};
+    fetch(`/local/overlook-popups.json?v=${VERSION}`).then((r) => r.json()).then((j) => {
+      this._config = Object.assign({}, this._config, { popups: j.popups || {}, links: j.links || {} });
+      window.dispatchEvent(new Event("overlook-popups"));
+    }).catch((e) => console.warn("overlook: pop-ups", e));
+  }
+
+  connectedCallback() {
+    LitElement.prototype.connectedCallback.call(this);
+    loadFonts();
+  }
+
+  disconnectedCallback() { LitElement.prototype.disconnectedCallback.call(this); }
+
+  updated(changed) { if (changed.has("hass") && this._drag) this._settle(); }
+
+  openLight(id, name) {
+    if (name) this._names[id] = name;
+    OverlookShow.prototype._openLight.call(this, id);
+  }
+
+  // HA listens for more-info on its own root, which this layer sits outside of
+  _moreInfo(entityId) {
+    const ha = document.querySelector("home-assistant");
+    if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  render() {
+    if (!this.hass || !(this._pop || this._light)) return nothing;
+    return html`
+      <div class="screen phone overlay">
+        ${this._pop ? this._popSheet() : nothing}
+        ${this._light ? this._lightSheet() : nothing}
+      </div>`;
+  }
+}
+if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
+
+// --- the dock: this dashboard's views as the floating tab bar --------------------------
+// While it is on screen HA's header is hidden (it comes back in edit mode) and HA's grid
+// takes the design's sizes. Hold the first tab to edit the dashboard.
+const NATIVE_GRID = `
+  :host {
+    --ha-section-grid-row-height: 62px;
+    --ha-section-grid-row-gap: 10px;
+    --ha-section-grid-column-gap: 10px;
+    --ha-view-sections-row-gap: 18px;
+    --ha-view-sections-narrow-column-gap: 16px;
+    --lovelace-background: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :host { --lovelace-background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); }
+  }`;
+const NATIVE_VIEW = `
+  .header { display: none !important; }
+  hui-view-container { padding-top: var(--safe-area-inset-top, 0px) !important;
+                       --view-container-padding-bottom: 104px; }
+  hui-view-container > * { margin-top: -4px; }`;
+
+const DOCK_USERS = new Set();
+let DOCK = null;
+let DOCK_DROP = null;
+function dockMount(user) {
+  DOCK_USERS.add(user);
+  clearTimeout(DOCK_DROP);
+  if (!DOCK) {
+    DOCK = document.createElement("overlook-dock-bar");
+    document.body.appendChild(DOCK);
+  }
+}
+function dockUnmount(user) {
+  if (!DOCK_USERS.delete(user) || DOCK_USERS.size) return;
+  // switching views drops the old view's dock card before the new one arrives
+  clearTimeout(DOCK_DROP);
+  DOCK_DROP = setTimeout(() => {
+    if (DOCK_USERS.size || !DOCK) return;
+    DOCK.remove();
+    DOCK = null;
+  }, 400);
+}
+
+class OverlookDockBar extends OverlookShow {
+  constructor() {
+    super();
+    this._config = { phone: true };
+    this._views = [];
+    this._edit = false;
+    this._root = null;
+  }
+
+  connectedCallback() {
+    LitElement.prototype.connectedCallback.call(this);
+    loadFonts();
+    this._tick = setInterval(() => this._sync(), 400);
+    this._loc = () => { this._sync(); this.requestUpdate(); };
+    window.addEventListener("location-changed", this._loc);
+    window.addEventListener("popstate", this._loc);
+    this._sync();
+  }
+
+  disconnectedCallback() {
+    LitElement.prototype.disconnectedCallback.call(this);
+    clearInterval(this._tick);
+    window.removeEventListener("location-changed", this._loc);
+    window.removeEventListener("popstate", this._loc);
+    this._unstyle();
+  }
+
+  updated() {}
+
+  _unstyle() {
+    const s = this._root && this._root.shadowRoot && this._root.shadowRoot.getElementById("overlook-native");
+    if (s) s.remove();
+  }
+
+  _sync() {
+    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    if (r !== this._root) { this._unstyle(); this._root = r; }
+    if (!r || !r.shadowRoot) return;
+    const lv = r.lovelace;
+    const edit = !!(lv && lv.editMode);
+    let s = r.shadowRoot.getElementById("overlook-native");
+    if (!s) {
+      s = document.createElement("style");
+      s.id = "overlook-native";
+      r.shadowRoot.appendChild(s);
+    }
+    const css = NATIVE_GRID + (edit ? "" : NATIVE_VIEW);
+    if (s.textContent !== css) s.textContent = css;
+    const views = ((lv && lv.config && lv.config.views) || [])
+      .map((v, i) => ({ path: v.path || String(i), title: v.title || `View ${i + 1}`, icon: v.icon || "mdi:view-dashboard",
+                        hide: v.subview || v.visible === false }))
+      .filter((v) => !v.hide);
+    const key = JSON.stringify(views);
+    if (key !== this._viewsKey || edit !== this._edit) {
+      this._viewsKey = key;
+      this._views = views;
+      this._edit = edit;
+      this.requestUpdate();
+    }
+  }
+
+  _go(v) {
+    const base = location.pathname.split("/")[1];
+    const url = `/${base}/${v.path}`;
+    if (location.pathname === url) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    fireHaptic("selection");
+    history.pushState(null, "", url);
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    window.scrollTo(0, 0);
+  }
+
+  // hold the first tab for a second: HA's edit mode (the header comes back with it)
+  _holdDown(ev) {
+    clearTimeout(this._hold);
+    this._held = false;
+    this._hx = ev.clientX; this._hy = ev.clientY;
+    this._hold = setTimeout(() => {
+      const lv = this._root && this._root.lovelace;
+      if (!lv || !lv.setEditMode) return;
+      this._held = true;
+      fireHaptic("medium");
+      lv.setEditMode(true);
+    }, 1000);
+  }
+
+  _holdMove(ev) {
+    if (Math.abs(ev.clientX - this._hx) > 8 || Math.abs(ev.clientY - this._hy) > 8) clearTimeout(this._hold);
+  }
+
+  render() {
+    if (this._edit || !this._views.length) return nothing;
+    const here = location.pathname.split("/")[2] || this._views[0].path;
+    const stop = () => clearTimeout(this._hold);
+    return html`
+      <div class="screen phone dockscreen">
+        <nav class="tabbar" style="grid-template-columns: repeat(${this._views.length}, 1fr)">
+          ${this._views.map((v, i) => html`
+            <button class="dock-btn ${v.path === here ? "on" : ""}"
+                    @click=${() => { if (this._held) { this._held = false; return; } this._go(v); }}
+                    @pointerdown=${i === 0 ? (ev) => this._holdDown(ev) : null}
+                    @pointermove=${i === 0 ? (ev) => this._holdMove(ev) : null}
+                    @pointerup=${stop} @pointercancel=${stop} @contextmenu=${(ev) => ev.preventDefault()}>
+              <ha-icon icon=${v.icon}></ha-icon><span>${v.title}</span>
+            </button>`)}
+        </nav>
+      </div>`;
+  }
+}
+if (!customElements.get("overlook-dock-bar")) customElements.define("overlook-dock-bar", OverlookDockBar);
+
+// the card that turns the dock on for a dashboard; takes no room outside edit mode
+class OverlookDock extends OverlookPiece {
+  static get properties() { return { ...super.properties, editMode: { type: Boolean } }; }
+  static getConfigForm() { return { schema: [] }; }
+  static getStubConfig() { return {}; }
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+  connectedCallback() { super.connectedCallback(); dockMount(this); }
+  disconnectedCallback() { super.disconnectedCallback(); dockUnmount(this); }
+  render() {
+    if (!this.editMode) return nothing;   // HA sets editMode on every card while editing
+    return html`<div class="phone piece"><div class="card dock-note"><ha-icon icon="mdi:dock-bottom"></ha-icon>
+      Dock: this dashboard's views as tabs at the bottom, in place of HA's header</div></div>`;
+  }
+}
+if (!customElements.get("overlook-dock")) customElements.define("overlook-dock", OverlookDock);
+
+const TILE_KINDS = [["light", "Light"], ["switch", "Switch"], ["media", "Speaker / TV"], ["climate", "Heat pump"],
+  ["plant", "Plant"], ["sensor", "Reading"], ["scene", "Scene / script"]];
+
+// one entity, drawn the way its kind is drawn on the phone (picked from the domain)
+class OverlookTile extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: {} } },
+        { type: "grid", name: "", schema: [
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
+        ] },
+        { name: "kind", selector: { select: { mode: "dropdown", options: TILE_KINDS.map(([value, label]) => ({ value, label })) } } },
+      ],
+      computeLabel: (s) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)" })[s.name],
+    };
+  }
+
+  static getStubConfig(hass) {
+    const id = Object.keys(hass.states).find((e) => e.startsWith("light.")) || Object.keys(hass.states)[0];
+    return { entity: id };
+  }
+
+  _kind() {
+    const c = this._config, e = this._st(c.entity);
+    if (c.kind) return c.kind;
+    const dom = (c.entity || "").split(".")[0];
+    if (dom === "sensor" && e && e.attributes.device_class === "moisture") return "plant";
+    return DOMAIN_TYPE[dom] || "sensor";
+  }
+
+  _item() {
+    const c = this._config, e = this._st(c.entity);
+    return { entity: c.entity, name: c.name || (e && e.attributes.friendly_name) || c.entity,
+             icon: c.icon || (e && (e.attributes.icon || CLASS_ICON[e.attributes.device_class])) || TYPE_ICON[this._kind()] };
+  }
+
+  // the design's sizes: a tile is one 62px row, a player two, the heat pump the full width
+  getGridOptions() {
+    switch (this._kind()) {
+      case "climate": return { columns: 12, rows: "auto", min_columns: 12 };
+      case "media": return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 };
+      default: return { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
+    }
+  }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const x = this._item();
+    if (!this._st(x.entity)) {
+      return html`<div class="phone piece"><div class="card missing"><ha-icon icon="mdi:help-circle-outline"></ha-icon>
+        ${x.entity || "Pick an entity"} isn't there</div></div>`;
+    }
+    let body;
+    switch (this._kind()) {
+      case "climate": body = html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`; break;
+      case "media": body = this._player(x); break;
+      case "plant": body = this._plantTile(x); break;
+      case "switch": body = this._switchTile(x); break;
+      case "sensor": body = this._sensorTile(x); break;
+      case "scene": body = this._sceneBtn(x, true); break;
+      default: body = this._lightTile(x);
+    }
+    return html`<div class="phone piece"><div class="ph-grid one">${body}</div></div>`;
+  }
+}
+if (!customElements.get("overlook-tile")) customElements.define("overlook-tile", OverlookTile);
+
+// a room's heading, with its all-lights button
+class OverlookHeading extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { type: "grid", name: "", schema: [
+          { name: "name", required: true, selector: { text: {} } },
+          { name: "icon", selector: { icon: {} } },
+        ] },
+        { name: "group", selector: { entity: { domain: "light" } } },
+      ],
+      computeLabel: (s) => ({ name: "Name", icon: "Icon", group: "All-lights button (a light group)" })[s.name],
+    };
+  }
+
+  static getStubConfig() { return { name: "Room", icon: "mdi:sofa" }; }
+
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const c = this._config, g = this._st(c.group), lit = g && g.state === "on";
+    return html`
+      <div class="phone piece"><div class="ph-sec">
+        <ha-icon icon=${c.icon || "mdi:door"}></ha-icon><span>${c.name}</span>
+        ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
+            @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: c.group })}>
+            <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
+      </div></div>`;
+  }
+}
+if (!customElements.get("overlook-heading")) customElements.define("overlook-heading", OverlookHeading);
+
+// the Scenes row: round-icon squares that scroll sideways
+class OverlookScenes extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [{ name: "scenes", selector: { object: {} } }],
+      computeLabel: () => "Scenes (entity, and optionally name and icon, for each)",
+    };
+  }
+
+  static getStubConfig(hass) {
+    return { scenes: Object.keys(hass.states).filter((e) => e.startsWith("scene.")).slice(0, 4).map((entity) => ({ entity })) };
+  }
+
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const items = (this._config.scenes || []).map((x) => {
+      const c = typeof x === "string" ? { entity: x } : x, e = this._st(c.entity);
+      return { ...c, name: c.name || (e && e.attributes.friendly_name) || c.entity,
+               icon: c.icon || (e && e.attributes.icon) || DOMAIN_ICON[(c.entity || "").split(".")[0]] || "mdi:palette" };
+    });
+    return html`<div class="phone piece"><div class="fav-scenes">${items.map((x) => this._miniScene(x))}</div></div>`;
+  }
+}
+if (!customElements.get("overlook-scenes")) customElements.define("overlook-scenes", OverlookScenes);
+
+// who's home, what needs a look, and the house's readings (low-high across the rooms)
+class OverlookStatus extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "status", selector: { object: {} } },
+        { name: "status_air", selector: { object: {} } },
+      ],
+      computeLabel: (s) => ({ status: "Pills (people always; the rest only while on)",
+                              status_air: "Readings (each with its sources)" })[s.name],
+    };
+  }
+
+  static getStubConfig() { return { status: [], status_air: [] }; }
+
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    return html`<div class="phone piece">${this._status()}</div>`;
+  }
+}
+if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
+
+window.customCards = window.customCards || [];
+window.customCards.push(
+  { type: "overlook-tile", name: "Overlook tile", description: "One light, switch, speaker, heat pump, plant, reading or scene", preview: true },
+  { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
+  { type: "overlook-scenes", name: "Overlook scenes", description: "The row of scene buttons" },
+  { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
+  { type: "overlook-dock", name: "Overlook dock", description: "The dashboard's views as a floating tab bar, in place of HA's header" },
+);
+
 window.customCards = window.customCards || [];
 window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");

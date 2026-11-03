@@ -8,8 +8,8 @@ purpose (Cameron, 2026-11-03: "keep both"). They share the repo, the theme and
 |---|---|---|
 | Look | Overlook tiles, Bubble Card pop-ups | Echo Show style, bottom-sheet pop-ups |
 | Built with | `custom:button-card` + Bubble Card | one Lit card, `www/overlook-show.js` |
-| Dashboards | ha-phone, ha-tablet, ha-computer, ha-kitchen, ha-bedroom (+ ha-homey test) | ha-show (Kitchen Show), ha-show-phone (Phone Show) |
-| Python | `design.py`, `patch3.py`, `scenes.py`, `roomscreen.py`, one module each | `show.py`, `showphone.py` |
+| Dashboards | ha-phone, ha-tablet, ha-computer, ha-kitchen, ha-bedroom (+ ha-homey test) | ha-show (Kitchen Show), ha-show-phone (Phone Show), ha-show-native (Phone Show, new) |
+| Python | `design.py`, `patch3.py`, `scenes.py`, `roomscreen.py`, one module each | `show.py`, `showphone.py`, `shownative.py` |
 | Hand-edited in the HA UI? | **Yes.** Cameron moves cards around | No. The UI only sees one card |
 | Safe way to change | `--patch` (keeps his edits) | plain deploy |
 
@@ -80,6 +80,7 @@ More screenshots in the [README](../README.md#the-show-dashboards).
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `show.py` | Kitchen Show: `VERSION`, the card's config (`CARD`): rooms, scenes, status pills, calendar, recipes |
 | `showphone.py` | Phone Show: `show.CARD` plus `phone: True`, ha-phone's rooms and scenes, the pop-ups (`POPUPS`) and which tap opens which (`LINKS`) |
+| `shownative.py` | Phone Show (new): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
 
@@ -105,6 +106,29 @@ phone layout. All phone-only CSS sits under `.phone`.
 4. Check **both** dashboards, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 (the ALLDOCUBE tablet)
    - Phone Show `/ha-show-phone/phone` at 390 wide
+
+### Phone Show (new): native HA cards
+
+`ha-show-native` is the Phone Show rebuilt so HA's own editor works on it. It is a
+test dashboard beside ha-show-phone, which stays as it is until this one is signed off.
+
+- **Home** is an HA sections view. Every tile is its own card: `overlook-tile` (an
+  entity; it picks light / switch / speaker / heat pump / plant / reading / scene from
+  the domain, or `kind:` says), `overlook-heading` (room name, icon, all-lights `group`),
+  `overlook-scenes` (the scene row), `overlook-status` (the pills). They draw with the
+  same markup and CSS as the single card, so they look the same.
+- **`overlook-dock`** turns the dashboard's views into the floating tab bar and hides HA's
+  header. It also sets HA's grid to the design's sizes (62px rows, 10px gaps, 16px
+  sides), and in sections holding Overlook cards a card's rows are a *minimum*: a
+  tile whose name wraps grows, as in the single card.
+- **Calendar / Recipes** are panel views with the full card on that page
+  (`embedded: true, dock: true`).
+- **Edit:** hold Home on the dock for 1 s. HA's header comes back with Done.
+- Light sheets and pop-ups open in one layer on `<body>`. Pop-ups and links ship as
+  `/local/overlook-popups.json` (written by deploy, gitignored).
+- `./deploy.py shownative` writes the layout **only while it is unedited** (snapshot in
+  `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version and
+  ships only the JS and pop-ups.
 
 ### Adding things
 
@@ -142,7 +166,8 @@ phone layout. All phone-only CSS sits under `.phone`.
 - **A cast loads the page from cast.home-assistant.io.** Any `/local/...` or `/api/...` path
   must go through `this._u()` (makes it absolute with `hass.hassUrl`), or it points at
   Google's server and the image comes up blank.
-- Phone Show is **not signed off** yet.
+- Phone Show is **not signed off** yet. Nor is ha-show-native.
+- Check ha-show-native too after any change to the JS (`/ha-show-native/home` at 390 wide).
 
 ---
 
