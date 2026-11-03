@@ -8,7 +8,8 @@
 
 `--patch` is the safe mode for a dashboard that has been edited by hand: it
 reads what is live, swaps only the cards it owns, and refuses to write if
-anything else moved. Plain deploy overwrites the whole config.
+anything else moved. Plain deploy overwrites the whole config, except on the
+Show dashboards, which keep whatever was edited on the screen (see keep_screen_edits).
 """
 import argparse, copy, itertools, json, os, sys
 
@@ -79,6 +80,32 @@ def diff(a, b, p=""):
         yield p
 
 
+SNAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deployed")
+
+
+def keep_screen_edits(name, live, cfg):
+    """Show cards can be edited on the screen itself (hold Home -> Edit), so a deploy
+    must not undo that. Three-way merge per top-level card key against what was last
+    deployed: a key that changed live since then is kept as it is live. Returns the
+    merged config and the keys that also changed here (those need merging by hand)."""
+    try:
+        base = json.load(open(os.path.join(SNAP, name + ".json")))
+    except FileNotFoundError:
+        return cfg, [], []
+    card = lambda c: c["views"][0]["cards"][0]
+    out = copy.deepcopy(cfg)
+    kept, clash = [], []
+    lc, bc, oc = card(live), card(base), card(out)
+    for k in set(lc) | set(bc):
+        if lc.get(k) != bc.get(k):
+            kept.append(k)
+            if oc.get(k) != bc.get(k):
+                clash.append(k)
+            if k in lc: oc[k] = lc[k]
+            else: oc.pop(k, None)
+    return out, sorted(kept), sorted(clash)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("targets", nargs="*", choices=list(TARGETS) + [[]], default=[])
@@ -121,6 +148,14 @@ def main():
             cfg = live
         else:
             cfg = build(name)
+            built = cfg
+            if name in ("show", "showphone"):
+                live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
+                cfg, kept, clash = keep_screen_edits(name, live, cfg)
+                if kept:
+                    print("%-9s kept screen edits to: %s" % (name, ", ".join(kept)))
+                if clash:
+                    print("%-9s ALSO CHANGED HERE, live wins - merge by hand: %s" % (name, ", ".join(clash)))
 
         if a.dry_run:
             live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
@@ -128,6 +163,9 @@ def main():
             print("%-9s dry run: %d values would change" % (name, n))
             continue
         r = ha_ws.call(ws, next(ids), type="lovelace/config/save", url_path=url, config=cfg)
+        if r.get("success") and not a.patch and name in ("show", "showphone"):
+            os.makedirs(SNAP, exist_ok=True)
+            json.dump(built, open(os.path.join(SNAP, name + ".json"), "w"), indent=1)
         print("%-9s -> %-13s %s" % (name, url, "ok" if r.get("success") else json.dumps(r.get("error"))[:120]))
 
 

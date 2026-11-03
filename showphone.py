@@ -3,7 +3,8 @@
 Same card as show.py with `phone: true`. The Home page follows ha-phone's order:
 status pills, Scenes, then each room's tiles. Calendar and Recipes are extra
 pages on the floating tab bar. No photo slideshow and no header.
-Hold the Home tab for 1.5s to uncover HA for edit mode.
+Hold the Home tab for 1s to edit it on the phone (drag, rename, add, remove);
+Save writes into the live config, and deploy.py keeps those edits (keep_screen_edits).
 
 `./deploy.py showphone` ships the card (shared with ha-show) and saves this config.
 """

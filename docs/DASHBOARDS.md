@@ -100,8 +100,10 @@ phone layout. All phone-only CSS sits under `.phone`.
    ./deploy.py show showphone
    ```
    This copies the JS to `/config/www` over SSH, points the resource at the new version and
-   rewrites both dashboards. A plain deploy is right here: neither dashboard holds UI edits,
-   so all the config lives in the Python.
+   rewrites both dashboards. Edits Cameron made on the phone are kept: deploy compares each
+   card key with what it last deployed (`.deployed/`, not in git) and leaves anything that
+   changed live alone. If the Python changed the same key it says `ALSO CHANGED HERE` -
+   merge that one by hand from the live config.
 4. Check **both** dashboards, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 (the ALLDOCUBE tablet)
    - Phone Show `/ha-show-phone/phone` at 390 wide
@@ -114,8 +116,12 @@ phone layout. All phone-only CSS sits under `.phone`.
 - **A phone pop-up:** add a sheet to `POPUPS` in `showphone.py`. Its sections are `tiles`,
   `choices`, `player` or `graph`. Then add `LINKS[entity] = "<popup id>"` so tapping that
   entity opens it. Anything without a link opens HA's normal more-info.
-- **A phone room or tile:** `ROOMS` in `showphone.py`. It copies ha-phone tile for tile.
-  **If ha-phone changes, update `ROOMS`/`SCENES` by hand.** Nothing syncs them.
+- **A phone room or tile:** Cameron does these himself now, in edit mode (below). `ROOMS` and
+  `SCENES` in `showphone.py` are only the starting layout; once he saves on the phone the
+  live `phone_rooms` / `scenes` win. Tile types: `light`, `media`, `climate`, `switch`,
+  `plant`, `sensor`, `scene`.
+- **The reading pills** (`status_air`) cover the house: each lists `sources`, every room's
+  sensor (plus the heat pump's own temperature and humidity), and shows low-high.
 
 ### Using it
 
@@ -124,8 +130,12 @@ phone layout. All phone-only CSS sits under `.phone`.
   (only on bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the
   corner opens HA's standard dialog (settings, history, effects).
 
-- **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet, or
-  the Home tab on the phone.
+- **Edit the phone Home (admins):** hold the Home tab 1 s. Hold a tile and drag to move it
+  (between rooms too), tap it to rename, change its icon or room, the minus to remove it, `+ Add`
+  to pick any entity. The pencil on a room renames, reorders or removes it, or sets its
+  all-lights button. Save writes the dashboard config; Cancel drops it. Pills and pop-ups
+  aren't in edit mode - `HA editor` in the edit bar uncovers HA's own (YAML) editor.
+- **Get back to normal HA on the tablet:** hold the clock 1.5 s.
 - **Tablet idle:** after 5 minutes it goes to the photo slideshow (not while a recipe is open).
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.
