@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.8.6";
+const VERSION = "0.9.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -78,13 +78,15 @@ class OverlookShow extends LitElement {
     _lib: { state: true },
     _book: { state: true },
     _recipe: { state: true },
+    _pop: { state: true },
+    _hist: { state: true },
   };
 
   setConfig(config) {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
       lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
-      phone: false, status: [], status_air: [], phone_rooms: [],
+      phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
     this._page = this._config.photos ? "photos" : "kitchen";
@@ -230,6 +232,7 @@ class OverlookShow extends LitElement {
   }
   _go(page) {
     this._picker = false;
+    this._pop = null;
     this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
@@ -266,6 +269,7 @@ class OverlookShow extends LitElement {
           <main class="page">${this._pageBody()}</main>
           ${this._tabBar()}
           ${this._picker ? this._speakerSheet() : nothing}
+          ${this._pop ? this._popSheet() : nothing}
         </div>`;
     }
     const photos = this._page === "photos";
@@ -328,13 +332,13 @@ class OverlookShow extends LitElement {
       if (x.person) {
         const home = e.state === "home";
         return html`
-          <button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => this._moreInfo(x.entity)}>
+          <button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => this._open(x.entity)}>
             <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
             <span>${home ? x.name : `${x.name} away`}</span></button>`;
       }
       if (e.state !== (x.when || "on")) return nothing;
       const tap = x.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
-        : () => this._moreInfo(x.entity);
+        : () => this._open(x.entity);
       return html`
         <button class="tab st ${x.tone || "warn"}" @click=${tap}>
           <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
@@ -344,7 +348,7 @@ class OverlookShow extends LitElement {
       if (!e) return nothing;
       const v = Number(e.state);
       return html`
-        <button class="tab st reading" @click=${() => this._moreInfo(x.entity)}>
+        <button class="tab st reading" @click=${() => this._open(x.entity)}>
           <ha-icon icon=${x.icon} style="color:${x.color || "var(--accent)"}"></ha-icon>
           <span>${isNaN(v) ? e.state : Math.round(v)}${x.unit != null ? x.unit : (e.attributes.unit_of_measurement || "")}</span>
           <small>${x.name}</small></button>`;
@@ -408,6 +412,232 @@ class OverlookShow extends LitElement {
         <span class="tile-text"><span class="tile-name">${l.name || e.attributes.friendly_name}</span>
           <span class="muted">${on ? (pct >= 100 ? "On" : `On · ${pct}%`) : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
       </button>`;
+  }
+
+  // --- pop-ups: ha-phone's Bubble Card pop-ups as sheets in this look ------------
+  // config.popups[id] = {title, icon, sections}; config.links[entity] = id says which
+  // tap opens which sheet. Anything without a link falls back to HA's more-info.
+  _open(entityId) {
+    const id = this._config.links[entityId];
+    if (!id || !this._config.popups[id]) { this._moreInfo(entityId); return; }
+    fireHaptic("light");
+    this._pop = id;
+    this._loadHistory(this._config.popups[id]);
+  }
+
+  async _loadHistory(p) {
+    const ids = p.sections.filter((s) => s.type === "graph").map((s) => s.entity);
+    if (!ids.length) return;
+    const hours = Math.max(...p.sections.filter((s) => s.type === "graph").map((s) => s.hours || 168));
+    const start = new Date(Date.now() - hours * 3600 * 1000);
+    try {
+      // without end_time HA returns only the first day after start
+      const r = await this.hass.callApi("GET", `history/period/${start.toISOString()}?filter_entity_id=${ids.join(",")}`
+        + `&end_time=${new Date().toISOString()}&minimal_response&no_attributes`);
+      const hist = Object.assign({}, this._hist);
+      r.forEach((list) => {
+        if (!list.length) return;
+        hist[list[0].entity_id] = list.map((x) => [new Date(x.last_changed).getTime(), Number(x.state)])
+          .filter((x) => !isNaN(x[1]));
+      });
+      this._hist = hist;
+    } catch (e) { console.warn("overlook-show: history", e); }
+  }
+
+  _popSheet() {
+    const p = this._config.popups[this._pop];
+    if (!p) return nothing;
+    const close = () => { this._pop = null; };
+    return html`
+      <div class="scrim pop-scrim" @click=${close}>
+        <div class="sheet pop" @click=${(ev) => ev.stopPropagation()}>
+          <div class="grabber"></div>
+          <div class="pop-head">
+            <span class="pop-ico"><ha-icon icon=${p.icon}></ha-icon></span>
+            <span class="pop-title">${p.title}</span>
+            <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
+          </div>
+          <div class="pop-body">${p.sections.map((s) => this._popSection(s))}</div>
+        </div>
+      </div>`;
+  }
+
+  _popSection(s) {
+    if (s.when) {
+      const w = this._st(s.when.entity);
+      if (!w || w.state !== s.when.state) return nothing;
+    }
+    const head = s.title ? html`<div class="pop-sub">${s.title}</div>` : nothing;
+    switch (s.type) {
+      case "player": return html`${head}${this._popPlayer(s.entity)}`;
+      case "graph": return html`${head}${this._popGraph(s)}`;
+      case "choices": return html`${head}${this._popChoices(s)}`;
+      default: return html`${head}<div class="pop-grid">${s.items.map((x) => this._popTile(x))}</div>`;
+    }
+  }
+
+  // a value the way ha-phone words it: Open/Closed, Home/Away, Low/OK, 90%, 4:30pm
+  _fmt(e, x = {}) {
+    if (!e) return "–";
+    const a = e.attributes, dc = a.device_class || "", dom = e.entity_id.split(".")[0];
+    if (x.attr) {
+      const v = a[x.attr];
+      return v == null ? "–" : `${typeof v === "number" ? Math.round(v * 10) / 10 : v}${x.unit || ""}`;
+    }
+    const s = e.state;
+    if (s === "unavailable") return "Unavailable";
+    if (s === "unknown") return dom === "button" ? "Press" : "–";
+    if (dom === "person" || dom === "device_tracker") return s === "home" ? "Home" : s === "not_home" ? "Away" : s;
+    if (dom === "update") return s === "on" ? `${a.latest_version} available` : `Up to date · ${a.installed_version}`;
+    if (dom === "binary_sensor") {
+      if (["opening", "door", "window", "garage_door"].includes(dc)) return s === "on" ? "Open" : "Closed";
+      if (dc === "battery") return s === "on" ? "Low" : "OK";
+      if (dc === "problem") return s === "on" ? "Needs attention" : "OK";
+      if (dc === "moisture") return s === "on" ? "Wet" : "Dry";
+      return s === "on" ? "Yes" : "No";
+    }
+    if (dc === "timestamp") {
+      const d = new Date(s);
+      if (isNaN(d)) return s;
+      const day = d.toDateString() === new Date().toDateString() ? "" : `${DAYS[d.getDay()][0]}${DAYS[d.getDay()].slice(1).toLowerCase()} `;
+      return day + this._ampm(d);
+    }
+    if (dom === "climate") return s === "off" ? "Off" : s;
+    if (["switch", "automation", "input_boolean", "light", "fan"].includes(dom)) return s === "on" ? "On" : "Off";
+    const n = Number(s), u = a.unit_of_measurement;
+    if (!isNaN(n) && s !== "") {
+      const v = Math.round(n * 10) / 10;
+      return u ? `${v}${u === "%" || u === "°C" ? (u === "°C" ? "°" : "%") : " " + u}` : `${v}`;
+    }
+    return s[0].toUpperCase() + s.slice(1);
+  }
+
+  // one tile in a sheet: switches toggle, buttons press, numbers step, the rest open more-info
+  _popTile(x) {
+    if (x.when) {
+      const w = this._st(x.when.entity);
+      if (!w || w.state !== x.when.state) return nothing;
+    }
+    const e = this._st(x.entity);
+    if (!e) return nothing;
+    const dom = x.entity.split(".")[0];
+    const val = this._fmt(e, x);
+    if (dom === "number" && !x.attr) {
+      const a = e.attributes, v = Number(e.state), step = a.step || 1;
+      const set = (d) => this._call("number", "set_value", { entity_id: x.entity, value: clamp(v + d, a.min, a.max) });
+      return html`
+        <div class="ptile stepper">
+          <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x.name}</span><span class="muted">${val}</span></span>
+          <span class="steps-btns">
+            <button class="round small" @click=${() => set(-step)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="round small" @click=${() => set(step)}><ha-icon icon="mdi:plus"></ha-icon></button>
+          </span>
+        </div>`;
+    }
+    const toggles = ["switch", "automation", "input_boolean", "light", "fan"].includes(dom) && !x.attr;
+    const on = toggles && e.state === "on";
+    const alert = (dom === "binary_sensor" && e.state === "on" && !x.attr)
+      || (dom === "update" && e.state === "on")
+      || (e.attributes.device_class === "battery" && Number(e.state) <= 20);
+    const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
+      : dom === "button" ? () => this._call("button", "press", { entity_id: x.entity })
+      : () => this._moreInfo(x.entity);
+    return html`
+      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x.wide ? "wide" : ""}" @click=${tap}>
+        <span class="tile-ico"><ha-icon icon=${x.icon || e.attributes.icon || "mdi:information-outline"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x.name}</span><span class="muted">${val}</span></span>
+      </button>`;
+  }
+
+  // a row of options for one attribute: fan speed, swing, a source, an Apple TV app
+  _popChoices(s) {
+    const e = this._st(s.entity);
+    if (!e) return nothing;
+    const now = e.attributes[s.attr];
+    const [dom, svc] = s.service.split(".");
+    return html`
+      <div class="choices ${s.compact ? "compact" : ""}">
+        ${s.options.map(([v, name, icon]) => html`
+          <button class="choice ${now === v ? "on" : ""}"
+                  @click=${() => this._call(dom, svc, { entity_id: s.entity, [s.field]: v })}>
+            <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
+      </div>`;
+  }
+
+  _popPlayer(id) {
+    const e = this._st(id);
+    if (!e) return nothing;
+    const a = e.attributes, playing = e.state === "playing", off = ["off", "standby"].includes(e.state);
+    const vol = a.volume_level, muted = a.is_volume_muted;
+    const mp = (svc, data = {}) => this._call("media_player", svc, Object.assign({ entity_id: id }, data));
+    return html`
+      <div class="pplayer ${muted ? "muted-vol" : ""}">
+        <div class="pp-top">
+          <div class="art" style=${a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
+            ${a.entity_picture ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
+          <div class="media-text">
+            ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
+            <div class="media-title">${a.media_title || (off ? "Off" : "Nothing playing")}</div>
+            ${a.media_artist ? html`<div class="media-artist">${a.media_artist}</div>` : nothing}
+          </div>
+          ${e.attributes.supported_features & 128 ? html`
+            <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
+              <ha-icon icon="mdi:power"></ha-icon></button>` : nothing}
+        </div>
+        <div class="pp-ctrl">
+          <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+          <button class="round play" @click=${() => mp("media_play_pause")}>
+            <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+          <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button>
+        </div>
+        ${vol != null ? html`
+          <div class="vol">
+            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
+              <ha-icon icon="mdi:minus"></ha-icon></button>
+            <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
+            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
+              <ha-icon icon="mdi:plus"></ha-icon></button>
+            <button class="round small ${muted ? "is-muted" : ""}" title="Mute" @click=${() => mp("volume_mute", { is_volume_muted: !muted })}>
+              <ha-icon icon=${muted ? "mdi:volume-off" : "mdi:volume-high"}></ha-icon></button>
+          </div>` : nothing}
+      </div>`;
+  }
+
+  // a week of one sensor as a filled line, like the mini-graph-card on ha-phone
+  _popGraph(s) {
+    const e = this._st(s.entity);
+    let pts = (this._hist || {})[s.entity];
+    // history only records changes, so the line is finished off with the value right now
+    if (pts && e && !isNaN(Number(e.state))) pts = [...pts, [Date.now(), Number(e.state)]];
+    const now = e ? this._fmt(e) : "–";
+    if (!pts || pts.length < 2) {
+      return html`<div class="graph"><div class="graph-head"><span>${s.name}</span><b>${now}</b></div>
+        <div class="graph-empty muted">${pts ? "Not enough history yet" : "Loading…"}</div></div>`;
+    }
+    const W = 320, H = 90;
+    const t0 = pts[0][0], t1 = Date.now();
+    let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+    if (hi - lo < 1) { hi += 0.5; lo -= 0.5; }
+    const X = (t) => ((t - t0) / (t1 - t0)) * W, Y = (v) => H - 6 - ((v - lo) / (hi - lo)) * (H - 12);
+    // steps, not slopes: a reading holds until the next one arrives
+    let d = `M0 ${Y(pts[0][1]).toFixed(1)}`;
+    pts.forEach((p, i) => {
+      if (i) d += ` L${X(p[0]).toFixed(1)} ${Y(pts[i - 1][1]).toFixed(1)}`;
+      d += ` L${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`;
+    });
+    const c = s.color || "var(--accent)";
+    return html`
+      <div class="graph">
+        <div class="graph-head"><span>${s.name}</span><b>${now}</b></div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          ${svg`<path d="${d} L${W} ${H} L0 ${H} Z" fill=${c} opacity="0.14"></path>
+                <path d=${d} fill="none" stroke=${c} stroke-width="2" vector-effect="non-scaling-stroke"
+                      stroke-linejoin="round" stroke-linecap="round"></path>`}
+        </svg>
+        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e && e.attributes.unit_of_measurement === "%" ? "%" : "°"} this week</span>
+          <span>${(s.hours || 168) / 24} days</span></div>
+      </div>`;
   }
 
   _dock() {
@@ -502,7 +732,7 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level;
     return html`
       <div class="card player">
-        <div class="player-row">
+        <div class="player-row" @click=${() => { if (this._config.links[id]) this._open(id); }}>
           <div class="art small" style=${active && a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
             ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
@@ -543,12 +773,12 @@ class OverlookShow extends LitElement {
     if (!e) return nothing;
     const v = Number(e.state);
     return html`
-      <div class="card tile plant">
+      <button class="card tile plant" @click=${() => this._open(x.entity)}>
         <span class="tile-ico"><ha-icon icon="mdi:sprout"></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${x.name}</span>
           <span class="muted">Soil moisture</span></span>
         <span class="tile-val">${isNaN(v) ? "–" : Math.round(v)}<small>%</small></span>
-      </div>`;
+      </button>`;
   }
 
   _sceneBtn(x, tile = false) {
@@ -1125,9 +1355,10 @@ class OverlookShow extends LitElement {
     return html`
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
-        <div class="hp-now">
+        <div class="hp-now ${this._config.links[id] ? "linked" : ""}" @click=${() => { if (this._config.links[id]) this._open(id); }}>
           <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
           <span class="hp-mode ${mode}">${label}</span>
+          ${this._config.links[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
@@ -1846,6 +2077,68 @@ class OverlookShow extends LitElement {
     /* phone speaker picker: a sheet from the bottom */
     .phone .scrim { position: fixed; place-items: end stretch; padding: 0 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
     .phone .sheet { width: 100%; border-radius: 28px; }
+    /* pop-up sheets */
+    .pop-scrim { position: fixed; z-index: 6; display: flex; align-items: flex-end; justify-content: center;
+                 padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 8px); }
+    .pop { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; gap: 0; padding: 8px 16px 16px;
+           border-radius: 30px; background: var(--card); backdrop-filter: blur(30px) saturate(1.4);
+           -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
+    @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
+    @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
+    .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
+    .pop-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+               display: grid; place-items: center; }
+    .pop-ico ha-icon { --mdc-icon-size: 22px; }
+    .pop-title { flex: 1; min-width: 0; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pop-body { overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px;
+                margin: 0 -16px; padding: 0 16px 4px; }
+    .pop-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+               margin: 8px 4px 0; }
+    .pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ptile { display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center; padding: 10px 12px; min-height: 62px;
+             border-radius: 20px; background: var(--inset); text-align: left; min-width: 0; }
+    .ptile.wide { grid-column: 1 / -1; }
+    .ptile .tile-ico { width: 38px; height: 38px; background: var(--card); }
+    .ptile .tile-ico ha-icon { --mdc-icon-size: 20px; }
+    .ptile .tile-name { font-size: 14px; line-height: 1.2; }
+    .ptile .muted { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ptile.on .tile-ico { background: var(--warm); color: #fff; }
+    .ptile.alert { background: color-mix(in srgb, var(--warm) 16%, var(--inset)); }
+    .ptile.alert .tile-ico { color: var(--warm); }
+    .ptile:active { transform: scale(0.98); }
+    .ptile.stepper { grid-column: 1 / -1; grid-template-columns: 38px 1fr auto; }
+    .steps-btns { display: flex; gap: 8px; }
+    .steps-btns .round.small { background: var(--card); }
+    .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .choices.compact { grid-template-columns: repeat(4, 1fr); }
+    .choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 66px;
+              padding: 8px 4px; border-radius: 18px; background: var(--inset); font-size: 12px; font-weight: 600; text-align: center;
+              line-height: 1.15; min-width: 0; }
+    .choice ha-icon { --mdc-icon-size: 22px; color: var(--accent); }
+    .choice.on { background: var(--accent); color: #fff; }
+    .choice.on ha-icon { color: #fff; }
+    .choice:active { transform: scale(0.96); }
+    .pplayer { display: flex; flex-direction: column; gap: 14px; padding: 14px; border-radius: 22px; background: var(--inset); }
+    .pplayer.muted-vol { background: color-mix(in srgb, #e5484d 12%, var(--inset)); }
+    .pp-top { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; }
+    .pp-top .art { width: 64px; height: 64px; background-color: var(--card); }
+    .pp-ctrl { display: flex; justify-content: center; align-items: center; gap: 22px; }
+    .pp-ctrl .round.play { width: 56px; height: 56px; background: var(--accent); color: #fff; }
+    .pp-ctrl .round.small, .pplayer .vol .round.small, .pp-top .round.small { background: var(--card); }
+    .pplayer .vol { grid-template-columns: auto 1fr auto auto; }
+    .round.small.power-on { color: var(--accent); }
+    .round.small.is-muted { color: #e5484d; }
+    .graph { padding: 14px 14px 10px; border-radius: 22px; background: var(--inset); }
+    .graph-head { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; }
+    .graph-head b { font-size: 18px; }
+    .graph svg { display: block; width: 100%; height: 90px; margin-top: 8px; }
+    .graph-foot { display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px; }
+    .graph-empty { height: 90px; display: grid; place-items: center; font-size: 13px; }
+    .hp-now.linked { cursor: pointer; }
+    .hp-more { --mdc-icon-size: 20px; color: var(--muted); align-self: center; }
+    .player-row { cursor: pointer; }
   `;
 }
 
