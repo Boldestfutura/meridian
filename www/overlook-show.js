@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.9.3";
+const VERSION = "0.9.6";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -574,7 +574,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="pplayer ${muted ? "muted-vol" : ""}">
         <div class="pp-top">
-          <div class="art" style=${a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
+          <div class="art" style=${a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${a.entity_picture ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
           <div class="media-text">
             ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
@@ -733,7 +733,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="card player">
         <div class="player-row" @click=${() => { if (this._config.links[id]) this._open(id); }}>
-          <div class="art small" style=${active && a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
+          <div class="art small" style=${active && a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
           <div class="media-text">
@@ -947,7 +947,7 @@ class OverlookShow extends LitElement {
   async _loadLib() {
     if (this._lib && Date.now() - this._libAt < 10 * 60 * 1000) return;
     try {
-      const r = await fetch(`${this._config.recipes}/index.json?t=${Date.now()}`, { cache: "no-store" });
+      const r = await fetch(this._u(`${this._config.recipes}/index.json?t=${Date.now()}`), { cache: "no-store" });
       if (!r.ok) throw new Error(r.status);
       this._lib = await r.json();
       this._libAt = Date.now();
@@ -957,7 +957,11 @@ class OverlookShow extends LitElement {
     }
   }
 
-  _img(id) { return `${this._config.recipes}/img/${id}.jpg?v=${(this._lib.recipes[id] || {}).v || 0}`; }
+  _img(id) { return this._u(`${this._config.recipes}/img/${id}.jpg?v=${(this._lib.recipes[id] || {}).v || 0}`); }
+
+  // A cast runs the dashboard from cast.home-assistant.io, so a bare "/local/..." or
+  // "/api/..." path would point at Google's server. hassUrl() makes it absolute.
+  _u(p) { return p && p[0] === "/" && p[1] !== "/" && this.hass && this.hass.hassUrl ? this.hass.hassUrl(p) : p; }
 
   _recipeCard(id) {
     const r = this._lib.recipes[id];
@@ -1040,7 +1044,7 @@ class OverlookShow extends LitElement {
   async _openRecipe(id) {
     this._recipe = { id, loading: true };
     try {
-      const r = await fetch(`${this._config.recipes}/r/${id}.json?v=${(this._lib.recipes[id] || {}).v || 0}`);
+      const r = await fetch(this._u(`${this._config.recipes}/r/${id}.json?v=${(this._lib.recipes[id] || {}).v || 0}`));
       const d = await r.json();
       if (this._recipe && this._recipe.id === id) this._recipe = d;
     } catch (e) {
@@ -1083,7 +1087,7 @@ class OverlookShow extends LitElement {
     const album = cam && cam.attributes.album_title;
     return html`
       <div class="photo" @click=${() => this._go("kitchen")}>
-        ${pic ? html`<img src=${pic} alt="">` : nothing}
+        ${pic ? html`<img src=${this._u(pic)} alt="">` : nothing}
         <div class="photo-shade"></div>
         <div class="photo-cap">
           ${album ? html`<div class="cap-small">${album}</div>` : nothing}
@@ -1170,7 +1174,7 @@ class OverlookShow extends LitElement {
       <div class="card media-card">
         <div class="card-title">Active Media</div>
         <div class="media-row">
-          <div class="art" style=${a.entity_picture ? `background-image:url('${a.entity_picture}')` : ""}>
+          <div class="art" style=${a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
             ${a.entity_picture ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}
           </div>
           <div class="media-text">
@@ -1289,7 +1293,7 @@ class OverlookShow extends LitElement {
       <div class="card-title pl-title">Playlists</div>
       <div class="pl-row">
         ${items.map((p) => html`
-          <button class="pl" style=${p.image ? `background-image:url('${p.image}')` : ""}
+          <button class="pl" style=${p.image ? `background-image:url('${this._u(p.image)}')` : ""}
                   @click=${() => this._playList(p)}>
             <span class="pl-shade"></span>
             <span class="pl-name">${p.name}</span>
@@ -1947,10 +1951,10 @@ class OverlookShow extends LitElement {
       .seg-ico { width: 44px; height: 44px; }
       .seg-bot ha-icon { --mdc-icon-size: 24px; }
       .swatch { right: 10px; bottom: 10px; width: 16px; height: 16px; }
-      .thermo { gap: 8px; }
-      .hp-step { width: 48px; height: 48px; border-radius: 14px; }
+      .thermo { gap: 5px; }
+      .hp-step { width: 42px; height: 40px; border-radius: 13px; }
       .hp-set { font-size: 21px; }
-      .modes { height: 52px; gap: 8px; }
+      .modes { height: 42px; gap: 8px; }
       .fav-scenes { margin-top: 8px; gap: 8px; }
       .mini-scene { height: 68px; padding: 7px 4px; gap: 4px; border-radius: 14px; }
       .mini-scene ha-icon { width: 28px; height: 28px; --mdc-icon-size: 18px; }

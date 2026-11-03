@@ -64,8 +64,13 @@ and how to deploy each without clobbering anything.
   Living Room and Goodnight, full height), `media` (the Amp: Sonos entity
   for controls, MA `_2` for playlists) and `climate` (the kitchen air monitor plus the
   heatpump). `photos` (the idle cast) and `weather` (the clock's tap) remain.
-- **The paths `kitchen` and `photos` are load-bearing:** three automations cast them to
-  `media_player.kitchen_display`.
+- **Since 2026-11-03 the Nest Hub shows Kitchen Show (`ha-show/show`), not ha-kitchen.**
+  `automation.kitchen_display_keep_the_cast_alive` casts it whenever the Hub drops the cast.
+  The slideshow-when-idle and back-on-activity automations are turned **off**: Kitchen Show
+  goes to photos by itself after 5 minutes. To go back, point the keep-alive at
+  `ha-kitchen`/`kitchen` and turn the other two on (backup:
+  `~/.config/ha/kitchen-cast-automations.before-show-2026-11-03.json`, local only).
+  ha-kitchen itself is untouched.
 - The old layout, which Cameron had hand-edited, was replaced at his request. A backup is
   at `~/.config/ha/ha-kitchen.before-roomscreen-2026-10-28.json` (local only).
 - **Each room screen has its own slideshow** of the Immich Family album

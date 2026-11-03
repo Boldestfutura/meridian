@@ -131,7 +131,13 @@ phone layout. All phone-only CSS sits under `.phone`.
   short are this, not the recorder.
 - Lights and heat pump are in use at home: when testing, stub service calls
   (`card._call = ...`) instead of really tapping.
-- Kitchen Show is **parked** until the tablet arrives. Phone Show is **not signed off** yet.
+- **Kitchen Show runs on the Nest Hub** (1024x600, cast) since 2026-11-03, and will move to the
+  ALLDOCUBE tablet when it arrives. Check every change at **1024x600** as well as 1280x800:
+  under 680px tall the compact layout kicks in, and the heat pump card is the tightest fit.
+- **A cast loads the page from cast.home-assistant.io.** Any `/local/...` or `/api/...` path
+  must go through `this._u()` (makes it absolute with `hass.hassUrl`), or it points at
+  Google's server and the image comes up blank.
+- Phone Show is **not signed off** yet.
 
 ---
 
