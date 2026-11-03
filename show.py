@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.7.1"
+VERSION = "0.8.3"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -56,6 +56,19 @@ CARD = {
     "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
     "calendars": [{"entity": "calendar.p_c", "color": "#e5484d"}],
     "todo": "todo.shopping_list",
+    # pills along the top of the Kitchen page: people always, the rest only while on
+    # (the same alerts as the status row on ha-phone)
+    "status": [
+        {"entity": "person.cameron", "name": "Cameron", "person": True},
+        {"entity": "person.paget", "name": "Paget", "person": True},
+        {"entity": "binary_sensor.door_sensor", "name": "Door open", "icon": "mdi:door-open", "tone": "warn"},
+        {"entity": "binary_sensor.window_sensor", "name": "Window open", "icon": "mdi:window-open-variant", "tone": "warn"},
+        {"entity": "update.home_assistant_operating_system_update", "name": "OS update", "icon": "mdi:package-up", "tone": "bad"},
+        {"entity": "update.home_assistant_core_update", "name": "HA update", "icon": "mdi:home-assistant", "tone": "bad"},
+        {"entity": "binary_sensor.any_device_battery_low", "name": "Battery low", "icon": "mdi:battery-alert-variant-outline", "tone": "bad"},
+        {"entity": "binary_sensor.any_plant_needs_water", "name": "Water plants", "icon": "mdi:watering-can-outline", "tone": "cool"},
+        {"entity": "input_boolean.guest_mode", "name": "Guest mode", "icon": "mdi:account-group", "tone": "accent", "toggle": True},
+    ],
     # Home page: one tab per room, the same things the ha-tablet dashboard shows
     "rooms": [
         {"name": "Kitchen", "icon": "mdi:stove", "group": "light.kitchen_lights",

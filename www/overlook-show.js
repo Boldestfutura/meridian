@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.7.1";
+const VERSION = "0.8.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -43,10 +43,9 @@ const PAGES = [
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
 
-// the phone's tab bar: the same pages, with Kitchen as the overview and Home as the rooms
+// the phone's tab bar: one Home page laid out like ha-phone, plus the calendar and recipes
 const PHONE_PAGES = [
   ["kitchen", "Home", "mdi:home-variant-outline"],
-  ["home", "Rooms", "mdi:sofa-outline"],
   ["calendar", "Calendar", "mdi:calendar-month-outline"],
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
@@ -81,7 +80,7 @@ class OverlookShow extends LitElement {
     this._config = Object.assign({
       idle: 300, photos: null, weather: "weather.forecast_home",
       lights: [], climate: null, speakers: [], calendars: [], todo: null, sensors: [], rooms: [], scenes: [],
-      phone: false,
+      phone: false, status: [], status_air: [], phone_rooms: [],
     }, config);
     if (this._config.phone) this._config.photos = null;
     this._page = this._config.photos ? "photos" : "kitchen";
@@ -270,7 +269,8 @@ class OverlookShow extends LitElement {
       <div class="screen ${photos ? "is-photos" : ""}">
         ${photos ? this._photos() : html`
           ${this._dock()}
-          <main class="page">${this._pageBody()}</main>`}
+          <main class="page">${this._pageBody()}</main>
+          ${this._page === "kitchen" ? this._status() : nothing}`}
         ${this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
       </div>`;
@@ -312,7 +312,40 @@ class OverlookShow extends LitElement {
     if (p) p.scrollTop = 0;
   }
 
-  // --- phone home: everything from the kitchen page, one column ----------------
+  // --- status pills: who's home, then anything that needs a look ---------------
+  // People are always shown; the rest appear only while their entity is in `when` (default "on").
+  _status() {
+    const pills = (this._config.status || []).map((x) => {
+      const e = this._st(x.entity);
+      if (!e) return nothing;
+      if (x.person) {
+        const home = e.state === "home";
+        return html`
+          <button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => this._moreInfo(x.entity)}>
+            <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
+            <span>${home ? x.name : `${x.name} away`}</span></button>`;
+      }
+      if (e.state !== (x.when || "on")) return nothing;
+      const tap = x.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
+        : () => this._moreInfo(x.entity);
+      return html`
+        <button class="tab st ${x.tone || "warn"}" @click=${tap}>
+          <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
+    });
+    const air = (this._config.status_air || []).map((x) => {
+      const e = this._st(x.entity);
+      if (!e) return nothing;
+      const v = Number(e.state);
+      return html`
+        <button class="tab st reading" @click=${() => this._moreInfo(x.entity)}>
+          <ha-icon icon=${x.icon} style="color:${x.color || "var(--accent)"}"></ha-icon>
+          <span>${isNaN(v) ? e.state : Math.round(v)}${x.unit != null ? x.unit : (e.attributes.unit_of_measurement || "")}</span>
+          <small>${x.name}</small></button>`;
+    });
+    return html`<div class="status">${pills}${air}</div>`;
+  }
+
+  // --- phone home: ha-phone's order (status, scenes, each room) in this look ----
   _phoneHome() {
     const n = this._now, h = n.getHours();
     const w = this._st(this._config.weather);
@@ -333,21 +366,58 @@ class OverlookShow extends LitElement {
               ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
             </div>` : nothing}
         </header>
-        ${this._mediaCard()}
-        <div class="card ph-favs">
-          <div class="card-title">Favourites</div>
-          <div class="favs" style="--n:${this._config.lights.length}">
-            ${this._config.lights.map((l) => this._pill(l))}
-            ${this._config.climate ? this._thermostat() : nothing}
-          </div>
-          ${this._config.scenes.length ? html`
-            <div class="fav-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>` : nothing}
-        </div>
-        ${this._st(this._config.playlists) ? html`<div class="card ph-pl">${this._playlists()}</div>` : nothing}
-        ${this._agenda()}
-        ${this._shopping()}
-        ${this._sensors()}
+        ${this._status()}
+        ${this._config.scenes.length ? html`
+          <section>
+            <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
+            <div class="fav-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div>
+          </section>` : nothing}
+        ${this._config.phone_rooms.map((r) => this._phoneRoom(r))}
       </div>`;
+  }
+
+  _phoneRoom(r) {
+    const g = this._st(r.group);
+    const lit = g && g.state === "on";
+    return html`
+      <section>
+        <div class="ph-sec"><ha-icon icon=${r.icon}></ha-icon><span>${r.name}</span>
+          ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
+              @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+              <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
+        </div>
+        <div class="ph-grid">
+          ${r.items.map((x) => {
+            const e = this._st(x.entity);
+            if (!e) return nothing;
+            switch (x.type) {
+              case "climate": return html`<div class="card ph-hp">${this._thermostat(x.entity)}</div>`;
+              case "media": return e.state === "unavailable" ? nothing : this._player(x);
+              case "plant": return this._plantTile(x);
+              case "switch": return this._switchTile(x);
+              default: return this._lightTile(x);
+            }
+          })}
+        </div>
+      </section>`;
+  }
+
+  // a small light tile: tap toggles, hold for the full controls
+  _lightTile(l) {
+    const e = this._st(l.entity);
+    if (!e) return nothing;
+    const on = e.state === "on";
+    const pct = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
+    let timer, held = false;
+    const down = () => { held = false; timer = setTimeout(() => { held = true; this._moreInfo(l.entity); }, 500); };
+    const up = () => clearTimeout(timer);
+    return html`
+      <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}
+              @click=${() => { if (!held) this._call("light", "toggle", { entity_id: l.entity }); }}>
+        <span class="tile-ico"><ha-icon icon=${l.icon || "mdi:lightbulb"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${l.name || e.attributes.friendly_name}</span>
+          <span class="muted">${on ? (pct >= 100 ? "On" : `On · ${pct}%`) : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+      </button>`;
   }
 
   _dock() {
@@ -1474,6 +1544,21 @@ class OverlookShow extends LitElement {
            background: var(--card); box-shadow: var(--shadow); font-weight: 600; font-size: 15px; color: var(--muted); }
     .tab ha-icon { --mdc-icon-size: 20px; }
     .tab.on { background: var(--accent); color: #fff; }
+    /* status pills: the room-tab shape; people always, alerts only while on */
+    .status { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    .status::-webkit-scrollbar { display: none; }
+    .screen > .status { position: absolute; z-index: 2; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 98px;
+                        right: 250px; padding: 8px 8px 24px; pointer-events: none; }
+    .screen > .status .tab { pointer-events: auto; }
+    .st { color: var(--ink); }
+    .st-home ha-icon { color: #3f8f63; }
+    .st-away { color: var(--muted); }
+    .st-away ha-icon { color: #7b63b8; }
+    .st.warn { background: color-mix(in srgb, var(--warm) 18%, var(--card)); color: color-mix(in srgb, var(--warm) 75%, var(--ink)); }
+    .st.bad { background: color-mix(in srgb, #e5484d 16%, var(--card)); color: color-mix(in srgb, #e5484d 80%, var(--ink)); }
+    .st.cool { background: color-mix(in srgb, var(--cool) 16%, var(--card)); color: color-mix(in srgb, var(--cool) 80%, var(--ink)); }
+    .st.accent { background: var(--accent-soft); color: var(--accent); }
+    .st.reading small { font-size: 12px; font-weight: 500; color: var(--muted); }
     .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
     .room.has-hp { grid-template-columns: 1fr 340px; }
     .room-lights { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -1671,66 +1756,73 @@ class OverlookShow extends LitElement {
                    padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 104px); }
     .phone .card { border-radius: 26px; }
     .tabbar { position: absolute; z-index: 4; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-              display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 28px;
+              display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 7px; border-radius: 28px;
               background: var(--card); border: 1px solid var(--card-edge); box-shadow: 0 10px 40px rgba(22, 42, 84, 0.18);
               backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); }
     .tabbar .dock-btn { width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
     .tabbar .dock-btn ha-icon { --mdc-icon-size: 24px; }
     .tabbar .dock-btn span { font-size: 11px; font-weight: 600; }
 
-    /* phone home */
-    .ph { display: flex; flex-direction: column; gap: 14px; }
-    .ph-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 4px 4px; }
+    /* phone home: ha-phone's order */
+    .ph { display: flex; flex-direction: column; gap: 18px; }
+    .ph section { display: flex; flex-direction: column; gap: 10px; }
+    .ph-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 4px 0; }
     .ph-head .date-top { font-size: 15px; margin: 0; }
     .ph-head h1 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.15; margin: 4px 0 0;
                   letter-spacing: -0.01em; }
     .ph-wx { text-align: right; flex: none; }
     .ph-wx-now { display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-size: 26px; font-weight: 600; }
     .ph-wx-now ha-icon { --mdc-icon-size: 28px; }
-    .phone .media-card { flex: none; padding: 16px 18px; }
-    .ph-favs { padding: 18px 18px 18px; }
-    .ph-favs .favs { flex: none; height: 300px; grid-template-columns: 108px 1fr; gap: 10px; margin-top: 12px; }
-    .ph-favs .thermo { padding: 14px 12px 12px; gap: 8px; }
-    .ph-favs .hp-temp { font-size: 38px; }
-    .ph-favs .hp-mode { font-size: 14px; }
-    .ph-favs .hp-target { margin-top: 8px; gap: 6px; }
-    .ph-favs .hp-step { width: 46px; height: 46px; border-radius: 15px; }
-    .ph-favs .hp-set { font-size: 22px; }
-    .ph-favs .modes { height: 58px; gap: 6px; }
-    .ph-favs .mode { flex-direction: column; gap: 2px; font-size: 12px; border-radius: 15px; }
-    .ph-favs .mode ha-icon { --mdc-icon-size: 20px; }
-    .ph-favs .split { --w: 64px; }
-    .phone .fav-scenes { margin: 12px -18px 0; padding: 0 18px; overflow-x: auto; scrollbar-width: none;
-                         scroll-snap-type: x proximity; scroll-padding: 0 18px; }
+    .ph-sec { display: flex; align-items: center; gap: 9px; padding: 0 4px; min-height: 40px; font-size: 17px; font-weight: 700;
+              letter-spacing: -0.01em; }
+    .ph-sec ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+    .ph-group { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; background: var(--card);
+                box-shadow: var(--shadow); display: grid; place-items: center; color: var(--muted); }
+    .ph-group ha-icon { --mdc-icon-size: 20px; color: inherit; }
+    .ph-group.on { background: var(--warm); color: #fff; }
+    /* players take two rows with the small tiles stacked beside them, as on ha-phone */
+    .ph-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(62px, auto); grid-auto-flow: dense; gap: 10px; }
+    .ph-grid .player { grid-row: span 2; justify-content: space-between; }
+    .ph-grid .plant .tile-text .muted { display: none; }
+    .ph-grid .player, .ph-grid .tile { min-width: 0; }
+    .ph-grid .tile { grid-template-columns: 38px 1fr auto; gap: 10px; padding: 10px 12px; border-radius: 20px; min-height: 62px; }
+    .ph-grid .tile-ico { width: 38px; height: 38px; }
+    .ph-grid .tile-ico ha-icon { --mdc-icon-size: 20px; }
+    .ph-grid .tile-name { font-size: 14px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2;
+                          -webkit-box-orient: vertical; overflow: hidden; }
+    .ph-grid .tile-text .muted { font-size: 12px; }
+    .ph-grid .tile-val { font-size: 18px; }
+    .light-tile.on { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
+    .ph-grid .player { padding: 12px; gap: 10px; border-radius: 20px; }
+    .ph-grid .player-row { grid-template-columns: 40px 1fr; gap: 10px; }
+    .ph-grid .player-row .round.play { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .ph-grid .art.small { width: 40px; height: 40px; border-radius: 10px; }
+    .ph-grid .player-title { font-size: 14px; }
+    .ph-grid .media-artist { font-size: 12px; }
+    .ph-grid .vol { gap: 6px; }
+    .ph-hp { grid-column: 1 / -1; padding: 14px; border-radius: 22px; }
+    .ph-hp .thermo { background: none; padding: 0; display: grid; gap: 12px 10px; grid-template-columns: 1fr auto;
+                     grid-template-areas: "now target" "modes modes"; }
+    .ph-hp .pill-head { display: none; }
+    .ph-hp .hp-now { grid-area: now; align-self: center; }
+    .ph-hp .hp-temp { font-size: 30px; }
+    .ph-hp .hp-mode { font-size: 14px; }
+    .ph-hp .hp-target { grid-area: target; margin: 0; }
+    .ph-hp .hp-step { width: 42px; height: 42px; border-radius: 14px; background: var(--inset); }
+    .ph-hp .hp-set { font-size: 20px; min-width: 52px; }
+    .ph-hp .modes { grid-area: modes; height: 46px; margin: 0; gap: 8px; }
+    .ph-hp .mode { background: var(--inset); border-radius: 14px; font-size: 13px; }
+    .ph-hp .mode ha-icon { --mdc-icon-size: 19px; }
+    .phone .fav-scenes { margin: 0 -16px; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none;
+                         scroll-snap-type: x proximity; scroll-padding: 0 16px; }
     .phone .fav-scenes::-webkit-scrollbar { display: none; }
-    .phone .mini-scene { flex: none; width: 84px; height: 84px; padding: 9px 4px; scroll-snap-align: start; }
-    .ph-pl { padding: 18px 18px 18px; }
-    .ph-pl .pl-title { margin-top: 0; }
-    .phone .pl-row { height: 124px; margin: 12px -18px -18px; padding: 0 18px 18px; scroll-padding: 0 18px; }
-    .phone .agenda, .phone .shopping { flex: none; padding: 18px; }
-    .phone .items { overflow: visible; }
-
-    /* phone rooms */
-    .phone .home { height: auto; gap: 14px; }
-    .phone .tabs { margin: 0 -16px; padding: 4px 16px 10px; max-width: none; box-sizing: border-box; }
-    .phone .tab { height: 42px; padding: 0 16px; font-size: 14px; }
-    .phone .room { display: flex; flex-direction: column; gap: 14px; }
-    .phone .room-lights { padding: 18px; overflow: visible; }
-    .phone .room-favs, .phone .room-favs.no-hp { flex: none; grid-template-columns: repeat(var(--n, 1), 1fr);
-                                                 grid-template-rows: 280px; grid-auto-rows: auto; gap: 10px; }
-    .phone .room-favs .thermo { grid-column: 1 / -1; }
-    .phone .room-favs .hp-target { margin-top: 10px; }
-    .phone .room-favs .modes { margin-top: 14px; }
-    .phone .room-favs .pill-wrap { padding: 12px 10px; }
-    .phone .room-favs .split { --w: 60px; }
-    .phone .room-side { margin: 0; padding: 0; overflow: visible; }
-    .phone .scenes { margin: 0; padding: 0; overflow: visible; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .phone .scene { min-width: 0; height: 100px; padding: 12px 14px; border-radius: 22px; font-size: 14px; }
-    .phone .scene ha-icon { width: 38px; height: 38px; --mdc-icon-size: 20px; }
-    .phone .music { display: flex; flex-direction: column; gap: 14px; }
-    .phone .music .media-card { padding: 22px 18px 18px; }
-    .phone .music-pl { padding: 18px; overflow: visible; }
-    .phone .music-pl .pl-row { margin: 12px 0 0; padding: 0; grid-template-columns: repeat(3, 1fr); height: auto; overflow: visible; }
+    .phone .mini-scene { flex: none; width: 84px; height: 84px; padding: 9px 4px; scroll-snap-align: start;
+                         background: var(--card); box-shadow: var(--shadow); }
+    .phone .mini-scene ha-icon { background: var(--accent-soft); }
+    .phone .mini-scene.on { background: var(--accent); }
+    .phone .mini-scene.on ha-icon { background: rgba(255, 255, 255, 0.2); }
+    .phone .status { margin: -10px -16px -22px; padding: 10px 16px 24px; }
+    .phone .tab { height: 40px; padding: 0 14px; font-size: 14px; gap: 6px; }
 
     /* phone calendar: dots in the grid, the list underneath does the talking */
     .phone .calendar { display: flex; flex-direction: column; gap: 14px; height: auto; }
