@@ -119,8 +119,8 @@ test dashboard beside ha-show-phone, which stays as it is until this one is sign
   same markup and CSS as the single card, so they look the same.
 - **`overlook-dock`** turns the dashboard's views into the floating tab bar and hides HA's
   header. It also sets HA's grid to the design's sizes (62px rows, 10px gaps, 16px
-  sides), and in sections holding Overlook cards a card's rows are a *minimum*: a
-  tile whose name wraps grows, as in the single card.
+  sides). A tile is one row, a player two, and every
+  card is exactly its cell: names stay on one line and fade out only where they are cut off.
 - **Calendar / Recipes** are panel views with the full card on that page
   (`embedded: true, dock: true`).
 - **Edit:** hold Home on the dock for 1 s. HA's header comes back with Done.

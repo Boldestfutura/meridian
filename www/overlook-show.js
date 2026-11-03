@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.12.2";
+const VERSION = "0.12.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -2539,6 +2539,13 @@ class OverlookShow extends LitElement {
     .piece .ph-grid.one { display: block; height: 100%; }
     .piece .ph-grid.one > * { height: 100%; width: 100%; }
     .piece .ph-sec { height: 100%; }
+    /* a card is exactly its grid cell: text stays on one line and fades out at the edge */
+    .piece .tile { min-height: 0; overflow: hidden; }
+    .piece .player { overflow: hidden; }
+    .piece .tile-name, .piece .tile-text .muted, .piece .media-src, .piece .player-title, .piece .media-artist {
+      display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+    .piece .cut { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+                  mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); }
     .piece .missing { display: flex; align-items: center; gap: 8px; height: 100%; min-height: 62px; padding: 0 14px;
                       font-size: 13px; color: var(--muted); }
     .piece .dock-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
@@ -2585,29 +2592,6 @@ function findHuiRoot() {
   return ha ? walk(ha.shadowRoot, 0) : null;
 }
 
-// HA fixes a card's height at its rows; the phone design lets a tile grow when its name
-// wraps (and the player beside it with it). In the grid sections holding Overlook cards,
-// the rows are a minimum instead.
-const GROW_ROWS = `.card.fit-rows { height: auto !important;
-  min-height: calc((var(--row-size, 1) * (var(--row-height) + var(--row-gap))) - var(--row-gap)); }`;
-function growRows(card) {
-  let node = card;
-  for (let i = 0; i < 4 && node; i++) {
-    const root = node.getRootNode();
-    if (!(root instanceof ShadowRoot)) return;
-    if (root.host.localName === "hui-grid-section") {
-      if (!root.getElementById("overlook-rows")) {
-        const st = document.createElement("style");
-        st.id = "overlook-rows";
-        st.textContent = GROW_ROWS;
-        root.appendChild(st);
-      }
-      return;
-    }
-    node = root.host;
-  }
-}
-
 let OVERLAY = null;
 const overlay = (hass) => {
   if (!OVERLAY) {
@@ -2633,7 +2617,6 @@ class OverlookPiece extends OverlookShow {
     LitElement.prototype.connectedCallback.call(this);
     loadFonts();
     this.style.height = "100%";   // fill the grid cell HA sizes for the card
-    growRows(this);
     if (!SCROLL_HOOKED) {
       SCROLL_HOOKED = true;
       window.addEventListener("scroll", () => { LAST_SCROLL = performance.now(); }, { capture: true, passive: true });
@@ -2648,9 +2631,25 @@ class OverlookPiece extends OverlookShow {
   }
 
   updated(changed) {
+    this._markCut();
     if (!changed.has("hass") || !this.hass) return;
     if (this._drag) this._settle();
     overlay(this.hass);
+  }
+
+  // fade only the text that is actually cut off by the edge of its cell
+  _markCut() {
+    const r = this.shadowRoot;
+    if (!r) return;
+    for (const el of r.querySelectorAll(".tile-name, .tile-text .muted, .media-src, .player-title, .media-artist")) {
+      el.classList.toggle("cut", el.scrollWidth > el.clientWidth + 1);
+    }
+  }
+
+  firstUpdated() {
+    // a cell changes width in edit mode or on rotating the phone
+    this._ro = new ResizeObserver(() => this._markCut());
+    this._ro.observe(this);
   }
 
   _openLight(id) { overlay(this.hass).openLight(id, this._config.name); }
