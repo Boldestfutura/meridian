@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.1";
+const VERSION = "0.18.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -307,6 +307,12 @@ class OverlookShow extends LitElement {
 
   // --- helpers --------------------------------------------------------------
   _st(id) { return id && this.hass ? this.hass.states[id] : undefined; }
+  // weather: met.no goes unavailable for hours at a time; say so instead of "NaN°" and a guessed "Cloudy"
+  _cond(w) {
+    if (!w || w.state === "unavailable" || w.state === "unknown") return ["mdi:cloud-off-outline", "No forecast", "var(--muted)"];
+    return WEATHER[w.state] || WEATHER.cloudy;
+  }
+  _deg(t) { return typeof t === "number" && isFinite(t) ? `${Math.round(t)}°` : "–"; }
   _links() { return this._config.links || {}; }
   _call(domain, service, data) {
     fireHaptic();
@@ -391,7 +397,7 @@ class OverlookShow extends LitElement {
 
   _topRight(onPhoto) {
     const w = this._st(this._config.weather);
-    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const cond = w ? this._cond(w) : null;
     const t = w && w.attributes.temperature;
     const [down, up] = this._holdToUncover();
     return html`
@@ -399,7 +405,7 @@ class OverlookShow extends LitElement {
            @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
         ${cond ? html`<ha-icon class="wx" icon=${cond[0]}
             style="color:${onPhoto ? "#fff" : cond[2]}"></ha-icon>
-          <span class="temp">${Math.round(t)}°</span>` : nothing}
+          <span class="temp">${this._deg(t)}</span>` : nothing}
         <span class="clock">${this._time(this._now)}</span>
       </div>`;
   }
@@ -946,7 +952,7 @@ class OverlookShow extends LitElement {
   _desk() {
     const rooms = (this._config.rooms || []).filter((r) => !r.music);
     const w = this._st(this._config.weather), f = this._forecast;
-    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const cond = w ? this._cond(w) : null;
     const [down, up] = this._holdToUncover();  // the clock that did this is not on the desk
     const head = (name) => html`<div class="desk-title" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${name}</div>`;
     // one kind of thing across the house, a sub-heading per room that has some
@@ -965,10 +971,10 @@ class OverlookShow extends LitElement {
               <div class="card-title">Outside</div>
               <div class="wx-card" @click=${() => this._open(this._config.weather)}>
                 <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
-                <span class="wx-temp">${Math.round(w.attributes.temperature)}°</span>
+                <span class="wx-temp">${this._deg(w.attributes.temperature)}</span>
                 <div class="wx-side">
                   <div class="wx-cond">${cond[1]}</div>
-                  ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
+                  ${f && w.state !== "unavailable" ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
                 </div>
               </div>
             </div>` : nothing}
@@ -1528,7 +1534,7 @@ class OverlookShow extends LitElement {
   _dateCard(weather = true) {
     const n = this._now;
     const w = weather && this._st(this._config.weather);
-    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const cond = w ? this._cond(w) : null;
     const f = this._forecast;
     return html`
       <div class="card date-card">
@@ -1537,10 +1543,10 @@ class OverlookShow extends LitElement {
         ${w ? html`
           <div class="wx-card">
             <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
-            <span class="wx-temp">${Math.round(w.attributes.temperature)}°</span>
+            <span class="wx-temp">${this._deg(w.attributes.temperature)}</span>
             <div class="wx-side">
               <div class="wx-cond">${cond[1]}</div>
-              ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
+              ${f && w.state !== "unavailable" ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
             </div>
           </div>` : nothing}
       </div>`;
