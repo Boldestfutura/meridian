@@ -1,0 +1,48 @@
+{
+ "id": "1784082631958",
+ "alias": "Master Bedroom Night Mode - Sleep Sounds",
+ "description": "9pm-7:30am while Cameron, Paget or a guest is home: input_boolean.bedroom_night_mode on (the Bedroom Show's red clock), Cataract Falls looping on the bedroom HomePod through Music Assistant at 15%. Also starts when someone gets home inside the window. Stops at 7:30am or when everyone leaves. Echo Show brightness step to be added once the device is set up.",
+ "triggers": [
+  {"trigger": "time", "at": "21:00:00", "id": "start"},
+  {"trigger": "state", "entity_id": ["person.cameron", "person.paget"], "to": "home", "id": "arrival"},
+  {"trigger": "time", "at": "07:30:00", "id": "end"},
+  {"trigger": "state", "entity_id": ["person.cameron", "person.paget"], "to": "not_home", "id": "left"}
+ ],
+ "conditions": [],
+ "actions": [
+  {"choose": [
+   {"conditions": [
+     {"condition": "trigger", "id": ["start", "arrival"]},
+     {"condition": "time", "after": "21:00:00", "before": "07:30:00"},
+     {"condition": "state", "entity_id": "input_boolean.bedroom_night_mode", "state": "off"},
+     {"condition": "or", "conditions": [
+       {"condition": "state", "entity_id": "person.cameron", "state": "home"},
+       {"condition": "state", "entity_id": "person.paget", "state": "home"},
+       {"condition": "state", "entity_id": "input_boolean.guest_mode", "state": "on"}]}],
+    "sequence": [
+     {"action": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.bedroom_night_mode"}},
+     {"action": "media_player.volume_set", "target": {"entity_id": "media_player.homepod_mini_master_bedroom_2"},
+      "data": {"volume_level": 0.15}, "continue_on_error": true},
+     {"action": "music_assistant.play_media", "target": {"entity_id": "media_player.homepod_mini_master_bedroom_2"},
+      "data": {"media_id": "http://100.108.150.25:8123/local/sounds/cataract-falls.m4a", "media_type": "track", "enqueue": "replace"},
+      "continue_on_error": true},
+     {"action": "media_player.repeat_set", "target": {"entity_id": "media_player.homepod_mini_master_bedroom_2"},
+      "data": {"repeat": "one"}, "continue_on_error": true}]},
+   {"conditions": [
+     {"condition": "or", "conditions": [
+       {"condition": "trigger", "id": "end"},
+       {"condition": "and", "conditions": [
+         {"condition": "trigger", "id": "left"},
+         {"condition": "state", "entity_id": "person.cameron", "state": "not_home"},
+         {"condition": "state", "entity_id": "person.paget", "state": "not_home"},
+         {"condition": "state", "entity_id": "input_boolean.guest_mode", "state": "off"}]}]},
+     {"condition": "state", "entity_id": "input_boolean.bedroom_night_mode", "state": "on"}],
+    "sequence": [
+     {"action": "media_player.media_stop", "target": {"entity_id": "media_player.homepod_mini_master_bedroom_2"}, "continue_on_error": true},
+     {"action": "media_player.repeat_set", "target": {"entity_id": "media_player.homepod_mini_master_bedroom_2"},
+      "data": {"repeat": "off"}, "continue_on_error": true},
+     {"action": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.bedroom_night_mode"}}]}
+  ]}
+ ],
+ "mode": "queued"
+}

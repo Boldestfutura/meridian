@@ -119,6 +119,15 @@ and how to deploy each without clobbering anything.
 - Nested button-cards need explicit `calc()` heights; `100%` resolves to nothing.
   Templates inside a nested card can't use `entity`, so name the entity id.
 - Device setup: `docs/tasks/echo-show-bedroom.md`.
+- **Night mode (2026-11-05):** `automation.master_bedroom_sleep_sounds_overnight` (repo copy
+  `ha_config/bedroom_night.json`) turns `input_boolean.bedroom_night_mode` on 9pm-7:30am while
+  anyone (or guest mode) is home, including on arrival inside the window, and loops
+  `/config/www/sounds/cataract-falls.m4a` on the bedroom HomePod's **MA** player at 15%.
+  - MA fetches the file from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`);
+    Sol can't reach the VM's LAN IP.
+  - The Bedroom Show (`night:` in showbedroom.py) shows a red clock on black while it's on.
+    A tap wakes it on Lights, and it goes back to the clock after 30s.
+  - Still to add once the Echo Show is rooted: screen brightness 1%, and confirm the 15% volume.
 
 **ha-phone** (room list) and **ha-computer** (whole house at once)
 - Media cards are `columns 6, rows 2`, so tiles stack and drag freely.

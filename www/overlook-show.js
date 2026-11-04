@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.17.4";
+const VERSION = "0.18.1";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -195,21 +195,31 @@ class OverlookShow extends LitElement {
     this._unsub();
   }
 
+  // bedside night mode: `night` is an input_boolean the bedroom automation turns on 9pm-7:30am
+  _night() { const e = this._st(this._config && this._config.night); return !!e && e.state === "on"; }
+
   _poke() {
     clearTimeout(this._idleTimer);
     if (!this._config || !this._config.photos) return;
+    // at night a woken screen goes back to the red clock after 30s, not five minutes
     this._idleTimer = setTimeout(() => {
       if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
       this._pop = null;
       this._light = null;
       this._page = "photos";
-    }, this._config.idle * 1000);
+    }, (this._night() ? 30 : this._config.idle) * 1000);
   }
 
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
     if (changed.has("hass") && this._drag) this._settle();
+    // night mode switching on sends the screen home, where it shows the red clock
+    if (changed.has("hass") && this._config.night) {
+      const n = this._night();
+      if (n && this._wasNight === false) { this._go("photos"); this._poke(); }
+      this._wasNight = n;
+    }
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
       this._subscribe();
@@ -347,6 +357,7 @@ class OverlookShow extends LitElement {
         </div>`;
     }
     const photos = this._page === "photos", bed = this._config.bedside;
+    if (bed && photos && this._night()) return this._nightClock();
     return html`
       <div class="screen ${photos && !bed ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
                   ${bed ? "bedside" : ""} ${bed && photos ? "on-photo" : ""}">
@@ -360,6 +371,21 @@ class OverlookShow extends LitElement {
         ${this._pop ? this._popSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
         ${this._dayOpen && this._page === "calendar" ? this._daySheet() : nothing}
+      </div>`;
+  }
+
+  // the bedside at night: a big red clock on black, nothing else; a tap wakes the dock on Lights.
+  // It drifts a few pixels each minute so nothing sits on the same pixels all night.
+  _nightClock() {
+    const d = this._now, m = d.getMinutes();
+    const [h, mm] = this._time(d).split(":");
+    const date = d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+    return html`
+      <div class="screen night" @click=${() => this._go("lights")}>
+        <div class="night-face" style="transform:translate(${(m * 7) % 25 - 12}px, ${(m * 5) % 17 - 8}px)">
+          <div class="night-time">${h}<span class="night-colon">:</span>${mm}</div>
+          <div class="night-date">${date}</div>
+        </div>
       </div>`;
   }
 
@@ -2768,6 +2794,14 @@ class OverlookShow extends LitElement {
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
+    .night { background: #000; color: #a8231b; grid-template-columns: 1fr; place-items: center; cursor: pointer; }
+    .night-face { display: flex; flex-direction: column; align-items: center; gap: 2vh; transition: transform 1s ease; }
+    .night-time { font-family: var(--display); font-weight: 800; font-size: min(54vh, 26vw); line-height: 0.9;
+                  letter-spacing: -0.03em; font-variant-numeric: tabular-nums; opacity: 0.8; }
+    .night-colon { opacity: 0.45; margin: 0 0.02em; position: relative; top: -0.06em; }
+    .night-date { font-family: var(--body); font-weight: 600; font-size: min(5.5vh, 26px); letter-spacing: 0.14em;
+                  text-transform: uppercase; opacity: 0.5; }
     /* bedside (Echo Show 5, 960x480): the kitchen's dock on the left; photos are home, with the dock over them */
     .bedside .dock { position: relative; padding: 12px 0 12px 12px; gap: 10px; z-index: 1; }
     .bedside .dock-pill { gap: 4px; padding: 6px; border-radius: 24px; }
