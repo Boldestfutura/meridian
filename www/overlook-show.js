@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.17.3";
+const VERSION = "0.17.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -1177,7 +1177,11 @@ class OverlookShow extends LitElement {
       const d = new Date(gs); d.setDate(d.getDate() + i); return d;
     });
     const thisMonth = m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear();
-    if (!this._config.phone && !this._config.bedside) {
+    // the bedside: today's date on its own, beside the agenda
+    if (this._config.bedside) {
+      return html`<div class="bed-two bed-cal">${this._dateCard(false)}${this._whatsOn(byDay, today)}</div>`;
+    }
+    if (!this._config.phone) {
       return html`
         <div class="calendar big">
           <div class="month">
@@ -1230,7 +1234,7 @@ class OverlookShow extends LitElement {
                 <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
                         @click=${() => this._pick(k)}>
                   <span class="dnum">${d.getDate()}</span>
-                  ${this._config.phone || this._config.bedside ? html`<span class="ev-dots">${ev.slice(0, 3).map((e) => html`<i style="background:${e.colour}"></i>`)}</span>` : html`
+                  ${this._config.phone ? html`<span class="ev-dots">${ev.slice(0, 3).map((e) => html`<i style="background:${e.colour}"></i>`)}</span>` : html`
                     ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
                     ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}`}
                 </button>`;
@@ -1495,9 +1499,9 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
-  _dateCard() {
+  _dateCard(weather = true) {
     const n = this._now;
-    const w = this._st(this._config.weather);
+    const w = weather && this._st(this._config.weather);
     const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
     const f = this._forecast;
     return html`
@@ -2811,16 +2815,9 @@ class OverlookShow extends LitElement {
     .bs-name { font-size: 17px; font-weight: 700; }
     .bs-state { font-size: 14px; color: var(--muted); }
     .big-switch.on .bs-ico { background: color-mix(in srgb, #3f86f2 18%, transparent); color: #3f86f2; }
-    .bedside .calendar { grid-template-columns: 1.15fr 1fr; gap: 14px; }
-    .bedside .month { padding: 14px 14px 12px; }
-    .bedside .month-head { padding: 0 2px 8px; gap: 8px; }
-    .bedside .month-head h1 { font-size: 20px; }
-    .bedside .nav-btn, .bedside .today-btn { height: 36px; }
-    .bedside .nav-btn { width: 36px; }
-    .bedside .dow, .bedside .mgrid { gap: 3px; }
-    .bedside .dow span { padding: 0; text-align: center; font-size: 10px; }
-    .bedside .day { border-radius: 10px; padding: 2px; align-items: center; gap: 2px; }
-    .bedside .dnum { width: 24px; height: 24px; font-size: 13px; }
+    .bed-cal .date-card { padding: 22px; justify-content: center; }
+    .bed-cal .date-top { font-size: 26px; }
+    .bed-cal .date-num { flex: none; font-size: min(190px, 36vh); margin: 6px 0 0; }
     .bedside .whatson { padding: 14px 16px 4px; }
     /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
     .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
