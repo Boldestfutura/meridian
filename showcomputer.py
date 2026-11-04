@@ -1,15 +1,18 @@
 """Computer Show (ha-show-computer): the Kitchen Show's card on the computer.
 
-The same full-screen card as ha-show (show.CARD): dock on the left with the
-Kitchen, Home, Calendar and Recipes pages, clock and weather top right. No photo
-slideshow, so it never drifts off to photos when left alone, and `windowed` keeps
-it beside HA's sidebar (header hidden) instead of over the whole window. Like ha-show it is
-one custom card: change it here and in www/overlook-show.js, not in HA's editor.
+The same card as ha-show (show.CARD), on its `desk` page: the whole house on one
+page, laid out like ha-computer (outside, heat pump and scenes, then a column per
+room) with the card's own light pills and players. No dock and no photos.
+`windowed` keeps it beside HA's sidebar (header hidden) instead of over the whole
+window. Like ha-show it is one custom card: change it here and in
+www/overlook-show.js, not in HA's editor.
 """
 import show
+from showphone import STATUS_AIR
 
 VERSION = show.VERSION
-CARD = dict(show.CARD, photos=None, windowed=True)
+# status_air: the phone's house-wide reading pills (temperature, humidity, PM2.5, VOC)
+CARD = dict(show.CARD, photos=None, windowed=True, desk=True, status_air=STATUS_AIR)
 
 
 def build():

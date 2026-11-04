@@ -9,7 +9,7 @@ purpose (Cameron, 2026-11-03: "keep both"). They share the repo, the theme and
 | Look | Overlook tiles, Bubble Card pop-ups | Echo Show style, bottom-sheet pop-ups |
 | Built with | `custom:button-card` + Bubble Card | one Lit card, `www/overlook-show.js` |
 | Dashboards | ha-phone, ha-tablet, ha-computer, ha-kitchen, ha-bedroom (+ ha-homey test) | ha-show (Kitchen Show), ha-show-native (Phone Show) |
-| Python | `design.py`, `patch3.py`, `scenes.py`, `roomscreen.py`, one module each | `show.py`, `showphone.py`, `shownative.py` |
+| Python | `design.py`, `patch3.py`, `scenes.py`, `roomscreen.py`, one module each | `show.py`, `showphone.py`, `shownative.py`, `showcomputer.py` |
 | Hand-edited in the HA UI? | **Yes.** Cameron moves cards around | No. The UI only sees one card |
 | Safe way to change | `--patch` (keeps his edits) | plain deploy |
 
@@ -76,20 +76,21 @@ More screenshots in the [README](../README.md#the-show-dashboards).
 
 | file | what it is |
 |---|---|
-| `www/overlook-show.js` | the whole UI: one Lit card, tablet and phone layouts in one file |
+| `www/overlook-show.js` | the whole UI: one Lit card, tablet, phone and desk layouts in one file |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `show.py` | Kitchen Show: `VERSION`, the card's config (`CARD`): rooms, scenes, status pills, calendar, recipes |
-| `showphone.py` | Phone Show: `show.CARD` plus `phone: True`, ha-phone's rooms and scenes, the pop-ups (`POPUPS`) and which tap opens which (`LINKS`) |
+| `showphone.py` | the phone's data, no dashboard of its own any more: ha-phone's rooms and scenes, the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` and `showcomputer.py` read it |
+| `showcomputer.py` | Computer Show (`ha-show-computer`): `show.CARD` on its `desk` page, the whole house on one page like ha-computer, beside HA's sidebar (`windowed`) |
 | `shownative.py` | Phone Show (new): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
 
-Both dashboards run the **same JS file**. `phone: true` in the config switches it to the
-phone layout. All phone-only CSS sits under `.phone`.
+Every Show dashboard runs the **same JS file**. `phone: true` in the config switches it to the
+phone layout (CSS under `.phone`); `desk: true` to the computer one (CSS under `.desk`).
 
 ### Changing one
 
-1. **Layout, entities, scenes, pills, pop-ups:** edit `show.py` or `showphone.py`.
+1. **Layout, entities, scenes, pills, pop-ups:** edit `show.py`, `showphone.py` or `showcomputer.py`.
    **How it looks or behaves:** edit `www/overlook-show.js`.
 2. **Bump the version in both places**, to the same number:
    - `VERSION` in `show.py`
@@ -98,14 +99,15 @@ phone layout. All phone-only CSS sits under `.phone`.
    Skip this and browsers keep the old JS cached, so the change looks like it didn't work.
 3. Deploy:
    ```sh
-   ./deploy.py show showphone
+   ./deploy.py show shownative showcomputer
    ```
    This copies the JS to `/config/www` over SSH, points the resource at the new version and
-   rewrites both dashboards. A plain deploy is right here: neither dashboard holds UI edits,
-   so all the config lives in the Python.
-4. Check **both** dashboards, even if you only meant to change one. They share the file:
+   rewrites the dashboards. ha-show and ha-show-computer hold no UI edits, so their config
+   lives in the Python; ha-show-native is only rewritten while nobody has edited it in HA.
+4. Check **every** Show dashboard, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 (the ALLDOCUBE tablet)
    - Phone Show `/ha-show-native/home` at 390 wide
+   - Computer Show `/ha-show-computer/show` at 1920x950 and 1440x820 (the MacBook Air), sidebar open
 
 ### Phone Show (new): native HA cards
 

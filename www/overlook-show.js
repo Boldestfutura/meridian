@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.15.0";
+const VERSION = "0.16.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -125,7 +125,7 @@ class OverlookShow extends LitElement {
       phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.page || (this._config.photos ? "photos" : "kitchen");
+    this._page = this._config.desk ? "desk" : this._config.page || (this._config.photos ? "photos" : "kitchen");
     if (this._page === "calendar") { this._page = null; this._go("calendar"); }
     this._drag = null;
     this._picker = false;
@@ -327,11 +327,11 @@ class OverlookShow extends LitElement {
     }
     const photos = this._page === "photos";
     return html`
-      <div class="screen ${photos ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""}">
+      <div class="screen ${photos ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}">
         ${photos ? this._photos() : html`
-          ${this._dock()}
+          ${this._config.desk ? nothing : this._dock()}
           <main class="page">${this._pageBody()}</main>
-          ${this._page === "kitchen" ? this._status() : nothing}`}
+          ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}`}
         ${this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
@@ -795,6 +795,7 @@ class OverlookShow extends LitElement {
       case "recipes": return this._recipes();
       case "calendar": return this._calendar();
       case "home": return this._home();
+      case "desk": return this._desk();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -820,6 +821,57 @@ class OverlookShow extends LitElement {
         </div>
         ${r.music ? this._musicRoom() : this._room_(r)}
       </div>`;
+  }
+
+  // --- desk (the computer): the whole house on one page, laid out like ha-computer:
+  // outside, heat pump and scenes, then a column per room; the bedrooms share the last
+  _desk() {
+    const rooms = (this._config.rooms || []).filter((r) => !r.music);
+    const cols = [rooms.slice(0, 1), rooms.slice(1, 2), rooms.slice(2)].filter((c) => c.length);
+    const w = this._st(this._config.weather), f = this._forecast;
+    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    return html`
+      <div class="desk">
+        <div class="desk-col">
+          ${w ? html`
+            <div class="card desk-card">
+              <div class="card-title">Outside</div>
+              <div class="wx-card" @click=${() => this._open(this._config.weather)}>
+                <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+                <span class="wx-temp">${Math.round(w.attributes.temperature)}°</span>
+                <div class="wx-side">
+                  <div class="wx-cond">${cond[1]}</div>
+                  ${f ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
+                </div>
+              </div>
+            </div>` : nothing}
+          ${this._config.climate ? html`
+            <div class="card desk-card desk-hp">${this._thermostat()}</div>` : nothing}
+          ${this._config.scenes.length ? html`
+            <div class="card desk-card"><div class="card-title">Scenes</div>
+              <div class="fav-scenes desk-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div></div>` : nothing}
+        </div>
+        ${cols.map((c) => html`<div class="desk-col">${c.map((r) => this._deskRoom(r))}</div>`)}
+      </div>`;
+  }
+
+  _deskRoom(r) {
+    const lights = r.lights || [];
+    const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
+    const rest = [...(r.media || []).map((m) => this._player(m)),
+                  ...(r.switches || []).map((x) => this._switchTile(x)),
+                  ...(r.plants || []).map((x) => this._plantTile(x))];
+    return html`
+      ${lights.length ? html`
+        <div class="card desk-card">
+          <div class="card-title"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}
+            ${r.group && this._st(r.group) ? html`
+              <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+                ${lit ? "All off" : "All on"}</button>` : nothing}
+          </div>
+          <div class="desk-favs" style="--n:${Math.max(3, lights.length)}">${lights.map((l) => this._pill(l))}</div>
+        </div>` : html`<div class="desk-title card-title"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}</div>`}
+      ${rest}`;
   }
 
   _room_(r) {
@@ -1983,6 +2035,39 @@ class OverlookShow extends LitElement {
 
     /* kitchen: three columns */
     .kitchen { display: grid; grid-template-columns: 0.95fr 1.45fr 1fr; gap: 18px; height: 100%; min-height: 0; }
+    /* desk: no dock; four columns that each scroll on their own if they run long */
+    .screen.desk-screen { grid-template-columns: 1fr; }
+    .screen.desk-screen > .status { left: 20px; }
+    .desk-screen .page { padding-left: 28px; }
+    .desk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; height: 100%; min-height: 0; }
+    .desk-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; scrollbar-width: none;
+                margin: -10px -12px; padding: 10px 12px 24px; }
+    .desk-col::-webkit-scrollbar { display: none; }
+    .desk-card { padding: 18px 18px 18px; flex: none; }
+    .desk-card .card-title { display: flex; align-items: center; gap: 8px; }
+    .desk-ico { --mdc-icon-size: 20px; color: var(--muted); }
+    .desk-title { display: flex; align-items: center; gap: 8px; padding: 6px 4px 0; }
+    .desk-card .wx-card { margin-top: 10px; padding: 0; background: none; border-radius: 0; cursor: pointer; }
+    .desk-card .wx-card ha-icon { --mdc-icon-size: 40px; }
+    .desk-card .wx-temp { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
+    .desk-hp { padding: 0; }
+    .desk-hp .thermo { background: none; padding: 18px; }
+    .desk-favs { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: 10px;
+                 height: 250px; margin-top: 12px; }
+    .desk .pill-wrap { min-width: 0; overflow: hidden; container-type: inline-size; }
+    .desk .split { --w: min(72px, 100cqw); }
+    .desk .pill-head > div { min-width: 0; }
+    /* narrow pills (a laptop with the sidebar open): the dots go above the name, which
+       then gets the pill's whole width and only breaks a word with a hyphen */
+    .desk-favs { container: favs / inline-size; }
+    @container favs (max-width: 320px) {
+      .desk .pill-wrap { padding: 10px 9px 12px; }
+      .desk .pill-head { position: relative; padding-top: 20px; }
+      .desk .pill-head .dots { position: absolute; top: -4px; right: -5px; width: 26px; height: 26px; margin: 0; }
+      .desk .pill-name { font-size: 13px; hyphens: auto; -webkit-hyphens: auto; }
+    }
+    .desk-scenes { flex-wrap: wrap; }
+    .desk-scenes .mini-scene { flex: 0 0 calc((100% - 20px) / 3); height: 88px; }
     .col { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
 
     .date-card { flex: 1.15; padding: 22px 22px 18px; display: flex; flex-direction: column;
