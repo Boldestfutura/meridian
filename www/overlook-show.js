@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.16.12";
+const VERSION = "0.17.1";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -41,6 +41,15 @@ const PAGES = [
   ["home", "Home", "mdi:home-outline"],
   ["calendar", "Calendar", "mdi:calendar-month-outline"],
   ["recipes", "Recipes", "mdi:silverware-fork-knife"],
+];
+
+// the bedside screen (Echo Show 5): a clock over the photos, then the bedroom's things
+const BEDSIDE_PAGES = [
+  ["clock", "Clock", "mdi:home-outline"],
+  ["lights", "Lights", "mdi:lightbulb-outline"],
+  ["media", "Media", "mdi:music"],
+  ["climate", "Climate", "mdi:thermometer"],
+  ["calendar", "Calendar", "mdi:calendar-month-outline"],
 ];
 
 // the phone's tab bar: one Home page laid out like ha-phone, plus the calendar and recipes
@@ -125,7 +134,8 @@ class OverlookShow extends LitElement {
       phone: false, status: [], status_air: [], phone_rooms: [], popups: {}, links: {},
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.desk ? "desk" : this._config.page || (this._config.photos ? "photos" : "kitchen");
+    this._page = this._config.desk ? "desk" : this._config.bedside ? "clock"
+      : this._config.page || (this._config.photos ? "photos" : "kitchen");
     if (this._page === "calendar") { this._page = null; this._go("calendar"); }
     this._drag = null;
     this._picker = false;
@@ -134,10 +144,12 @@ class OverlookShow extends LitElement {
     this._forecast = null;
     this._now = new Date();
     this._uncovered = false;
-    try { this._speaker = localStorage.getItem("overlook-show-speaker"); } catch (e) {}
+    try { this._speaker = localStorage.getItem(this._spKey()); } catch (e) {}
   }
 
   getCardSize() { return 12; }
+  // the picked speaker is remembered per screen kind, so the bedside doesn't inherit the kitchen's
+  _spKey() { return this._config && this._config.bedside ? "overlook-show-speaker-bed" : "overlook-show-speaker"; }
 
   connectedCallback() {
     super.connectedCallback();
@@ -182,7 +194,9 @@ class OverlookShow extends LitElement {
     this._idleTimer = setTimeout(() => {
       if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
-      this._page = "photos";
+      this._pop = null;
+      this._light = null;
+      this._page = this._config.bedside ? "clock" : "photos";   // the bedside idles to its clock
     }, this._config.idle * 1000);
   }
 
@@ -288,6 +302,7 @@ class OverlookShow extends LitElement {
     this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
+    if (page === "climate") this._loadHistory({ sections: this._bedGraphs() });
     this._page = page;
   }
   // an event's start/end -> Date; all-day dates are local midnight, not UTC
@@ -325,14 +340,16 @@ class OverlookShow extends LitElement {
           ${this._light ? this._lightSheet() : nothing}
         </div>`;
     }
-    const photos = this._page === "photos";
+    const photos = this._page === "photos", bed = this._config.bedside;
     return html`
-      <div class="screen ${photos ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}">
+      <div class="screen ${photos ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
+                  ${bed ? "bedside" : ""} ${bed && this._page === "clock" ? "on-clock" : ""}">
         ${photos ? this._photos() : html`
+          ${bed && this._page === "clock" ? this._bedBg() : nothing}
           ${this._config.desk ? nothing : this._dock()}
           <main class="page">${this._pageBody()}</main>
           ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}`}
-        ${this._config.desk ? nothing : this._topRight(photos)}
+        ${this._config.desk || bed ? nothing : this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
         ${this._pop ? this._popSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
@@ -768,8 +785,8 @@ class OverlookShow extends LitElement {
                 <path d=${d} fill="none" stroke=${c} stroke-width="2" vector-effect="non-scaling-stroke"
                       stroke-linejoin="round" stroke-linecap="round"></path>`}
         </svg>
-        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e && e.attributes.unit_of_measurement === "%" ? "%" : "°"} this week</span>
-          <span>${(s.hours || 168) / 24} days</span></div>
+        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e && e.attributes.unit_of_measurement === "%" ? "%" : "°"} ${(s.hours || 168) >= 168 ? "this week" : "today"}</span>
+          <span>${(s.hours || 168) >= 48 ? `${(s.hours || 168) / 24} days` : `${s.hours} hours`}</span></div>
       </div>`;
   }
 
@@ -777,7 +794,7 @@ class OverlookShow extends LitElement {
     return html`
       <nav class="dock">
         <div class="dock-pill">
-          ${PAGES.map(([id, name, icon]) => html`
+          ${(this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => html`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
               <ha-icon icon=${icon}></ha-icon>
@@ -797,6 +814,10 @@ class OverlookShow extends LitElement {
       case "calendar": return this._calendar();
       case "home": return this._home();
       case "desk": return this._desk();
+      case "clock": return this._bedClock();
+      case "lights": return this._bedLights();
+      case "media": return this._bedMedia();
+      case "climate": return this._bedClimate();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -821,6 +842,74 @@ class OverlookShow extends LitElement {
               <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}
         </div>
         ${r.music ? this._musicRoom() : this._room_(r)}
+      </div>`;
+  }
+
+  // --- bedside (the Echo Show 5 by the bed) ------------------------------------
+  // config.room is the bedroom from show.CARD.rooms; the pages only show what it has
+  _bedBg() {
+    const cam = this._st(this._config.photos);
+    const pic = cam && cam.attributes.entity_picture;
+    return html`<div class="bed-bg">${pic ? html`<img src=${this._u(pic)} alt="">` : nothing}</div>`;
+  }
+
+  _bedClock() {
+    const n = this._now, w = this._st(this._config.weather);
+    const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const [down, up] = this._holdToUncover();
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    return html`
+      <div class="bed-clock">
+        <div class="bc-time" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${this._time(n)}</div>
+        <div class="bc-date">${days[n.getDay()]} ${n.getDate()} ${LONG_MONTHS[n.getMonth()]}</div>
+        ${cond ? html`
+          <button class="bc-wx" @click=${() => this._open(this._config.weather)}>
+            <ha-icon icon=${cond[0]}></ha-icon><span>${cond[1]} · ${Math.round(w.attributes.temperature)}°</span>
+          </button>` : nothing}
+      </div>`;
+  }
+
+  _bedLights() {
+    const r = this._config.room || {}, lights = r.lights || [];
+    const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
+    return html`
+      <div class="card bed-card bed-lights">
+        <div class="card-title">Lights
+          ${lit ? html`<span class="count">${lit} on</span>` : nothing}
+          ${r.group && this._st(r.group) ? html`
+            <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+              ${lit ? "All off" : "All on"}</button>` : nothing}
+        </div>
+        <div class="bed-favs" style="--n:${lights.length}">${lights.map((l) => this._pill(l))}</div>
+        ${(r.scenes || []).length ? html`
+          <div class="fav-scenes bed-scenes">${r.scenes.map((x) => this._miniScene(x))}</div>` : nothing}
+      </div>`;
+  }
+
+  _bedMedia() {
+    const pl = this._playlists();
+    return html`
+      <div class="bed-two">
+        ${this._mediaCard()}
+        ${pl === nothing ? nothing : html`<div class="card bed-card bed-pl">${pl}</div>`}
+      </div>`;
+  }
+
+  // the bedroom monitor's temperature and humidity over the last day
+  _bedGraphs() {
+    const s = (this._config.room || {}).sensors || [];
+    return s.slice(0, 2).map((x) => ({ type: "graph", entity: x.entity, name: x.name, color: x.color, hours: 24 }));
+  }
+
+  _bedClimate() {
+    const r = this._config.room || {};
+    return html`
+      <div class="bed-two">
+        <div class="bed-stack">
+          ${this._sensors(r.sensors || [])}
+          ${(r.switches || []).map((x) => this._switchTile(x))}
+        </div>
+        <div class="card bed-card bed-graphs">${this._bedGraphs().map((g) => this._popGraph(g))}</div>
       </div>`;
   }
 
@@ -1086,7 +1175,7 @@ class OverlookShow extends LitElement {
       const d = new Date(gs); d.setDate(d.getDate() + i); return d;
     });
     const thisMonth = m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear();
-    if (!this._config.phone) {
+    if (!this._config.phone && !this._config.bedside) {
       return html`
         <div class="calendar big">
           <div class="month">
@@ -1139,7 +1228,7 @@ class OverlookShow extends LitElement {
                 <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === this._sel ? "sel" : ""}"
                         @click=${() => this._pick(k)}>
                   <span class="dnum">${d.getDate()}</span>
-                  ${this._config.phone ? html`<span class="ev-dots">${ev.slice(0, 3).map((e) => html`<i style="background:${e.colour}"></i>`)}</span>` : html`
+                  ${this._config.phone || this._config.bedside ? html`<span class="ev-dots">${ev.slice(0, 3).map((e) => html`<i style="background:${e.colour}"></i>`)}</span>` : html`
                     ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}">${e.summary}</span>`)}
                     ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}`}
                 </button>`;
@@ -1355,7 +1444,7 @@ class OverlookShow extends LitElement {
     const d = when ? new Date(when) : null;
     const album = cam && cam.attributes.album_title;
     return html`
-      <div class="photo" @click=${() => this._go("kitchen")}>
+      <div class="photo" @click=${() => this._go(this._config.bedside ? "clock" : "kitchen")}>
         ${pic ? html`<img src=${this._u(pic)} alt="">` : nothing}
         <div class="photo-shade"></div>
         <div class="photo-cap">
@@ -1513,7 +1602,7 @@ class OverlookShow extends LitElement {
   async _pickSpeaker(target, active) {
     this._picker = false;
     this._speaker = target.name;
-    try { localStorage.setItem("overlook-show-speaker", target.name); } catch (e) {}
+    try { localStorage.setItem(this._spKey(), target.name); } catch (e) {}
     if (!active || active.name === target.name || !active.playing) return;
     if (!active.ma || !target.ma) return;
     const src = this._st(active.ma);
@@ -1723,7 +1812,7 @@ class OverlookShow extends LitElement {
     const sp = this._activeSpeaker();
     if (!sp || !sp.ma) return;
     this._speaker = sp.name;
-    try { localStorage.setItem("overlook-show-speaker", sp.name); } catch (e) {}
+    try { localStorage.setItem(this._spKey(), sp.name); } catch (e) {}
     this._call("music_assistant", "play_media",
       { entity_id: sp.ma, media_id: p.uri, media_type: "playlist", enqueue: "replace" });
   }
@@ -2665,6 +2754,58 @@ class OverlookShow extends LitElement {
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* bedside (Echo Show 5, 960x480): the dock on the right, the clock over the photos */
+    .screen.bedside { grid-template-columns: 1fr auto; }
+    .bedside .dock { order: 2; padding: 12px 12px 12px 0; gap: 10px; z-index: 1; }
+    .bedside .dock-pill { gap: 4px; padding: 6px; border-radius: 24px; }
+    .bedside .dock-btn { width: 48px; height: 48px; border-radius: 16px; }
+    .bedside .dock-btn ha-icon { --mdc-icon-size: 24px; }
+    .bedside .page { padding: 14px 0 14px 14px; position: relative; z-index: 1; }
+    .on-clock .dock-pill, .on-clock .photo-btn { background: rgba(14, 18, 28, 0.55); border-color: rgba(255, 255, 255, 0.08);
+                                                 backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+    .on-clock .dock-btn { color: rgba(255, 255, 255, 0.75); }
+    .on-clock .dock-btn.on { background: rgba(255, 255, 255, 0.16); color: #fff; }
+    .bed-bg { position: absolute; inset: 0; background: #0e1420; }
+    .bed-bg img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.55) saturate(0.85); }
+    .bed-clock { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+                 color: #fff; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35); }
+    .bc-time { font-family: var(--display); font-weight: 500; font-size: min(150px, 30vh); line-height: 1;
+               letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .bc-date { font-size: min(26px, 5.4vh); font-weight: 600; margin-top: 10px; opacity: 0.92; }
+    .bc-wx { display: flex; align-items: center; gap: 8px; margin-top: 22px; height: 38px; padding: 0 16px; border-radius: 999px;
+             background: rgba(14, 18, 28, 0.45); color: #fff; font-size: 15px; font-weight: 600;
+             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); text-shadow: none; }
+    .bc-wx ha-icon { --mdc-icon-size: 20px; }
+    .bed-card { padding: 16px 18px; min-height: 0; }
+    .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
+    .bed-lights { height: 100%; display: flex; flex-direction: column; }
+    .bed-favs { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr));
+                gap: 10px; margin-top: 10px; }
+    .bed-scenes .mini-scene { height: 76px; }
+    .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
+    .bedside .media-card { flex: none; height: 100%; }
+    .bed-pl { display: flex; flex-direction: column; overflow: hidden; }
+    .bed-pl .pl-title { margin: 0; }
+    .bed-pl .pl-row { flex: 1; height: auto; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr);
+                      grid-auto-rows: min-content; gap: 10px; overflow-y: auto; }
+    .bed-pl .pl { width: 100%; height: auto; border-radius: 16px; }
+    .bed-stack { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+    .bed-stack .sensors { flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+    .bed-stack .sensor { padding: 12px 14px 10px; justify-content: center; }
+    .bed-graphs { display: flex; flex-direction: column; gap: 10px; justify-content: space-around; }
+    .bed-graphs .graph { background: none; padding: 0; }
+    .bed-graphs .graph + .graph { border-top: 1px solid var(--grid-line); padding-top: 12px; }
+    .bedside .calendar { grid-template-columns: 1.15fr 1fr; gap: 14px; }
+    .bedside .month { padding: 14px 14px 12px; }
+    .bedside .month-head { padding: 0 2px 8px; gap: 8px; }
+    .bedside .month-head h1 { font-size: 20px; }
+    .bedside .nav-btn, .bedside .today-btn { height: 36px; }
+    .bedside .nav-btn { width: 36px; }
+    .bedside .dow, .bedside .mgrid { gap: 3px; }
+    .bedside .dow span { padding: 0; text-align: center; font-size: 10px; }
+    .bedside .day { border-radius: 10px; padding: 2px; align-items: center; gap: 2px; }
+    .bedside .dnum { width: 24px; height: 24px; font-size: 13px; }
+    .bedside .whatson { padding: 14px 16px 4px; }
     /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
     .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
     .screen:not(.phone) .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
