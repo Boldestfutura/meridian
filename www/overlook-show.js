@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.16.5";
+const VERSION = "0.16.10";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -332,8 +332,9 @@ class OverlookShow extends LitElement {
           ${this._config.desk ? nothing : this._dock()}
           <main class="page">${this._pageBody()}</main>
           ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}`}
-        ${this._topRight(photos)}
+        ${this._config.desk ? nothing : this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
+        ${this._pop ? this._popSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
         ${this._dayOpen && this._page === "calendar" ? this._daySheet() : nothing}
       </div>`;
@@ -827,12 +828,21 @@ class OverlookShow extends LitElement {
   // outside, heat pump and scenes, then a column per room; the bedrooms share the last
   _desk() {
     const rooms = (this._config.rooms || []).filter((r) => !r.music);
-    const cols = [rooms.slice(0, 1), rooms.slice(1, 2), rooms.slice(2)].filter((c) => c.length);
     const w = this._st(this._config.weather), f = this._forecast;
     const cond = w ? (WEATHER[w.state] || WEATHER.cloudy) : null;
+    const [down, up] = this._holdToUncover();  // the clock that did this is not on the desk
+    const head = (name) => html`<div class="desk-title" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${name}</div>`;
+    // one kind of thing across the house, a sub-heading per room that has some
+    const byRoom = (key, tile) => rooms.filter((r) => (r[key] || []).length).map((r) => html`
+      <div class="desk-sub"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}</div>
+      ${r[key].map((x) => tile(x))}`);
+    const lit = rooms.filter((r) => (r.lights || []).length);
+    const plugs = byRoom("switches", (x) => this._switchTile(x));
+    const plants = byRoom("plants", (x) => this._plantTile(x));
     return html`
       <div class="desk">
         <div class="desk-col">
+          ${w || this._config.climate ? head("Climate") : nothing}
           ${w ? html`
             <div class="card desk-card">
               <div class="card-title">Outside</div>
@@ -847,31 +857,36 @@ class OverlookShow extends LitElement {
             </div>` : nothing}
           ${this._config.climate ? html`
             <div class="card desk-card desk-hp">${this._thermostat()}</div>` : nothing}
-          ${this._config.scenes.length ? html`
-            <div class="card desk-card"><div class="card-title">Scenes</div>
+          ${this._config.scenes.length ? html`${head("Scenes")}
+            <div class="card desk-card">
               <div class="fav-scenes desk-scenes">${this._config.scenes.map((x) => this._miniScene(x))}</div></div>` : nothing}
         </div>
-        ${cols.map((c) => html`<div class="desk-col">${c.map((r) => this._deskRoom(r))}</div>`)}
+        <div class="desk-col desk-mid">
+          ${lit.length ? html`${head("Lights")}<div class="desk-pair">${lit.map((r) => this._deskLights(r))}</div>` : nothing}
+          ${plugs.length || plants.length ? html`
+            <div class="desk-pair">
+              ${plugs.length ? html`<div class="desk-stack">${head("Plugs")}${plugs}</div>` : nothing}
+              ${plants.length ? html`<div class="desk-stack">${head("Plants")}${plants}</div>` : nothing}
+            </div>` : nothing}
+        </div>
+        <div class="desk-col">${head("Media")}${byRoom("media", (m) => this._player(m))}</div>
       </div>`;
   }
 
-  _deskRoom(r) {
-    const lights = r.lights || [];
+  // a room's lights on the desk: its name and All on/off, then its pills
+  _deskLights(r) {
+    const lights = r.lights;
     const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
-    const rest = [...(r.media || []).map((m) => this._player(m)),
-                  ...(r.switches || []).map((x) => this._switchTile(x)),
-                  ...(r.plants || []).map((x) => this._plantTile(x))];
     return html`
-      ${lights.length ? html`
-        <div class="card desk-card">
-          <div class="card-title"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}
-            ${r.group && this._st(r.group) ? html`
-              <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
-                ${lit ? "All off" : "All on"}</button>` : nothing}
-          </div>
-          <div class="desk-favs" style="--n:${Math.max(3, lights.length)}">${lights.map((l) => this._pill(l))}</div>
-        </div>` : html`<div class="desk-title card-title"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}</div>`}
-      ${rest}`;
+      <div class="card desk-card">
+        <div class="card-title"><ha-icon class="desk-ico" icon=${r.icon}></ha-icon>${r.name}
+          ${lit ? html`<span class="count">${lit} on</span>` : nothing}
+          ${r.group && this._st(r.group) ? html`
+            <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
+              ${lit ? "All off" : "All on"}</button>` : nothing}
+        </div>
+        <div class="desk-favs" style="--n:${Math.max(3, lights.length)}">${lights.map((l) => this._pill(l))}</div>
+      </div>`;
   }
 
   _room_(r) {
@@ -2037,7 +2052,7 @@ class OverlookShow extends LitElement {
     .kitchen { display: grid; grid-template-columns: 0.95fr 1.45fr 1fr; gap: 18px; height: 100%; min-height: 0; }
     /* desk: no dock; four columns that each scroll on their own if they run long */
     .screen.desk-screen { grid-template-columns: 1fr; }
-    .screen.desk-screen > .status { left: 20px; }
+    .screen.desk-screen > .status { left: 20px; right: 20px; }
     .desk-screen .page { padding-left: 28px; }
     .desk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; height: 100%; min-height: 0; }
     .desk-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; scrollbar-width: none;
@@ -2046,7 +2061,16 @@ class OverlookShow extends LitElement {
     .desk-card { padding: 18px 18px 18px; flex: none; }
     .desk-card .card-title { display: flex; align-items: center; gap: 8px; }
     .desk-ico { --mdc-icon-size: 20px; color: var(--muted); }
-    .desk-title { display: flex; align-items: center; gap: 8px; padding: 6px 4px 0; }
+    .desk-title { padding: 2px 4px 0; font-family: var(--display); font-size: 20px; font-weight: 700;
+                  letter-spacing: -0.01em; user-select: none; }
+    .desk-sub { display: flex; align-items: center; gap: 6px; padding: 4px 4px 0; margin-bottom: -6px;
+                font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    .desk-sub .desk-ico { --mdc-icon-size: 16px; }
+    /* lights, plugs and plants share the two middle columns */
+    .desk-mid { grid-column: span 2; }
+    .desk-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+    .desk-pair + .desk-pair { margin-top: 6px; }
+    .desk-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .desk-card .wx-card { margin-top: 10px; padding: 0; background: none; border-radius: 0; cursor: pointer; }
     .desk-card .wx-card ha-icon { --mdc-icon-size: 40px; }
     .desk-card .wx-temp { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
@@ -2066,7 +2090,7 @@ class OverlookShow extends LitElement {
       .desk .pill-head .dots { position: absolute; top: -4px; right: -5px; width: 26px; height: 26px; margin: 0; }
       .desk .pill-name { font-size: 13px; hyphens: auto; -webkit-hyphens: auto; }
     }
-    .desk-scenes { flex-wrap: wrap; }
+    .desk-scenes { flex-wrap: wrap; margin-top: 0; }
     .desk-scenes .mini-scene { flex: 0 0 calc((100% - 20px) / 3); height: 88px; }
     .col { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
 
@@ -2635,6 +2659,11 @@ class OverlookShow extends LitElement {
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* on the computer a pop-up is a centred dialog, not a sheet from the bottom */
+    .desk-screen .pop-scrim { align-items: center; padding: 24px; }
+    .desk-screen .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
+    @keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+    .desk-screen .grabber { display: none; }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
     .pop-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);

@@ -80,7 +80,7 @@ More screenshots in the [README](../README.md#the-show-dashboards).
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `show.py` | Kitchen Show: `VERSION`, the card's config (`CARD`): rooms, scenes, status pills, calendar, recipes |
 | `showphone.py` | the phone's data, no dashboard of its own any more: ha-phone's rooms and scenes, the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` and `showcomputer.py` read it |
-| `showcomputer.py` | Computer Show (`ha-show-computer`): `show.CARD` on its `desk` page, the whole house on one page like ha-computer, beside HA's sidebar (`windowed`) |
+| `showcomputer.py` | Computer Show (`ha-show-computer`): `show.CARD` on its `desk` page, the whole house on one page grouped by kind (Climate and Scenes, Lights with a card per room, Plugs and Plants, Media by room), the Phone Show's pop-ups as centred dialogs, beside HA's sidebar (`windowed`) |
 | `shownative.py` | Phone Show (new): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
