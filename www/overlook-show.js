@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.12.5";
+const VERSION = "0.13.0";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -145,7 +145,6 @@ class OverlookShow extends LitElement {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
-    if (this._config && this._config.dock) dockMount(this);
     if (!document.getElementById("overlook-show-fonts")) {
       const l = document.createElement("link");
       l.id = "overlook-show-fonts";
@@ -160,7 +159,6 @@ class OverlookShow extends LitElement {
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
     window.removeEventListener("pointerdown", this._touch, true);
-    dockUnmount(this);
     window.removeEventListener("keydown", this._touch, true);
     this._unsub();
   }
@@ -303,15 +301,6 @@ class OverlookShow extends LitElement {
     if (this._uncovered) {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
-    }
-    if (this._config.phone && this._config.embedded) {
-      return html`
-        <div class="screen phone embedded">
-          <main class="page" @scroll=${() => { this._scrolledAt = performance.now(); }}>${this._pageBody()}</main>
-          ${this._picker ? this._speakerSheet() : nothing}
-          ${this._pop ? this._popSheet() : nothing}
-          ${this._light ? this._lightSheet() : nothing}
-        </div>`;
     }
     if (this._config.phone) {
       return html`
@@ -2531,10 +2520,6 @@ class OverlookShow extends LitElement {
     .player-row { cursor: pointer; }
 
     /* native cards: each one draws a piece of the phone home in the same CSS as .ph */
-    .screen.embedded { position: relative; inset: auto; z-index: auto; background: none;
-                       height: calc(100vh - env(safe-area-inset-top, 0px)); }
-    .screen.embedded::after { display: none; }
-    .embedded .page { padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 104px); }
     .piece { height: 100%; color: var(--ink); font-family: var(--body); user-select: none; -webkit-user-select: none; }
     .piece .ph-grid.one { display: block; height: 100%; }
     .piece .ph-grid.one > * { height: 100%; width: 100%; }
@@ -2548,14 +2533,9 @@ class OverlookShow extends LitElement {
                   mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); }
     .piece .missing { display: flex; align-items: center; gap: 8px; height: 100%; min-height: 62px; padding: 0 14px;
                       font-size: 13px; color: var(--muted); }
-    .piece .dock-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
     .screen.overlay { background: none; pointer-events: none; z-index: 20; }
     .screen.overlay::after { display: none; }
     .screen.overlay > * { pointer-events: auto; }
-    .screen.dockscreen { position: fixed; inset: auto 0 0 0; height: calc(env(safe-area-inset-bottom, 0px) + 120px);
-                         background: none; pointer-events: none; z-index: 5; overflow: visible; }
-    .dockscreen .tabbar { pointer-events: auto; }
-    .tabbar .dock-btn { -webkit-touch-callout: none; }
   `;
 }
 
@@ -2566,15 +2546,16 @@ if (!customElements.get("overlook-show")) customElements.define("overlook-show",
 // --- native cards: the phone home as ordinary HA cards --------------------------------
 // Each card draws one piece of the phone home with the same markup and CSS as the
 // single-card version (.phone, .ph-grid, .ph-sec ...), so they look the same. HA's own
-// editor arranges them: the dock card sets HA's grid to the design's sizes (62px rows,
-// 10px gaps) and swaps HA's header for the floating dock. Sheets open in one shared
+// editor arranges them: the edit-button card sets HA's grid to the design's sizes (62px
+// rows, 10px gaps) and hides HA's header. Sheets open in one shared
 // layer on <body>; pop-ups and their links come from /local/overlook-popups.json.
 
 // last time anything on the page scrolled: a light under a scrolling finger is not a hold
 let LAST_SCROLL = 0;
+let PIECES = 0;   // native pieces on screen; the edit button sizes HA's grid while any are
 let SCROLL_HOOKED = false;
 
-// HA's view root (header, view container): the dock reads the views and styles it
+// HA's view root (header, view container): the edit button styles it
 function findHuiRoot() {
   const walk = (root, depth) => {
     if (!root || depth > 12) return null;
@@ -2617,6 +2598,7 @@ class OverlookPiece extends OverlookShow {
     LitElement.prototype.connectedCallback.call(this);
     loadFonts();
     this.style.height = "100%";   // fill the grid cell HA sizes for the card
+    PIECES++;
     if (!SCROLL_HOOKED) {
       SCROLL_HOOKED = true;
       window.addEventListener("scroll", () => { LAST_SCROLL = performance.now(); }, { capture: true, passive: true });
@@ -2627,6 +2609,7 @@ class OverlookPiece extends OverlookShow {
 
   disconnectedCallback() {
     LitElement.prototype.disconnectedCallback.call(this);
+    PIECES--;
     window.removeEventListener("overlook-popups", this._relink);
   }
 
@@ -2701,9 +2684,8 @@ class OverlookOverlay extends OverlookShow {
 }
 if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
 
-// --- the dock: this dashboard's views as the floating tab bar --------------------------
-// While it is on screen HA's header is hidden (it comes back in edit mode) and HA's grid
-// takes the design's sizes. Hold the first tab to edit the dashboard.
+// --- HA's view root: grid sizes and the hidden header -------------------------------
+// While any native piece is on screen HA's grid takes the design's sizes.
 const NATIVE_GRID = `
   :host {
     --ha-section-grid-row-height: 62px;
@@ -2719,10 +2701,6 @@ const NATIVE_GRID = `
 const HIDE_HEADER = `
   .header { display: none !important; }
   hui-view-container { padding-top: var(--safe-area-inset-top, 0px) !important; }`;
-const DOCK_ROOM = `
-  hui-view-container { --view-container-padding-bottom: 104px; }
-  hui-view-container > * { margin-top: -4px; }`;
-
 // one style element in HA's view root; css "" removes it
 function styleHuiRoot(r, css) {
   if (!r || !r.shadowRoot) return;
@@ -2736,146 +2714,9 @@ function styleHuiRoot(r, css) {
   if (s.textContent !== css) s.textContent = css;
 }
 
-const DOCK_USERS = new Set();
-let DOCK = null;
-let DOCK_DROP = null;
-function dockMount(user) {
-  DOCK_USERS.add(user);
-  clearTimeout(DOCK_DROP);
-  if (!DOCK) {
-    DOCK = document.createElement("overlook-dock-bar");
-    document.body.appendChild(DOCK);
-  }
-}
-function dockUnmount(user) {
-  if (!DOCK_USERS.delete(user) || DOCK_USERS.size) return;
-  // switching views drops the old view's dock card before the new one arrives
-  clearTimeout(DOCK_DROP);
-  DOCK_DROP = setTimeout(() => {
-    if (DOCK_USERS.size || !DOCK) return;
-    DOCK.remove();
-    DOCK = null;
-  }, 400);
-}
-
-class OverlookDockBar extends OverlookShow {
-  constructor() {
-    super();
-    this._config = { phone: true };
-    this._views = [];
-    this._edit = false;
-    this._root = null;
-  }
-
-  connectedCallback() {
-    LitElement.prototype.connectedCallback.call(this);
-    loadFonts();
-    this._tick = setInterval(() => this._sync(), 400);
-    this._loc = () => { this._sync(); this.requestUpdate(); };
-    window.addEventListener("location-changed", this._loc);
-    window.addEventListener("popstate", this._loc);
-    this._sync();
-  }
-
-  disconnectedCallback() {
-    LitElement.prototype.disconnectedCallback.call(this);
-    clearInterval(this._tick);
-    window.removeEventListener("location-changed", this._loc);
-    window.removeEventListener("popstate", this._loc);
-    this._unstyle();
-  }
-
-  updated() {}
-
-  _unstyle() { styleHuiRoot(this._root, ""); }
-
-  _sync() {
-    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
-    if (r !== this._root) { this._unstyle(); this._root = r; }
-    if (!r || !r.shadowRoot) return;
-    const lv = r.lovelace;
-    const edit = !!(lv && lv.editMode);
-    styleHuiRoot(r, NATIVE_GRID + (edit ? "" : HIDE_HEADER + DOCK_ROOM));
-    const views = ((lv && lv.config && lv.config.views) || [])
-      .map((v, i) => ({ path: v.path || String(i), title: v.title || `View ${i + 1}`, icon: v.icon || "mdi:view-dashboard",
-                        hide: v.subview || v.visible === false }))
-      .filter((v) => !v.hide);
-    const key = JSON.stringify(views);
-    if (key !== this._viewsKey || edit !== this._edit) {
-      this._viewsKey = key;
-      this._views = views;
-      this._edit = edit;
-      this.requestUpdate();
-    }
-  }
-
-  _go(v) {
-    const base = location.pathname.split("/")[1];
-    const url = `/${base}/${v.path}`;
-    if (location.pathname === url) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    fireHaptic("selection");
-    history.pushState(null, "", url);
-    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
-    window.scrollTo(0, 0);
-  }
-
-  // hold the first tab for a second: HA's edit mode (the header comes back with it)
-  _holdDown(ev) {
-    clearTimeout(this._hold);
-    this._held = false;
-    this._hx = ev.clientX; this._hy = ev.clientY;
-    this._hold = setTimeout(() => {
-      const lv = this._root && this._root.lovelace;
-      if (!lv || !lv.setEditMode) return;
-      this._held = true;
-      fireHaptic("medium");
-      lv.setEditMode(true);
-    }, 1000);
-  }
-
-  _holdMove(ev) {
-    if (Math.abs(ev.clientX - this._hx) > 8 || Math.abs(ev.clientY - this._hy) > 8) clearTimeout(this._hold);
-  }
-
-  render() {
-    if (this._edit || !this._views.length) return nothing;
-    const here = location.pathname.split("/")[2] || this._views[0].path;
-    const stop = () => clearTimeout(this._hold);
-    return html`
-      <div class="screen phone dockscreen">
-        <nav class="tabbar" style="grid-template-columns: repeat(${this._views.length}, 1fr)">
-          ${this._views.map((v, i) => html`
-            <button class="dock-btn ${v.path === here ? "on" : ""}"
-                    @click=${() => { if (this._held) { this._held = false; return; } this._go(v); }}
-                    @pointerdown=${i === 0 ? (ev) => this._holdDown(ev) : null}
-                    @pointermove=${i === 0 ? (ev) => this._holdMove(ev) : null}
-                    @pointerup=${stop} @pointercancel=${stop} @contextmenu=${(ev) => ev.preventDefault()}>
-              <ha-icon icon=${v.icon}></ha-icon><span>${v.title}</span>
-            </button>`)}
-        </nav>
-      </div>`;
-  }
-}
-if (!customElements.get("overlook-dock-bar")) customElements.define("overlook-dock-bar", OverlookDockBar);
-
-// the card that turns the dock on for a dashboard; takes no room outside edit mode
-class OverlookDock extends OverlookPiece {
-  static get properties() { return { ...super.properties, editMode: { type: Boolean } }; }
-  static getConfigForm() { return { schema: [] }; }
-  static getStubConfig() { return {}; }
-  getGridOptions() { return { columns: "full", rows: "auto" }; }
-  connectedCallback() { super.connectedCallback(); dockMount(this); }
-  disconnectedCallback() { super.disconnectedCallback(); dockUnmount(this); }
-  render() {
-    if (!this.editMode) return nothing;   // HA sets editMode on every card while editing
-    return html`<div class="phone piece"><div class="card dock-note"><ha-icon icon="mdi:dock-bottom"></ha-icon>
-      Dock: this dashboard's views as tabs at the bottom, in place of HA's header</div></div>`;
-  }
-}
-if (!customElements.get("overlook-dock")) customElements.define("overlook-dock", OverlookDock);
-
-// For a dashboard with no dock (ha-phone): hides HA's header, and puts an "Edit dashboard"
-// button where the card sits (the bottom of the page). The header comes back while editing.
+// Hides HA's header, and puts an "Edit dashboard" button where the card sits (the bottom
+// of the page). The header comes back while editing. On a dashboard of native pieces
+// (ha-show-native) it also gives HA's grid the design's sizes.
 class OverlookEditButton extends LitElement {
   static get properties() { return { hass: { attribute: false }, editMode: { type: Boolean } }; }
   static getConfigForm() { return { schema: [] }; }
@@ -2900,7 +2741,7 @@ class OverlookEditButton extends LitElement {
     const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
     if (r !== this._root) { styleHuiRoot(this._root, ""); this._root = r; }
     const edit = !!(r && r.lovelace && r.lovelace.editMode);
-    styleHuiRoot(r, edit ? "" : HIDE_HEADER);
+    styleHuiRoot(r, (PIECES ? NATIVE_GRID : "") + (edit ? "" : HIDE_HEADER));
   }
 
   _edit() {
@@ -3091,7 +2932,6 @@ window.customCards.push(
   { type: "overlook-scenes", name: "Overlook scenes", description: "The row of scene buttons" },
   { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
   { type: "overlook-edit-button", name: "Overlook edit button", description: "Hides HA's header; an Edit dashboard button at the bottom" },
-  { type: "overlook-dock", name: "Overlook dock", description: "The dashboard's views as a floating tab bar, in place of HA's header" },
 );
 
 window.customCards = window.customCards || [];

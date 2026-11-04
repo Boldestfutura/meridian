@@ -2,9 +2,8 @@
 
 The same tiles, pop-ups and look as ha-show-phone, but every tile is its own card in an
 HA sections view, so HA's own editor arranges them (drag, resize, the pencil, + Add
-card). The overlook-dock card swaps HA's header for the floating tab bar and sets HA's
-grid to the design's sizes; hold Home on the dock to edit. Calendar and Recipes are
-their own views holding the full card on that page.
+card). One view, no tabs. The overlook-edit-button card at the bottom hides HA's
+header, sets HA's grid to the design's sizes and opens HA's editor.
 
 `./deploy.py shownative` ships the card JS (shared with ha-show) and the pop-ups JSON,
 and writes this layout only while the live one is still what it last wrote: once it
@@ -42,23 +41,14 @@ def heading(name, icon, group=None):
     return h
 
 
-PAGE = dict(show.CARD, phone=True, embedded=True, dock=True)
-for k in ("photos", "idle", "rooms", "scenes", "sensors", "status"):
-    PAGE.pop(k, None)
-
-
 def build():
     home = [section({"type": "custom:overlook-status", "status": show.CARD["status"], "status_air": STATUS_AIR}),
             section(heading("Scenes", "mdi:creation"), {"type": "custom:overlook-scenes", "scenes": SCENES})]
     home += [section(heading(r["name"], r["icon"], r.get("group")), *[tile(x) for x in r["items"]]) for r in ROOMS]
-    home.append(section({"type": "custom:overlook-dock"}))
+    home.append(section({"type": "custom:overlook-edit-button"}))
     return {"title": "Phone Show (new)", "views": [
         {"title": "Home", "path": "home", "icon": "mdi:home-variant-outline", "type": "sections",
          "max_columns": 4, "sections": home},
-        {"title": "Calendar", "path": "calendar", "icon": "mdi:calendar-month-outline", "type": "panel",
-         "cards": [dict(PAGE, page="calendar")]},
-        {"title": "Recipes", "path": "recipes", "icon": "mdi:silverware-fork-knife", "type": "panel",
-         "cards": [dict(PAGE, page="recipes")]},
     ]}
 
 

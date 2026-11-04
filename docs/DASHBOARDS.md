@@ -8,7 +8,7 @@ purpose (Cameron, 2026-11-03: "keep both"). They share the repo, the theme and
 |---|---|---|
 | Look | Overlook tiles, Bubble Card pop-ups | Echo Show style, bottom-sheet pop-ups |
 | Built with | `custom:button-card` + Bubble Card | one Lit card, `www/overlook-show.js` |
-| Dashboards | ha-phone, ha-tablet, ha-computer, ha-kitchen, ha-bedroom (+ ha-homey test) | ha-show (Kitchen Show), ha-show-phone (Phone Show), ha-show-native (Phone Show, new) |
+| Dashboards | ha-phone, ha-tablet, ha-computer, ha-kitchen, ha-bedroom (+ ha-homey test) | ha-show (Kitchen Show), ha-show-native (Phone Show) |
 | Python | `design.py`, `patch3.py`, `scenes.py`, `roomscreen.py`, one module each | `show.py`, `showphone.py`, `shownative.py` |
 | Hand-edited in the HA UI? | **Yes.** Cameron moves cards around | No. The UI only sees one card |
 | Safe way to change | `--patch` (keeps his edits) | plain deploy |
@@ -105,25 +105,25 @@ phone layout. All phone-only CSS sits under `.phone`.
    so all the config lives in the Python.
 4. Check **both** dashboards, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 (the ALLDOCUBE tablet)
-   - Phone Show `/ha-show-phone/phone` at 390 wide
+   - Phone Show `/ha-show-native/home` at 390 wide
 
 ### Phone Show (new): native HA cards
 
-`ha-show-native` is the Phone Show rebuilt so HA's own editor works on it. It is a
-test dashboard beside ha-show-phone, which stays as it is until this one is signed off.
+`ha-show-native` is the Phone Show rebuilt so HA's own editor works on it. Cameron
+signed it off on 2026-11-04 (ha-show-phone is gone). The bottom dock with Calendar and
+Recipes was removed that day: he opens those apps directly.
 
 - **Home** is an HA sections view. Every tile is its own card: `overlook-tile` (an
   entity; it picks light / switch / speaker / heat pump / plant / reading / scene from
   the domain, or `kind:` says), `overlook-heading` (room name, icon, all-lights `group`),
   `overlook-scenes` (the scene row), `overlook-status` (the pills). They draw with the
   same markup and CSS as the single card, so they look the same.
-- **`overlook-dock`** turns the dashboard's views into the floating tab bar and hides HA's
-  header. It also sets HA's grid to the design's sizes (62px rows, 10px gaps, 16px
-  sides). A tile is one row, a player two, and every
-  card is exactly its cell: names stay on one line and fade out only where they are cut off.
-- **Calendar / Recipes** are panel views with the full card on that page
-  (`embedded: true, dock: true`).
-- **Edit:** hold Home on the dock for 1 s. HA's header comes back with Done.
+- **One view, no tabs.** The last section is **`overlook-edit-button`** (the same card
+  ha-phone ends with): it hides HA's header and puts an Edit dashboard button at the
+  bottom; HA's header comes back with Done. While any of the cards above are on screen
+  it also sets HA's grid to the design's sizes (62px rows, 10px gaps, 16px sides). A tile
+  is one row, a player two, and every card is exactly its cell: names stay on one line
+  and fade out only where they are cut off.
 - Light sheets and pop-ups open in one layer on `<body>`. Pop-ups and links ship as
   `/local/overlook-popups.json` (written by deploy, gitignored).
 - `./deploy.py shownative` writes the layout **only while it is unedited** (snapshot in
