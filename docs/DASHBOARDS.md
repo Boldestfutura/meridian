@@ -130,6 +130,15 @@ test dashboard beside ha-show-phone, which stays as it is until this one is sign
   `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version and
   ships only the JS and pop-ups.
 
+### Phone (Show look): ha-phone in the Show's colours
+
+`ha-phone-showlook` is a test copy of the **live** ha-phone (classic layout, button-card and
+Bubble Card) wearing the Show card's look. `./tools/showlook.py` makes it: it reads ha-phone,
+sets the view theme to **Overlook Show** (`themes/overlook-show.yaml`, scp'd to
+`/config/themes/overlook/`, then `frontend.reload_themes`), swaps ha-phone's literal accent
+colours and radii for the Show's, and gives its cards the Show's shadow and white edge.
+ha-phone is only read. Re-run it to pick up edits made to ha-phone.
+
 ### Adding things
 
 - **A status pill:** add to `CARD["status"]` in `show.py`. Either
