@@ -1,0 +1,142 @@
+# Overlook Blue — Overlook's shapes in the Phone Show's colours (www/overlook-show.js):
+# the Show's blue accent, its blue-grey ground and navy ink, so the app around the
+# Phone Show (sidebar, settings, dialogs, toggles) matches it. Lit lights stay the
+# Show's warm orange. Picked per device in the profile; Overlook stays the default.
+#
+# Anything not set here falls back to HA's own light or dark default.
+Overlook Blue:
+  # --- shape: the reference's defining trait ------------------------------
+  ha-card-border-radius: "18px"
+  ha-card-border-width: "0px"
+  ha-card-box-shadow: "none"
+  mush-border-radius: "22px"
+  mush-card-border-width: "0px"
+  mush-box-shadow: "none"
+  bubble-border-radius: "22px"
+  button-card-border-radius: "22px"
+
+  # --- type ---------------------------------------------------------------
+  primary-font-family: "Figtree, system-ui, -apple-system, sans-serif"
+  paper-font-common-base_-_font-family: "Figtree, system-ui, sans-serif"
+  paper-font-body1_-_font-family: "Figtree, system-ui, sans-serif"
+
+  # --- the Show's blue; lit lights are its warm orange ----------------------
+  primary-color: "#1d5cf0"
+  accent-color: "#1d5cf0"
+  rgb-primary-color: "29, 92, 240"
+  rgb-accent-color: "29, 92, 240"
+  state-icon-active-color: "#f39a43"
+  paper-item-icon-active-color: "#f39a43"
+  state-light-active-color: "#f39a43"
+  mush-rgb-amber: "243,154,67"
+
+  # HA 2026 draws buttons, toggles and tabs from this scale, not from
+  # primary-color. 40 is the Show blue, the loud fill white text sits on;
+  # 60 is the Show's dark-mode blue. HA picks the steps per mode.
+  ha-color-primary-05: "#000f2e"
+  ha-color-primary-10: "#001847"
+  ha-color-primary-20: "#002a75"
+  ha-color-primary-30: "#0a3fa6"
+  ha-color-primary-40: "#1d5cf0"
+  ha-color-primary-50: "#3d74f5"
+  ha-color-primary-60: "#6b9bff"
+  ha-color-primary-70: "#93b6ff"
+  ha-color-primary-80: "#bcd1ff"
+  ha-color-primary-90: "#dfe8ff"
+  ha-color-primary-95: "#eff4ff"
+
+  # --- controls -----------------------------------------------------------
+  switch-checked-button-color: "#1d5cf0"
+  switch-checked-track-color: "#1d5cf0"
+  input-hover-line-color: "#1d5cf0"
+
+  mush-icon-border-radius: "50%"
+
+  # Both modes must be declared. With only modes.dark, HA forces dark on
+  # every device whatever its setting - that is what made this theme dark-only.
+  modes:
+    light:
+      # --- ground and surfaces ------------------------------------------------
+      primary-background-color: "#eef3fb"
+      secondary-background-color: "#e4ecf9"
+      card-background-color: "#ffffff"
+      ha-card-background: "#ffffff"
+      divider-color: "rgba(22,42,84,.07)"
+      app-header-background-color: "#eef3fb"
+      app-header-text-color: "#142038"
+      app-header-border-bottom: "1px solid var(--divider-color)"
+      lovelace-background: "linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%) fixed"
+      mdc-theme-surface: "#ffffff"
+      ha-dialog-surface-background: "#ffffff"
+      table-row-background-color: "#ffffff"
+      table-row-alternative-background-color: "#eef3fb"
+      data-table-background-color: "#ffffff"
+      markdown-code-background-color: "#e4ecf9"
+      code-editor-background-color: "#e4ecf9"
+      # --- sidebar ------------------------------------------------------------
+      sidebar-background-color: "#ffffff"
+      sidebar-text-color: "#142038"
+      sidebar-icon-color: "#6c7891"
+      sidebar-selected-text-color: "#1d5cf0"
+      sidebar-selected-icon-color: "#1d5cf0"
+      sidebar-menu-button-background-color: "#ffffff"
+      # --- type ---------------------------------------------------------------
+      primary-text-color: "#142038"
+      secondary-text-color: "#6c7891"
+      disabled-text-color: "rgba(20,32,56,.38)"
+      text-primary-color: "#ffffff"
+      # --- icons ---------------------------------------------------------------
+      state-icon-color: "#6c7891"
+      paper-item-icon-color: "#6c7891"
+      # --- controls -----------------------------------------------------------
+      switch-unchecked-button-color: "#ffffff"
+      switch-unchecked-track-color: "#b9c6db"
+      input-fill-color: "#e4ecf9"
+      mdc-text-field-fill-color: "#e4ecf9"
+      mdc-select-fill-color: "#e4ecf9"
+      input-ink-color: "#142038"
+      input-label-ink-color: "#6c7891"
+      input-idle-line-color: "rgba(22,42,84,.18)"
+      ha-card-header-color: "#142038"
+    dark:
+      primary-background-color: "#0b0f18"
+      secondary-background-color: "#121827"
+      card-background-color: "#1d2332"
+      ha-card-background: "#1d2332"
+      lovelace-background: "linear-gradient(165deg, #0b0f18 0%, #121827 100%) fixed"
+      app-header-background-color: "#0b0f18"
+      app-header-text-color: "#eef2fb"
+      mdc-theme-surface: "#1d2332"
+      ha-dialog-surface-background: "#1d2332"
+      table-row-background-color: "#1d2332"
+      table-row-alternative-background-color: "#121827"
+      data-table-background-color: "#1d2332"
+      markdown-code-background-color: "#0b0f18"
+      code-editor-background-color: "#0b0f18"
+      sidebar-background-color: "#121827"
+      sidebar-text-color: "#eef2fb"
+      sidebar-icon-color: "#8e99b0"
+      sidebar-selected-text-color: "#6b9bff"
+      sidebar-selected-icon-color: "#6b9bff"
+      sidebar-menu-button-background-color: "#121827"
+      primary-text-color: "#eef2fb"
+      secondary-text-color: "#8e99b0"
+      disabled-text-color: "rgba(238,242,251,.38)"
+      text-primary-color: "#ffffff"
+      divider-color: "rgba(255,255,255,.08)"
+      state-icon-color: "#8e99b0"
+      paper-item-icon-color: "#8e99b0"
+      primary-color: "#6b9bff"
+      accent-color: "#6b9bff"
+      rgb-primary-color: "107, 155, 255"
+      switch-checked-button-color: "#6b9bff"
+      switch-checked-track-color: "#6b9bff"
+      ha-card-header-color: "#eef2fb"
+      switch-unchecked-button-color: "#8e99b0"
+      switch-unchecked-track-color: "#2c3447"
+      input-fill-color: "#232a3b"
+      mdc-text-field-fill-color: "#232a3b"
+      mdc-select-fill-color: "#232a3b"
+      input-ink-color: "#eef2fb"
+      input-label-ink-color: "#8e99b0"
+      input-idle-line-color: "rgba(255,255,255,.18)"
