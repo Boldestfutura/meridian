@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.13.1";
+const VERSION = "0.13.2";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -2698,19 +2698,30 @@ const NATIVE_GRID = `
   @media (prefers-color-scheme: dark) {
     :host { --lovelace-background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); }
   }`;
-// the page behind HA, which iOS shows when you scroll past the end: the gradient's last colour
+// What shows when you scroll past the end: the gradient's last colour. The HA app paints
+// that area itself from --primary-background-color, read when the frontend sends it
+// "theme-update", so set the variable (and the page under it) and send one.
 const PAGE_GROUND = `
-  html { background-color: #e4ecf9 !important; }
-  @media (prefers-color-scheme: dark) { html { background-color: #121827 !important; } }`;
+  html { --primary-background-color: #e4ecf9 !important; background-color: #e4ecf9 !important; }
+  @media (prefers-color-scheme: dark) {
+    html { --primary-background-color: #121827 !important; background-color: #121827 !important; }
+  }`;
 function stylePage(css) {
   let s = document.getElementById("overlook-native-page");
-  if (!css) { if (s) s.remove(); return; }
-  if (!s) {
-    s = document.createElement("style");
-    s.id = "overlook-native-page";
-    document.head.appendChild(s);
+  if (!css && !s) return;
+  if (s && s.textContent === css) return;
+  if (!css) s.remove();
+  else {
+    if (!s) {
+      s = document.createElement("style");
+      s.id = "overlook-native-page";
+      document.head.appendChild(s);
+    }
+    s.textContent = css;
   }
-  if (s.textContent !== css) s.textContent = css;
+  const ha = document.querySelector("home-assistant");
+  const ext = ha && ha.hass && ha.hass.auth && ha.hass.auth.external;
+  if (ext) ext.fireMessage({ type: "theme-update" });
 }
 
 const HIDE_HEADER = `
