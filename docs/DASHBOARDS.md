@@ -81,7 +81,7 @@ More screenshots in the [README](../README.md#the-show-dashboards).
 | `show.py` | Kitchen Show: `VERSION`, the card's config (`CARD`): rooms, scenes, status pills, calendar, recipes |
 | `showphone.py` | the phone's data, no dashboard of its own any more: ha-phone's rooms and scenes, the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` and `showcomputer.py` read it |
 | `showcomputer.py` | Computer Show (`ha-show-computer`): `show.CARD` on its `desk` page, the whole house on one page grouped by kind (Climate and Scenes, Lights with a card per room, Plugs and Plants, Media by room), the Phone Show's pop-ups as centred dialogs, beside HA's sidebar (`windowed`) |
-| `showbedroom.py` | Bedroom Show (`ha-show-bedroom`) for the Echo Show 5 (960x480): `show.CARD` in `bedside` mode, a dock on the right (Clock, Lights, Media, Climate, Calendar, photos). Clock over the dimmed bedroom album, idles back to it. Everything comes from the Bedroom room in `show.CARD` |
+| `showbedroom.py` | Bedroom Show (`ha-show-bedroom`) for the Echo Show 5 (960x480): `show.CARD` in `bedside` mode, the kitchen's dock on the left (Lights, Media, Climate, Calendar, photos). Photos are home: the bedroom album with the clock and the dock over it, and it idles back there. Climate is the old room screen's big reading tiles plus the dehumidifier. Everything comes from the Bedroom room in `show.CARD` |
 | `shownative.py` | Phone Show (new): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
