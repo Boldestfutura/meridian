@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.13.2";
+const VERSION = "0.15.0";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -101,6 +101,7 @@ class OverlookShow extends LitElement {
     _cal: { state: true },
     _month: { state: true },
     _sel: { state: true },
+    _dayOpen: { state: true },
     _fit: { state: true },
     _room: { state: true },
     _forecast: { state: true },
@@ -145,6 +146,17 @@ class OverlookShow extends LitElement {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
+    // windowed (the computer): sit beside HA's sidebar with HA's header hidden,
+    // rather than over the whole window as on the kitchen tablet
+    if (this._config && this._config.windowed) {
+      const hide = () => {
+        const r = findHuiRoot();
+        if (r !== this._root) { styleHuiRoot(this._root, ""); this._root = r; }
+        styleHuiRoot(r, r && r.lovelace && r.lovelace.editMode ? "" : HIDE_HEADER);
+      };
+      this._hdr = setInterval(hide, 400);
+      hide();
+    }
     if (!document.getElementById("overlook-show-fonts")) {
       const l = document.createElement("link");
       l.id = "overlook-show-fonts";
@@ -160,6 +172,7 @@ class OverlookShow extends LitElement {
     clearTimeout(this._idleTimer);
     window.removeEventListener("pointerdown", this._touch, true);
     window.removeEventListener("keydown", this._touch, true);
+    if (this._hdr) { clearInterval(this._hdr); this._hdr = null; styleHuiRoot(this._root, ""); }
     this._unsub();
   }
 
@@ -314,7 +327,7 @@ class OverlookShow extends LitElement {
     }
     const photos = this._page === "photos";
     return html`
-      <div class="screen ${photos ? "is-photos" : ""}">
+      <div class="screen ${photos ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""}">
         ${photos ? this._photos() : html`
           ${this._dock()}
           <main class="page">${this._pageBody()}</main>
@@ -322,6 +335,7 @@ class OverlookShow extends LitElement {
         ${this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
+        ${this._dayOpen && this._page === "calendar" ? this._daySheet() : nothing}
       </div>`;
   }
 
@@ -972,6 +986,7 @@ class OverlookShow extends LitElement {
   }
   _pick(ymd) {
     this._sel = ymd;
+    if (!this._config.phone) this._dayOpen = ymd;
     const d = this._day(ymd);
     if (d.getMonth() !== this._month.getMonth()) this._month = new Date(d.getFullYear(), d.getMonth(), 1);
     this._loadMonth();
@@ -1004,6 +1019,37 @@ class OverlookShow extends LitElement {
       const d = new Date(gs); d.setDate(d.getDate() + i); return d;
     });
     const thisMonth = m.getMonth() === new Date().getMonth() && m.getFullYear() === new Date().getFullYear();
+    if (!this._config.phone) {
+      return html`
+        <div class="calendar big">
+          <div class="month">
+            <div class="month-head">
+              <button class="nav-btn" title="Previous month" @click=${() => this._shiftMonth(-1)}>
+                <ha-icon icon="mdi:chevron-left"></ha-icon></button>
+              <button class="nav-btn" title="Next month" @click=${() => this._shiftMonth(1)}>
+                <ha-icon icon="mdi:chevron-right"></ha-icon></button>
+              <h1><span class="mon">${MONTHS[m.getMonth()]}</span> <span class="yr">${m.getFullYear()}</span></h1>
+              <button class="today-btn" ?disabled=${thisMonth} @click=${() => this._toToday()}>Today</button>
+            </div>
+            <div class="dow">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => html`<span>${d}</span>`)}</div>
+            <div class="mgrid" style="--weeks:${weeks}">
+              ${cells.map((d) => {
+                const k = this._ymd(d), ev = byDay[k] || [];
+                const fit = this._fit || 2;
+                const shown = ev.length <= fit ? ev : ev.slice(0, fit - 1);
+                return html`
+                  <button class="day ${d.getMonth() !== m.getMonth() ? "out" : ""} ${k === today ? "today" : ""}"
+                          @click=${() => this._pick(k)}>
+                    <span class="dnum">${d.getDate()}</span>
+                    ${shown.map((e) => html`<span class="chip" style="--c:${e.colour}"><i></i>
+                      <b>${this._when(e, d) === "Ongoing" ? "" : this._when(e, d)}</b><span>${e.summary}</span></span>`)}
+                    ${ev.length > shown.length ? html`<span class="more">+${ev.length - shown.length} more</span>` : nothing}
+                  </button>`;
+              })}
+            </div>
+          </div>
+        </div>`;
+    }
     return html`
       <div class="calendar">
         <div class="card month">
@@ -1037,6 +1083,34 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
+  _when(e, d) {
+    if (!e.start.dateTime) return "All day";
+    const s = this._d(e.start);
+    return s.toDateString() === d.toDateString() ? this._ampm(s) : "Ongoing";
+  }
+
+  // the big screen's day sheet: everything on the tapped day, with times and places
+  _daySheet() {
+    const k = this._dayOpen, d = this._day(k), ev = this._byDay(this._cal || [])[k] || [];
+    const close = () => { this._dayOpen = null; };
+    return html`
+      <div class="scrim" @click=${close}>
+        <div class="sheet card day-sheet" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]}
+            ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}</div>
+          ${ev.length ? ev.map((e) => html`
+            <div class="wo-ev">
+              <span class="wo-time">${this._when(e, d)}</span>
+              <span class="bar" style="background:${e.colour}"></span>
+              <div class="wo-text">
+                <div class="ev-name">${e.summary}</div>
+                ${e.location ? html`<div class="wo-loc muted">${e.location.split(",")[0]}</div>` : nothing}
+              </div>
+            </div>`) : html`<div class="empty muted">Nothing on.</div>`}
+        </div>
+      </div>`;
+  }
+
   _whatsOn(byDay, today) {
     const sel = this._day(this._sel);
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1049,11 +1123,7 @@ class OverlookShow extends LitElement {
         : `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
       groups.push({ k, d, label, ev });
     }
-    const when = (e, d) => {
-      if (!e.start.dateTime) return "All day";
-      const s = this._d(e.start);
-      return s.toDateString() === d.toDateString() ? this._ampm(s) : "Ongoing";
-    };
+    const when = (e, d) => this._when(e, d);
     return html`
       <div class="card whatson">
         <div class="card-title">What's on</div>
@@ -1224,8 +1294,21 @@ class OverlookShow extends LitElement {
         <div class="photo-cap">
           ${album ? html`<div class="cap-small">${album}</div>` : nothing}
           ${d ? html`<div class="cap-big">${d.getDate()} ${LONG_MONTHS[d.getMonth()]} ${d.getFullYear()}</div>` : nothing}
+          ${cam && cam.attributes.entry_id ? html`
+            <div class="photo-nav" @click=${(ev) => ev.stopPropagation()}>
+              <button title="Previous photo" @click=${() => this._slide(cam, "previous_slide")}>
+                <ha-icon icon="mdi:chevron-left"></ha-icon></button>
+              <button title="Next photo" @click=${() => this._slide(cam, "next_slide")}>
+                <ha-icon icon="mdi:chevron-right"></ha-icon></button>
+            </div>` : nothing}
         </div>
       </div>`;
+  }
+
+  // step the slideshow; it stays on photos, and the idle timer restarts with the tap
+  _slide(cam, service) {
+    fireHaptic("selection");
+    this._call("album_slideshow", service, { entry_id: cam.attributes.entry_id });
   }
 
   // --- kitchen ------------------------------------------------------------
@@ -1815,6 +1898,7 @@ class OverlookShow extends LitElement {
       --bar: rgba(255, 255, 255, 0.55);
       --card-edge: rgba(255, 255, 255, 0.95);
       --inset: #eef3fb;
+      --grid-line: rgba(22, 42, 84, 0.08);
       --ink: #142038;
       --muted: #6c7891;
       --accent: #1d5cf0;
@@ -1835,6 +1919,7 @@ class OverlookShow extends LitElement {
         --bar: rgba(29, 35, 50, 0.55);
         --card-edge: rgba(255, 255, 255, 0.05);
         --inset: rgba(255, 255, 255, 0.05);
+        --grid-line: rgba(255, 255, 255, 0.07);
         --ink: #eef2fb;
         --muted: #8e99b0;
         --accent: #6b9bff;
@@ -1854,6 +1939,7 @@ class OverlookShow extends LitElement {
       padding-top: env(safe-area-inset-top, 0px);
       user-select: none; -webkit-user-select: none;
     }
+    .screen.windowed { position: relative; inset: auto; z-index: auto; height: 100vh; height: 100dvh; }
     .screen.is-photos { display: block; background: #000; }
     .restore { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: 48px; height: 48px;
                border-radius: 50%; background: #1d5cf0; color: #fff; display: grid; place-items: center; }
@@ -1877,7 +1963,7 @@ class OverlookShow extends LitElement {
     .topright .clock { font-size: 34px; font-weight: 500; letter-spacing: -0.01em; margin-left: 8px;
                        font-variant-numeric: tabular-nums; }
     .topright.on-photo { color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
-    .topright.on-photo .clock { font-size: 40px; }
+    .topright.on-photo .clock { font-size: 52px; }
     .topright.on-photo .temp { font-size: 30px; }
 
     /* dock */
@@ -2201,6 +2287,35 @@ class OverlookShow extends LitElement {
             background: color-mix(in srgb, var(--c) 16%, transparent); border-left: 3px solid var(--c);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
     .more { font-size: 11px; font-weight: 600; line-height: 16px; color: var(--muted); padding-left: 6px; flex: none; }
+    /* the big screen's month: a full-width grid of lines, chips with a colour bar and the time */
+    .calendar.big { display: flex; flex-direction: column; }
+    .big .month { flex: 1; padding: 0; background: none; box-shadow: none; border: 0; }
+    .big .month-head { gap: 8px; padding: 2px 0 16px; }
+    .big .month-head h1 { font-size: 30px; margin: 0 auto 0 8px; }
+    .big .month-head .mon { color: var(--accent); font-weight: 800; text-transform: uppercase; }
+    .big .month-head .yr { color: var(--accent); opacity: 0.55; font-weight: 500; }
+    .big .nav-btn { width: 40px; height: 40px; background: var(--card); box-shadow: var(--shadow); }
+    .big .today-btn { height: 40px; background: var(--card); color: var(--ink); box-shadow: var(--shadow); font-size: 14px; }
+    .big .today-btn:disabled { opacity: 0.45; box-shadow: none; }
+    .big .dow { gap: 0; padding: 0 0 8px; }
+    .big .dow span { text-align: center; padding: 0; font-size: 15px; font-weight: 700; color: var(--ink);
+                     text-transform: none; letter-spacing: 0; }
+    .big .mgrid { gap: 0; border-top: 1px solid var(--grid-line); border-left: 1px solid var(--grid-line); }
+    .big .day { border-radius: 0; background: none; border-right: 1px solid var(--grid-line);
+                border-bottom: 1px solid var(--grid-line); padding: 6px 6px 6px; gap: 4px; }
+    .big .day.out > * { opacity: 0.4; }
+    .big .day.today { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 14px; }
+    .big .dnum { align-self: center; width: auto; height: 22px; font-size: 14px; font-weight: 600; }
+    .big .day.today .dnum { background: none; color: var(--accent); font-weight: 800; }
+    .big .chip { display: flex; align-items: center; gap: 5px; border: 0; border-radius: 7px; padding: 3px 6px;
+                 background: var(--card); box-shadow: 0 1px 2px rgba(22, 42, 84, 0.06); font-weight: 500; }
+    .big .chip i { flex: none; width: 4px; height: 13px; border-radius: 2px; background: var(--c); }
+    .big .chip b { flex: none; font-weight: 700; }
+    .big .chip b:empty { display: none; }
+    .big .chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .big .more { align-self: stretch; text-align: center; padding: 2px 0; border-radius: 7px; background: var(--card); }
+    .day-sheet { max-height: 80%; overflow-y: auto; }
+    .day-sheet .empty { padding: 8px 0 4px; }
     .whatson { padding: 20px 20px 8px; display: flex; flex-direction: column; min-height: 0; }
     .wo-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin-top: 4px; padding-bottom: 12px; }
     .wo-list::-webkit-scrollbar { display: none; }
@@ -2238,8 +2353,14 @@ class OverlookShow extends LitElement {
     .photo-shade { position: absolute; inset: 0; pointer-events: none;
                    background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 62%, rgba(0,0,0,.5) 100%); }
     .photo-cap { position: absolute; left: 40px; bottom: 36px; color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,.4); }
-    .cap-small { font-size: 18px; font-weight: 500; opacity: 0.9; }
-    .cap-big { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
+    .cap-small { font-size: 16px; font-weight: 500; opacity: 0.9; }
+    .cap-big { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
+    .photo-nav { display: flex; gap: 8px; margin-top: 14px; }
+    .photo-nav button { width: 40px; height: 40px; border-radius: 50%; border: 0; display: grid; place-items: center;
+                        background: rgba(20, 32, 56, 0.55); color: #fff; cursor: pointer; text-shadow: none;
+                        -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    .photo-nav button:active { transform: scale(0.94); background: rgba(20, 32, 56, 0.75); }
+    .photo-nav ha-icon { --mdc-icon-size: 24px; }
 
     /* compact: an 8-inch tablet may only be ~600px tall in CSS pixels */
     @media (max-height: 680px) {
