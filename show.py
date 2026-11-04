@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.16.10"
+VERSION = "0.16.12"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -134,5 +134,8 @@ CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
 
 
 def build():
+    # the phone's reading pills and pop-ups; showphone imports this module, so not at the top
+    from showphone import STATUS_AIR, POPUPS, LINKS
+    card = dict(CARD, status_air=STATUS_AIR, popups=POPUPS, links=LINKS)
     return {"title": "Kitchen Show",
-            "views": [{"title": "Show", "path": "show", "type": "panel", "cards": [CARD]}]}
+            "views": [{"title": "Show", "path": "show", "type": "panel", "cards": [card]}]}

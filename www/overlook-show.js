@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.16.10";
+const VERSION = "0.16.12";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -2321,6 +2321,12 @@ class OverlookShow extends LitElement {
     .st.cool { background: color-mix(in srgb, var(--cool) 16%, var(--card)); color: color-mix(in srgb, var(--cool) 80%, var(--ink)); }
     .st.accent { background: var(--accent-soft); color: var(--accent); }
     .st.reading small { font-size: 12px; font-weight: 500; color: var(--muted); }
+    /* the Nest Hub (1024 wide): people and the four readings fit beside the clock without labels */
+    @media (max-width: 1200px) {
+      .screen:not(.desk-screen) > .status { right: 180px; gap: 6px; }
+      .screen:not(.desk-screen) > .status .tab { padding: 0 13px; gap: 6px; }
+      .screen:not(.desk-screen) > .status .reading small { display: none; }
+    }
     .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
     .room.has-hp { grid-template-columns: 1fr 340px; }
     .room-lights { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -2659,11 +2665,11 @@ class OverlookShow extends LitElement {
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-    /* on the computer a pop-up is a centred dialog, not a sheet from the bottom */
-    .desk-screen .pop-scrim { align-items: center; padding: 24px; }
-    .desk-screen .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
+    /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
+    .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
+    .screen:not(.phone) .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
     @keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
-    .desk-screen .grabber { display: none; }
+    .screen:not(.phone) .grabber { display: none; }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
     .pop-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
