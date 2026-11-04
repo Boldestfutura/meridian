@@ -55,6 +55,12 @@ and how to deploy each without clobbering anything.
   `custom:button-card`'s `styles:` / `extra_styles` (keyframes work there).
 - The VM **can't reach Sol's LAN IP**. Anything HA calls on Sol uses `100.84.24.51`:
   Immich on :2283, Music Assistant on :30278.
+- **MA's "Internal URL" must stay `http://100.84.24.51:30278/`** (MA: Settings > System >
+  Webserver). MA announces it over mDNS and HA's MA integration copies it; when it falls back
+  to the LAN IP, every `_2` player goes unavailable (2026-10-28, 10-31, 11-05). A root cron job
+  on Sol (id 526, every 5 min) runs `tools/sol/ma-url-watch.sh` from
+  `/mnt/SSDs/appconfig/`: it stops MA, fixes `settings.json` and starts it again, at most once
+  per 30 minutes, and logs to `/mnt/SSDs/appconfig/ma-url-watch.log`.
 
 ## What exists, by dashboard
 
