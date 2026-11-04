@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.2";
+const VERSION = "0.18.3";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -513,6 +513,26 @@ class OverlookShow extends LitElement {
       </section>`;
   }
 
+  // tap does onTap, a still 500ms hold does onHold (see _lightTile for why it's this careful)
+  _tapHold(key, onTap, onHold) {
+    const P = () => this._press || {};
+    const up = () => clearTimeout(P().timer);
+    const down = (ev) => {
+      up();
+      // a touch that stops a scroll is just stopping it: no sheet, no toggle
+      const scrolling = performance.now() - (this._scrolledAt || 0) < 250;
+      const p = this._press = { id: key, held: scrolling, x0: ev.clientX, y0: ev.clientY };
+      if (scrolling) return;
+      p.timer = setTimeout(() => {
+        if (performance.now() - (this._scrolledAt || 0) < 500) return;
+        p.held = true; fireHaptic("medium"); onHold();
+      }, 500);
+    };
+    const move = (ev) => { const p = P(); if (Math.abs(ev.clientX - p.x0) > 8 || Math.abs(ev.clientY - p.y0) > 8) up(); };
+    const click = () => { const p = P(); if (p.id === key && p.held) return; onTap(); };
+    return { down, move, up, click };
+  }
+
   // a small light tile: tap toggles, hold for the full controls
   _lightTile(l) {
     const e = this._st(l.entity);
@@ -524,21 +544,8 @@ class OverlookShow extends LitElement {
     // over, and a finger that stops momentum scrolling lands as a fresh press.
     // Press state lives on the card, not in this render: HA re-renders on every
     // state change, and a fresh closure mid-press forgot the hold and toggled anyway.
-    const P = () => this._press || {};
-    const up = () => clearTimeout(P().timer);
-    const down = (ev) => {
-      up();
-      // a touch that stops a scroll is just stopping it: no sheet, no toggle
-      const scrolling = performance.now() - (this._scrolledAt || 0) < 250;
-      const p = this._press = { id: l.entity, held: scrolling, x0: ev.clientX, y0: ev.clientY };
-      if (scrolling) return;
-      p.timer = setTimeout(() => {
-        if (performance.now() - (this._scrolledAt || 0) < 500) return;
-        p.held = true; fireHaptic("medium"); this._openLight(l.entity);
-      }, 500);
-    };
-    const move = (ev) => { const p = P(); if (Math.abs(ev.clientX - p.x0) > 8 || Math.abs(ev.clientY - p.y0) > 8) up(); };
-    const click = () => { const p = P(); if (p.id === l.entity && p.held) return; this._call("light", "toggle", { entity_id: l.entity }); };
+    const { down, move, up, click } = this._tapHold(l.entity,
+      () => this._call("light", "toggle", { entity_id: l.entity }), () => this._openLight(l.entity));
     return html`
       <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
               @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
@@ -1737,16 +1744,17 @@ class OverlookShow extends LitElement {
     // the lift that ends the hold arrives as a click on the scrim: don't let it close the sheet it opened
     const scrimClose = () => { if (performance.now() - (this._lightAt || 0) > 700) close(); };
     const full = () => { this._light = null; this._moreInfo(id); };
+    const room = !!this._lightRoom;   // a room heading's hold: just the one slider and power
     const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
     return html`
       <div class="scrim pop-scrim" @click=${scrimClose} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
-        <div class="sheet pop lsheet ${this._config.phone ? "" : "two"}" @click=${(ev) => ev.stopPropagation()}
+        <div class="sheet pop lsheet ${this._config.phone || room ? "" : "two"} ${room ? "room" : ""}" @click=${(ev) => ev.stopPropagation()}
              @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
           <div class="pop-head">
             <span class="pop-ico ${lit ? "lit" : ""}"><ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></span>
             <span class="pop-title">${this._lightName(id)}<span class="lsheet-state ${lit ? "lit" : ""}"><span class="txt">${state}</span><span class="livetxt"></span></span></span>
-            <button class="round small" title="More settings" @click=${full}><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>
+            ${room ? nothing : html`<button class="round small" title="More settings" @click=${full}><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>`}
             <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
           <div class="pop-body lsheet-body">
@@ -1758,13 +1766,13 @@ class OverlookShow extends LitElement {
                       @click=${() => this._call("light", "toggle", { entity_id: id })}>
                 <ha-icon icon="mdi:power"></ha-icon></button>
             </div>
-            <div class="lsheet-side">
+            ${room ? nothing : html`<div class="lsheet-side">
               ${hasCt ? this._ctBar(id, a) : nothing}
               ${hasCol ? this._swatches(id, a) : nothing}
               ${members.length ? html`
                 <div class="pop-sub">Lights in this group</div>
                 <div class="pop-grid">${members.map((m) => this._memberTile(m))}</div>` : nothing}
-            </div>
+            </div>`}
           </div>
         </div>
       </div>`;
@@ -3097,9 +3105,10 @@ class OverlookOverlay extends OverlookShow {
 
   updated(changed) { if (changed.has("hass") && this._drag) this._settle(); }
 
-  openLight(id, name) {
+  openLight(id, name, room = false) {
     if (name) this._names[id] = name;
     OverlookShow.prototype._openLight.call(this, id);
+    this._lightRoom = room;
   }
 
   // HA listens for more-info on its own root, which this layer sits outside of
@@ -3326,11 +3335,15 @@ class OverlookHeading extends OverlookPiece {
   render() {
     if (!this.hass || !this._config) return nothing;
     const c = this._config, g = this._st(c.group), lit = g && g.state === "on";
+    // tap: the room's lights on/off; hold: one brightness slider for the whole room
+    const h = this._tapHold(`room:${c.group}`, () => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: c.group }),
+      () => overlay(this.hass).openLight(c.group, c.name, true));
     return html`
       <div class="phone piece"><div class="ph-sec">
         <ha-icon icon=${c.icon || "mdi:door"}></ha-icon><span>${c.name}</span>
         ${g ? html`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
-            @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: c.group })}>
+            @pointerdown=${h.down} @pointermove=${h.move} @pointerup=${h.up} @pointerleave=${h.up} @pointercancel=${h.up}
+            @click=${h.click}>
             <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : nothing}
       </div></div>`;
   }
