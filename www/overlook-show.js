@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.24";
+const VERSION = "0.18.26";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -2684,7 +2684,7 @@ class OverlookShow extends LitElement {
       .round.small { width: 32px; height: 32px; }
       .where, .where-vol { height: 36px; font-size: 14px; }
       .col-b { padding: 14px 16px 16px; }
-      .favs { margin-top: 10px; gap: 10px; grid-template-columns: minmax(120px, 0.75fr) 1.4fr; }
+      .favs { margin-top: 10px; gap: 10px; grid-template-columns: minmax(88px, 0.6fr) minmax(0, 1.4fr); }
       .pill-wrap, .thermo { padding: 10px 12px; border-radius: 18px; }
       .pill-head { min-height: 34px; }
       .pill-name { font-size: 14px; }
@@ -2697,13 +2697,15 @@ class OverlookShow extends LitElement {
       .thermo { gap: 5px; }
       .hp-step { width: 42px; height: 40px; border-radius: 13px; }
       .hp-set { font-size: 21px; }
-      .modes { height: 42px; gap: 8px; }
+      .modes { height: 42px; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .fav-scenes { margin-top: 8px; gap: 8px; }
       .mini-scene { height: 68px; padding: 7px 4px; gap: 4px; border-radius: 14px; }
       .mini-scene ha-icon { width: 28px; height: 28px; --mdc-icon-size: 18px; }
       .ms-name { font-size: 11px; }
       .hp-target { margin-top: 14px; }
-      .mode { border-radius: 14px; font-size: 12px; }
+      .hp-now { gap: 6px; }
+      .hp-temp { font-size: 32px; }
+      .mode { border-radius: 14px; font-size: 12px; gap: 3px; padding: 0 4px; min-width: 0; }
       .mode ha-icon { --mdc-icon-size: 20px; }
       .pl-title { margin-top: 12px; }
       .pl-row { height: 96px; margin: 8px -16px -16px; padding: 0 16px 16px; gap: 10px; scroll-padding: 0 16px; }
