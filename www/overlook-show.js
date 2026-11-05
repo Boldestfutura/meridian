@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.3";
+const VERSION = "0.18.4";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -539,20 +539,30 @@ class OverlookShow extends LitElement {
     if (!e) return nothing;
     const on = e.state === "on";
     const pct = on ? Math.round((e.attributes.brightness || 255) / 2.55) : 0;
-    // A hold only counts if the finger stays put. Scrolling over a tile used to
+    const toggle = () => this._call("light", "toggle", { entity_id: l.entity });
+    const label = html`<span class="tile-text"><span class="tile-name">${l.name || e.attributes.friendly_name}</span>
+          <span class="muted">${on ? (pct >= 100 ? "On" : `On · ${pct}%`) : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>`;
+    // the phone's native tiles work like HA's own tile card: the icon toggles, the rest opens the sheet
+    if (this._iconToggles) {
+      return html`
+        <button class="card tile light-tile ${on ? "on" : ""}" @click=${() => this._openLight(l.entity)}>
+          <span class="tile-ico tap" role="button" title=${on ? "Turn off" : "Turn on"}
+                @click=${(ev) => { ev.stopPropagation(); fireHaptic("light"); toggle(); }}><ha-icon icon=${l.icon || "mdi:lightbulb"}></ha-icon></span>
+          ${label}
+        </button>`;
+    }
+    // Everywhere else: tap toggles, hold opens the sheet. A hold only counts if the finger stays put. Scrolling over a tile used to
     // open its sheet: iOS doesn't always send pointercancel when a scroll takes
     // over, and a finger that stops momentum scrolling lands as a fresh press.
     // Press state lives on the card, not in this render: HA re-renders on every
     // state change, and a fresh closure mid-press forgot the hold and toggled anyway.
-    const { down, move, up, click } = this._tapHold(l.entity,
-      () => this._call("light", "toggle", { entity_id: l.entity }), () => this._openLight(l.entity));
+    const { down, move, up, click } = this._tapHold(l.entity, toggle, () => this._openLight(l.entity));
     return html`
       <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
               @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
               @click=${click}>
         <span class="tile-ico"><ha-icon icon=${l.icon || "mdi:lightbulb"}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${l.name || e.attributes.friendly_name}</span>
-          <span class="muted">${on ? (pct >= 100 ? "On" : `On · ${pct}%`) : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+        ${label}
       </button>`;
   }
 
@@ -2736,6 +2746,8 @@ class OverlookShow extends LitElement {
                           -webkit-box-orient: vertical; overflow: hidden; }
     .ph-grid .tile-text .muted { font-size: 12px; }
     .ph-grid .tile-val { font-size: 18px; }
+    .tile-ico.tap { cursor: pointer; transition: transform 0.12s; }
+    .tile-ico.tap:active { transform: scale(0.9); }
     .light-tile.on { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
     .ph-grid .player { padding: 12px; gap: 10px; border-radius: 20px; }
     .ph-grid .player-row { grid-template-columns: 40px 1fr; gap: 10px; }
@@ -3035,6 +3047,7 @@ class OverlookPiece extends OverlookShow {
   }
 
   get _scrolledAt() { return LAST_SCROLL; }
+  get _iconToggles() { return true; }   // light tiles: icon toggles, body opens the sheet (HA's tile card)
   set _scrolledAt(v) { LAST_SCROLL = v; }
 
   connectedCallback() {
