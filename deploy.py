@@ -29,6 +29,7 @@ TARGETS = {           # url_path -> (module, title, icon)
     "shownative": ("ha-show-native", "Phone Show", "mdi:cellphone-cog"),
     "showcomputer": ("ha-show-computer", "Computer Show", "mdi:monitor-dashboard"),
     "showbedroom": ("ha-show-bedroom", "Bedroom Show", "mdi:bed-clock"),
+    "showhub": ("ha-show-hub", "Hub Show", "mdi:monitor-speaker"),
 }
 # edited in HA's own editor: deploy writes their layout only until that happens
 NATIVE = ("shownative",)
@@ -123,7 +124,7 @@ def main():
                        title=title, icon=icon, show_in_sidebar=True, require_admin=False)
             print("created %s" % url)
 
-        if (name in ("show", "showcomputer", "showbedroom") or name in NATIVE) and not a.dry_run:
+        if (name in ("show", "showcomputer", "showbedroom", "showhub") or name in NATIVE) and not a.dry_run:
             push_show(ws, ids)
 
         if a.patch:

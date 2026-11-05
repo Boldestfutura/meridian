@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.26";
+const VERSION = "0.19.1";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -53,6 +53,15 @@ const BEDSIDE_PAGES = [
   ["media", "Media", "mdi:music"],
   ["climate", "Climate", "mdi:thermometer"],
   ["calendar", "Calendar", "mdi:calendar-month-outline"],
+];
+
+// the Nest Hub in the kitchen (7", 1024x600): photos are home, then the kitchen and living room
+const HUB_PAGES = [
+  ["controls", "Controls", "mdi:tune-variant"],
+  ["media", "Media", "mdi:music"],
+  ["climate", "Climate", "mdi:thermometer"],
+  ["calendar", "Calendar", "mdi:calendar-month-outline"],
+  ["recipes", "Recipes", "mdi:silverware-fork-knife"],
 ];
 
 // the air monitor's readings: long name, colour and a one-word verdict (as on the old room screens)
@@ -116,6 +125,7 @@ class OverlookShow extends LitElement {
     _page: { state: true },
     _drag: { state: true },
     _picker: { state: true },
+    _scenes: { state: true },
     _todo: { state: true },
     _events: { state: true },
     _cal: { state: true },
@@ -209,6 +219,7 @@ class OverlookShow extends LitElement {
     this._idleTimer = setTimeout(() => {
       if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
+      this._scenes = false;
       this._pop = null;
       this._light = null;
       this._page = "photos";
@@ -324,6 +335,7 @@ class OverlookShow extends LitElement {
   }
   _go(page) {
     this._picker = false;
+    this._scenes = false;
     this._pop = null;
     this._light = null;
     this._recipe = null;
@@ -370,13 +382,14 @@ class OverlookShow extends LitElement {
     if (bed && photos && this._night()) return this._nightClock();
     return html`
       <div class="screen ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
-                  ${bed ? "bedside" : ""} ${photos ? "on-photo" : ""}">
+                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : nothing}
         ${this._config.desk ? nothing : this._dock()}
         ${photos ? nothing : html`<main class="page">${this._pageBody()}</main>`}
         ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}
         ${this._config.desk || (bed && !photos) ? nothing : this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
+        ${this._scenes ? this._scenesSheet() : nothing}
         ${this._pop ? this._popSheet() : nothing}
         ${this._light ? this._lightSheet() : nothing}
         ${this._dayOpen && this._page === "calendar" ? this._daySheet() : nothing}
@@ -852,7 +865,7 @@ class OverlookShow extends LitElement {
     return html`
       <nav class="dock">
         <div class="dock-pill">
-          ${(this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => html`
+          ${(this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => html`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
               <ha-icon icon=${icon}></ha-icon>
@@ -872,9 +885,9 @@ class OverlookShow extends LitElement {
       case "calendar": return this._calendar();
       case "home": return this._home();
       case "desk": return this._desk();
-      case "controls": return this._bedControls();
-      case "media": return this._bedMedia();
-      case "climate": return this._bedClimate();
+      case "controls": return this._config.hub ? this._hubControls() : this._bedControls();
+      case "media": return this._config.hub ? this._hubMedia() : this._bedMedia();
+      case "climate": return this._config.hub ? this._hubClimate() : this._bedClimate();
       default: {
         const p = PAGES.find((x) => x[0] === this._page);
         return html`<div class="soon card">
@@ -959,6 +972,66 @@ class OverlookShow extends LitElement {
     return html`
       <div class="bed-air">
         ${(r.sensors || []).map((x) => this._airTile(x))}
+      </div>`;
+  }
+
+  // --- hub (the Nest Hub in the kitchen) ------------------------------------------
+  // config.hub_rooms: the rooms whose lights get a tile; config.tv: the TV's power tile
+  _hubControls() {
+    const tv = this._config.tv && this._st(this._config.tv.entity);
+    const tvOn = !!tv && !["off", "standby", "unavailable"].includes(tv.state);
+    return html`
+      <div class="bed-two">
+        <div class="bed-controls hub-controls">
+          ${(this._config.hub_rooms || []).map((r) => {
+            const g = this._st(r.group), on = !!g && g.state === "on";
+            return g ? this._controlTile(r.name, r.icon, "var(--warm)", g,
+              () => this._call("light", on ? "turn_off" : "turn_on", { entity_id: r.group })) : nothing;
+          })}
+          <button class="card air-tile control-tile" style="--c:var(--accent)" @click=${() => { this._scenes = true; }}>
+            <span class="air-ico"><ha-icon icon="mdi:creation"></ha-icon></span>
+            <span class="air-name">Scenes<span class="air-q">${(this._config.hub_scenes || []).length} to pick from</span></span>
+          </button>
+          ${tv ? this._controlTile(this._config.tv.name, this._config.tv.icon, "#8e5cf0", { state: tvOn ? "on" : tv.state },
+            () => this._call("media_player", tvOn ? "turn_off" : "turn_on", { entity_id: this._config.tv.entity })) : nothing}
+        </div>
+        ${this._mediaCard()}
+      </div>`;
+  }
+
+  _scenesSheet() {
+    const close = () => { this._scenes = false; };
+    return html`
+      <div class="scrim" @click=${close}>
+        <div class="sheet card scenes-sheet" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">Scenes</div>
+          <div class="hub-scenes">${(this._config.hub_scenes || []).map((x) => this._miniScene(x))}</div>
+        </div>
+      </div>`;
+  }
+
+  // everything playing or paused anywhere, then the playlists
+  _hubMedia() {
+    const all = (this._config.rooms || []).flatMap((r) => r.media || []);
+    const live = all.filter((m) => { const e = this._st(m.entity); return e && ["playing", "paused"].includes(e.state); });
+    const pl = this._playlists();
+    return html`
+      <div class="bed-two">
+        <div class="hub-players">
+          ${live.length ? live.map((m) => this._player(m)) : html`
+            <div class="card soon"><ha-icon icon="mdi:music-off"></ha-icon><div class="muted">Nothing playing</div></div>`}
+        </div>
+        ${pl === nothing ? nothing : html`<div class="card bed-card bed-pl">${pl}</div>`}
+      </div>`;
+  }
+
+  // the heat pump beside the kitchen's air readings
+  _hubClimate() {
+    const r = this._config.room || {};
+    return html`
+      <div class="bed-two">
+        ${this._config.climate ? html`<div class="card desk-hp hub-hp">${this._thermostat()}</div>` : nothing}
+        <div class="bed-air">${(r.sensors || []).map((x) => this._airTile(x))}</div>
       </div>`;
   }
 
@@ -1514,7 +1587,7 @@ class OverlookShow extends LitElement {
     const d = when ? new Date(when) : null;
     const album = cam && cam.attributes.album_title;
     return html`
-      <div class="photo" @click=${() => { if (!this._config.bedside) this._go("kitchen"); }}>
+      <div class="photo" @click=${() => { if (!this._config.bedside) this._go(this._config.hub ? "controls" : "kitchen"); }}>
         ${pic ? html`<img src=${this._u(pic)} alt="">` : nothing}
         <div class="photo-shade"></div>
         <div class="photo-cap">
@@ -2881,7 +2954,21 @@ class OverlookShow extends LitElement {
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
-    .bedside .media-card { flex: none; height: 100%; }
+    .bedside .media-card, .hub .media-card { flex: none; height: 100%; }
+    .hub-controls { grid-template-rows: 1fr 1fr; }
+    .hub-players { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
+    .hub-hp { display: flex; flex-direction: column; min-height: 0; }
+    .hub-hp .thermo { flex: 1; padding: 20px; gap: 0; }
+    .hub .hub-hp .hp-temp { font-size: 76px; }
+    .hub .hub-hp .hp-mode { font-size: 18px; }
+    .hub .hub-hp .hp-target { margin-top: auto; }
+    .hub .hub-hp .hp-step { width: 72px; height: 64px; border-radius: 18px; }
+    .hub .hub-hp .hp-set { font-size: 34px; }
+    .hub .hub-hp .modes { height: 64px; gap: 10px; margin-top: 28px; }
+    .hub .hub-hp .mode { font-size: 16px; border-radius: 18px; }
+    .hub .hub-hp .mode ha-icon { --mdc-icon-size: 24px; }
+    .scenes-sheet { width: min(560px, 90vw); }
+    .hub-scenes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .bed-pl { display: flex; flex-direction: column; overflow: hidden; }
     .bed-pl .pl-title { margin: 0; }
     .bed-pl .pl-row { flex: 1; height: auto; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr);
