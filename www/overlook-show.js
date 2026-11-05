@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.21";
+const VERSION = "0.18.23";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -1096,7 +1096,7 @@ class OverlookShow extends LitElement {
               <ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${powerTile ? html`
-          <div class="transport split">
+          <div class="transport power-pair">
             <button class="round small" title="Play/pause" @click=${() => this._call("media_player", "media_play_pause", { entity_id: id })}>
               <ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
             <button class="round small" title="Power" @click=${() => this._call("media_player", e.state === "off" ? "turn_on" : "turn_off", { entity_id: id })}>
@@ -2774,8 +2774,8 @@ class OverlookShow extends LitElement {
     .ph-grid .vol { gap: 6px; }
     .ph-grid .player .round.small { border-radius: 13px; }
     .ph-grid .transport { display: flex; justify-content: center; }
-    .ph-grid .transport.split { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; margin: 0; }
-    .ph-grid .transport.split .round.small { width: 100%; }
+    .ph-grid .transport.power-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ph-grid .power-pair .round.small { width: 100%; }
     .ph-grid .player.has-art { color: #fff; position: relative; isolation: isolate; overflow: hidden; background: #171b27; }
     .ph-grid .player.has-art::before { content: ""; position: absolute; inset: 0; z-index: -1;
       background: linear-gradient(rgba(14, 18, 30, 0.55), rgba(14, 18, 30, 0.72)), var(--art) center / cover;
