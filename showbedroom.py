@@ -4,7 +4,7 @@ The same card as ha-show (show.CARD) in `bedside` mode, for a 960x480 screen: th
 kitchen's dock on the left with Controls, Media, Climate and Calendar, and the photo
 button below it. Photos are home: the bedroom's Family album with the clock and the
 dock over it, and the screen idles back there after five minutes. At night
-(`night`, input_boolean.bedroom_night_mode) home is a red clock on black instead, and a
+(`night`, binary_sensor.bedroom_dark) home is a red clock on black instead, and a
 woken screen goes back to it after 30 seconds. Everything comes
 from the Bedroom entry in show.CARD["rooms"], so its group and switches show up on
 Controls and its sensors on Climate. Hold the clock for 1.5s to uncover HA.
@@ -20,8 +20,8 @@ SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom Echo") for s in show.CARD[
 
 CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             photos="camera.album_slideshow_family_bedroom", status=[], scenes=[],
-            # on 9pm-7:30am (the night-mode automation): home becomes a red clock on black
-            night="input_boolean.bedroom_night_mode")
+            # when the room is dark (lights off, Echo light sensor under 3 lx): a red clock on black
+            night="binary_sensor.bedroom_dark")
 
 
 def build():

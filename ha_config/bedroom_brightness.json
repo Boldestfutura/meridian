@@ -1,0 +1,103 @@
+{
+ "id": "1793911176888",
+ "alias": "Master Bedroom Echo Brightness",
+ "description": "Red night clock and screen brightness follow the room, not the clock. binary_sensor.bedroom_dark (bedroom lights off and the Echo's light sensor under 3 lx) turns Android auto brightness off and sets 12/255; otherwise auto brightness is on (screen_auto_brightness_adj set to 1.0 over ADB, so lamp light reads about 75-85/255 instead of 6). A bedroom light changing asks the Echo for a fresh light reading, since the sensor otherwise reports every 15 minutes.",
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "binary_sensor.bedroom_dark",
+   "to": [
+    "on",
+    "off"
+   ],
+   "id": "room"
+  },
+  {
+   "trigger": "homeassistant",
+   "event": "start",
+   "id": "room"
+  },
+  {
+   "trigger": "state",
+   "entity_id": "light.master_bedroom_lights",
+   "to": [
+    "on",
+    "off"
+   ],
+   "id": "lights"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "lights"
+      }
+     ],
+     "sequence": [
+      {
+       "delay": {
+        "seconds": 3
+       }
+      },
+      {
+       "action": "notify.mobile_app_echo_show_5",
+       "data": {
+        "message": "command_update_sensors"
+       },
+       "continue_on_error": true
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "state",
+       "entity_id": "binary_sensor.bedroom_dark",
+       "state": "on"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.mobile_app_echo_show_5",
+       "data": {
+        "message": "command_auto_screen_brightness",
+        "data": {
+         "command": "turn_off"
+        }
+       },
+       "continue_on_error": true
+      },
+      {
+       "action": "notify.mobile_app_echo_show_5",
+       "data": {
+        "message": "command_screen_brightness_level",
+        "data": {
+         "command": 12
+        }
+       },
+       "continue_on_error": true
+      }
+     ]
+    }
+   ],
+   "default": [
+    {
+     "action": "notify.mobile_app_echo_show_5",
+     "data": {
+      "message": "command_auto_screen_brightness",
+      "data": {
+       "command": "turn_on"
+      }
+     },
+     "continue_on_error": true
+    }
+   ]
+  }
+ ],
+ "mode": "queued"
+}

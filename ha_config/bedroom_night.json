@@ -1,7 +1,7 @@
 {
  "id": "1784082631958",
  "alias": "Master Bedroom Night Mode - Sleep Sounds",
- "description": "9pm-7:30am while Cameron, Paget or a guest is home: input_boolean.bedroom_night_mode on (the Bedroom Show's red clock), Stream Sounds looping on the bedroom Echo Show through Music Assistant at 9%. Also starts when someone gets home inside the window. Stops at 7:30am or when everyone leaves. The Echo's screen goes to 3% (8/255) for the night and back to 40% (102/255) at the end.",
+ "description": "9pm-7:30am while Cameron, Paget or a guest is home: input_boolean.bedroom_night_mode on, Stream Sounds looping on the bedroom Echo Show through Music Assistant at 9%. Also starts when someone gets home inside the window. Stops at 7:30am or when everyone leaves. Screen brightness and the red night clock are handled by \"Master Bedroom Echo Brightness\" from the room's light, not here.",
  "triggers": [
   {
    "trigger": "time",
@@ -82,16 +82,6 @@
        "target": {
         "entity_id": "input_boolean.bedroom_night_mode"
        }
-      },
-      {
-       "action": "notify.mobile_app_echo_show_5",
-       "data": {
-        "message": "command_screen_brightness_level",
-        "data": {
-         "command": 8
-        }
-       },
-       "continue_on_error": true
       },
       {
        "action": "media_player.volume_set",
@@ -183,16 +173,6 @@
        },
        "data": {
         "repeat": "off"
-       },
-       "continue_on_error": true
-      },
-      {
-       "action": "notify.mobile_app_echo_show_5",
-       "data": {
-        "message": "command_screen_brightness_level",
-        "data": {
-         "command": 102
-        }
        },
        "continue_on_error": true
       },

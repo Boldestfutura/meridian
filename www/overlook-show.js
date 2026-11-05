@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.23";
+const VERSION = "0.18.24";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -369,13 +369,12 @@ class OverlookShow extends LitElement {
     const photos = this._page === "photos", bed = this._config.bedside;
     if (bed && photos && this._night()) return this._nightClock();
     return html`
-      <div class="screen ${photos && !bed ? "is-photos" : ""} ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
-                  ${bed ? "bedside" : ""} ${bed && photos ? "on-photo" : ""}">
-        ${photos && !bed ? this._photos() : html`
-          ${bed && photos ? this._photos() : nothing}
-          ${this._config.desk ? nothing : this._dock()}
-          ${bed && photos ? nothing : html`<main class="page">${this._pageBody()}</main>`}
-          ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}`}
+      <div class="screen ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
+                  ${bed ? "bedside" : ""} ${photos ? "on-photo" : ""}">
+        ${photos ? this._photos() : nothing}
+        ${this._config.desk ? nothing : this._dock()}
+        ${photos ? nothing : html`<main class="page">${this._pageBody()}</main>`}
+        ${this._page === "kitchen" || this._page === "desk" ? this._status() : nothing}
         ${this._config.desk || (bed && !photos) ? nothing : this._topRight(photos)}
         ${this._picker ? this._speakerSheet() : nothing}
         ${this._pop ? this._popSheet() : nothing}
@@ -2171,7 +2170,6 @@ class OverlookShow extends LitElement {
       user-select: none; -webkit-user-select: none;
     }
     .screen.windowed { position: relative; inset: auto; z-index: auto; height: 100vh; height: 100dvh; }
-    .screen.is-photos { display: block; background: #000; }
     .restore { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: 48px; height: 48px;
                border-radius: 50%; background: #1d5cf0; color: #fff; display: grid; place-items: center; }
     .muted { color: var(--muted); }
@@ -2867,6 +2865,10 @@ class OverlookShow extends LitElement {
                                                  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
     .on-photo .dock-btn { color: rgba(255, 255, 255, 0.78); }
     .on-photo .dock-btn.on { background: rgba(255, 255, 255, 0.18); color: #fff; }
+    /* photos keep the dock over them on every screen; the caption sits bottom right */
+    .on-photo .dock { position: relative; z-index: 1; }
+    .on-photo .photo-cap { left: auto; right: 40px; text-align: right; }
+    .on-photo .photo-nav { justify-content: flex-end; }
     .bedside .photo-cap { left: auto; right: 22px; bottom: 20px; text-align: right; }
     .bedside .cap-big { font-size: 22px; }
     .bedside .photo-nav { justify-content: flex-end; }
