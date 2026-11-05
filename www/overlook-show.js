@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.20";
+const VERSION = "0.18.21";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -2774,7 +2774,7 @@ class OverlookShow extends LitElement {
     .ph-grid .vol { gap: 6px; }
     .ph-grid .player .round.small { border-radius: 13px; }
     .ph-grid .transport { display: flex; justify-content: center; }
-    .ph-grid .transport.split { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+    .ph-grid .transport.split { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; margin: 0; }
     .ph-grid .transport.split .round.small { width: 100%; }
     .ph-grid .player.has-art { color: #fff; position: relative; isolation: isolate; overflow: hidden; background: #171b27; }
     .ph-grid .player.has-art::before { content: ""; position: absolute; inset: 0; z-index: -1;
