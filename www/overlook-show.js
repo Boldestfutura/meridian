@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.17";
+const VERSION = "0.18.18";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -2856,6 +2856,7 @@ class OverlookShow extends LitElement {
     .on-photo .dock-btn { color: rgba(255, 255, 255, 0.78); }
     .on-photo .dock-btn.on { background: rgba(255, 255, 255, 0.18); color: #fff; }
     .bedside .photo-cap { left: auto; right: 22px; bottom: 20px; text-align: right; }
+    .bedside .cap-big { font-size: 22px; }
     .bedside .photo-nav { justify-content: flex-end; }
     .bedside .topright { right: 22px; }
     .bedside .topright.on-photo .clock { font-size: 68px; }
