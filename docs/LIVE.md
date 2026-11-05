@@ -137,7 +137,7 @@ and how to deploy each without clobbering anything.
   - Screen: `notify.mobile_app_echo_show_5` with `message: command_screen_brightness_level`,
     `data.command` 0-255. The automation sets 3 (about 1%) at the start and 102 at the end. It needs
     `appops set io.homeassistant.companion.android WRITE_SETTINGS allow`, already done on the device.
-  - Artwork: `TRACK_ART` in overlook-show.js maps the title `cataract-falls` to `/config/www/sounds/cataract-falls.jpg`, a stand-in cropped from Frank Schulenburg's "Cataract Falls, Mount Tamalpais Watershed" (Wikimedia Commons, CC BY-SA 4.0). Only on HA, not in this repo. Apple's real artwork isn't public.
+  - Artwork: `TRACK_ART` in overlook-show.js maps the title `cataract-falls` to `/config/www/sounds/stream.jpg`, a stand-in cropped from "Mountain Stream (Tiadaghton State Forest)" by Nicholas_T (Wikimedia Commons, CC0). Only on HA, not in this repo. Apple's real artwork isn't public.
   - 10% is the volume Cameron chose by ear on 2026-11-05 (15% and 12% were too loud).
 - **Echo as a speaker:** SendSpin Player (`com.sendspindroid`) connects it to Music Assistant as
   `media_player.bedroom_echo`, its only media player. The old bedroom HomePod moved to the guest

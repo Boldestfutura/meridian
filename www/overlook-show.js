@@ -12,9 +12,9 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.8";
+const VERSION = "0.18.9";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
-const TRACK_ART = { "cataract-falls": "/local/sounds/cataract-falls.jpg" };
+const TRACK_ART = { "cataract-falls": "/local/sounds/stream.jpg" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
