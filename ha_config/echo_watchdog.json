@@ -1,0 +1,153 @@
+{
+ "id": "echo_show_watchdog",
+ "alias": "Master Bedroom Echo Watchdog",
+ "description": "Keeps the bedroom Echo Show on Home Assistant. After a restart or power cut (the ADB entity media_player.echo_show_adb coming back from unavailable, or HA starting) it wakes the screen, clears the lock screen, restores Android's auto-brightness offset (screen_auto_brightness_adj resets to 0 on boot), opens the HA app, re-runs Master Bedroom Echo Brightness, and restarts the sleep sounds if night mode is on. If any other app sits in front for 2 minutes, or the screen is asleep (app_id is then empty; the HA app keeps the screen on), it brings HA back. Needs ADB on port 5555 (persist.adb.tcp.port set via rooted debugging, 2026-11-06).",
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "media_player.echo_show_adb",
+   "from": "unavailable",
+   "id": "boot"
+  },
+  {
+   "trigger": "homeassistant",
+   "event": "start",
+   "id": "boot"
+  },
+  {
+   "trigger": "state",
+   "entity_id": "media_player.echo_show_adb",
+   "attribute": "app_id",
+   "for": {
+    "minutes": 2
+   },
+   "id": "app"
+  },
+  {
+   "trigger": "time_pattern",
+   "minutes": "/5",
+   "id": "app"
+  }
+ ],
+ "conditions": [
+  {
+   "condition": "not",
+   "conditions": [
+    {
+     "condition": "state",
+     "entity_id": "media_player.echo_show_adb",
+     "state": "unavailable"
+    }
+   ]
+  }
+ ],
+ "actions": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "boot"
+      }
+     ],
+     "sequence": [
+      {
+       "delay": {
+        "seconds": 20
+       }
+      },
+      {
+       "action": "androidtv.adb_command",
+       "target": {
+        "entity_id": "media_player.echo_show_adb"
+       },
+       "data": {
+        "command": "input keyevent 224; sleep 1; wm dismiss-keyguard; settings put system screen_auto_brightness_adj 1.0; sleep 2; am start -W -n io.homeassistant.companion.android/.launch.LaunchActivity"
+       },
+       "continue_on_error": true
+      },
+      {
+       "delay": {
+        "seconds": 15
+       }
+      },
+      {
+       "action": "automation.trigger",
+       "target": {
+        "entity_id": "automation.master_bedroom_echo_brightness"
+       },
+       "data": {
+        "skip_condition": true
+       }
+      },
+      {
+       "if": [
+        {
+         "condition": "state",
+         "entity_id": "input_boolean.bedroom_night_mode",
+         "state": "on"
+        }
+       ],
+       "then": [
+        {
+         "action": "media_player.volume_set",
+         "target": {
+          "entity_id": "media_player.bedroom_echo"
+         },
+         "data": {
+          "volume_level": 0.09
+         },
+         "continue_on_error": true
+        },
+        {
+         "action": "music_assistant.play_media",
+         "target": {
+          "entity_id": "media_player.bedroom_echo"
+         },
+         "data": {
+          "media_id": "http://100.108.150.25:8123/local/sounds/Stream Sounds.m4a",
+          "media_type": "track",
+          "enqueue": "replace"
+         },
+         "continue_on_error": true
+        },
+        {
+         "action": "media_player.repeat_set",
+         "target": {
+          "entity_id": "media_player.bedroom_echo"
+         },
+         "data": {
+          "repeat": "one"
+         },
+         "continue_on_error": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "template",
+       "value_template": "{{ state_attr('media_player.echo_show_adb','app_id') != 'io.homeassistant.companion.android' }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "androidtv.adb_command",
+       "target": {
+        "entity_id": "media_player.echo_show_adb"
+       },
+       "data": {
+        "command": "input keyevent 224; sleep 1; wm dismiss-keyguard; settings put system screen_auto_brightness_adj 1.0; sleep 2; am start -W -n io.homeassistant.companion.android/.launch.LaunchActivity"
+       },
+       "continue_on_error": true
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "mode": "single"
+}
