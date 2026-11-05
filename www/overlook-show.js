@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.15";
+const VERSION = "0.18.16";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -2890,6 +2890,12 @@ class OverlookShow extends LitElement {
     .bed-cal .date-top { font-size: 26px; }
     .bed-cal .date-num { flex: none; font-size: min(190px, 36vh); margin: 6px 0 0; }
     .bedside .whatson { padding: 14px 16px 4px; }
+    .bedside .whatson .card-title { font-size: 20px; }
+    .bedside .wo-day { font-size: 16px; }
+    .bedside .wo-ev { grid-template-columns: 66px 4px 1fr; }
+    .bedside .wo-time { font-size: 17px; }
+    .bedside .wo-text .ev-name { font-size: 20px; }
+    .bedside .wo-loc { font-size: 16px; }
     /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
     .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
     .screen:not(.phone) .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
