@@ -12,7 +12,9 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.7";
+const VERSION = "0.18.8";
+// artwork for local files that carry none, keyed by the title Music Assistant reports
+const TRACK_ART = { "cataract-falls": "/local/sounds/cataract-falls.jpg" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -779,8 +781,8 @@ class OverlookShow extends LitElement {
     return html`
       <div class="pplayer ${muted ? "muted-vol" : ""}">
         <div class="pp-top">
-          <div class="art" style=${a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
-            ${a.entity_picture ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
+          <div class="art" style=${this._pic(a) ? `background-image:url('${this._pic(a)}')` : ""}>
+            ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
           <div class="media-text">
             ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
             <div class="media-title">${a.media_title || (off ? "Off" : "Nothing playing")}</div>
@@ -1071,7 +1073,7 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level;
     // the phone keeps the icon and puts the artwork behind the whole tile
     const phone = this._config.phone;
-    const pic = active && a.entity_picture ? this._u(a.entity_picture) : null;
+    const pic = active ? this._pic(a) : null;
     return html`
       <div class="card player ${phone && pic ? "has-art" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
@@ -1382,6 +1384,7 @@ class OverlookShow extends LitElement {
 
   // A cast runs the dashboard from cast.home-assistant.io, so a bare "/local/..." or
   // "/api/..." path would point at Google's server. hassUrl() makes it absolute.
+  _pic(a) { return this._u(a.entity_picture || TRACK_ART[a.media_title]); }
   _u(p) { return p && p[0] === "/" && p[1] !== "/" && this.hass && this.hass.hassUrl ? this.hass.hassUrl(p) : p; }
 
   _recipeCard(id) {
@@ -1608,8 +1611,8 @@ class OverlookShow extends LitElement {
       <div class="card media-card">
         <div class="card-title">Active Media</div>
         <div class="media-row">
-          <div class="art" style=${a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
-            ${a.entity_picture ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}
+          <div class="art" style=${this._pic(a) ? `background-image:url('${this._pic(a)}')` : ""}>
+            ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}
           </div>
           <div class="media-text">
             ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
@@ -2764,9 +2767,12 @@ class OverlookShow extends LitElement {
     .ph-grid .player-title { font-size: 14px; }
     .ph-grid .media-artist { font-size: 12px; }
     .ph-grid .vol { gap: 6px; }
+    .ph-grid .player .round.small { border-radius: 13px; }
     .ph-grid .transport { display: flex; justify-content: center; }
-    .ph-grid .player.has-art { color: #fff;
-      background: linear-gradient(rgba(10, 14, 28, 0.5), rgba(10, 14, 28, 0.72)), var(--art) center / cover; }
+    .ph-grid .player.has-art { color: #fff; position: relative; isolation: isolate; overflow: hidden; background: #171b27; }
+    .ph-grid .player.has-art::before { content: ""; position: absolute; inset: 0; z-index: -1;
+      background: linear-gradient(rgba(14, 18, 30, 0.55), rgba(14, 18, 30, 0.72)), var(--art) center / cover;
+      filter: saturate(0.5); }
     .ph-grid .has-art .media-src, .ph-grid .has-art .media-artist { color: rgba(255, 255, 255, 0.82); }
     .ph-grid .has-art .art.small { background: rgba(255, 255, 255, 0.2); color: #fff; }
     .ph-grid .has-art .round.small { background: rgba(255, 255, 255, 0.22); color: #fff; }
