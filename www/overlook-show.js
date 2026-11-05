@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.12";
+const VERSION = "0.18.13";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -2853,14 +2853,14 @@ class OverlookShow extends LitElement {
     /* bedside (Echo Show 5, 960x480): the kitchen's dock on the left; photos are home, with the dock over them */
     .bedside .dock { position: relative; padding: 12px 0 12px 12px; gap: 10px; z-index: 1; }
     .bedside .dock-pill { gap: 4px; padding: 6px; border-radius: 24px; }
-    .bedside .dock-btn { width: min(48px, 10vh); height: min(48px, 10vh); border-radius: 16px; }
-    .bedside .dock-btn ha-icon { --mdc-icon-size: 24px; }
+    .bedside .dock-btn { width: min(58px, 14.5vh); height: min(58px, 14.5vh); border-radius: 18px; }
+    .bedside .dock-btn ha-icon { --mdc-icon-size: 30px; }
     .bedside .page { padding: 14px; min-width: 0; }
     .on-photo .dock-pill, .on-photo .photo-btn { background: rgba(14, 18, 28, 0.5); border-color: rgba(255, 255, 255, 0.08);
                                                  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
     .on-photo .dock-btn { color: rgba(255, 255, 255, 0.78); }
     .on-photo .dock-btn.on { background: rgba(255, 255, 255, 0.18); color: #fff; }
-    .bedside .photo-cap { left: 112px; bottom: 24px; }
+    .bedside .photo-cap { left: 124px; bottom: 24px; }
     .bedside .topright { right: 22px; }
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
@@ -2887,8 +2887,8 @@ class OverlookShow extends LitElement {
     .air-val { justify-self: end; font-family: var(--display); font-weight: 700; font-size: min(58px, 12vh); line-height: 1;
                letter-spacing: -0.03em; }
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
-    .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 16px; font-weight: 600; }
-    .air-q { font-size: 14px; font-weight: 500; color: var(--c); }
+    .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
+    .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
     .big-switch { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                   gap: 6px; color: var(--ink); }
     .bs-ico { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--inset);
