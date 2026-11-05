@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.4";
+const VERSION = "0.18.5";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -3114,9 +3114,31 @@ class OverlookOverlay extends OverlookShow {
     loadFonts();
   }
 
-  disconnectedCallback() { LitElement.prototype.disconnectedCallback.call(this); }
+  updated(changed) {
+    if (changed.has("hass") && this._drag) this._settle();
+    this._lockPage(!!(this._pop || this._light));
+  }
 
-  updated(changed) { if (changed.has("hass") && this._drag) this._settle(); }
+  // While a sheet is up the page behind it must not move. iOS hands any swipe the sheet
+  // doesn't use to the document, so the dashboard scrolled under it. Pin the body where
+  // it is (position: fixed at -scrollY) and put the scroll back when the sheet closes.
+  _lockPage(on) {
+    if (on === !!this._locked) return;
+    const de = document.documentElement, b = document.body;
+    if (on) {
+      this._locked = { y: window.scrollY };
+      de.style.overflow = "hidden";
+      Object.assign(b.style, { position: "fixed", top: `-${this._locked.y}px`, left: "0", right: "0" });
+    } else {
+      const y = this._locked.y;
+      this._locked = null;
+      de.style.overflow = "";
+      Object.assign(b.style, { position: "", top: "", left: "", right: "" });
+      window.scrollTo(0, y);
+    }
+  }
+
+  disconnectedCallback() { this._lockPage(false); LitElement.prototype.disconnectedCallback.call(this); }
 
   openLight(id, name, room = false) {
     if (name) this._names[id] = name;
