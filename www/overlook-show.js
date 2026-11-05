@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.1";
+const VERSION = "0.19.2";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -995,7 +995,7 @@ class OverlookShow extends LitElement {
           ${tv ? this._controlTile(this._config.tv.name, this._config.tv.icon, "#8e5cf0", { state: tvOn ? "on" : tv.state },
             () => this._call("media_player", tvOn ? "turn_off" : "turn_on", { entity_id: this._config.tv.entity })) : nothing}
         </div>
-        ${this._mediaCard()}
+        <div class="hub-stack">${this._mediaCard()}${this._shopping()}</div>
       </div>`;
   }
 
@@ -1025,12 +1025,28 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
-  // the heat pump beside the kitchen's air readings
+  // outside over the heat pump, beside the kitchen's air readings
   _hubClimate() {
     const r = this._config.room || {};
+    const w = this._st(this._config.weather), f = this._forecast;
+    const cond = w ? this._cond(w) : null;
     return html`
       <div class="bed-two">
-        ${this._config.climate ? html`<div class="card desk-hp hub-hp">${this._thermostat()}</div>` : nothing}
+        <div class="hub-stack">
+          ${w ? html`
+            <button class="card hub-out" @click=${() => this._open(this._config.weather)}>
+              <div class="card-title">Outside</div>
+              <div class="hub-out-row">
+                <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+                <span class="hub-out-temp">${this._deg(w.attributes.temperature)}</span>
+                <div class="wx-side">
+                  <div class="wx-cond">${cond[1]}</div>
+                  ${f && w.state !== "unavailable" ? html`<div class="wx-hl">H ${Math.round(f.temperature)}°&nbsp;&nbsp;L ${Math.round(f.templow)}°</div>` : nothing}
+                </div>
+              </div>
+            </button>` : nothing}
+          ${this._config.climate ? html`<div class="card desk-hp hub-hp">${this._thermostat()}</div>` : nothing}
+        </div>
         <div class="bed-air">${(r.sensors || []).map((x) => this._airTile(x))}</div>
       </div>`;
   }
@@ -2958,13 +2974,22 @@ class OverlookShow extends LitElement {
     .hub-controls { grid-template-rows: 1fr 1fr; }
     .hub-players { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
     .hub-hp { display: flex; flex-direction: column; min-height: 0; }
-    .hub-hp .thermo { flex: 1; padding: 20px; gap: 0; }
-    .hub .hub-hp .hp-temp { font-size: 76px; }
-    .hub .hub-hp .hp-mode { font-size: 18px; }
+    .hub-stack { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0; }
+    .hub-stack > .card { min-height: 0; overflow: hidden; }
+    .hub-out { display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; text-align: left; color: var(--ink); }
+    .hub-out-row { display: flex; align-items: center; gap: 16px; }
+    .hub-out-row ha-icon { --mdc-icon-size: 64px; }
+    .hub-out-temp { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; letter-spacing: -0.02em; }
+    .hub .hub-out .wx-side { margin-left: auto; }
+    .hub .hub-out .wx-cond { font-size: 20px; }
+    .hub .hub-out .wx-hl { font-size: 17px; }
+    .hub-hp .thermo { flex: 1; padding: 16px 18px; gap: 0; }
+    .hub .hub-hp .hp-temp { font-size: 52px; }
+    .hub .hub-hp .hp-mode { font-size: 17px; }
     .hub .hub-hp .hp-target { margin-top: auto; }
-    .hub .hub-hp .hp-step { width: 72px; height: 64px; border-radius: 18px; }
-    .hub .hub-hp .hp-set { font-size: 34px; }
-    .hub .hub-hp .modes { height: 64px; gap: 10px; margin-top: 28px; }
+    .hub .hub-hp .hp-step { width: 64px; height: 52px; border-radius: 16px; }
+    .hub .hub-hp .hp-set { font-size: 30px; }
+    .hub .hub-hp .modes { height: 52px; gap: 10px; margin-top: 10px; }
     .hub .hub-hp .mode { font-size: 16px; border-radius: 18px; }
     .hub .hub-hp .mode ha-icon { --mdc-icon-size: 24px; }
     .scenes-sheet { width: min(560px, 90vw); }
