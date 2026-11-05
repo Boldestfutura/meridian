@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.5";
+const VERSION = "0.19.6";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -990,7 +990,7 @@ class OverlookShow extends LitElement {
           })}
           <button class="card air-tile control-tile" style="--c:var(--accent)" @click=${() => { this._scenes = true; }}>
             <span class="air-ico"><ha-icon icon="mdi:creation"></ha-icon></span>
-            <span class="air-name">Scenes<span class="air-q">${(this._config.hub_scenes || []).length} to pick from</span></span>
+            <span class="air-name">Scenes<span class="air-q">Tap for more</span></span>
           </button>
           ${tv ? this._controlTile(this._config.tv.name, this._config.tv.icon, "#8e5cf0", { state: tvOn ? "on" : tv.state },
             () => this._call("media_player", tvOn ? "turn_off" : "turn_on", { entity_id: this._config.tv.entity })) : nothing}
