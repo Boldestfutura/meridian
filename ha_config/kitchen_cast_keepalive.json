@@ -1,0 +1,37 @@
+{
+ "id": "kitchen_cast_keepalive",
+ "alias": "Kitchen display - keep the cast alive",
+ "description": "The slideshow and wake automations both require the Hub to ALREADY be showing Home Assistant (app_name == 'Home Assistant Lovelace'). The moment the cast drops - reboot, timeout, HA restart, someone casting something else - that condition goes false and neither of them can ever fire again. Nothing was watching for 'not casting at all', so the Hub stayed blank until re-cast by hand. This fills that gap. It only acts when the Hub is genuinely idle, so it will not interrupt music or video playing on it. Since 2026-11-06 it casts Hub Show (ha-show-hub, built for the Hub's 1024x600 screen; ha-show stays for the tablet), which does its own idle-to-photos, so the slideshow/wake automations are turned off. Since 2026-11-06 it also recasts when the Hub shows any other dashboard than Hub Show.",
+ "triggers": [
+  {
+   "trigger": "time_pattern",
+   "minutes": "/2"
+  }
+ ],
+ "conditions": [
+  {
+   "condition": "template",
+   "value_template": "{{ state_attr('media_player.kitchen_display','app_name') != 'Home Assistant Lovelace' or state_attr('media_player.kitchen_display','media_title') != 'Hub Show: Show' }}"
+  },
+  {
+   "condition": "state",
+   "entity_id": "media_player.kitchen_display",
+   "state": [
+    "off",
+    "idle",
+    "standby"
+   ]
+  }
+ ],
+ "actions": [
+  {
+   "action": "cast.show_lovelace_view",
+   "data": {
+    "entity_id": "media_player.kitchen_display",
+    "dashboard_path": "ha-show-hub",
+    "view_path": "show"
+   }
+  }
+ ],
+ "mode": "single"
+}

@@ -1,0 +1,49 @@
+{
+  "id": "assist_rain_forecast",
+  "alias": "Assist: Rain Forecast",
+  "description": "Answers 'is it going to rain (today/tomorrow)' from met.no's hourly forecast: when rain starts and roughly how much. Added 2026-11-06 for the bedroom Echo's voice control. Opens the weather page on the screen in the asking satellite's area (writes input_text.overlook_voice; card option voice).",
+  "mode": "parallel",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "is it [going] to rain [today|tomorrow]",
+        "will it rain [today|tomorrow]",
+        "(is|will) there be [any] rain [today|tomorrow]",
+        "do I need an umbrella [today|tomorrow]"
+      ]
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "action": "weather.get_forecasts",
+      "target": {
+        "entity_id": "weather.forecast_home"
+      },
+      "data": {
+        "type": "hourly"
+      },
+      "response_variable": "fc"
+    },
+    {
+      "variables": {
+        "tomorrow": "{{ 'tomorrow' in trigger.sentence | lower }}",
+        "day": "{{ (now() + timedelta(days=1 if 'tomorrow' in trigger.sentence | lower else 0)).date() | string }}",
+        "hours": "{{ fc['weather.forecast_home'].forecast | selectattr('datetime', 'defined') | list }}"
+      }
+    },
+    {
+      "action": "input_text.set_value",
+      "target": {
+        "entity_id": "input_text.overlook_voice"
+      },
+      "data": {
+        "value": "{{ {'area': (area_id(trigger.device_id) if trigger.device_id else ''), 'action': 'weather', 'range': 'day', 'dates': [day], 't': now().timestamp() | int} | to_json }}"
+      }
+    },
+    {
+      "set_conversation_response": "{% set ns = namespace(total=0, first=none, last=none) %}{% for h in hours %}{% set t = as_local(as_datetime(h.datetime)) %}{% if (t.date() | string) == day and (tomorrow or t >= now() - timedelta(hours=1)) and (h.precipitation | float(0)) >= 0.2 %}{% set ns.total = ns.total + (h.precipitation | float(0)) %}{% if ns.first is none %}{% set ns.first = t %}{% endif %}{% set ns.last = t %}{% endif %}{% endfor %}{% set when = 'tomorrow' if tomorrow else 'today' %}{% if ns.first is none %}No, no rain is forecast {{ when }}.{% else %}{% set amt = ns.total | round(0) | int %}{% set start = ns.first.strftime('%-I %p') | lower | replace(' ', '') %}{% set size = 'light rain' if ns.total < 2 else ('some rain' if ns.total < 8 else 'heavy rain') %}Yes, {{ size }} {{ when }} from about {{ start }}{% if amt >= 1 %}, around {{ amt }} millimetres{% endif %}.{% endif %}"
+    }
+  ]
+}

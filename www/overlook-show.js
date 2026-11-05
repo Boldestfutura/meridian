@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.7";
+const VERSION = "0.20.3";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -146,6 +146,10 @@ class OverlookShow extends LitElement {
     _light: { state: true },
     _ct: { state: true },
     _hist: { state: true },
+    _wx: { state: true },
+    _daily: { state: true },
+    _hourly: { state: true },
+    _chance: { state: true },
   };
 
   setConfig(config) {
@@ -203,6 +207,7 @@ class OverlookShow extends LitElement {
     super.disconnectedCallback();
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
+    clearTimeout(this._wxTimer);
     window.removeEventListener("pointerdown", this._touch, true);
     window.removeEventListener("keydown", this._touch, true);
     if (this._hdr) { clearInterval(this._hdr); this._hdr = null; styleHuiRoot(this._root, ""); }
@@ -234,6 +239,17 @@ class OverlookShow extends LitElement {
       const n = this._night();
       if (n && this._wasNight === false) { this._go("photos"); this._poke(); }
       this._wasNight = n;
+    }
+    // voice: the Assist weather automations write {area, action, range, dates} to
+    // input_text.overlook_voice (a state, so non-admin screen users can see it; custom
+    // events need admin); only the screen whose `voice` is that area reacts
+    if (changed.has("hass") && this._config.voice) {
+      const v = this._st("input_text.overlook_voice");
+      if (v && v.last_changed !== this._voiceSeen) {
+        const first = this._voiceSeen === undefined;
+        this._voiceSeen = v.last_changed;
+        if (!first) { try { this._onVoice(JSON.parse(v.state)); } catch (e) {} }
+      }
     }
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
@@ -269,9 +285,19 @@ class OverlookShow extends LitElement {
     if (c.weather) {
       try {
         this._subs.push(await conn.subscribeMessage(
-          (m) => { this._forecast = (m.forecast || [])[0] || null; },
+          (m) => { this._daily = m.forecast || []; this._forecast = this._daily[0] || null; },
           { type: "weather/subscribe_forecast", entity_id: c.weather, forecast_type: "daily" }));
       } catch (e) { console.warn("overlook-show: forecast", e); }
+    }
+    // voice: the hourly forecast, for the weather page a voice question opens
+    if (c.voice) {
+      if (c.weather) {
+        try {
+          this._subs.push(await conn.subscribeMessage(
+            (m) => { this._hourly = m.forecast || []; },
+            { type: "weather/subscribe_forecast", entity_id: c.weather, forecast_type: "hourly" }));
+        } catch (e) { console.warn("overlook-show: hourly", e); }
+      }
     }
     this._loadEvents();
     this._eventTimer = setInterval(() => this._loadEvents(), 10 * 60 * 1000);
@@ -318,6 +344,32 @@ class OverlookShow extends LitElement {
     this._calKey = key;
     const ev = await this._fetchEvents(start, end);
     if (this._calKey === key) this._cal = ev;
+  }
+
+  _onVoice(d) {
+    if (d.area !== this._config.voice) return;
+    clearTimeout(this._wxTimer);
+    if (d.action !== "weather") { this._wx = null; return; }
+    const week = d.range === "week";
+    this._wx = { week, dates: d.dates || [] };
+    this._loadChance();
+    this._poke();
+    this._wxTimer = setTimeout(() => { this._wx = null; }, (week ? 60 : 40) * 1000);
+  }
+
+  // chance of rain: met.no gives millimetres only, so ask Open-Meteo (free, no key, CORS)
+  // for the percentages at HA's home location; kept for 30 minutes
+  async _loadChance() {
+    if (this._chance && Date.now() - this._chance.at < 30 * 60 * 1000) return;
+    const { latitude, longitude } = this.hass.config;
+    try {
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}`
+        + "&daily=precipitation_probability_max&hourly=precipitation_probability&timezone=auto&forecast_days=7");
+      const j = await r.json(), daily = {}, hourly = {};
+      j.daily.time.forEach((t, i) => { daily[t] = j.daily.precipitation_probability_max[i]; });
+      j.hourly.time.forEach((t, i) => { hourly[t.slice(0, 13)] = j.hourly.precipitation_probability[i]; });
+      this._chance = { at: Date.now(), daily, hourly };
+    } catch (e) { console.warn("overlook-show: rain chance", e); }
   }
 
   // --- helpers --------------------------------------------------------------
@@ -378,6 +430,7 @@ class OverlookShow extends LitElement {
           ${this._light ? this._lightSheet() : nothing}
         </div>`;
     }
+    if (this._wx) return this._wxPage();
     const photos = this._page === "photos", bed = this._config.bedside;
     if (bed && photos && this._night()) return this._nightClock();
     return html`
@@ -409,6 +462,76 @@ class OverlookShow extends LitElement {
           <div class="night-date">${date}</div>
         </div>
       </div>`;
+  }
+
+  // the full-screen forecast a voice question opens: one day (with its hours when the
+  // hourly forecast reaches it) or the days asked for side by side. A tap closes it.
+  _wxPage() {
+    const ymd = (x) => this._ymd(new Date(x.datetime));
+    const today = this._ymd(new Date()), tmrw = this._ymd(new Date(Date.now() + 864e5));
+    const daily = this._daily || [];
+    const want = this._wx.dates.length ? this._wx.dates : [today];
+    const days = daily.filter((f) => want.includes(ymd(f)));
+    const label = (f, short) => {
+      const k = ymd(f), d = new Date(f.datetime);
+      if (k === today) return "Today";
+      if (k === tmrw && !short) return "Tomorrow";
+      return d.toLocaleDateString("en-AU", short ? { weekday: "short" } : { weekday: "long", day: "numeric", month: "short" });
+    };
+    const icon = (c) => (WEATHER[c] || WEATHER.cloudy);
+    const rain = (f) => (f.precipitation >= 0.2 ? `${f.precipitation < 1 ? "<1" : Math.round(f.precipitation)} mm` : "");
+    const close = () => { clearTimeout(this._wxTimer); this._wx = null; };
+    let body;
+    if (!days.length) {
+      body = html`<div class="wx-none">No forecast</div>`;
+    } else if (!this._wx.week || days.length === 1) {
+      const f = days[0], k = ymd(f), [ic, name, col] = icon(f.condition);
+      const now = Date.now() - 36e5;
+      const hours = (this._hourly || []).filter((h) => ymd(h) === k && new Date(h.datetime) >= now)
+        .filter((h, i) => i % 3 === 0).slice(0, 6);
+      const ch = this._chance, pct = ch && ch.daily[k];
+      const hpct = (h) => { const d = new Date(h.datetime); return ch && ch.hourly[`${this._ymd(d)}T${String(d.getHours()).padStart(2, "0")}`]; };
+      body = html`
+        <div class="wx-day">
+          <div class="wx-main">
+            <div class="wx-label">${label(f)}</div>
+            <ha-icon class="wx-big" icon=${ic} style="color:${col}"></ha-icon>
+            <div class="wx-name">${name}</div>
+          </div>
+          <div class="wx-side">
+            <div class="wx-temps"><span class="wx-hi">${this._deg(f.temperature)}</span>
+              <span class="wx-lo">${this._deg(f.templow)}</span></div>
+            <div class="wx-facts">
+              ${typeof pct === "number" ? html`<span><ha-icon icon="mdi:umbrella"></ha-icon>${pct}% chance</span>` : nothing}
+              ${rain(f) ? html`<span><ha-icon icon="mdi:water"></ha-icon>${rain(f)}</span>` : html`<span><ha-icon icon="mdi:water-off"></ha-icon>Dry</span>`}
+              ${typeof f.wind_speed === "number" ? html`<span><ha-icon icon="mdi:weather-windy"></ha-icon>${Math.round(f.wind_speed)} km/h</span>` : nothing}
+              ${typeof f.uv_index === "number" ? html`<span><ha-icon icon="mdi:sun-wireless"></ha-icon>UV ${Math.round(f.uv_index)}</span>` : nothing}
+            </div>
+            ${hours.length > 1 ? html`
+              <div class="wx-hours">${hours.map((h) => html`
+                <div class="wx-hour">
+                  <span>${this._ampm(new Date(h.datetime))}</span>
+                  <ha-icon icon=${icon(h.condition)[0]} style="color:${icon(h.condition)[2]}"></ha-icon>
+                  <b>${this._deg(h.temperature)}</b>
+                  ${typeof hpct(h) === "number" ? html`<i class="wx-pct">${hpct(h)}%</i>` : nothing}
+                </div>`)}</div>` : nothing}
+          </div>
+        </div>`;
+    } else {
+      body = html`
+        <div class="wx-week" style="grid-template-columns:repeat(${days.length}, minmax(0, 1fr))">
+          ${days.map((f) => { const [ic, name, col] = icon(f.condition); return html`
+            <div class="wx-col">
+              <span class="wx-dow">${label(f, true)}</span>
+              <ha-icon icon=${ic} style="color:${col}"></ha-icon>
+              <span class="wx-cname">${name}</span>
+              <b class="wx-chi">${this._deg(f.temperature)}</b>
+              <span class="wx-clo">${this._deg(f.templow)}</span>
+              <span class="wx-crain">${rain(f) || "\u00a0"}</span>
+            </div>`; })}
+        </div>`;
+    }
+    return html`<div class="screen wx-screen ${this._night() ? "wx-night" : ""}" @click=${close}>${body}</div>`;
   }
 
   _topRight(onPhoto) {
@@ -2939,6 +3062,37 @@ class OverlookShow extends LitElement {
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
+    .wx-screen { grid-template-columns: 1fr; place-items: center; padding: 4vh 5vw; cursor: pointer; }
+    .wx-none { font-family: var(--display); font-size: 6vh; color: var(--muted); }
+    .wx-day { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 5vw; align-items: center; width: 100%; }
+    .wx-main { display: grid; justify-items: center; gap: 1vh; text-align: center; }
+    .wx-label { font-family: var(--display); font-weight: 700; font-size: 6.5vh; }
+    .wx-big { --mdc-icon-size: 30vh; width: 30vh; height: 30vh; }
+    .wx-name { font-weight: 600; font-size: 5vh; color: var(--muted); }
+    .wx-side { display: grid; gap: 3.5vh; }
+    .wx-temps { display: flex; align-items: baseline; gap: 2vw; font-family: var(--display); }
+    .wx-hi { font-weight: 800; font-size: 19vh; line-height: 0.9; }
+    .wx-lo { font-weight: 500; font-size: 9vh; color: var(--muted); }
+    .wx-facts { display: flex; flex-wrap: wrap; gap: 1.2vh 1.8vw; font-weight: 600; font-size: 3.9vh; }
+    .wx-facts span { display: inline-flex; align-items: center; gap: 0.6vw; white-space: nowrap; }
+    .wx-facts ha-icon { --mdc-icon-size: 4.3vh; color: var(--muted); }
+    .wx-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1vw;
+                background: var(--card); border-radius: 3vh; padding: 2vh 1vw; }
+    .wx-hour { display: grid; justify-items: center; gap: 0.6vh; font-size: 3.6vh; color: var(--muted); }
+    .wx-hour ha-icon { --mdc-icon-size: 6vh; }
+    .wx-hour b { color: var(--ink); font-size: 4.2vh; }
+    .wx-pct { font-style: normal; font-weight: 600; font-size: 3.2vh; color: var(--cool); }
+    .wx-week { display: grid; gap: 1.4vw; width: 100%; }
+    .wx-col { display: grid; justify-items: center; gap: 1.2vh; background: var(--card); border-radius: 3vh;
+              padding: 3.5vh 0.6vw; text-align: center; min-width: 0; }
+    .wx-dow { font-family: var(--display); font-weight: 700; font-size: 4.6vh; }
+    .wx-col ha-icon { --mdc-icon-size: 12vh; width: 12vh; height: 12vh; }
+    .wx-cname { font-size: 3.2vh; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .wx-chi { font-family: var(--display); font-weight: 800; font-size: 8vh; line-height: 1; }
+    .wx-clo { font-family: var(--display); font-size: 5vh; color: var(--muted); }
+    .wx-crain { font-weight: 600; font-size: 3.6vh; color: var(--cool); }
+    .wx-night { background: #000; color: #a8231b; --muted: #6e1812; --ink: #a8231b; --card: #0d0303; --cool: #a8231b; }
+    .wx-night ha-icon { color: #a8231b !important; }
     .night { background: #000; color: #a8231b; grid-template-columns: 1fr; place-items: center; cursor: pointer; }
     .night-face { display: flex; flex-direction: column; align-items: center; gap: 2vh; transition: transform 1s ease; }
     .night-time { font-family: var(--display); font-weight: 800; font-size: min(54vh, 26vw); line-height: 0.9;

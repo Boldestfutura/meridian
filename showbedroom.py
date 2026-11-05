@@ -21,7 +21,9 @@ SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom Echo") for s in show.CARD[
 CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             photos="camera.album_slideshow_family_bedroom", status=[], scenes=[],
             # when the room is dark (lights off, Echo light sensor under 3 lx): a red clock on black
-            night="binary_sensor.bedroom_dark")
+            night="binary_sensor.bedroom_dark",
+            # voice: weather questions to the Echo (Assist satellite in area `bedroom`) open the weather page
+            voice="bedroom")
 
 
 def build():

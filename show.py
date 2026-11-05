@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.19.7"
+VERSION = "0.20.3"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
