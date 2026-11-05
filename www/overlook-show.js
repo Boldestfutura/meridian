@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.3";
+const VERSION = "0.19.5";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -981,7 +981,7 @@ class OverlookShow extends LitElement {
     const tv = this._config.tv && this._st(this._config.tv.entity);
     const tvOn = !!tv && !["off", "standby", "unavailable"].includes(tv.state);
     return html`
-      <div class="bed-two">
+      <div class="bed-two hub-sq-left">
         <div class="bed-controls hub-controls">
           ${(this._config.hub_rooms || []).map((r) => {
             const g = this._st(r.group), on = !!g && g.state === "on";
@@ -1031,7 +1031,7 @@ class OverlookShow extends LitElement {
     const w = this._st(this._config.weather), f = this._forecast;
     const cond = w ? this._cond(w) : null;
     return html`
-      <div class="bed-two">
+      <div class="bed-two hub-sq-right">
         <div class="hub-stack">
           ${w ? html`
             <button class="card hub-out" @click=${() => this._open(this._config.weather)}>
@@ -2979,14 +2979,17 @@ class OverlookShow extends LitElement {
     .hub .dock-pill { gap: 6px; padding: 7px; border-radius: 26px; }
     .hub .dock-btn { width: 62px; height: 62px; border-radius: 20px; }
     .hub .dock-btn ha-icon { --mdc-icon-size: 30px; }
+    /* the 2x2 tiles stay square (two rows of the page's height); the wide cards take what's left */
+    .hub .hub-sq-left { grid-template-columns: calc(100vh - 76px) minmax(0, 1fr); }
+    .hub .hub-sq-right { grid-template-columns: minmax(0, 1fr) calc(100vh - 76px); }
     .hub-stack { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0; }
     .hub-stack > .card { min-height: 0; overflow: hidden; }
     .hub-out { display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; text-align: left; color: var(--ink); }
     .hub-out-row { display: flex; align-items: center; gap: 16px; }
-    .hub-out-row ha-icon { --mdc-icon-size: 64px; }
-    .hub-out-temp { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; letter-spacing: -0.02em; }
+    .hub-out-row ha-icon { --mdc-icon-size: 52px; }
+    .hub-out-temp { font-family: var(--display); font-weight: 700; font-size: 58px; line-height: 1; letter-spacing: -0.02em; }
     .hub .hub-out .wx-side { margin-left: auto; }
-    .hub .hub-out .wx-cond { font-size: 20px; }
+    .hub .hub-out .wx-cond { font-size: 19px; white-space: nowrap; }
     .hub .hub-out .wx-hl { font-size: 17px; }
     .hub-hp .thermo { flex: 1; padding: 16px 18px; gap: 0; }
     .hub .hub-hp .hp-temp { font-size: 52px; }
