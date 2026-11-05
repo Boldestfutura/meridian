@@ -129,15 +129,15 @@ and how to deploy each without clobbering anything.
 - **Night mode (2026-11-05):** `automation.master_bedroom_sleep_sounds_overnight` (repo copy
   `ha_config/bedroom_night.json`) turns `input_boolean.bedroom_night_mode` on 9pm-7:30am while
   anyone (or guest mode) is home, including on arrival inside the window, and loops
-  `/config/www/sounds/cataract-falls.m4a` on `media_player.bedroom_echo` (the Echo Show through SendSpin Player and Music Assistant) at 10%.
-  - MA fetches the file from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`);
+  `/config/www/sounds/Stream Sounds.m4a` on `media_player.bedroom_echo` (the Echo Show through SendSpin Player and Music Assistant) at 10%.
+  - MA fetches the file from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`). Keep the plain space in the URL: `%20` shows up in the title;
     Sol can't reach the VM's LAN IP.
   - The Bedroom Show (`night:` in showbedroom.py) shows a red clock on black while it's on.
     A tap wakes it on Lights, and it goes back to the clock after 30s.
   - Screen: `notify.mobile_app_echo_show_5` with `message: command_screen_brightness_level`,
     `data.command` 0-255. The automation sets 3 (about 1%) at the start and 102 at the end. It needs
     `appops set io.homeassistant.companion.android WRITE_SETTINGS allow`, already done on the device.
-  - Artwork: `TRACK_ART` in overlook-show.js maps the title `cataract-falls` to `/config/www/sounds/stream.svg` (repo copy `www/sounds/stream.svg`, copied up by hand), an abstract stream drawn for this dashboard.
+  - Artwork: `TRACK_ART` in overlook-show.js maps the title `Stream Sounds` to `/config/www/sounds/stream.svg` (repo copy `www/sounds/stream.svg`, copied up by hand), an abstract stream drawn for this dashboard.
   - 10% is the volume Cameron chose by ear on 2026-11-05 (15% and 12% were too loud).
 - **Echo as a speaker:** SendSpin Player (`com.sendspindroid`) connects it to Music Assistant as
   `media_player.bedroom_echo`, its only media player. The old bedroom HomePod moved to the guest
