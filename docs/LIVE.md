@@ -128,7 +128,7 @@ and how to deploy each without clobbering anything.
 - **Night mode (2026-11-05):** `automation.master_bedroom_sleep_sounds_overnight` (repo copy
   `ha_config/bedroom_night.json`) turns `input_boolean.bedroom_night_mode` on 9pm-7:30am while
   anyone (or guest mode) is home, including on arrival inside the window, and loops
-  `/config/www/sounds/cataract-falls.m4a` on the bedroom HomePod's **MA** player at 15%.
+  `/config/www/sounds/cataract-falls.m4a` on `media_player.bedroom_echo` (the Echo Show through SendSpin Player and Music Assistant) at 15%.
   - MA fetches the file from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`);
     Sol can't reach the VM's LAN IP.
   - The Bedroom Show (`night:` in showbedroom.py) shows a red clock on black while it's on.
