@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.16";
+const VERSION = "0.18.17";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -2855,8 +2855,12 @@ class OverlookShow extends LitElement {
                                                  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
     .on-photo .dock-btn { color: rgba(255, 255, 255, 0.78); }
     .on-photo .dock-btn.on { background: rgba(255, 255, 255, 0.18); color: #fff; }
-    .bedside .photo-cap { left: 124px; bottom: 24px; }
+    .bedside .photo-cap { left: auto; right: 22px; bottom: 20px; text-align: right; }
+    .bedside .photo-nav { justify-content: flex-end; }
     .bedside .topright { right: 22px; }
+    .bedside .topright.on-photo .clock { font-size: 68px; }
+    .bedside .topright.on-photo .temp { font-size: 34px; }
+    .bedside .topright.on-photo .wx { --mdc-icon-size: 32px; }
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
