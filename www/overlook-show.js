@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.13";
+const VERSION = "0.18.15";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -47,7 +47,7 @@ const PAGES = [
 
 // the bedside screen (Echo Show 5): photos are home (the dock's photo button), then the bedroom's things
 const BEDSIDE_PAGES = [
-  ["lights", "Lights", "mdi:lightbulb-outline"],
+  ["controls", "Controls", "mdi:tune-variant"],
   ["media", "Media", "mdi:music"],
   ["climate", "Climate", "mdi:thermometer"],
   ["calendar", "Calendar", "mdi:calendar-month-outline"],
@@ -389,7 +389,7 @@ class OverlookShow extends LitElement {
     const [h, mm] = this._time(d).split(":");
     const date = d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
     return html`
-      <div class="screen night" @click=${() => this._go("lights")}>
+      <div class="screen night" @click=${() => this._go("controls")}>
         <div class="night-face" style="transform:translate(${(m * 7) % 25 - 12}px, ${(m * 5) % 17 - 8}px)">
           <div class="night-time">${h}<span class="night-colon">:</span>${mm}</div>
           <div class="night-date">${date}</div>
@@ -871,7 +871,7 @@ class OverlookShow extends LitElement {
       case "calendar": return this._calendar();
       case "home": return this._home();
       case "desk": return this._desk();
-      case "lights": return this._bedLights();
+      case "controls": return this._bedControls();
       case "media": return this._bedMedia();
       case "climate": return this._bedClimate();
       default: {
@@ -903,21 +903,30 @@ class OverlookShow extends LitElement {
 
   // --- bedside (the Echo Show 5 by the bed) ------------------------------------
   // config.room is the bedroom from show.CARD.rooms; the pages only show what it has
-  _bedLights() {
-    const r = this._config.room || {}, lights = r.lights || [];
-    const lit = lights.filter((l) => { const e = this._st(l.entity); return e && e.state === "on"; }).length;
+  _bedControls() {
+    const r = this._config.room || {};
+    const group = r.group && this._st(r.group);
+    const groupOn = !!group && group.state === "on";
     return html`
-      <div class="card bed-card bed-lights">
-        <div class="card-title">Lights
-          ${lit ? html`<span class="count">${lit} on</span>` : nothing}
-          ${r.group && this._st(r.group) ? html`
-            <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r.group })}>
-              ${lit ? "All off" : "All on"}</button>` : nothing}
-        </div>
-        <div class="bed-favs" style="--n:${lights.length}">${lights.map((l) => this._pill(l))}</div>
-        ${(r.scenes || []).length ? html`
-          <div class="fav-scenes bed-scenes">${r.scenes.map((x) => this._miniScene(x))}</div>` : nothing}
+      <div class="bed-controls">
+        ${group ? this._controlTile("All Lights", "mdi:lightbulb-group", "var(--warm)", group,
+          () => this._call("light", groupOn ? "turn_off" : "turn_on", { entity_id: r.group })) : nothing}
+        ${(r.switches || []).map((x) => {
+          const e = this._st(x.entity);
+          return e ? this._controlTile(x.name, x.icon, "#3f86f2", e,
+            () => this._call("homeassistant", "toggle", { entity_id: x.entity })) : nothing;
+        })}
       </div>`;
+  }
+
+  // the climate tile's layout for something you switch: tinted only while it's on
+  _controlTile(name, icon, colour, e, tap) {
+    const on = e.state === "on";
+    return html`
+      <button class="card air-tile control-tile ${on ? "on" : ""}" style="--c:${colour}" @click=${tap}>
+        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+        <span class="air-name">${name}<span class="air-q">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+      </button>`;
   }
 
   _bedMedia() {
@@ -944,25 +953,11 @@ class OverlookShow extends LitElement {
       </button>`;
   }
 
-  // a switch as a tall tile: a big round icon, tap to toggle
-  _bigSwitch(x) {
-    const e = this._st(x.entity);
-    if (!e) return nothing;
-    const on = e.state === "on";
-    return html`
-      <button class="card big-switch ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x.entity })}>
-        <span class="bs-ico"><ha-icon icon=${x.icon}></ha-icon></span>
-        <span class="bs-name">${x.name}</span>
-        <span class="bs-state">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span>
-      </button>`;
-  }
-
   _bedClimate() {
-    const r = this._config.room || {}, sw = r.switches || [];
+    const r = this._config.room || {};
     return html`
-      <div class="bed-air ${sw.length ? "" : "no-side"}">
+      <div class="bed-air">
         ${(r.sensors || []).map((x) => this._airTile(x))}
-        ${sw.length ? html`<div class="bed-air-side">${sw.map((x) => this._bigSwitch(x))}</div>` : nothing}
       </div>`;
   }
 
@@ -2864,10 +2859,6 @@ class OverlookShow extends LitElement {
     .bedside .topright { right: 22px; }
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
-    .bed-lights { height: 100%; display: flex; flex-direction: column; }
-    .bed-favs { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr));
-                gap: 10px; margin-top: 10px; }
-    .bed-scenes .mini-scene { height: 76px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
     .bedside .media-card { flex: none; height: 100%; }
     .bed-pl { display: flex; flex-direction: column; overflow: hidden; }
@@ -2875,9 +2866,15 @@ class OverlookShow extends LitElement {
     .bed-pl .pl-row { flex: 1; height: auto; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr);
                       grid-auto-rows: min-content; gap: 10px; overflow-y: auto; }
     .bed-pl .pl { width: 100%; height: auto; border-radius: 16px; }
-    .bed-air { height: 100%; display: grid; grid-template-columns: 1fr 1fr 0.8fr; grid-template-rows: 1fr 1fr; gap: 14px; }
-    .bed-air.no-side { grid-template-columns: 1fr 1fr; }
-    .bed-air-side { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 14px; }
+    .bed-air { height: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 14px; }
+    .bed-controls { height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .air-tile.control-tile { grid-template-columns: auto; background: var(--card); border-color: var(--card-edge); }
+    .air-tile.control-tile.on { background: color-mix(in srgb, var(--c) 14%, var(--card)); border-color: transparent; }
+    .air-tile.control-tile .air-ico { width: 76px; height: 76px; background: var(--inset); color: var(--muted); }
+    .control-tile .air-ico ha-icon { --mdc-icon-size: 36px; }
+    .air-tile.control-tile.on .air-ico { background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); }
+    .control-tile .air-q { color: var(--muted); }
+    .control-tile.on .air-q { color: var(--c); }
     .air-tile { min-width: 0; min-height: 0; padding: 16px 18px; display: grid; grid-template-columns: auto 1fr;
                 grid-template-rows: 1fr auto; text-align: left; color: var(--ink);
                 background: color-mix(in srgb, var(--c) 14%, var(--card)); border-color: transparent; }
@@ -2889,14 +2886,6 @@ class OverlookShow extends LitElement {
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
     .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
     .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
-    .big-switch { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-                  gap: 6px; color: var(--ink); }
-    .bs-ico { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--inset);
-              color: var(--muted); margin-bottom: 10px; transition: background 0.2s, color 0.2s; }
-    .bs-ico ha-icon { --mdc-icon-size: 32px; }
-    .bs-name { font-size: 17px; font-weight: 700; }
-    .bs-state { font-size: 14px; color: var(--muted); }
-    .big-switch.on .bs-ico { background: color-mix(in srgb, #3f86f2 18%, transparent); color: #3f86f2; }
     .bed-cal .date-card { padding: 22px; justify-content: center; }
     .bed-cal .date-top { font-size: 26px; }
     .bed-cal .date-num { flex: none; font-size: min(190px, 36vh); margin: 6px 0 0; }

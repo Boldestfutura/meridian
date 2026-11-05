@@ -1,13 +1,13 @@
 """Bedroom Show (ha-show-bedroom): the Show card on the Echo Show 5 by the bed.
 
 The same card as ha-show (show.CARD) in `bedside` mode, for a 960x480 screen: the
-kitchen's dock on the left with Lights, Media, Climate and Calendar, and the photo
+kitchen's dock on the left with Controls, Media, Climate and Calendar, and the photo
 button below it. Photos are home: the bedroom's Family album with the clock and the
 dock over it, and the screen idles back there after five minutes. At night
 (`night`, input_boolean.bedroom_night_mode) home is a red clock on black instead, and a
 woken screen goes back to it after 30 seconds. Everything comes
-from the Bedroom entry in show.CARD["rooms"], so a light or scene added there shows up
-here too. Hold the clock for 1.5s to uncover HA.
+from the Bedroom entry in show.CARD["rooms"], so its group and switches show up on
+Controls and its sensors on Climate. Hold the clock for 1.5s to uncover HA.
 """
 import show
 

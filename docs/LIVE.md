@@ -133,7 +133,7 @@ and how to deploy each without clobbering anything.
   - MA fetches the file from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`). Keep the plain space in the URL: `%20` shows up in the title;
     Sol can't reach the VM's LAN IP.
   - The Bedroom Show (`night:` in showbedroom.py) shows a red clock on black while it's on.
-    A tap wakes it on Lights, and it goes back to the clock after 30s.
+    A tap wakes it on Controls (All Lights and the dehumidifier), and it goes back to the clock after 30s.
   - Screen: `notify.mobile_app_echo_show_5` with `message: command_screen_brightness_level`,
     `data.command` 0-255. The automation sets 3 (about 1%) at the start and 102 at the end. It needs
     `appops set io.homeassistant.companion.android WRITE_SETTINGS allow`, already done on the device.
