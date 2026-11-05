@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.6";
+const VERSION = "0.19.7";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -1726,10 +1726,10 @@ class OverlookShow extends LitElement {
           ${vol != null ? html`<span class="where-vol">${Math.round(vol * 100)}%</span>` : nothing}
         </div>
         ${vol != null ? html`
-          <div class="vol">
+          <div class="vol ${this._config.bedside ? "vol-pair" : ""}">
             <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:minus"></ha-icon></button>
-            <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
+            ${this._config.bedside ? nothing : html`<div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>`}
             <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
@@ -2971,6 +2971,10 @@ class OverlookShow extends LitElement {
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
     .bedside .media-card, .hub .media-card { flex: none; height: 100%; }
+    /* the bedside media card: no bar, just - and + sharing the row as squircles */
+    .vol.vol-pair { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .vol-pair .round.small { width: 100%; height: 56px; border-radius: 18px; }
+    .vol-pair .round.small ha-icon { --mdc-icon-size: 28px; }
     .hub-controls { grid-template-rows: 1fr 1fr; }
     .hub-players { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
     .hub-hp { display: flex; flex-direction: column; min-height: 0; }
