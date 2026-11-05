@@ -6,7 +6,7 @@ roomscreen.py; this file only says what is in the bedroom.
 import design as d
 import roomscreen as rs
 
-PLAYER  = "media_player.homepod_mini_master_bedroom_2"   # the Music Assistant player
+PLAYER  = "media_player.bedroom_echo"   # the Echo itself, a Music Assistant player
 LIGHTS  = "light.master_bedroom_lights"
 TEMP    = "sensor.air_quality_monitor_temperature_2"
 HUMID   = "sensor.air_quality_monitor_humidity_2"
@@ -38,7 +38,7 @@ def build():
              ("light.mushroom_lamp", "Mushroom Lamp", "mdi:mushroom-outline"),
              (LIGHTS, "All Bedroom", "mdi:lightbulb-group")],
             {"script.bedroom_dimmed", "script.goodnight"}),
-        "music": rs.media_page(PLAYER, "Bedroom HomePod",
+        "music": rs.media_page(PLAYER, "Bedroom Echo",
                                ("prev", "play", "next", "vol_down", "vol_up"), PLAYER),
         "air": rs.air_page(rs.air_readings(TEMP, HUMID, PM25, VOC), dehum),
     })}

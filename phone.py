@@ -100,7 +100,7 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Master Bedroom", "mdi:bed-king", "light.master_bedroom_lights"), FULL),
-            media("media_player.homepod_mini_master_bedroom", "HomePod",
+            media("media_player.bedroom_echo", "Echo",
                   ("play", "vol_down", "vol_up")),
             plug("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
                  "mdi:air-humidifier"),
@@ -112,6 +112,8 @@ def sections():
         {"type": "grid", "cards": [
             span(d.room_header("Guest Bedroom", "mdi:bed-double", "light.guest_bedroom_lamp"), FULL),
             light("light.guest_bedroom_lamp", "Guest Lamp"),
+            media("media_player.guest_bedroom_homepod_mini", "HomePod",
+                  ("play", "vol_down", "vol_up")),
         ]},
     ]
 

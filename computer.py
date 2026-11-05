@@ -86,10 +86,12 @@ def sections():
             span(d.tile("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
                         "mdi:air-humidifier", on_bg=d.BLUE_BG, on_ac=d.BLUE), HALF,
                  "switch.tp_link_power_strip_6e3f_dehumidifier"),
-            media("media_player.homepod_mini_master_bedroom", "HomePod",
+            media("media_player.bedroom_echo", "Echo",
                   ("play", "vol_down", "vol_up")),
             span(d.room_header("Guest Bedroom", "mdi:bed-double", "light.guest_bedroom_lamp"), FULL),
             light("light.guest_bedroom_lamp", "Guest Lamp"),
+            media("media_player.guest_bedroom_homepod_mini", "HomePod",
+                  ("play", "vol_down", "vol_up")),
         ]},
     ]
 

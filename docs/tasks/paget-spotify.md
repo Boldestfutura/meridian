@@ -21,7 +21,7 @@ the selected speaker, the same as now. Nothing else on any dashboard changes.
   `http://100.84.24.51:30278`. Spotify is in MA through the **Soloist** provider, and
   only Cameron's account is set up so far.
 - MA's players in HA are the `_2` entities: `media_player.living_room_amp_2`,
-  `media_player.homepod_mini_kitchen_2`, `media_player.homepod_mini_master_bedroom_2`.
+  `media_player.homepod_mini_kitchen_2`, `media_player.bedroom_echo`, `media_player.guest_bedroom_homepod_mini_2`.
   `input_select.tablet_speaker` picks one of them.
 - HA's own **Spotify integration** has one entry, for Cameron (title "Cameron"):
   `media_player.spotify_cameron`. It is **only watched, never used to play**: it can't

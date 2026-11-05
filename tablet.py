@@ -28,7 +28,8 @@ SPEAKER = "input_select.tablet_speaker"
 SPEAKERS = [  # (option, tab label, MA player)
     ("Living Room Amp", "Amp",     "media_player.living_room_amp_2"),
     ("Kitchen HomePod", "Kitchen", "media_player.homepod_mini_kitchen_2"),
-    ("Bedroom HomePod", "Bedroom", "media_player.homepod_mini_master_bedroom_2"),
+    ("Bedroom Echo",    "Bedroom", "media_player.bedroom_echo"),
+    ("Guest HomePod",   "Guest",   "media_player.guest_bedroom_homepod_mini_2"),
 ]
 PLAYLISTS = "sensor.tablet_playlists"   # template sensor in configuration.yaml
 SLOTS = 8
@@ -153,7 +154,7 @@ def playlist_slot(i, player=None):
 
 def media_panel():
     """Speaker tabs, the selected speaker's now-playing card, and playlists."""
-    cards = [dict(picker(SPEAKER, o, label, "mdi:speaker"), grid_options={"columns": 4})
+    cards = [dict(picker(SPEAKER, o, label, "mdi:speaker"), grid_options={"columns": 3})
              for o, label, _ in SPEAKERS]
     cards += [dict(tall(d.media_card(p, o, controls=("prev", "play", "next", "vol_down", "vol_up"),
                                      volume=True)),
@@ -200,7 +201,7 @@ def panels():
             L("light.bedside_right", "Bedside Right", "mdi:lightbulb"),
             L("light.mushroom_lamp", "Mushroom Lamp", "mdi:lightbulb"),
             L("light.master_bedroom_lights", "All Bedroom", "mdi:lightbulb-group"),
-            tall(d.media_card("media_player.homepod_mini_master_bedroom", "HomePod",
+            tall(d.media_card("media_player.bedroom_echo", "Echo",
                               controls=("play", "vol_down", "vol_up"))),
             tall(d.light("switch.tp_link_power_strip_6e3f_dehumidifier", "Dehumidifier",
                          118, circle=46, glyph=23, icon="mdi:air-humidifier",
@@ -208,6 +209,8 @@ def panels():
         ],
         "Guest": [
             L("light.guest_bedroom_lamp", "Guest Lamp", "mdi:lightbulb"),
+            tall(d.media_card("media_player.guest_bedroom_homepod_mini", "HomePod",
+                              controls=("play", "vol_down", "vol_up"))),
         ],
         "Media": media_panel(),
     }

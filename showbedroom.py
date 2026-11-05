@@ -14,9 +14,9 @@ import show
 VERSION = show.VERSION
 ROOM = next(r for r in show.CARD["rooms"] if r["name"] == "Bedroom")
 
-# the bedroom HomePod first and the default; the others only when picked
-SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom HomePod") for s in show.CARD["speakers"]),
-                  key=lambda s: s["name"] != "Bedroom HomePod")
+# the Echo itself first and the default; the others only when picked
+SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom Echo") for s in show.CARD["speakers"]),
+                  key=lambda s: s["name"] != "Bedroom Echo")
 
 CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             photos="camera.album_slideshow_family_bedroom", status=[], scenes=[],

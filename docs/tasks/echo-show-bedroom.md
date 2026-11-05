@@ -7,8 +7,8 @@ Status (2026-10-28): dashboard built and live at `/ha-bedroom/clock`; device not
 `bedroom.py`, deployed with `./deploy.py bedroom`. Four panel views: Clock, Lights,
 Music, Air. A rail down the right edge switches between them, after the Stockpot
 enclosure's demo screen (thestockpot.net, "Echo Show Enclosure"). Master Bedroom
-entities only. Music plays on the bedroom HomePod's Music Assistant player
-(`media_player.homepod_mini_master_bedroom_2`), using the same playlist sensor as the
+entities only. Music plays on the Echo itself through Music Assistant
+(`media_player.bedroom_echo`, via SendSpin Player), using the same playlist sensor as the
 tablet.
 
 Checked in headless Helium at 960x480 (light and dark) and 640x320. Rail taps navigate.

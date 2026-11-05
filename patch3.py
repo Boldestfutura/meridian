@@ -760,10 +760,12 @@ def device_popups():
                            has_mute=True)
     kitchen_homepod = player_popup("ov-homepod-kitchen", "Kitchen HomePod",
                                    "media_player.homepod_mini_kitchen", "mdi:speaker")
-    bedroom_homepod = player_popup("ov-homepod-bedroom", "Bedroom HomePod",
-                                   "media_player.homepod_mini_master_bedroom", "mdi:speaker")
+    bedroom_echo = player_popup("ov-echo-bedroom", "Bedroom Echo",
+                                "media_player.bedroom_echo", "mdi:speaker")
+    guest_homepod = player_popup("ov-homepod-guest", "Guest HomePod",
+                                 "media_player.guest_bedroom_homepod_mini", "mdi:speaker")
     return [heat, fan, swing, amp, sources, atv, apps,
-            display, kitchen_homepod, bedroom_homepod] + [plant_popup(*p) for p in PLANTS]
+            display, kitchen_homepod, bedroom_echo, guest_homepod] + [plant_popup(*p) for p in PLANTS]
 
 
 NAV_TARGETS = {
@@ -772,12 +774,13 @@ NAV_TARGETS = {
     "media_player.living_room": "ov-appletv",
     "media_player.kitchen_display": "ov-kitchen-display",
     "media_player.homepod_mini_kitchen": "ov-homepod-kitchen",
-    "media_player.homepod_mini_master_bedroom": "ov-homepod-bedroom",
+    "media_player.bedroom_echo": "ov-echo-bedroom",
+    "media_player.guest_bedroom_homepod_mini": "ov-homepod-guest",
     # the tablet's Media tab uses the Music Assistant players for the same
     # speakers; same pop-ups, since those drive the hardware directly
     "media_player.living_room_amp_2": "ov-amp",
     "media_player.homepod_mini_kitchen_2": "ov-homepod-kitchen",
-    "media_player.homepod_mini_master_bedroom_2": "ov-homepod-bedroom",
+    "media_player.guest_bedroom_homepod_mini_2": "ov-homepod-guest",
 }
 
 

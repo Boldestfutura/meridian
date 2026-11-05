@@ -51,7 +51,7 @@ ROOMS = [
         {"type": "switch", "entity": "switch.smart_plug", "name": "Smart Plug", "icon": "mdi:power-plug"},
     ]},
     {"name": "Master Bedroom", "icon": "mdi:bed-king-outline", "group": "light.master_bedroom_lights", "items": [
-        media("media_player.homepod_mini_master_bedroom", "HomePod", "mdi:speaker-wireless"),
+        media("media_player.bedroom_echo", "Echo", "mdi:speaker-wireless"),
         {"type": "switch", "entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier",
          "icon": "mdi:air-humidifier"},
         light("light.mushroom_lamp", "Mushroom Lamp"),
@@ -59,6 +59,7 @@ ROOMS = [
         light("light.bedside_right", "Bedside Right"),
     ]},
     {"name": "Guest Bedroom", "icon": "mdi:bed-outline", "items": [
+        media("media_player.guest_bedroom_homepod_mini", "HomePod", "mdi:speaker-wireless"),
         light("light.guest_bedroom_lamp", "Guest Lamp"),
     ]},
 ]
@@ -188,7 +189,8 @@ POPUPS = {
         tiles(t("automation.living_room_lights_dim_for_apple_tv", "Dim lights on play", "mdi:lightbulb-auto", wide=True))]},
     "kitchen_display": player_popup("media_player.kitchen_display", "Kitchen Display", "mdi:monitor"),
     "homepod_kitchen": player_popup("media_player.homepod_mini_kitchen", "Kitchen HomePod", "mdi:speaker"),
-    "homepod_bedroom": player_popup("media_player.homepod_mini_master_bedroom", "Bedroom HomePod", "mdi:speaker"),
+    "echo_bedroom": player_popup("media_player.bedroom_echo", "Bedroom Echo", "mdi:speaker"),
+    "homepod_guest": player_popup("media_player.guest_bedroom_homepod_mini", "Guest HomePod", "mdi:speaker"),
     "plant_fiddle": plant_popup("Fiddle leaf fig", "sensor.soil_moisture_sensor_1_humidity",
                                 "sensor.soil_moisture_sensor_1_temperature", "sensor.soil_moisture_sensor_1_battery"),
     "plant_banana": plant_popup("Banana Leaf", "sensor.moisture_sensor_2_humidity",
@@ -205,7 +207,7 @@ LINKS = {
     "sensor.air_quality_monitor_pm2_5": "pm2_5", "sensor.air_quality_monitor_voc_index": "voc",
     CLIMATE: "heatpump", AMP: "amp", ATV: "appletv",
     "media_player.kitchen_display": "kitchen_display", "media_player.homepod_mini_kitchen": "homepod_kitchen",
-    "media_player.homepod_mini_master_bedroom": "homepod_bedroom",
+    "media_player.bedroom_echo": "echo_bedroom", "media_player.guest_bedroom_homepod_mini": "homepod_guest",
     "sensor.soil_moisture_sensor_1_humidity": "plant_fiddle", "sensor.moisture_sensor_2_humidity": "plant_banana",
 }
 

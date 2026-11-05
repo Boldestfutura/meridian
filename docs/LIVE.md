@@ -99,12 +99,13 @@ and how to deploy each without clobbering anything.
   nudges right.
 - **Media tab**, playing Spotify through **Music Assistant** with the Soloist provider.
   HA's own Spotify integration can't drive the Sonos Amp or the AirPlay-only HomePods.
-  - `input_select.tablet_speaker` picks Amp / Kitchen / Bedroom, which map to
-    `media_player.living_room_amp_2`, `homepod_mini_kitchen_2` and
-    `homepod_mini_master_bedroom_2`. These are the MA players, not the Sonos/AirPlay ones.
+  - `input_select.tablet_speaker` picks Amp / Kitchen / Bedroom / Guest, which map to
+    `media_player.living_room_amp_2`, `homepod_mini_kitchen_2`, `bedroom_echo` and
+    `guest_bedroom_homepod_mini_2`. These are the MA players, not the Sonos/AirPlay ones.
+    (The Echo has only the one player, `bedroom_echo`.)
   - Speaker cards: `media_card(..., volume=True)` shows the volume at the top right.
     Tapping one opens the shared pop-ups through `patch3.NAV_TARGETS` (`#ov-amp`,
-    `#ov-homepod-kitchen`, `#ov-homepod-bedroom`).
+    `#ov-homepod-kitchen`, `#ov-echo-bedroom`, `#ov-homepod-guest`).
   - Playlists: 8 slots read `sensor.tablet_playlists` (attribute `items`; its state is the
     count, which hides empty slots). Tapping one calls `music_assistant.play_media`.
 - Sensors live in `configuration.yaml`; the repo copy is `ha_config/tablet_playlists.yaml`.
@@ -133,7 +134,13 @@ and how to deploy each without clobbering anything.
     Sol can't reach the VM's LAN IP.
   - The Bedroom Show (`night:` in showbedroom.py) shows a red clock on black while it's on.
     A tap wakes it on Lights, and it goes back to the clock after 30s.
-  - Still to add once the Echo Show is rooted: screen brightness 1%, and confirm the 15% volume.
+  - Screen: `notify.mobile_app_echo_show_5` with `message: command_screen_brightness_level`,
+    `data.command` 0-255. The automation sets 3 (about 1%) at the start and 102 at the end. It needs
+    `appops set io.homeassistant.companion.android WRITE_SETTINGS allow`, already done on the device.
+  - The 15% loudness still needs Cameron's verdict.
+- **Echo as a speaker:** SendSpin Player (`com.sendspindroid`) connects it to Music Assistant as
+  `media_player.bedroom_echo`, its only media player. The old bedroom HomePod moved to the guest
+  bedroom on 2026-11-05: `media_player.guest_bedroom_homepod_mini` (AirPlay) and `_2` (MA).
 
 **ha-phone** (room list) and **ha-computer** (whole house at once)
 - Media cards are `columns 6, rows 2`, so tiles stack and drag freely.

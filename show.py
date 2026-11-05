@@ -10,7 +10,7 @@ and saves this config.
 """
 import design as d
 
-VERSION = "0.18.5"
+VERSION = "0.18.6"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -48,9 +48,12 @@ CARD = {
         {"name": "Kitchen HomePod", "icon": "mdi:speaker-wireless",
          "entities": ["media_player.homepod_mini_kitchen_2", "media_player.homepod_mini_kitchen"],
          "ma": "media_player.homepod_mini_kitchen_2"},
-        {"name": "Bedroom HomePod", "icon": "mdi:speaker-wireless",
-         "entities": ["media_player.homepod_mini_master_bedroom_2"],
-         "ma": "media_player.homepod_mini_master_bedroom_2", "auto": False},
+        {"name": "Bedroom Echo", "icon": "mdi:speaker-wireless",
+         "entities": ["media_player.bedroom_echo"],
+         "ma": "media_player.bedroom_echo", "auto": False},
+        {"name": "Guest HomePod", "icon": "mdi:speaker-wireless",
+         "entities": ["media_player.guest_bedroom_homepod_mini_2"],
+         "ma": "media_player.guest_bedroom_homepod_mini_2", "auto": False},
     ],
     "playlists": "sensor.tablet_playlists",   # template sensor, Music Assistant library
     "recipes": "/local/norish",               # tools/norish_sync.py keeps this current
@@ -97,7 +100,7 @@ CARD = {
          "lights": [{"entity": "light.bedside_left", "name": "Bedside Left", "icon": "mdi:lamp"},
                     {"entity": "light.bedside_right", "name": "Bedside Right", "icon": "mdi:lamp"},
                     {"entity": "light.mushroom_lamp", "name": "Mushroom Lamp", "icon": "mdi:mushroom-outline"}],
-         "media": [{"entity": "media_player.homepod_mini_master_bedroom", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
+         "media": [{"entity": "media_player.bedroom_echo", "name": "Echo", "icon": "mdi:speaker-wireless"}],
          "switches": [{"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier",
                        "icon": "mdi:air-humidifier"}],
          "sensors": air("_2"),   # the bedroom's own monitor
@@ -108,6 +111,7 @@ CARD = {
                     {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:power-sleep"}]},
         {"name": "Guest", "icon": "mdi:bed-outline",
          "lights": [{"entity": "light.guest_bedroom_lamp", "name": "Guest Lamp", "icon": "mdi:lamp"}],
+         "media": [{"entity": "media_player.guest_bedroom_homepod_mini", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
          "scenes": [{"entity": "script.guest_bedroom_welcome", "name": "Welcome", "icon": "mdi:hand-wave"},
                     {"entity": "script.guest_bedroom_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
                     {"entity": "script.guest_bedroom_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
