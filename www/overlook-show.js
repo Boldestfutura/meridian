@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.18.6";
+const VERSION = "0.18.7";
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -1069,11 +1069,14 @@ class OverlookShow extends LitElement {
     const state = e.state === "playing" ? "Playing" : e.state === "paused" ? "Paused"
       : e.state === "unavailable" ? "Unavailable" : e.state[0].toUpperCase() + e.state.slice(1);
     const vol = a.volume_level;
+    // the phone keeps the icon and puts the artwork behind the whole tile
+    const phone = this._config.phone;
+    const pic = active && a.entity_picture ? this._u(a.entity_picture) : null;
     return html`
-      <div class="card player">
+      <div class="card player ${phone && pic ? "has-art" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
-          <div class="art small" style=${active && a.entity_picture ? `background-image:url('${this._u(a.entity_picture)}')` : ""}>
-            ${active && a.entity_picture ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
+          <div class="art small" style=${!phone && pic ? `background-image:url('${pic}')` : ""}>
+            ${!phone && pic ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
           </div>
           <div class="media-text">
             <div class="media-src">${m.name || a.friendly_name}</div>
@@ -1091,6 +1094,11 @@ class OverlookShow extends LitElement {
             <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
             <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:plus"></ha-icon></button>
+          </div>` : nothing}
+        ${phone && vol == null && ["playing", "paused"].includes(e.state) ? html`
+          <div class="transport">
+            <button class="round small" @click=${() => this._call("media_player", "media_play_pause", { entity_id: id })}>
+              <ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
           </div>` : nothing}
       </div>`;
   }
@@ -2756,6 +2764,14 @@ class OverlookShow extends LitElement {
     .ph-grid .player-title { font-size: 14px; }
     .ph-grid .media-artist { font-size: 12px; }
     .ph-grid .vol { gap: 6px; }
+    .ph-grid .transport { display: flex; justify-content: center; }
+    .ph-grid .player.has-art { color: #fff;
+      background: linear-gradient(rgba(10, 14, 28, 0.5), rgba(10, 14, 28, 0.72)), var(--art) center / cover; }
+    .ph-grid .has-art .media-src, .ph-grid .has-art .media-artist { color: rgba(255, 255, 255, 0.82); }
+    .ph-grid .has-art .art.small { background: rgba(255, 255, 255, 0.2); color: #fff; }
+    .ph-grid .has-art .round.small { background: rgba(255, 255, 255, 0.22); color: #fff; }
+    .ph-grid .has-art .vol-bar { background: rgba(255, 255, 255, 0.28); }
+    .ph-grid .has-art .vol-bar div { background: #fff; }
     .ph-hp { grid-column: 1 / -1; padding: 14px; border-radius: 22px; }
     .ph-hp .thermo { background: none; padding: 0; display: grid; gap: 12px 10px; grid-template-columns: 1fr auto;
                      grid-template-areas: "now target" "modes modes"; }
