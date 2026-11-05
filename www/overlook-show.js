@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.19.2";
+const VERSION = "0.19.3";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -2974,6 +2974,11 @@ class OverlookShow extends LitElement {
     .hub-controls { grid-template-rows: 1fr 1fr; }
     .hub-players { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
     .hub-hp { display: flex; flex-direction: column; min-height: 0; }
+    /* the Hub's dock: bigger targets than the tablet's compact one */
+    .screen.hub { grid-template-columns: 94px 1fr; }
+    .hub .dock-pill { gap: 6px; padding: 7px; border-radius: 26px; }
+    .hub .dock-btn { width: 62px; height: 62px; border-radius: 20px; }
+    .hub .dock-btn ha-icon { --mdc-icon-size: 30px; }
     .hub-stack { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0; }
     .hub-stack > .card { min-height: 0; overflow: hidden; }
     .hub-out { display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; text-align: left; color: var(--ink); }
