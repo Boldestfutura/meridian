@@ -1,7 +1,7 @@
 {
  "id": "1784082631958",
  "alias": "Master Bedroom Night Mode - Sleep Sounds",
- "description": "9pm-7:30am while Cameron, Paget or a guest is home: input_boolean.bedroom_night_mode on, Stream Sounds looping on the bedroom Echo Show through Music Assistant at 9%. Also starts when someone gets home inside the window. Stops at 7:30am or when everyone leaves. Screen brightness and the red night clock are handled by \"Master Bedroom Echo Brightness\" from the room's light, not here.",
+ "description": "9pm-7:30am while Cameron, Paget or a guest is home: turns input_boolean.bedroom_night_mode (\"Sleep Sounds\") on. Also when someone gets home inside the window. Turns it off at 7:30am or when everyone leaves. The sound itself follows the switch in \"Master Bedroom Sleep Sounds\", so the Sleep Sounds tile on the dashboards does the same thing by hand. Screen brightness and the red night clock are handled by \"Master Bedroom Echo Brightness\" from the room's light, not here.",
  "triggers": [
   {
    "trigger": "time",
@@ -82,38 +82,6 @@
        "target": {
         "entity_id": "input_boolean.bedroom_night_mode"
        }
-      },
-      {
-       "action": "media_player.volume_set",
-       "target": {
-        "entity_id": "media_player.bedroom_echo"
-       },
-       "data": {
-        "volume_level": 0.09
-       },
-       "continue_on_error": true
-      },
-      {
-       "action": "music_assistant.play_media",
-       "target": {
-        "entity_id": "media_player.bedroom_echo"
-       },
-       "data": {
-        "media_id": "http://100.108.150.25:8123/local/sounds/Stream Sounds.m4a",
-        "media_type": "track",
-        "enqueue": "replace"
-       },
-       "continue_on_error": true
-      },
-      {
-       "action": "media_player.repeat_set",
-       "target": {
-        "entity_id": "media_player.bedroom_echo"
-       },
-       "data": {
-        "repeat": "one"
-       },
-       "continue_on_error": true
       }
      ]
     },
@@ -159,23 +127,6 @@
       }
      ],
      "sequence": [
-      {
-       "action": "media_player.media_stop",
-       "target": {
-        "entity_id": "media_player.bedroom_echo"
-       },
-       "continue_on_error": true
-      },
-      {
-       "action": "media_player.repeat_set",
-       "target": {
-        "entity_id": "media_player.bedroom_echo"
-       },
-       "data": {
-        "repeat": "off"
-       },
-       "continue_on_error": true
-      },
       {
        "action": "input_boolean.turn_off",
        "target": {

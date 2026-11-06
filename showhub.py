@@ -22,6 +22,9 @@ for room, scenes in (("", show.CARD["scenes"]), ("Kitchen", KITCHEN["scenes"]), 
             _seen.add(s["entity"])
             # "Bright" is in both rooms, so a room's own scenes carry its name
             SCENES.append(dict(s, name=f"{room} {s['name']}") if room and s["name"] in ("Bright", "Evening") else s)
+# and the bedroom's sleep sounds, which is not a kitchen scene but is started from anywhere
+SCENES += [s for r in show.CARD["rooms"] if r["name"] == "Bedroom" for s in r["scenes"]
+           if s["entity"] == "input_boolean.bedroom_night_mode" and s["entity"] not in _seen]
 
 CARD = dict(show.CARD, hub=True, room=KITCHEN, status=[],
             hub_rooms=[{"name": "Kitchen Lights", "icon": "mdi:stove", "group": KITCHEN["group"]},

@@ -13,6 +13,9 @@ import show
 
 VERSION = show.VERSION
 ROOM = next(r for r in show.CARD["rooms"] if r["name"] == "Bedroom")
+# Controls on the Echo: the sleep sounds switch beside All Lights and the dehumidifier
+ROOM = dict(ROOM, switches=ROOM.get("switches", []) + [
+    {"entity": "input_boolean.bedroom_night_mode", "name": "Sleep Sounds", "icon": "mdi:waves"}])
 
 # the Echo itself first and the default; the others only when picked
 SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom Echo") for s in show.CARD["speakers"]),

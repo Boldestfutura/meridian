@@ -20,6 +20,8 @@ SCENES = [
     ("script.bedroom_dimmed",            "Bedroom Dim", "mdi:bed",                   d.MAUVE,  False),
     ("script.living_room_dimmed",        "Living Dim",  "mdi:sofa",                  d.VIOLET, False),
     ("script.guest_bedroom_dimmed",      "Guest Dim",   "mdi:bed-outline",            d.BLUE,   False),
+    # the bedroom's stream sounds by hand; the 9pm automation flips the same switch
+    ("input_boolean.bedroom_night_mode", "Sleep Sounds", "mdi:waves",                 d.COOLBLU, True),
 ]
 
 

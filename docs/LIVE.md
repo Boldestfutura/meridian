@@ -176,3 +176,14 @@ and how to deploy each without clobbering anything.
   automation plus `~/.local/bin/zigbee-watch` on luna cover it dropping out.
 - Nabu Casa is active. Alexa linking is **not** turned on yet; it's planned for when the
   Sonos Era 100 arrives, with a curated expose list.
+
+## Sleep Sounds (2026-11-07)
+
+`input_boolean.bedroom_night_mode` is shown as **Sleep Sounds** and is the one switch for the
+bedroom stream sounds. `automation.master_bedroom_sleep_sounds` (`ha_config/sleep_sounds.json`)
+plays Stream Sounds on the Echo at 9%, looping, while it is on and stops when it goes off.
+The 9pm-7:30am automation (`ha_config/bedroom_night.json`) only flips the switch now. Every
+dashboard has a Sleep Sounds tile for it: the classic scene strips (`scenes.py`, added live as
+`p7`), the Bedroom room's scenes and the favourites in `show.py`, the Phone Show scenes, the
+Hub's Scenes sheet and a Controls tile on the Echo. A manual "on" stops at the next 7:30am or
+when everyone leaves, like the automatic one.

@@ -29,6 +29,7 @@ SCENES = [
     {"entity": "script.bedroom_dimmed", "name": "Bedroom Dim", "icon": "mdi:bed"},
     {"entity": "script.living_room_dimmed", "name": "Living Dim", "icon": "mdi:sofa"},
     {"entity": "script.guest_bedroom_dimmed", "name": "Guest Dim", "icon": "mdi:bed-outline"},
+    {"entity": "input_boolean.bedroom_night_mode", "name": "Sleep Sounds", "icon": "mdi:waves"},
 ]
 
 # ha-phone's room sections, tile for tile and in its order

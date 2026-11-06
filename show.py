@@ -108,7 +108,8 @@ CARD = {
                     {"entity": "script.bedroom_wind_down", "name": "Wind Down", "icon": "mdi:candle"},
                     {"entity": "script.bedroom_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
                     {"entity": "script.bedroom_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
-                    {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:power-sleep"}]},
+                    {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:power-sleep"},
+                    {"entity": "input_boolean.bedroom_night_mode", "name": "Sleep Sounds", "icon": "mdi:waves"}]},
         {"name": "Guest", "icon": "mdi:bed-outline",
          "lights": [{"entity": "light.guest_bedroom_lamp", "name": "Guest Lamp", "icon": "mdi:lamp"}],
          "media": [{"entity": "media_player.guest_bedroom_homepod_mini", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
@@ -133,7 +134,7 @@ CARD = {
 _all = {s["entity"]: s for r in CARD["rooms"] for s in r.get("scenes", [])}
 FAV_SCENES = [("script.goodnight", "Goodnight"), ("script.heatpump_cool_30min", "Heat/Cool 30 min"),
               ("input_boolean.guest_mode", "Guest Mode"), ("script.living_room_dimmed", "Living Room Dim"),
-              ("script.kitchen_dimmed", "Kitchen Dim")]
+              ("script.kitchen_dimmed", "Kitchen Dim"), ("input_boolean.bedroom_night_mode", "Sleep Sounds")]
 CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
 
 
