@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.20.4";
+const VERSION = "0.20.5";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -1823,6 +1823,9 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level != null ? a.volume_level : null;
     const title = a.media_title || "Nothing playing";
     const sub = a.media_artist || (a.media_title ? "" : "Pick a speaker or start something in Spotify");
+    // room screens (bedside Echo, kitchen Hub): the % pill already shows the level, so no bar,
+    // just - and + sharing the row as squircles
+    const pair = this._config.bedside || this._config.hub;
     return html`
       <div class="card media-card">
         <div class="card-title">Active Media</div>
@@ -1849,10 +1852,10 @@ class OverlookShow extends LitElement {
           ${vol != null ? html`<span class="where-vol">${Math.round(vol * 100)}%</span>` : nothing}
         </div>
         ${vol != null ? html`
-          <div class="vol ${this._config.bedside ? "vol-pair" : ""}">
+          <div class="vol ${pair ? "vol-pair" : ""}">
             <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:minus"></ha-icon></button>
-            ${this._config.bedside ? nothing : html`<div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>`}
+            ${pair ? nothing : html`<div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>`}
             <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
@@ -3128,8 +3131,14 @@ class OverlookShow extends LitElement {
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
     .bedside .media-card, .hub .media-card { flex: none; height: 100%; }
-    /* the bedside media card: no bar, just - and + sharing the row as squircles */
+    /* the bedside and Hub media card: no bar, just - and + sharing the row as squircles,
+       and a bigger speaker pill and % so they read from across the room */
     .vol.vol-pair { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .bedside .where-row .where, .hub .where-row .where { height: 52px; font-size: 18px; gap: 10px; }
+    .bedside .where-row .where ha-icon, .hub .where-row .where ha-icon { --mdc-icon-size: 24px; }
+    .bedside .where-row .where .chev, .hub .where-row .where .chev { --mdc-icon-size: 22px; }
+    .bedside .where-vol, .hub .where-vol { height: 52px; min-width: 84px; font-size: 19px; }
+    .bedside .where-row, .hub .where-row { gap: 8px; }
     .vol-pair .round.small { width: 100%; height: 56px; border-radius: 18px; }
     .vol-pair .round.small ha-icon { --mdc-icon-size: 28px; }
     .hub-controls { grid-template-rows: 1fr 1fr; }
