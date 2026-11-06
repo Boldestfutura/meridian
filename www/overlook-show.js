@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.20.3";
+const VERSION = "0.20.4";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -3067,31 +3067,34 @@ class OverlookShow extends LitElement {
     .wx-day { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 5vw; align-items: center; width: 100%; }
     .wx-main { display: grid; justify-items: center; gap: 1vh; text-align: center; }
     .wx-label { font-family: var(--display); font-weight: 700; font-size: 6.5vh; }
-    .wx-big { --mdc-icon-size: 30vh; width: 30vh; height: 30vh; }
-    .wx-name { font-weight: 600; font-size: 5vh; color: var(--muted); }
-    .wx-side { display: grid; gap: 3.5vh; }
+    .wx-big { --mdc-icon-size: 27vh; width: 27vh; height: 27vh; }
+    .wx-name { font-weight: 600; font-size: 6vh; color: var(--ink); opacity: 0.8; }
+    .wx-side { display: grid; gap: 3vh; }
     .wx-temps { display: flex; align-items: baseline; gap: 2vw; font-family: var(--display); }
-    .wx-hi { font-weight: 800; font-size: 19vh; line-height: 0.9; }
-    .wx-lo { font-weight: 500; font-size: 9vh; color: var(--muted); }
-    .wx-facts { display: flex; flex-wrap: wrap; gap: 1.2vh 1.8vw; font-weight: 600; font-size: 3.9vh; }
-    .wx-facts span { display: inline-flex; align-items: center; gap: 0.6vw; white-space: nowrap; }
-    .wx-facts ha-icon { --mdc-icon-size: 4.3vh; color: var(--muted); }
+    .wx-hi { font-weight: 800; font-size: 17vh; line-height: 0.9; }
+    .wx-lo { font-weight: 600; font-size: 9vh; color: var(--ink); opacity: 0.7; }
+    .wx-facts { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 1.4vh 3vw;
+                font-weight: 600; font-size: 5vh; }
+    .wx-facts span { display: inline-flex; align-items: center; gap: 0.8vw; white-space: nowrap; }
+    .wx-facts ha-icon { --mdc-icon-size: 5.4vh; color: var(--ink); opacity: 0.75; }
     .wx-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1vw;
                 background: var(--card); border-radius: 3vh; padding: 2vh 1vw; }
-    .wx-hour { display: grid; justify-items: center; gap: 0.6vh; font-size: 3.6vh; color: var(--muted); }
-    .wx-hour ha-icon { --mdc-icon-size: 6vh; }
-    .wx-hour b { color: var(--ink); font-size: 4.2vh; }
-    .wx-pct { font-style: normal; font-weight: 600; font-size: 3.2vh; color: var(--cool); }
+    .wx-hour { display: grid; justify-items: center; gap: 0.6vh; font-size: 4.6vh; font-weight: 600; color: var(--ink); }
+    .wx-hour > span { opacity: 0.75; }
+    .wx-hour ha-icon { --mdc-icon-size: 6.5vh; }
+    .wx-hour b { font-size: 5.4vh; }
+    .wx-pct { font-style: normal; font-weight: 700; font-size: 4.4vh; color: var(--cool); }
     .wx-week { display: grid; gap: 1.4vw; width: 100%; }
     .wx-col { display: grid; justify-items: center; gap: 1.2vh; background: var(--card); border-radius: 3vh;
               padding: 3.5vh 0.6vw; text-align: center; min-width: 0; }
-    .wx-dow { font-family: var(--display); font-weight: 700; font-size: 4.6vh; }
+    .wx-dow { font-family: var(--display); font-weight: 700; font-size: 5.4vh; }
     .wx-col ha-icon { --mdc-icon-size: 12vh; width: 12vh; height: 12vh; }
-    .wx-cname { font-size: 3.2vh; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-    .wx-chi { font-family: var(--display); font-weight: 800; font-size: 8vh; line-height: 1; }
-    .wx-clo { font-family: var(--display); font-size: 5vh; color: var(--muted); }
-    .wx-crain { font-weight: 600; font-size: 3.6vh; color: var(--cool); }
-    .wx-night { background: #000; color: #a8231b; --muted: #6e1812; --ink: #a8231b; --card: #0d0303; --cool: #a8231b; }
+    .wx-cname { font-size: 4.2vh; font-weight: 600; line-height: 1.1; color: var(--ink); opacity: 0.8; min-height: 2.2em;
+                display: flex; align-items: center; }
+    .wx-chi { font-family: var(--display); font-weight: 800; font-size: 8.5vh; line-height: 1; }
+    .wx-clo { font-family: var(--display); font-weight: 600; font-size: 6vh; color: var(--ink); opacity: 0.7; }
+    .wx-crain { font-weight: 700; font-size: 4.6vh; color: var(--cool); }
+    .wx-night { background: #000; color: #a8231b; --muted: #8a1d16; --ink: #a8231b; --card: #0d0303; --cool: #a8231b; }
     .wx-night ha-icon { color: #a8231b !important; }
     .night { background: #000; color: #a8231b; grid-template-columns: 1fr; place-items: center; cursor: pointer; }
     .night-face { display: flex; flex-direction: column; align-items: center; gap: 2vh; transition: transform 1s ease; }

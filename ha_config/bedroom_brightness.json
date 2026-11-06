@@ -1,7 +1,7 @@
 {
  "id": "1793911176888",
  "alias": "Master Bedroom Echo Brightness",
- "description": "Red night clock and screen brightness follow the room, not the clock. binary_sensor.bedroom_dark (bedroom lights off and the Echo's light sensor under 3 lx) turns Android auto brightness off and sets 12/255; otherwise auto brightness is on (screen_auto_brightness_adj set to 1.0 over ADB, so lamp light reads about 75-85/255 instead of 6). A bedroom light changing asks the Echo for a fresh light reading, since the sensor otherwise reports every 15 minutes.",
+ "description": "Red night clock and screen brightness follow the room, not the clock. binary_sensor.bedroom_dark (bedroom lights off and VACA's light sensor under 3 lx) turns Android auto brightness off and sets 5% (about 12/255) through VACA; otherwise auto brightness is on (screen_auto_brightness_adj 1.0, set over ADB by the watchdog, so lamp light reads about 75-85/255 instead of 6). Moved from the HA companion app to VACA 2026-11-06; VACA pushes light changes itself, so the old ask-for-a-reading step is gone.",
  "triggers": [
   {
    "trigger": "state",
@@ -16,43 +16,12 @@
    "trigger": "homeassistant",
    "event": "start",
    "id": "room"
-  },
-  {
-   "trigger": "state",
-   "entity_id": "light.master_bedroom_lights",
-   "to": [
-    "on",
-    "off"
-   ],
-   "id": "lights"
   }
  ],
  "conditions": [],
  "actions": [
   {
    "choose": [
-    {
-     "conditions": [
-      {
-       "condition": "trigger",
-       "id": "lights"
-      }
-     ],
-     "sequence": [
-      {
-       "delay": {
-        "seconds": 3
-       }
-      },
-      {
-       "action": "notify.mobile_app_echo_show_5",
-       "data": {
-        "message": "command_update_sensors"
-       },
-       "continue_on_error": true
-      }
-     ]
-    },
     {
      "conditions": [
       {
@@ -63,22 +32,19 @@
      ],
      "sequence": [
       {
-       "action": "notify.mobile_app_echo_show_5",
-       "data": {
-        "message": "command_auto_screen_brightness",
-        "data": {
-         "command": "turn_off"
-        }
+       "action": "switch.turn_off",
+       "target": {
+        "entity_id": "switch.bedroom_echo_va_auto_brightness"
        },
        "continue_on_error": true
       },
       {
-       "action": "notify.mobile_app_echo_show_5",
+       "action": "number.set_value",
+       "target": {
+        "entity_id": "number.bedroom_echo_va_screen_brightness"
+       },
        "data": {
-        "message": "command_screen_brightness_level",
-        "data": {
-         "command": 12
-        }
+        "value": 5
        },
        "continue_on_error": true
       }
@@ -87,12 +53,9 @@
    ],
    "default": [
     {
-     "action": "notify.mobile_app_echo_show_5",
-     "data": {
-      "message": "command_auto_screen_brightness",
-      "data": {
-       "command": "turn_on"
-      }
+     "action": "switch.turn_on",
+     "target": {
+      "entity_id": "switch.bedroom_echo_va_auto_brightness"
      },
      "continue_on_error": true
     }
