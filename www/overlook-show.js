@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.20.5";
+const VERSION = "0.20.6";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -1283,8 +1283,15 @@ class OverlookShow extends LitElement {
     const phone = this._config.phone;
     const pic = active ? this._pic(a) : null;
     const powerTile = phone && POWER_TILES.includes(id);
+    // volume: no bar anywhere. The phone puts - and + side by side (as the Apple TV tile's
+    // play and power) with the % in the tile's top right; the big screens put the % pill
+    // between - and +, since their play button sits top right
+    const showVol = !powerTile && vol != null && e.state !== "off";
+    const pct = showVol ? Math.round(vol * 100) : null;
+    const step = (d) => () => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + d) * 100) / 100, 0, 1) });
     return html`
-      <div class="card player ${phone && pic ? "has-art" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
+      <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
+        ${phone && showVol ? html`<span class="ph-vol">${pct}%</span>` : nothing}
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
           <div class="art small" style=${!phone && pic ? `background-image:url('${pic}')` : ""}>
             ${!phone && pic ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
@@ -1298,13 +1305,16 @@ class OverlookShow extends LitElement {
             <button class="round play" @click=${() => this._call("media_player", "media_play_pause", { entity_id: id })}>
               <ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>` : nothing}
         </div>
-        ${!powerTile && vol != null && e.state !== "off" ? html`
-          <div class="vol">
-            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
-              <ha-icon icon="mdi:minus"></ha-icon></button>
-            <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
-            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
-              <ha-icon icon="mdi:plus"></ha-icon></button>
+        ${showVol && phone ? html`
+          <div class="transport power-pair">
+            <button class="round small" title="Volume down" @click=${step(-0.05)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="round small" title="Volume up" @click=${step(0.05)}><ha-icon icon="mdi:plus"></ha-icon></button>
+          </div>` : nothing}
+        ${showVol && !phone ? html`
+          <div class="vol vol-pair vol-pct">
+            <button class="round small" @click=${step(-0.05)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <span class="where-vol">${pct}%</span>
+            <button class="round small" @click=${step(0.05)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${powerTile ? html`
           <div class="transport power-pair">
@@ -1823,9 +1833,9 @@ class OverlookShow extends LitElement {
     const vol = a.volume_level != null ? a.volume_level : null;
     const title = a.media_title || "Nothing playing";
     const sub = a.media_artist || (a.media_title ? "" : "Pick a speaker or start something in Spotify");
-    // room screens (bedside Echo, kitchen Hub): the % pill already shows the level, so no bar,
+    // every big screen: the % pill already shows the level, so no bar,
     // just - and + sharing the row as squircles
-    const pair = this._config.bedside || this._config.hub;
+    const pair = !this._config.phone;
     return html`
       <div class="card media-card">
         <div class="card-title">Active Media</div>
@@ -2991,6 +3001,11 @@ class OverlookShow extends LitElement {
     .ph-grid .transport { display: flex; justify-content: center; }
     .ph-grid .transport.power-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .ph-grid .power-pair .round.small { width: 100%; }
+    .ph-grid .player { position: relative; }
+    .ph-vol { position: absolute; top: 12px; right: 12px; font-size: 13px; font-weight: 700;
+              font-variant-numeric: tabular-nums; color: var(--muted); }
+    .ph-grid .has-vol .media-text { padding-right: 34px; }
+    .ph-grid .has-art .ph-vol { color: rgba(255, 255, 255, 0.85); }
     .ph-grid .player.has-art { color: #fff; position: relative; isolation: isolate; overflow: hidden; background: #171b27; }
     .ph-grid .player.has-art::before { content: ""; position: absolute; inset: 0; z-index: -1;
       background: linear-gradient(rgba(14, 18, 30, 0.55), rgba(14, 18, 30, 0.72)), var(--art) center / cover;
@@ -3134,11 +3149,16 @@ class OverlookShow extends LitElement {
     /* the bedside and Hub media card: no bar, just - and + sharing the row as squircles,
        and a bigger speaker pill and % so they read from across the room */
     .vol.vol-pair { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .bedside .where-row .where, .hub .where-row .where { height: 52px; font-size: 18px; gap: 10px; }
-    .bedside .where-row .where ha-icon, .hub .where-row .where ha-icon { --mdc-icon-size: 24px; }
-    .bedside .where-row .where .chev, .hub .where-row .where .chev { --mdc-icon-size: 22px; }
-    .bedside .where-vol, .hub .where-vol { height: 52px; min-width: 84px; font-size: 19px; }
-    .bedside .where-row, .hub .where-row { gap: 8px; }
+    .screen:not(.phone) .where-row .where { height: 52px; font-size: 18px; gap: 10px; }
+    .screen:not(.phone) .where-row .where ha-icon { --mdc-icon-size: 24px; }
+    .screen:not(.phone) .where-row .where .chev { --mdc-icon-size: 22px; }
+    .screen:not(.phone) .where-vol { height: 52px; min-width: 84px; font-size: 19px; }
+    .screen:not(.phone) .where-row { gap: 8px; }
+    /* speaker tiles on the big screens: - [ % ] + */
+    .vol.vol-pair.vol-pct { grid-template-columns: 1fr auto 1fr; gap: 8px; }
+    .player .vol-pair .round.small { height: 46px; border-radius: 15px; }
+    .player .vol-pair .round.small ha-icon { --mdc-icon-size: 24px; }
+    .screen:not(.phone) .player .vol-pct .where-vol { height: 46px; min-width: 76px; font-size: 18px; }
     .vol-pair .round.small { width: 100%; height: 56px; border-radius: 18px; }
     .vol-pair .round.small ha-icon { --mdc-icon-size: 28px; }
     .hub-controls { grid-template-rows: 1fr 1fr; }
