@@ -69,7 +69,9 @@ def sections():
 
         {"type": "grid", "cards": [
             span(d.room_header("Scenes", "mdi:creation", swipe=True), FULL),
-            span(d.pill_strip([{"card": c} for c in scenes.cards()],
+            # Sleep Sounds goes 5th, the first cell of row two, so it's in view without
+            # scrolling (Cameron, 2026-11-07); the rest keep the shared order
+            span(d.pill_strip([{"card": c} for c in scenes.cards(first_screen="input_boolean.bedroom_night_mode")],
                           rows=2, col_w=168, gap=8, pad="0"), FULL),
         ]},
 

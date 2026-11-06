@@ -49,5 +49,11 @@ def card(entity, label, icon, accent, toggle, height=None):
     return c
 
 
-def cards(height=None):
-    return [card(*s, height=height) for s in SCENES]
+def cards(height=None, first_screen=None):
+    """first_screen: an entity moved to the 5th slot, which in a two-row strip is
+    the first cell of row two, so it shows on a phone without scrolling."""
+    order = list(SCENES)
+    if first_screen:
+        s = next(x for x in order if x[0] == first_screen)
+        order.remove(s); order.insert(4, s)
+    return [card(*s, height=height) for s in order]
