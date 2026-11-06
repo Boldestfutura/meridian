@@ -23,7 +23,9 @@ CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             # when the room is dark (lights off, Echo light sensor under 3 lx): a red clock on black
             night="binary_sensor.bedroom_dark",
             # voice: weather questions to the Echo (Assist satellite in area `bedroom`) open the weather page
-            voice="bedroom")
+            voice="bedroom",
+            # a blue glow round the edge while the Echo's Assist satellite is listening/answering
+            voice_satellite="assist_satellite.bedroom_echo_va")
 
 
 def build():

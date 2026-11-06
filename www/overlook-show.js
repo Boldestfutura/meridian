@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.20.6";
+const VERSION = "0.20.8";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -414,7 +414,21 @@ class OverlookShow extends LitElement {
   }
 
   // --- render -------------------------------------------------------------
+  // the voice glow sits over whatever screen is showing
   render() {
+    return html`${this._screen()}${this._glow()}`;
+  }
+
+  // voice: a blue glow round the screen edge while the Assist satellite (`voice_satellite`)
+  // is listening, processing or answering, like the light ring on an Echo
+  _glow() {
+    const id = this._config && this._config.voice_satellite;
+    const e = id && this._st(id);
+    const st = e && ["listening", "processing", "responding"].includes(e.state) ? e.state : null;
+    return st ? html`<div class="va-glow ${st}"></div>` : nothing;
+  }
+
+  _screen() {
     if (!this.hass || !this._config) return nothing;
     if (this._uncovered) {
       return html`<button class="restore" @click=${() => { this._uncovered = false; }}>
@@ -3080,6 +3094,15 @@ class OverlookShow extends LitElement {
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
+    .va-glow { position: fixed; inset: 0; z-index: 1000; pointer-events: none; border-radius: 0;
+               box-shadow: inset 0 0 0 6px rgba(110, 190, 255, 1), inset 0 0 26px 14px rgba(30, 140, 255, 0.95),
+                           inset 0 0 80px 34px rgba(30, 140, 255, 0.5);
+               animation: va-in 0.25s ease-out, va-pulse 1.6s ease-in-out 0.25s infinite; }
+    .va-glow.processing { animation: va-in 0.25s ease-out, va-pulse 0.7s ease-in-out infinite; }
+    .va-glow.responding { opacity: 0.7; animation: va-pulse-soft 2.4s ease-in-out infinite; }
+    @keyframes va-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes va-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    @keyframes va-pulse-soft { 0%, 100% { opacity: 0.75; } 50% { opacity: 0.45; } }
     .wx-screen { grid-template-columns: 1fr; place-items: center; padding: 4vh 5vw; cursor: pointer; }
     .wx-none { font-family: var(--display); font-size: 6vh; color: var(--muted); }
     .wx-day { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 5vw; align-items: center; width: 100%; }
