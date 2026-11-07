@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.20.8";
+const VERSION = "0.21.1";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -150,6 +150,8 @@ class OverlookShow extends LitElement {
     _daily: { state: true },
     _hourly: { state: true },
     _chance: { state: true },
+    _ckNow: { state: true },
+    _ckShow: { state: true },
   };
 
   setConfig(config) {
@@ -208,6 +210,8 @@ class OverlookShow extends LitElement {
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
     clearTimeout(this._wxTimer);
+    clearInterval(this._ckTick); this._ckTick = null;
+    clearTimeout(this._ckShowTimer);
     window.removeEventListener("pointerdown", this._touch, true);
     window.removeEventListener("keydown", this._touch, true);
     if (this._hdr) { clearInterval(this._hdr); this._hdr = null; styleHuiRoot(this._root, ""); }
@@ -251,6 +255,7 @@ class OverlookShow extends LitElement {
         if (!first) { try { this._onVoice(JSON.parse(v.state)); } catch (e) {} }
       }
     }
+    if (changed.has("hass") && this._config.clock) this._ckWatch();
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
       this._subscribe();
@@ -416,7 +421,150 @@ class OverlookShow extends LitElement {
   // --- render -------------------------------------------------------------
   // the voice glow sits over whatever screen is showing
   render() {
-    return html`${this._screen()}${this._glow()}`;
+    return html`${this._screen()}${this._clockLayer()}${this._glow()}`;
+  }
+
+  // --- voice clock: timer and alarm screens --------------------------------
+  // option `clock`: an area id whose helpers the "Voice Timers and Alarms" automations drive:
+  // timer.<a>_timer, input_number.<a>_timer_length (seconds, for Reset), input_datetime.<a>_alarm_time,
+  // input_boolean.<a>_alarm (set) and input_select.<a>_ringing (Off / Timer / Alarm).
+  // A running or ringing timer and a ringing alarm take the whole screen until they're done;
+  // a newly set alarm shows for 8 seconds and goes.
+  _ck() {
+    const a = this._config && this._config.clock;
+    if (!a) return null;
+    const s = (d, n) => this._st(`${d}.${a}_${n}`);
+    const ring = s("input_select", "ringing");
+    return { a, timer: s("timer", "timer"), len: s("input_number", "timer_length"), at: s("input_datetime", "alarm_time"),
+             armed: s("input_boolean", "alarm"), ring: ring ? ring.state : "Off" };
+  }
+
+  _ckWatch() {
+    const c = this._ck();
+    if (!c) return;
+    const t = c.timer && c.timer.state;
+    const live = t === "active" || c.ring !== "Off";
+    if (live && !this._ckTick) { this._ckNow = Date.now(); this._ckTick = setInterval(() => { this._ckNow = Date.now(); }, 1000); }
+    if (!live && this._ckTick) { clearInterval(this._ckTick); this._ckTick = null; }
+    if (c.ring === "Alarm") this._ckRangAt = Date.now();
+    // an alarm being set (or moved) while this screen is up shows it for 8 seconds
+    const key = c.armed && c.armed.state === "on" && c.at ? `${c.at.state}|${c.armed.last_changed}` : null;
+    if (key !== this._ckSeen) {
+      const first = this._ckSeen === undefined;
+      this._ckSeen = key;
+      if (!first && key && c.ring === "Off") {
+        this._ckShow = { snoozed: Date.now() - (this._ckRangAt || 0) < 5000 };
+        clearTimeout(this._ckShowTimer);
+        this._ckShowTimer = setTimeout(() => { this._ckShow = null; }, 8000);
+      } else if (!key) { this._ckShow = null; }
+    }
+  }
+
+  _ckDur(s) {
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
+  }
+  // digits as big as the screen allows: Unbounded 800 digits are about 0.8em wide, colons 0.4em
+  _ckFit(text, extra = 0) {
+    const s = String(text);
+    const em = [...s].reduce((w, ch) => w + (ch === ":" ? 0.4 : 0.8), 0) + extra;
+    return `font-size:min(44vh, ${(58 / em).toFixed(2)}vw)`;
+  }
+  _ckSecs(hms) {
+    const p = String(hms || "0:0:0").split(":").map(Number);
+    return (p[0] || 0) * 3600 + (p[1] || 0) * 60 + (p[2] || 0);
+  }
+
+  _clockLayer() {
+    const c = this._ck();
+    if (!c || !this.hass) return nothing;
+    const tm = c.timer, ts = tm ? tm.state : "idle";
+    const length = c.len ? Number(c.len.state) || 0 : 0;
+    const total = length || (tm ? this._ckSecs(tm.attributes.duration) : 0);
+    const ringing = c.ring !== "Off";
+    // a dark bedroom keeps the night clock's red; a ringing screen is bright to wake you
+    const dark = this._night() && !ringing;
+    const cls = `screen ck ${dark ? "ck-night" : ""}`;
+    const now = this._ckNow || Date.now();
+    const stop = (e) => {
+      e.stopPropagation();
+      if (ringing) this._call("input_select", "select_option", { entity_id: `input_select.${c.a}_ringing`, option: "Off" });
+      else this._call("timer", "cancel", { entity_id: `timer.${c.a}_timer` });
+    };
+    const reset = (e) => {
+      e.stopPropagation();
+      if (!total) return;
+      if (ringing) this._call("input_select", "select_option", { entity_id: `input_select.${c.a}_ringing`, option: "Off" });
+      this._call("timer", "start", { entity_id: `timer.${c.a}_timer`, duration: total });
+    };
+    const btn = (label, icon, fn, main) => html`
+      <button class="ck-btn ${main ? "main" : ""}" @click=${fn}><ha-icon icon=${icon}></ha-icon>${label}</button>`;
+
+    if (c.ring === "Alarm") {
+      const d = new Date(now);
+      const [h, mm] = this._time(d).split(":");
+      return html`
+        <div class=${cls}>
+          <div class="ck-top">
+            <div class="ck-label"><ha-icon icon="mdi:alarm"></ha-icon>Alarm</div>
+            <div class="ck-digits ring" style=${this._ckFit(h + ":" + mm)}>${h}<span class="ck-colon">:</span>${mm}</div>
+          </div>
+          <div class="ck-btns">
+            ${btn("Stop", "mdi:stop", stop)}
+            ${btn("Snooze", "mdi:alarm-snooze", (e) => { e.stopPropagation();
+              this._call("script", "voice_clock_snooze", { area: c.a }); }, true)}
+          </div>
+        </div>`;
+    }
+
+    if (c.ring === "Timer" || ts === "active" || ts === "paused") {
+      const left = c.ring === "Timer" ? 0
+        : ts === "paused" ? this._ckSecs(tm.attributes.remaining)
+        : (new Date(tm.attributes.finishes_at).getTime() - now) / 1000;
+      const txt = this._ckDur(Math.ceil(left - 0.05));
+      const pct = total ? Math.max(0, Math.min(100, (left / total) * 100)) : 0;
+      const label = c.ring === "Timer" ? "Time's up" : ts === "paused" ? "Paused" : "Timer";
+      const toggle = (e) => {
+        e.stopPropagation();
+        if (ts === "active") this._call("timer", "pause", { entity_id: `timer.${c.a}_timer` });
+        else if (ts === "paused") this._call("timer", "start", { entity_id: `timer.${c.a}_timer` });
+      };
+      return html`
+        <div class=${cls}>
+          <div class="ck-top">
+            <div class="ck-label"><ha-icon icon=${c.ring === "Timer" ? "mdi:bell-ring" : "mdi:timer-outline"}></ha-icon>${label}
+              ${total && c.ring !== "Timer" ? html`<span class="ck-of">of ${this._ckDur(total)}</span>` : nothing}</div>
+            <div class="ck-digits ${c.ring === "Timer" ? "ring" : ""} ${ts === "paused" ? "paused" : ""}"
+                 style=${this._ckFit(txt)} @click=${toggle}>${txt}</div>
+          </div>
+          <div class="ck-track"><div style="width:${pct}%"></div></div>
+          <div class="ck-btns">
+            ${btn("Reset", "mdi:restore", reset)}
+            ${btn("Stop", "mdi:stop", stop, true)}
+          </div>
+        </div>`;
+    }
+
+    if (this._ckShow && c.at && c.armed && c.armed.state === "on") {
+      const at = new Date(c.at.state.replace(" ", "T"));
+      const [h, mm] = this._time(at).split(":");
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const days = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()) - today) / 864e5);
+      const day = days === 0 ? "Today" : days === 1 ? "Tomorrow" : at.toLocaleDateString("en-AU", { weekday: "long" });
+      const mins = Math.max(0, Math.round((at - Date.now()) / 6e4));
+      const inTxt = mins < 60 ? `in ${mins} min` : `in ${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ""}`;
+      return html`
+        <div class=${cls} @click=${() => { clearTimeout(this._ckShowTimer); this._ckShow = null; }}>
+          <div class="ck-top">
+            <div class="ck-label"><ha-icon icon=${this._ckShow.snoozed ? "mdi:alarm-snooze" : "mdi:alarm-check"}></ha-icon>
+              ${this._ckShow.snoozed ? "Snoozed" : "Alarm set"}</div>
+            <div class="ck-digits" style=${this._ckFit(h + ":" + mm, 0.5)}>${h}<span class="ck-colon">:</span>${mm}<span class="ck-ampm">${at.getHours() < 12 ? "am" : "pm"}</span></div>
+          </div>
+          <div class="ck-when">${day}<span>${inTxt}</span></div>
+        </div>`;
+    }
+    return nothing;
   }
 
   // voice: a blue glow round the screen edge while the Assist satellite (`voice_satellite`)
@@ -3094,6 +3242,36 @@ class OverlookShow extends LitElement {
     @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
+    /* voice clock: timer and alarm screens, always dark like the night clock (StandBy-style) */
+    .ck { --ck-bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%); --ck-ink: #f4f6fb; --ck-dim: #8e99b0;
+          --ck-hot: var(--warm); --ck-on-hot: #1d1206; --ck-btn: rgba(255, 255, 255, 0.1);
+          z-index: 900; background: var(--ck-bg); color: var(--ck-ink); grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: 1fr auto auto; padding: 6vh 5.5vw 6vh; gap: 4.5vh; }
+    .ck-night { --ck-bg: #000; --ck-ink: #a8231b; --ck-dim: #6e1812; --ck-hot: #a8231b; --ck-on-hot: #000; --ck-btn: #160403; }
+    .ck-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 3vw; min-height: 0; min-width: 0; }
+    .ck-label { display: flex; align-items: center; gap: 1.4vw; font-family: var(--display); font-weight: 700;
+                font-size: 7.5vh; color: var(--ck-hot); white-space: nowrap; padding-top: 2vh; }
+    .ck-label ha-icon { --mdc-icon-size: 8.5vh; }
+    .ck-of { font-family: var(--body); font-weight: 600; font-size: 5vh; color: var(--ck-dim); margin-left: 0.6vw; }
+    .ck-digits { font-family: var(--display); font-weight: 800; font-size: min(44vh, 21vw); line-height: 0.86;
+                 letter-spacing: -0.03em; font-variant-numeric: tabular-nums; text-align: right; cursor: pointer; }
+    .ck-digits.paused { opacity: 0.45; }
+    .ck-digits.ring { animation: ck-blink 1s steps(1) infinite; }
+    @keyframes ck-blink { 50% { opacity: 0.35; } }
+    .ck-colon { opacity: 0.5; margin: 0 0.02em; position: relative; top: -0.05em; }
+    .ck-ampm { font-size: 0.24em; font-weight: 700; margin-left: 0.12em; color: var(--ck-dim); letter-spacing: 0; }
+    .ck-track { height: 1.6vh; min-height: 6px; border-radius: 999px; background: var(--ck-btn); overflow: hidden; }
+    .ck-track div { height: 100%; border-radius: 999px; background: var(--ck-hot); transition: width 1s linear; }
+    .ck-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4vw; }
+    .ck-btn { height: 24vh; border-radius: 7vh; background: var(--ck-btn); color: var(--ck-ink); display: flex;
+              align-items: center; justify-content: center; gap: 1.6vw; font-family: var(--display); font-weight: 700;
+              font-size: 7.5vh; transition: transform 0.12s; }
+    .ck-btn ha-icon { --mdc-icon-size: 8.5vh; }
+    .ck-btn.main { background: var(--ck-hot); color: var(--ck-on-hot); }
+    .ck-btn:active { transform: scale(0.97); }
+    .ck-when { display: flex; align-items: baseline; gap: 2vw; font-family: var(--display); font-weight: 700;
+               font-size: 9vh; grid-row: 3; }
+    .ck-when span { font-family: var(--body); font-weight: 600; font-size: 6vh; color: var(--ck-dim); }
     .va-glow { position: fixed; inset: 0; z-index: 1000; pointer-events: none; border-radius: 0;
                box-shadow: inset 0 0 0 6px rgba(110, 190, 255, 1), inset 0 0 26px 14px rgba(30, 140, 255, 0.95),
                            inset 0 0 80px 34px rgba(30, 140, 255, 0.5);

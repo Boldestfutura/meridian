@@ -1,0 +1,231 @@
+{
+ "id": "voice_clock_ring",
+ "alias": "Voice Timers and Alarms - Ringing",
+ "description": "Rings the room's Echo (VACA's alarm switch, its alarm volume) when timer.<area>_timer finishes or input_datetime.<area>_alarm_time arrives while input_boolean.<area>_alarm is on, by setting input_select.<area>_ringing to Timer or Alarm; the Show card shows the stop/reset or stop/snooze screen from that. Ringing back to Off silences it and puts the screen brightness back; a finished alarm turns itself off. Stops by itself after 10 minutes. Per-room device entities are in the `rooms` variable.",
+ "mode": "queued",
+ "triggers": [
+  {
+   "trigger": "event",
+   "event_type": "timer.finished",
+   "event_data": {
+    "entity_id": "timer.bedroom_timer"
+   },
+   "id": "timer",
+   "variables": {
+    "area": "bedroom"
+   }
+  },
+  {
+   "trigger": "time",
+   "at": "input_datetime.bedroom_alarm_time",
+   "id": "alarm",
+   "variables": {
+    "area": "bedroom"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "input_select.bedroom_ringing",
+   "to": "Off",
+   "id": "silence",
+   "variables": {
+    "area": "bedroom"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "input_select.bedroom_ringing",
+   "to": [
+    "Timer",
+    "Alarm"
+   ],
+   "for": {
+    "minutes": 10
+   },
+   "id": "timeout",
+   "variables": {
+    "area": "bedroom"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "switch.bedroom_echo_va_alarm",
+   "from": "on",
+   "to": "off",
+   "id": "device",
+   "variables": {
+    "area": "bedroom"
+   }
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "variables": {
+    "rooms": {
+     "bedroom": {
+      "alarm_switch": "switch.bedroom_echo_va_alarm",
+      "screen": "switch.bedroom_echo_va_screen",
+      "auto": "switch.bedroom_echo_va_auto_brightness",
+      "brightness": "number.bedroom_echo_va_screen_brightness",
+      "after": "automation.master_bedroom_echo_brightness",
+      "sleep": "input_boolean.bedroom_night_mode"
+     }
+    },
+    "r": "{{ rooms[area] }}",
+    "ringing": "input_select.{{ area }}_ringing",
+    "armed": "input_boolean.{{ area }}_alarm",
+    "alarm_time": "input_datetime.{{ area }}_alarm_time"
+   }
+  },
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": [
+        "timer",
+        "alarm"
+       ]
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ trigger.id == 'timer' or is_state(armed, 'on') }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "input_select.select_option",
+       "target": {
+        "entity_id": "{{ ringing }}"
+       },
+       "data": {
+        "option": "{{ 'Timer' if trigger.id == 'timer' else 'Alarm' }}"
+       }
+      },
+      {
+       "action": "switch.turn_on",
+       "target": {
+        "entity_id": "{{ r.screen }}"
+       },
+       "continue_on_error": true
+      },
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ is_state(r.auto, 'off') }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "number.set_value",
+         "target": {
+          "entity_id": "{{ r.brightness }}"
+         },
+         "data": {
+          "value": 60
+         },
+         "continue_on_error": true
+        }
+       ]
+      },
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ trigger.id == 'alarm' and is_state(r.sleep, 'on') }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "input_boolean.turn_off",
+         "target": {
+          "entity_id": "{{ r.sleep }}"
+         },
+         "continue_on_error": true
+        }
+       ]
+      },
+      {
+       "action": "switch.turn_on",
+       "target": {
+        "entity_id": "{{ r.alarm_switch }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "silence"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "switch.turn_off",
+       "target": {
+        "entity_id": "{{ r.alarm_switch }}"
+       },
+       "continue_on_error": true
+      },
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ is_state(armed, 'on') and as_datetime(states(alarm_time)) | as_local <= now() }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "input_boolean.turn_off",
+         "target": {
+          "entity_id": "{{ armed }}"
+         }
+        }
+       ]
+      },
+      {
+       "action": "automation.trigger",
+       "target": {
+        "entity_id": "{{ r.after }}"
+       },
+       "data": {
+        "skip_condition": true
+       },
+       "continue_on_error": true
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": [
+        "timeout",
+        "device"
+       ]
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ states(ringing) != 'Off' }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "input_select.select_option",
+       "target": {
+        "entity_id": "{{ ringing }}"
+       },
+       "data": {
+        "option": "Off"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -28,7 +28,10 @@ CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             # voice: weather questions to the Echo (Assist satellite in area `bedroom`) open the weather page
             voice="bedroom",
             # a blue glow round the edge while the Echo's Assist satellite is listening/answering
-            voice_satellite="assist_satellite.bedroom_echo_va")
+            voice_satellite="assist_satellite.bedroom_echo_va",
+            # timers and alarms set by voice (ha_config/voice_clock*.json): full-screen countdown,
+            # ringing screens with Reset/Stop and Stop/Snooze, and "Alarm set" for 8 seconds
+            clock="bedroom")
 
 
 def build():

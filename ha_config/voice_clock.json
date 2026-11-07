@@ -1,0 +1,463 @@
+{
+ "id": "voice_clock_voice",
+ "alias": "Voice Timers and Alarms",
+ "description": "Timers and alarms by voice for any Assist satellite whose area has the four helpers timer.<area>_timer, input_datetime.<area>_alarm_time, input_boolean.<area>_alarm and input_select.<area>_ringing, plus input_number.<area>_timer_length for the Show card's Reset (bedroom only so far; typed Assist with no device uses the bedroom). Sentence triggers win over HA's built-in timer intents, which keep timers on the satellite where no screen can see them. Ringing, snooze and the screen overlay are in \"Voice Timers and Alarms - Ringing\" and the Show card (option `clock`).",
+ "mode": "parallel",
+ "triggers": [
+  {
+   "trigger": "conversation",
+   "id": "timer_set",
+   "command": [
+    "set [a|the|my] timer for {duration}",
+    "start [a|the] timer for {duration}",
+    "(set|start) (a|an) {duration} timer",
+    "timer for {duration}",
+    "count down [from] {duration}"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "timer_cancel",
+   "command": [
+    "(cancel|stop|delete|clear|end|turn off) [the|my] timer"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "timer_pause",
+   "command": [
+    "pause [the|my] timer"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "timer_resume",
+   "command": [
+    "(resume|continue|unpause) [the|my] timer"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "timer_left",
+   "command": [
+    "how (long|much time) [is] left [on the timer|on my timer]",
+    "how long [is] left on [the|my] timer",
+    "how long until the timer [goes off|finishes]"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "alarm_set",
+   "command": [
+    "set [an|the|my] alarm (for|at) {time}",
+    "set [an] alarm {time}",
+    "wake me [up] at {time}",
+    "alarm (for|at) {time}"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "alarm_cancel",
+   "command": [
+    "(cancel|delete|remove|clear|turn off|stop|disable) [the|my] alarm"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "alarm_when",
+   "command": [
+    "(when|what time) is my alarm [set for]",
+    "is my alarm (on|set)",
+    "what is my alarm set (for|to)",
+    "when (do|does) my alarm go off"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "snooze",
+   "command": [
+    "snooze [the|my] alarm",
+    "snooze"
+   ]
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "variables": {
+    "area": "{% set a = area_id(trigger.device_id) if trigger.device_id else none %}{{ a if a and states('input_select.' ~ a ~ '_ringing') not in ['unknown','unavailable'] else ('bedroom' if not trigger.device_id else '') }}",
+    "timer": "timer.{{ area }}_timer",
+    "alarm_time": "input_datetime.{{ area }}_alarm_time",
+    "armed": "input_boolean.{{ area }}_alarm",
+    "ringing": "input_select.{{ area }}_ringing",
+    "length": "input_number.{{ area }}_timer_length"
+   }
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ area == '' }}"
+    }
+   ],
+   "then": [
+    {
+     "set_conversation_response": "Timers and alarms aren't set up in this room yet."
+    },
+    {
+     "stop": "no helpers for this area"
+    }
+   ]
+  },
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "timer_set"
+      }
+     ],
+     "sequence": [
+      {
+       "variables": {
+        "secs": "{%- set W = {'a':1,'an':1,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,'sixty':60,'ninety':90} -%}\n{%- set t = ((trigger.slots.duration | default('')) | lower | replace('-', ' ') | regex_replace('[^a-z0-9.: ]', ' ')) -%}\n{%- set ns = namespace(out=[], prev=none) -%}\n{%- for w in t.split() -%}\n  {%- if w in W -%}\n    {%- set v = W[w] -%}\n    {%- if ns.prev is not none and ns.prev >= 20 and ns.prev % 10 == 0 and v < 10 -%}\n      {%- set ns.out = ns.out[:-1] + [(ns.prev + v) | string] -%}{%- set ns.prev = none -%}\n    {%- else -%}{%- set ns.out = ns.out + [v | string] -%}{%- set ns.prev = v -%}{%- endif -%}\n  {%- else -%}{%- set ns.out = ns.out + [w] -%}{%- set ns.prev = none -%}{%- endif -%}\n{%- endfor -%}\n{%- set s = ns.out | join(' ') -%}\n{%- set s = s | regex_replace('\\\\b(1 )?quarter (of )?(an |1 )?hour', '15 minutes') | regex_replace('\\\\b1 half (an|1) hour', '30 minutes') | regex_replace('\\\\bhalf (an|1) hour', '30 minutes') | regex_replace('\\\\bhalf (a|1) minute', '30 seconds') -%}\n{%- set s = s | regex_replace('(\\\\d+(?:\\\\.\\\\d+)?) and (1|a) half (hours?|hrs?|minutes?|mins?)', '\\\\1.5 \\\\3') | regex_replace('(\\\\d+) (hours?|hrs?|minutes?|mins?) and (1|a) half', '\\\\1.5 \\\\2') -%}\n{%- set ns2 = namespace(sec=0) -%}\n{%- for m in s | regex_findall('(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*(hours?|hrs?|h\\\\b|minutes?|mins?|m\\\\b|seconds?|secs?|s\\\\b)') -%}\n  {%- set n = m[0] | float -%}\n  {%- set u = m[1][0] -%}\n  {%- set ns2.sec = ns2.sec + n * (3600 if u == 'h' else 60 if u == 'm' else 1) -%}\n{%- endfor -%}\n{{ ns2.sec | int }}"
+       }
+      },
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ secs | int(0) < 1 }}"
+        }
+       ],
+       "then": [
+        {
+         "set_conversation_response": "Sorry, I didn't catch how long."
+        },
+        {
+         "stop": "no duration"
+        }
+       ]
+      },
+      {
+       "action": "input_number.set_value",
+       "target": {
+        "entity_id": "{{ length }}"
+       },
+       "data": {
+        "value": "{{ secs | int }}"
+       },
+       "continue_on_error": true
+      },
+      {
+       "action": "timer.start",
+       "target": {
+        "entity_id": "{{ timer }}"
+       },
+       "data": {
+        "duration": "{{ secs | int }}"
+       }
+      },
+      {
+       "set_conversation_response": "{% macro say(s) %}{% set h = s // 3600 %}{% set m = (s % 3600) // 60 %}{% set x = s % 60 %}{% set p = [] %}{% if h %}{% set p = p + [h ~ ' hour' ~ ('s' if h != 1 else '')] %}{% endif %}{% if m %}{% set p = p + [m ~ ' minute' ~ ('s' if m != 1 else '')] %}{% endif %}{% if x %}{% set p = p + [x ~ ' second' ~ ('s' if x != 1 else '')] %}{% endif %}{{ p | join(' and ') if p | count < 3 else p[:2] | join(', ') ~ ' and ' ~ p[2] }}{% endmacro %}Timer set for {{ say(secs | int) | trim }}."
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "timer_cancel"
+      }
+     ],
+     "sequence": [
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ states(ringing) == 'Timer' }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "input_select.select_option",
+         "target": {
+          "entity_id": "{{ ringing }}"
+         },
+         "data": {
+          "option": "Off"
+         }
+        },
+        {
+         "set_conversation_response": "Timer stopped."
+        }
+       ],
+       "else": [
+        {
+         "if": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(timer) in ['active','paused'] }}"
+          }
+         ],
+         "then": [
+          {
+           "action": "timer.cancel",
+           "target": {
+            "entity_id": "{{ timer }}"
+           }
+          },
+          {
+           "set_conversation_response": "Timer cancelled."
+          }
+         ],
+         "else": [
+          {
+           "set_conversation_response": "There's no timer running."
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "timer_pause"
+      }
+     ],
+     "sequence": [
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ is_state(timer, 'active') }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "timer.pause",
+         "target": {
+          "entity_id": "{{ timer }}"
+         }
+        },
+        {
+         "set_conversation_response": "Timer paused."
+        }
+       ],
+       "else": [
+        {
+         "set_conversation_response": "There's no timer running."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "timer_resume"
+      }
+     ],
+     "sequence": [
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ is_state(timer, 'paused') }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "timer.start",
+         "target": {
+          "entity_id": "{{ timer }}"
+         }
+        },
+        {
+         "set_conversation_response": "Timer resumed."
+        }
+       ],
+       "else": [
+        {
+         "set_conversation_response": "There's no paused timer."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "timer_left"
+      }
+     ],
+     "sequence": [
+      {
+       "set_conversation_response": "{% macro say(s) %}{% set h = s // 3600 %}{% set m = (s % 3600) // 60 %}{% set x = s % 60 %}{% set p = [] %}{% if h %}{% set p = p + [h ~ ' hour' ~ ('s' if h != 1 else '')] %}{% endif %}{% if m %}{% set p = p + [m ~ ' minute' ~ ('s' if m != 1 else '')] %}{% endif %}{% if x %}{% set p = p + [x ~ ' second' ~ ('s' if x != 1 else '')] %}{% endif %}{{ p | join(' and ') if p | count < 3 else p[:2] | join(', ') ~ ' and ' ~ p[2] }}{% endmacro %}{% if is_state(timer, 'active') %}{% set s = ((as_datetime(state_attr(timer, 'finishes_at')) - now()).total_seconds()) | round(0) | int %}{{ say(s) | trim }} left.{% elif is_state(timer, 'paused') %}{% set r = state_attr(timer, 'remaining').split(':') %}{% set s = (r[0] | int) * 3600 + (r[1] | int) * 60 + (r[2] | float | int) %}The timer is paused with {{ say(s) | trim }} left.{% else %}There's no timer running.{% endif %}"
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "alarm_set"
+      }
+     ],
+     "sequence": [
+      {
+       "variables": {
+        "when": "{%- set W = {'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,'oh':0,'o':0} -%}\n{%- set t = ((trigger.slots.time | default('')) | lower | replace('a.m.', 'am') | replace('p.m.', 'pm') | replace('-', ' ') | regex_replace('[^a-z0-9: ]', ' ')) -%}\n{%- set t = t | regex_replace('\\\\b(\\\\d{1,2})\\\\s*(am|pm)\\\\b', '\\\\1 \\\\2') | regex_replace(\"o ?clock\", \" \") -%}\n{%- set ns = namespace(out=[], prev=none) -%}\n{%- for w in t.split() -%}\n  {%- if w in W -%}\n    {%- set v = W[w] -%}\n    {%- if ns.prev is not none and ns.prev >= 20 and ns.prev % 10 == 0 and v < 10 -%}\n      {%- set ns.out = ns.out[:-1] + [(ns.prev + v) | string] -%}{%- set ns.prev = none -%}\n    {%- else -%}{%- set ns.out = ns.out + [v | string] -%}{%- set ns.prev = v -%}{%- endif -%}\n  {%- else -%}{%- set ns.out = ns.out + [w] -%}{%- set ns.prev = none -%}{%- endif -%}\n{%- endfor -%}\n{%- set s = ' ' ~ (ns.out | join(' ') | replace('noon', '12 pm') | replace('midnight', '12 am')) ~ ' ' -%}\n{%- set mer = 'pm' if (' pm ' in s or 'evening' in s or 'tonight' in s or 'afternoon' in s or 'at night' in s) else 'am' if (' am ' in s or 'morning' in s or 'wake' in (trigger.sentence | lower)) else '' -%}\n{%- set h = none -%}{%- set mi = 0 -%}\n{%- set q = s | regex_findall('(half|quarter|\\\\d{1,2}) (past|after|to) (\\\\d{1,2})') -%}\n{%- if q -%}\n  {%- set a = 30 if q[0][0] == 'half' else 15 if q[0][0] == 'quarter' else q[0][0] | int -%}\n  {%- set hb = q[0][2] | int -%}\n  {%- set h = hb if q[0][1] != 'to' else (hb - 1 if hb > 1 else 12) -%}\n  {%- set mi = a if q[0][1] != 'to' else 60 - a -%}\n{%- else -%}\n  {%- set m = s | regex_findall('\\\\b(\\\\d{1,2})(?:[: ](\\\\d{1,2}))?\\\\b') -%}\n  {%- if m -%}{%- set h = m[0][0] | int -%}{%- set mi = (m[0][1] or 0) | int -%}{%- endif -%}\n{%- endif -%}\n{%- if h is none or h > 23 or mi > 59 -%}none\n{%- else -%}\n  {%- set n = now() -%}\n  {%- if mer == 'pm' and h < 12 -%}{%- set cands = [h + 12] -%}\n  {%- elif mer == 'am' -%}{%- set cands = [0 if h == 12 else h] -%}\n  {%- elif h >= 13 or h == 0 -%}{%- set cands = [h] -%}\n  {%- else -%}{%- set cands = [h % 12, h % 12 + 12] -%}{%- endif -%}\n  {%- set ns3 = namespace(best=none) -%}\n  {%- for hh in cands -%}\n    {%- set c = n.replace(hour=hh, minute=mi, second=0, microsecond=0) -%}\n    {%- if c <= n -%}{%- set c = c + timedelta(days=1) -%}{%- endif -%}\n    {%- if ns3.best is none or c < ns3.best -%}{%- set ns3.best = c -%}{%- endif -%}\n  {%- endfor -%}\n  {{ ns3.best.strftime('%Y-%m-%d %H:%M:%S') }}\n{%- endif -%}"
+       }
+      },
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ when | string == 'none' }}"
+        }
+       ],
+       "then": [
+        {
+         "set_conversation_response": "Sorry, I didn't catch the time."
+        },
+        {
+         "stop": "no time"
+        }
+       ]
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "{{ alarm_time }}"
+       },
+       "data": {
+        "datetime": "{{ when }}"
+       }
+      },
+      {
+       "action": "input_boolean.turn_on",
+       "target": {
+        "entity_id": "{{ armed }}"
+       }
+      },
+      {
+       "set_conversation_response": "Alarm set for {% set a = as_datetime(states(alarm_time)) | as_local %}{% set d = (a.date() - now().date()).days %}{{ a.strftime('%-I:%M %p') | replace(':00 ', ' ') | lower | replace(' am', ' a.m.') | replace(' pm', ' p.m.') }}{{ ' today' if d == 0 else ' tomorrow' if d == 1 else ' on ' ~ a.strftime('%A') }}."
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "alarm_cancel"
+      }
+     ],
+     "sequence": [
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ states(ringing) == 'Alarm' }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "input_select.select_option",
+         "target": {
+          "entity_id": "{{ ringing }}"
+         },
+         "data": {
+          "option": "Off"
+         }
+        },
+        {
+         "set_conversation_response": "Alarm stopped."
+        }
+       ],
+       "else": [
+        {
+         "if": [
+          {
+           "condition": "template",
+           "value_template": "{{ is_state(armed, 'on') }}"
+          }
+         ],
+         "then": [
+          {
+           "action": "input_boolean.turn_off",
+           "target": {
+            "entity_id": "{{ armed }}"
+           }
+          },
+          {
+           "set_conversation_response": "Alarm cancelled."
+          }
+         ],
+         "else": [
+          {
+           "set_conversation_response": "There's no alarm set."
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "alarm_when"
+      }
+     ],
+     "sequence": [
+      {
+       "set_conversation_response": "{% if is_state(armed, 'on') %}Your alarm is set for {% set a = as_datetime(states(alarm_time)) | as_local %}{% set d = (a.date() - now().date()).days %}{{ a.strftime('%-I:%M %p') | replace(':00 ', ' ') | lower | replace(' am', ' a.m.') | replace(' pm', ' p.m.') }}{{ ' today' if d == 0 else ' tomorrow' if d == 1 else ' on ' ~ a.strftime('%A') }}.{% else %}There's no alarm set.{% endif %}"
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "snooze"
+      }
+     ],
+     "sequence": [
+      {
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ states(ringing) == 'Alarm' }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "script.voice_clock_snooze",
+         "data": {
+          "area": "{{ area }}"
+         }
+        },
+        {
+         "set_conversation_response": "Snoozing for 9 minutes."
+        }
+       ],
+       "else": [
+        {
+         "set_conversation_response": "Nothing is ringing."
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+{
+ "alias": "Voice Clock Snooze",
+ "description": "Snoozes a ringing alarm for 9 minutes: moves input_datetime.<area>_alarm_time on and sets input_select.<area>_ringing back to Off (which silences the Echo). Called by the Show card's Snooze button and by \"snooze\".",
+ "icon": "mdi:alarm-snooze",
+ "mode": "single",
+ "fields": {
+  "area": {
+   "name": "Area",
+   "description": "Area id with the clock helpers",
+   "default": "bedroom",
+   "example": "bedroom",
+   "selector": {
+    "text": {}
+   }
+  },
+  "minutes": {
+   "name": "Minutes",
+   "default": 9,
+   "selector": {
+    "number": {
+     "min": 1,
+     "max": 30
+    }
+   }
+  }
+ },
+ "sequence": [
+  {
+   "variables": {
+    "a": "{{ area | default('bedroom') }}",
+    "mins": "{{ minutes | default(9) | int }}"
+   }
+  },
+  {
+   "action": "input_datetime.set_datetime",
+   "target": {
+    "entity_id": "input_datetime.{{ a }}_alarm_time"
+   },
+   "data": {
+    "datetime": "{{ (now() + timedelta(minutes=mins)).strftime('%Y-%m-%d %H:%M:%S') }}"
+   }
+  },
+  {
+   "action": "input_boolean.turn_on",
+   "target": {
+    "entity_id": "input_boolean.{{ a }}_alarm"
+   }
+  },
+  {
+   "action": "input_select.select_option",
+   "target": {
+    "entity_id": "input_select.{{ a }}_ringing"
+   },
+   "data": {
+    "option": "Off"
+   }
+  }
+ ]
+}

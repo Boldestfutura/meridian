@@ -187,3 +187,25 @@ dashboard has a Sleep Sounds tile for it: the classic scene strips (`scenes.py`,
 `p7`), the Bedroom room's scenes and the favourites in `show.py`, the Phone Show scenes, the
 Hub's Scenes sheet and a Controls tile on the Echo. A manual "on" stops at the next 7:30am or
 when everyone leaves, like the automatic one.
+
+## Voice timers and alarms (2026-11-07)
+
+Say "set a timer for 10 minutes", "pause/resume/cancel the timer", "how long is left",
+"set an alarm for 6:30" / "wake me up at 7", "when is my alarm", "cancel my alarm",
+"snooze". Sentence triggers in `automation.voice_timers_and_alarms`
+(`ha_config/voice_clock.json`) win over HA's built-in timer intents, whose timers live on the
+satellite where no dashboard can see them. The satellite's area picks the helpers:
+`timer.<area>_timer`, `input_number.<area>_timer_length` (seconds, for Reset),
+`input_datetime.<area>_alarm_time`, `input_boolean.<area>_alarm` and
+`input_select.<area>_ringing` (Off / Timer / Alarm). Only `bedroom` has them; typed Assist with
+no device uses the bedroom. `automation.voice_timers_and_alarms_ringing`
+(`voice_clock_ring.json`) rings the Echo through VACA's `switch.bedroom_echo_va_alarm` (its
+alarm volume), brightens a dark screen, turns Sleep Sounds off for an alarm, and stops after
+10 minutes. Setting ringing back to Off silences it and puts the brightness back.
+`script.voice_clock_snooze` (`voice_clock_snooze.json`) moves the alarm on 9 minutes.
+
+The Show card shows it with option `clock: <area>` (Bedroom Show only): a running or ringing
+timer takes the whole screen with Reset and Stop until it ends (tap the digits to pause), a
+ringing alarm shows the time with Stop and Snooze, and a newly set alarm shows "Alarm set" for
+8 seconds. In a dark room the countdown uses the night clock's red. A new voice screen needs the
+five helpers for its area, a `rooms` entry in the ringing automation, and `clock` on its card.
