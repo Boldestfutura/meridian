@@ -1,0 +1,65 @@
+{
+  "id": "assist_room_climate",
+  "alias": "Assist: Room Climate",
+  "description": "Answers 'what's the temp inside the bedroom / in here', 'how warm is it in here', 'what's the humidity / air quality in here' from the room's IKEA VINDSTYRKA (bedroom: sensor.air_quality_monitor_*_2, kitchen: sensor.air_quality_monitor_*), and opens the Climate page on the screen in the asking satellite's area for a minute (writes input_text.overlook_voice, action climate). 'In here' / 'inside' means the asking satellite's room. Added 2026-11-08.",
+  "mode": "parallel",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "(what's|whats|what is) the (temp|temperature) [inside] [in] [the] (bedroom|master bedroom)",
+        "(what's|whats|what is) the (temp|temperature) (inside|in here|in this room)",
+        "(what's|whats|what is) the (temp|temperature) inside here",
+        "how (warm|hot|cold) is it (inside|in here|in this room|in the bedroom)",
+        "(what's|whats|what is) the (humidity|air quality|air like) [inside] [in] [here|the bedroom]",
+        "how is the air [in here|in the bedroom]",
+        "show [me] the (climate|room climate|air quality)"
+      ]
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "variables": {
+        "here": "{{ area_id(trigger.device_id) if trigger.device_id else 'bedroom' }}",
+        "room": "{{ 'bedroom' if 'bedroom' in (trigger.sentence | lower) else here }}",
+        "suffix": "{{ {'bedroom': '_2', 'kitchen': ''} }}",
+        "s": "{% set m = suffix %}{{ m[room] if room in m else none }}",
+        "t": "{{ states('sensor.air_quality_monitor_temperature' ~ s) | float(none) if s is not none else none }}",
+        "h": "{{ states('sensor.air_quality_monitor_humidity' ~ s) | float(none) if s is not none else none }}",
+        "pm": "{{ states('sensor.air_quality_monitor_pm2_5' ~ s) | float(none) if s is not none else none }}",
+        "voc": "{{ states('sensor.air_quality_monitor_voc_index' ~ s) | float(none) if s is not none else none }}",
+        "name": "{{ {'bedroom': 'the bedroom', 'kitchen': 'the kitchen'}.get(room, area_name(room) or 'here') }}"
+      }
+    },
+    {
+      "if": [
+        {
+          "condition": "template",
+          "value_template": "{{ s is none or t is none }}"
+        }
+      ],
+      "then": [
+        {
+          "set_conversation_response": "I don't have a climate sensor in {{ name }}."
+        },
+        {
+          "stop": "no sensor"
+        }
+      ]
+    },
+    {
+      "action": "input_text.set_value",
+      "target": {
+        "entity_id": "input_text.overlook_voice"
+      },
+      "data": {
+        "value": "{{ {'area': here, 'action': 'climate', 't': now().timestamp() | int} | to_json }}"
+      },
+      "continue_on_error": true
+    },
+    {
+      "set_conversation_response": "{% set air = 'poor' if (pm or 0) > 35 or (voc or 0) > 250 else 'moderate' if (pm or 0) > 12 or (voc or 0) > 150 else 'good' %}It's {{ t | round(0) | int }} degrees in {{ name }}{% if h is not none %} with {{ h | round(0) | int }}% humidity{% endif %}. The air is {{ air }}."
+    }
+  ]
+}

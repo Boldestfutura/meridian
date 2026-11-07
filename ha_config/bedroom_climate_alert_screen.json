@@ -1,0 +1,37 @@
+{
+  "id": "bedroom_climate_alert_screen",
+  "alias": "Master Bedroom Climate Alert - Show on Echo",
+  "description": "When the humidity or air quality alert notifies Cameron and Paget about the master bedroom (they stamp input_datetime.bedroom_humidity_alert_last_sent / bedroom_air_quality_alert_last_sent), open the Climate page on the bedroom Echo for a minute. Skipped while the room is dark (binary_sensor.bedroom_dark) so it never lights up a sleeping room. Kept separate so the two alert automations stay as they are. Added 2026-11-08.",
+  "mode": "single",
+  "triggers": [
+    {
+      "trigger": "state",
+      "entity_id": [
+        "input_datetime.bedroom_humidity_alert_last_sent",
+        "input_datetime.bedroom_air_quality_alert_last_sent"
+      ]
+    }
+  ],
+  "conditions": [
+    {
+      "condition": "template",
+      "value_template": "{{ trigger.from_state is not none and trigger.to_state.state not in ['unknown', 'unavailable'] }}"
+    },
+    {
+      "condition": "state",
+      "entity_id": "binary_sensor.bedroom_dark",
+      "state": "off"
+    }
+  ],
+  "actions": [
+    {
+      "action": "input_text.set_value",
+      "target": {
+        "entity_id": "input_text.overlook_voice"
+      },
+      "data": {
+        "value": "{{ {'area': 'bedroom', 'action': 'climate', 't': now().timestamp() | int} | to_json }}"
+      }
+    }
+  ]
+}

@@ -188,6 +188,18 @@ dashboard has a Sleep Sounds tile for it: the classic scene strips (`scenes.py`,
 Hub's Scenes sheet and a Controls tile on the Echo. A manual "on" stops at the next 7:30am or
 when everyone leaves, like the automatic one.
 
+## Room climate by voice and alerts (2026-11-08)
+
+"What's the temp inside the bedroom / in here", "how warm is it in here", "what's the air quality in
+here" (`automation.assist_room_climate`, `ha_config/assist_climate.json`) answer from the room's
+VINDSTYRKA and open the Show card's Climate page on the asking screen for a minute (action `climate`
+on `input_text.overlook_voice`; a touch keeps it there). `automation.master_bedroom_climate_alert_show_on_echo`
+(`bedroom_climate_alert_screen.json`) does the same on the bedroom Echo when the humidity or air
+quality alert notifies about the bedroom (it watches the alerts' `*_last_sent` helpers, so the two
+alert automations are untouched), except while the room is dark. The VINDSTYRKA itself reports
+temperature and humidity in whole units (raw 1800 = 18.00 °C), humidity/PM2.5 at most every 30 s
+and VOC every 2 minutes; the card shows each report as it arrives.
+
 ## Voice timers and alarms (2026-11-07)
 
 Say "set a timer for 10 minutes", "pause/resume/cancel the timer", "how long is left",

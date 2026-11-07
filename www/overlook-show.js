@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.11";
+const VERSION = "0.22.12";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -191,7 +191,7 @@ class OverlookShow extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._clock = setInterval(() => { this._now = new Date(); }, 15000);
-    this._touch = () => this._poke();
+    this._touch = () => { this._touchedAt = Date.now(); this._poke(); };
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
@@ -369,6 +369,18 @@ class OverlookShow extends LitElement {
   _onVoice(d) {
     if (d.area !== this._config.voice) return;
     clearTimeout(this._wxTimer);
+    // "what's the temp in here" or a climate alert: the Climate page for a minute, then home
+    // unless someone has touched the screen since
+    if (d.action === "climate") {
+      this._wx = null;
+      const at = Date.now();
+      this._go("climate");
+      this._poke();
+      this._wxTimer = setTimeout(() => {
+        if (this._page === "climate" && !(this._touchedAt > at)) this._go("photos");
+      }, 60 * 1000);
+      return;
+    }
     if (d.action !== "weather") { this._wx = null; return; }
     const week = d.range === "week";
     this._wx = { week, dates: d.dates || [] };
