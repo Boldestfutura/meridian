@@ -210,7 +210,14 @@ timer takes the whole screen with Reset and Stop until it ends (tap the digits t
 ringing alarm shows the time with Stop and Snooze, and a newly set alarm shows "Alarm set" for
 8 seconds. In a dark room the countdown uses the night clock's red. Option `nowplaying: <media_player>` (Bedroom Show: `media_player.bedroom_echo`) does the
 same for music: anything playing on the Echo except Sleep Sounds takes the whole screen (art, title,
-progress, prev/play/next; volume is the Echo's own buttons) until it stops; the chevron closes it to photos, where a
+progress, prev/play/next in the art's own accent colour; volume is the Echo's own buttons;
+long names scroll) until it stops; the chevron closes it to photos, where a
 line under the clock shows the track and reopens it on a tap. The idle return brings it back while
-music plays, a pause lets it go after `idle`, and a dark room keeps the red clock. A new voice screen needs the
+music plays, a pause lets it go after `idle`, and a dark room keeps the red clock.
+
+The Echo's top button (the old mic-mute, `gpio-privacy-button`, which sent KEY_POWER) is remapped
+to VOLUME_MUTE by `/data/system/devices/keylayout/gpio-privacy-button.kl` on the device
+(`key 116   VOLUME_MUTE`, written as root over ADB, picked up at boot). It toggles the media stream
+only, so music, Sleep Sounds and Assist go quiet while timers and alarms still ring. The button no
+longer sleeps the screen. Delete the file and reboot to undo. A new voice screen needs the
 five helpers for its area, a `rooms` entry in the ringing automation, and `clock` on its card.

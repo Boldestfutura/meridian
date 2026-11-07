@@ -12,8 +12,16 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.4";
+const VERSION = "0.22.10";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, c = max - min;
+  if (!c) return [0, 0, l];
+  const s = c / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / c + 6) % 6 : max === g ? (b - r) / c + 2 : (r - g) / c + 4;
+  return [h * 60, s, l];
+}
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
 const POWER_TILES = ["media_player.living_room"];
@@ -262,6 +270,7 @@ class OverlookShow extends LitElement {
     }
     if (changed.has("hass") && this._config.clock) this._ckWatch();
     if (changed.has("hass") && this._config.nowplaying) this._npWatch();
+    if (this._config.nowplaying) this._marquee();
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
       this._subscribe();
@@ -602,12 +611,66 @@ class OverlookShow extends LitElement {
     if (!live && this._npTick) { clearInterval(this._npTick); this._npTick = null; }
   }
 
+  // .mq text wider than its box scrolls to the end and back, at about 40px a second
+  _marquee() {
+    const els = this.renderRoot && this.renderRoot.querySelectorAll(".mq");
+    if (!els || !els.length) return;
+    requestAnimationFrame(() => els.forEach((el) => {
+      const dx = Math.max(0, el.firstElementChild.scrollWidth - el.clientWidth);
+      const key = dx > 2 ? String(Math.round(dx)) : "";
+      if (el.dataset.dx === key) return;
+      el.dataset.dx = key;
+      el.classList.toggle("run", !!key);
+      el.style.setProperty("--dx", `-${Math.round(dx)}px`);
+      el.style.setProperty("--t", `${Math.max(6, dx / 40 / 0.64 + 2).toFixed(1)}s`);
+    }));
+  }
+
+  // the music screen's accent: the album art's strongest colour, lifted to read on the dark
+  // ground (orange until it loads, and for grey or unreadable art)
+  _npAccent(pic) {
+    if (!pic) return null;
+    if (this._npPic === pic) return this._npCol;
+    this._npPic = pic;
+    this._npCol = null;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (this._npPic !== pic) return;
+      try {
+        // 64px with no smoothing: a scaled-down cover blends thin colour (lines, type) into the ground
+        const n = 64, cv = document.createElement("canvas");
+        cv.width = cv.height = n;
+        const cx = cv.getContext("2d");
+        cx.imageSmoothingEnabled = false;
+        cx.drawImage(img, 0, 0, n, n);
+        const d = cx.getImageData(0, 0, n, n).data, bins = {};
+        for (let i = 0; i < d.length; i += 4) {
+          const [h, sat, l] = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+          if (l < 0.12 || l > 0.92 || sat < 0.25) continue;
+          const k = Math.round(h / 20) % 18, w = sat * sat * (1 - Math.abs(l - 0.5));
+          const b = bins[k] || (bins[k] = { w: 0, x: 0, y: 0, s: 0 });
+          const rad = h * Math.PI / 180;   // hue is circular: average it as a vector so 355 and 5 make 0
+          b.w += w; b.x += Math.cos(rad) * w; b.y += Math.sin(rad) * w; b.s += sat * w;
+        }
+        const best = Object.values(bins).sort((x, y) => y.w - x.w)[0];
+        if (!best || best.w < n * n * 0.01) return;
+        const h = (Math.atan2(best.y, best.x) * 180 / Math.PI + 360) % 360, sat = Math.max(0.55, best.s / best.w);
+        this._npCol = { hot: `hsl(${h.toFixed(0)} ${(sat * 100).toFixed(0)}% 64%)`, on: "#120d08" };
+        this.requestUpdate();
+      } catch (e) { /* cross-origin art: keep orange */ }
+    };
+    img.src = pic;
+    return null;
+  }
+
   _npLayer() {
     if (this._npHidden || this._wx || !this.hass || this._night()) return nothing;
     const e = this._npEnt();
     if (!e) return nothing;
     const a = e.attributes, id = e.entity_id, playing = e.state === "playing";
     const pic = this._pic(a);
+    const col = this._npAccent(pic);
     const dur = a.media_duration || 0;
     let pos = a.media_position || 0;
     if (playing && a.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a.media_position_updated_at).getTime()) / 1000;
@@ -616,7 +679,7 @@ class OverlookShow extends LitElement {
     const call = (svc, d = {}) => (ev) => { ev.stopPropagation(); this._call("media_player", svc, Object.assign({ entity_id: id }, d)); };
     const b = (icon, fn, cls = "") => html`<button class="np-btn ${cls}" @click=${fn}><ha-icon icon=${icon}></ha-icon></button>`;
     return html`
-      <div class="screen np">
+      <div class="screen np" style=${col ? `--np-hot:${col.hot};--np-on:${col.on}` : ""}>
         ${pic ? html`<div class="np-blur" style="background-image:url('${pic}')"></div>` : nothing}
         <div class="np-art" style=${pic ? `background-image:url('${pic}')` : ""}>
           ${pic ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
@@ -625,8 +688,8 @@ class OverlookShow extends LitElement {
             <div class="np-src"><ha-icon icon=${playing ? "mdi:music" : "mdi:pause"}></ha-icon>${playing ? (src || "Now playing") : "Paused"}</div>
             ${b("mdi:chevron-down", (ev) => { ev.stopPropagation(); this._npHidden = true; }, "x")}
           </div>
-          <div class="np-title ${String(a.media_title).length > 10 ? "long" : ""}">${a.media_title}</div>
-          <div class="np-artist">${a.media_artist || ""}</div>
+          <div class="np-title mq"><span>${a.media_title}</span></div>
+          <div class="np-artist mq"><span>${a.media_artist || ""}</span></div>
           ${dur ? html`
             <div class="np-track"><div style="width:${(pos / dur) * 100}%"></div></div>
             <div class="np-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>` : nothing}
@@ -792,7 +855,7 @@ class OverlookShow extends LitElement {
     return html`
       <button class="np-line" @click=${(ev) => { ev.stopPropagation(); this._npHidden = false; }}>
         <ha-icon icon=${e.state === "playing" ? "mdi:music" : "mdi:pause"}></ha-icon>
-        <span class="np-line-text"><b>${a.media_title}</b>${a.media_artist ? html`<span>${a.media_artist}</span>` : nothing}</span>
+        <span class="np-line-text"><b class="mq"><span>${a.media_title}</span></b>${a.media_artist ? html`<span class="mq"><span>${a.media_artist}</span></span>` : nothing}</span>
       </button>`;
   }
 
@@ -2672,9 +2735,8 @@ class OverlookShow extends LitElement {
                color: #fff; font-family: var(--body); text-align: left; }
     .np-line ha-icon { --mdc-icon-size: 22px; color: var(--warm); flex: none; }
     .np-line-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-    .np-line-text b, .np-line-text span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .np-line-text b { font-size: 18px; font-weight: 700; }
-    .np-line-text span { font-size: 15px; font-weight: 500; opacity: 0.8; }
+    .np-line-text > span { font-size: 15px; font-weight: 500; opacity: 0.8; }
 
     /* dock */
     .dock { display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -3337,10 +3399,10 @@ class OverlookShow extends LitElement {
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
     /* now playing: the speaker's music over the whole screen, same dark ground as the timer */
-    .np { z-index: 800; background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); color: #f4f6fb;
+    .np { --np-hot: var(--warm); --np-on: #1d1206; z-index: 800; background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); color: #f4f6fb;
           display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
           align-items: center; gap: 4vw; padding: 6vh 5vw; overflow: hidden; }
-    .np-blur { position: absolute; inset: -15%; background: center / cover; filter: blur(60px) saturate(1.4); opacity: 0.4; }
+    .np-blur { position: absolute; inset: -15%; background: center / cover; filter: blur(60px) saturate(1.4) brightness(0.5); opacity: 0.45; }
     .np-art { position: relative; height: 84vh; aspect-ratio: 1; max-width: 44vw; border-radius: 5vh;
               background: rgba(255, 255, 255, 0.08) center / cover; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45);
               display: grid; place-items: center; }
@@ -3348,15 +3410,12 @@ class OverlookShow extends LitElement {
     .np-side { position: relative; height: 84vh; min-width: 0; display: flex; flex-direction: column; }
     .np-head { display: flex; justify-content: space-between; align-items: center; gap: 2vw; }
     .np-src { display: flex; align-items: center; gap: 1.2vw; font-family: var(--display); font-weight: 700;
-              font-size: 5vh; color: var(--warm); white-space: nowrap; overflow: hidden; }
+              font-size: 5vh; color: var(--np-hot); white-space: nowrap; overflow: hidden; transition: color 0.6s; }
     .np-src ha-icon { --mdc-icon-size: 6vh; flex: none; }
-    .np-title { margin-top: auto; font-family: var(--display); font-weight: 700; font-size: 11vh; line-height: 1.14;
-                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .np-title.long { font-size: 7.5vh; }
-    .np-artist { margin-top: 1.5vh; font-family: var(--body); font-weight: 600; font-size: 7.5vh; color: #b4bdd0;
-                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .np-title { margin-top: auto; font-family: var(--display); font-weight: 700; font-size: 11vh; line-height: 1.2; }
+    .np-artist { margin-top: 1.5vh; font-family: var(--body); font-weight: 600; font-size: 7.5vh; color: #b4bdd0; }
     .np-track { margin-top: 3.5vh; height: 1.6vh; min-height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; flex: none; }
-    .np-track div { height: 100%; border-radius: 999px; background: var(--warm); transition: width 1s linear; }
+    .np-track div { height: 100%; border-radius: 999px; background: var(--np-hot); transition: width 1s linear, background 0.6s; }
     .np-times { display: flex; justify-content: space-between; margin-top: 1.4vh; font-family: var(--body); font-weight: 600;
                 font-size: 5.5vh; color: #8e99b0; font-variant-numeric: tabular-nums; }
     /* the timer's squircle buttons: three across, play/pause in the warm accent */
@@ -3364,10 +3423,15 @@ class OverlookShow extends LitElement {
     .np-btn { height: 22vh; border-radius: 7vh; background: rgba(255, 255, 255, 0.1); color: #f4f6fb;
               display: grid; place-items: center; transition: transform 0.12s; }
     .np-btn ha-icon { --mdc-icon-size: 11vh; }
-    .np-btn.main { background: var(--warm); color: #1d1206; }
+    .np-btn.main { background: var(--np-hot); color: var(--np-on); transition: transform 0.12s, background 0.6s; }
     .np-btn.x { width: 11vh; height: 11vh; border-radius: 50%; }
     .np-btn.x ha-icon { --mdc-icon-size: 6.5vh; }
     .np-btn:active { transform: scale(0.97); }
+    /* text that doesn't fit scrolls to its end and back (_marquee sets --dx and --t) */
+    .mq { display: block; white-space: nowrap; overflow: hidden; min-width: 0; }
+    .mq > span { display: inline-block; width: max-content; }
+    .mq.run > span { animation: mq var(--t, 8s) ease-in-out infinite alternate; }
+    @keyframes mq { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--dx)); } }
     /* voice clock: timer and alarm screens, always dark like the night clock (StandBy-style) */
     .ck { --ck-bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%); --ck-ink: #f4f6fb; --ck-dim: #8e99b0;
           --ck-hot: var(--warm); --ck-on-hot: #1d1206; --ck-btn: rgba(255, 255, 255, 0.1);
