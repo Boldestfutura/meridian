@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.10";
+const VERSION = "0.22.11";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -2781,6 +2781,8 @@ class OverlookShow extends LitElement {
     .desk-card .wx-temp { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
     .desk-hp { padding: 0; }
     .desk-hp .thermo { background: none; padding: 18px; }
+    /* computer: the heat pump's buttons sit on the card itself, so give them the phone's light grey */
+    .desk-screen .desk-hp .hp-step, .desk-screen .desk-hp .mode:not(.on) { background: var(--inset); }
     .desk-favs { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: 10px;
                  height: 250px; margin-top: 12px; }
     .desk .pill-wrap { min-width: 0; overflow: hidden; container-type: inline-size; }
