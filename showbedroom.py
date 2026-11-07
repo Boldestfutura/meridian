@@ -33,7 +33,9 @@ CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             # ringing screens with Reset/Stop and Stop/Snooze, and "Alarm set" for 8 seconds
             clock="bedroom",
             # music on the Echo (not Sleep Sounds) takes the whole screen until it stops or is closed
-            nowplaying="media_player.bedroom_echo")
+            nowplaying="media_player.bedroom_echo",
+            # light while the sun is up, dark after sunset (the Echo's own auto dark mode has no location)
+            scheme="sun.sun")
 
 
 def build():

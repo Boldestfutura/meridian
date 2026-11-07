@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.12";
+const VERSION = "0.22.14";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -267,6 +267,12 @@ class OverlookShow extends LitElement {
         this._voiceSeen = v.last_changed;
         if (!first) { try { this._onVoice(JSON.parse(v.state)); } catch (e) {} }
       }
+    }
+    if (changed.has("hass") && this._config.scheme) {
+      const e = this._st(this._config.scheme);
+      const dark = e ? ["below_horizon", "on", "dark"].includes(e.state) : null;
+      if (dark === null) this.removeAttribute("scheme");
+      else this.setAttribute("scheme", dark ? "dark" : "light");
     }
     if (changed.has("hass") && this._config.clock) this._ckWatch();
     if (changed.has("hass") && this._config.nowplaying) this._npWatch();
@@ -2675,6 +2681,8 @@ class OverlookShow extends LitElement {
       --bar: rgba(255, 255, 255, 0.55);
       --card-edge: rgba(255, 255, 255, 0.95);
       --inset: #eef3fb;
+      --sheet: rgba(255, 255, 255, 0.96);
+      --pop: rgba(255, 255, 255, 0.94);
       --grid-line: rgba(22, 42, 84, 0.08);
       --ink: #142038;
       --muted: #6c7891;
@@ -2690,12 +2698,14 @@ class OverlookShow extends LitElement {
       display: block;
     }
     @media (prefers-color-scheme: dark) {
-      :host {
+      :host(:not([scheme="light"])) {
         --bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%);
         --card: rgba(29, 35, 50, 0.82);
         --bar: rgba(29, 35, 50, 0.55);
         --card-edge: rgba(255, 255, 255, 0.05);
         --inset: rgba(255, 255, 255, 0.05);
+        --sheet: rgba(29, 35, 50, 0.82);
+        --pop: rgba(29, 35, 50, 0.82);
         --grid-line: rgba(255, 255, 255, 0.07);
         --ink: #eef2fb;
         --muted: #8e99b0;
@@ -2706,6 +2716,24 @@ class OverlookShow extends LitElement {
         --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
       }
     }
+    /* option scheme: an entity that picks the look instead of the device (sun.sun: dark below the horizon) */
+    :host([scheme="dark"]) {
+        --bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%);
+        --card: rgba(29, 35, 50, 0.82);
+        --bar: rgba(29, 35, 50, 0.55);
+        --card-edge: rgba(255, 255, 255, 0.05);
+        --inset: rgba(255, 255, 255, 0.05);
+        --sheet: rgba(29, 35, 50, 0.82);
+        --pop: rgba(29, 35, 50, 0.82);
+        --grid-line: rgba(255, 255, 255, 0.07);
+        --ink: #eef2fb;
+        --muted: #8e99b0;
+        --accent: #6b9bff;
+        --accent-soft: rgba(107, 155, 255, 0.16);
+        --track: rgba(255, 255, 255, 0.1);
+        --track-strong: rgba(255, 255, 255, 0.22);
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
     * { box-sizing: border-box; }
     button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer;
              -webkit-tap-highlight-color: transparent; }
@@ -3174,9 +3202,8 @@ class OverlookShow extends LitElement {
 
     /* speaker sheet */
     .scrim { position: absolute; inset: 0; background: rgba(8, 14, 28, 0.35); display: grid; place-items: center; z-index: 5; }
-    .sheet { width: min(440px, 90vw); padding: 20px; display: flex; flex-direction: column; gap: 6px; background: var(--card);
+    .sheet { width: min(440px, 90vw); padding: 20px; display: flex; flex-direction: column; gap: 6px; background: var(--sheet);
              backdrop-filter: blur(30px); }
-    @media (prefers-color-scheme: light) { .sheet { background: rgba(255, 255, 255, 0.96); } }
     .sheet .card-title { margin-bottom: 6px; }
     .sheet-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; text-align: left;
                  padding: 12px 14px; border-radius: 18px; }
@@ -3407,9 +3434,8 @@ class OverlookShow extends LitElement {
     .pop-scrim { position: fixed; z-index: 6; display: flex; align-items: flex-end; justify-content: center;
                  padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 8px); }
     .pop { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; gap: 0; padding: 8px 16px 16px;
-           border-radius: 30px; background: var(--card); backdrop-filter: blur(30px) saturate(1.4);
+           border-radius: 30px; background: var(--pop); backdrop-filter: blur(30px) saturate(1.4);
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
-    @media (prefers-color-scheme: light) { .pop { background: rgba(255, 255, 255, 0.94); } }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
     /* now playing: the speaker's music over the whole screen, same dark ground as the timer */
