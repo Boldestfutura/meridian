@@ -1,0 +1,34 @@
+# Keeps privmute.sh running on the Echo when there's no Magisk to start it at boot.
+# Needs the Android Debug Bridge integration (androidtv) set up for the Echo on port 5555.
+# Replace media_player.echo_show_adb with your Echo's ADB entity.
+alias: Echo mute button keeper
+description: >-
+  Starts /data/local/tmp/privmute.sh on the Echo Show after a reboot and every 5 minutes if it
+  isn't running. The script sets media mute to match the top button's red light.
+mode: single
+triggers:
+  - trigger: homeassistant
+    event: start
+  - trigger: state
+    entity_id: media_player.echo_show_adb
+    from: unavailable
+  - trigger: time_pattern
+    minutes: /5
+conditions:
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: media_player.echo_show_adb
+        state: unavailable
+actions:
+  - delay:
+      seconds: 20
+  - action: androidtv.adb_command
+    target:
+      entity_id: media_player.echo_show_adb
+    data:
+      command: >-
+        p=$(cat /data/local/tmp/privmute.pid 2>/dev/null);
+        if [ -n "$p" ] && grep -q privmute /proc/$p/cmdline 2>/dev/null; then echo running;
+        else setsid sh /data/local/tmp/privmute.sh </dev/null >/dev/null 2>&1 & echo started; fi
+    continue_on_error: true

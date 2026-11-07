@@ -7,6 +7,9 @@ and the newer Echo Show-style **Show** dashboards (Kitchen Show, Phone Show) bui
 custom Lit card. How to change and deploy each safely is in
 **[docs/DASHBOARDS.md](docs/DASHBOARDS.md)**. Read that first.
 
+Separately, [docs/ECHO_MUTE_BUTTON.md](docs/ECHO_MUTE_BUTTON.md) turns an Echo Show 5's top button
+into a mute button (installer and an AI-agent runbook in `device/echo/`).
+
 The classic set:
 
 | dashboard | shape | built for |
