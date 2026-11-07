@@ -192,7 +192,8 @@ when everyone leaves, like the automatic one.
 
 Say "set a timer for 10 minutes", "pause/resume/cancel the timer", "how long is left",
 "set an alarm for 6:30" / "wake me up at 7", "when is my alarm", "cancel my alarm",
-"snooze". Sentence triggers in `automation.voice_timers_and_alarms`
+"snooze", and bare "stop" / "pause" (ringing first, then the timer, then any media playing in
+the room). Sentence triggers in `automation.voice_timers_and_alarms`
 (`ha_config/voice_clock.json`) win over HA's built-in timer intents, whose timers live on the
 satellite where no dashboard can see them. The satellite's area picks the helpers:
 `timer.<area>_timer`, `input_number.<area>_timer_length` (seconds, for Reset),

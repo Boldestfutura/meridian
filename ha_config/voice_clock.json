@@ -79,6 +79,22 @@
     "snooze [the|my] alarm",
     "snooze"
    ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "bare_stop",
+   "command": [
+    "stop",
+    "stop it",
+    "stop that"
+   ]
+  },
+  {
+   "trigger": "conversation",
+   "id": "bare_pause",
+   "command": [
+    "pause"
+   ]
   }
  ],
  "conditions": [],
@@ -452,6 +468,232 @@
        "else": [
         {
          "set_conversation_response": "Nothing is ringing."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "bare_stop"
+      }
+     ],
+     "sequence": [
+      {
+       "variables": {
+        "nothing": "Nothing to stop."
+       }
+      },
+      {
+       "choose": [
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(ringing) == 'Timer' }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "input_select.select_option",
+           "target": {
+            "entity_id": "{{ ringing }}"
+           },
+           "data": {
+            "option": "Off"
+           }
+          },
+          {
+           "set_conversation_response": "Timer stopped."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(ringing) == 'Alarm' }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "input_select.select_option",
+           "target": {
+            "entity_id": "{{ ringing }}"
+           },
+           "data": {
+            "option": "Off"
+           }
+          },
+          {
+           "set_conversation_response": "Alarm stopped."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(timer) in ['active','paused'] }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "timer.cancel",
+           "target": {
+            "entity_id": "{{ timer }}"
+           }
+          },
+          {
+           "set_conversation_response": "Timer cancelled."
+          }
+         ]
+        }
+       ],
+       "default": [
+        {
+         "variables": {
+          "players": "{{ (area_entities(area) if area else []) | select('match','media_player\\.') | select('is_state','playing') | list }}"
+         }
+        },
+        {
+         "if": [
+          {
+           "condition": "template",
+           "value_template": "{{ players | count > 0 }}"
+          }
+         ],
+         "then": [
+          {
+           "action": "media_player.media_pause",
+           "target": {
+            "entity_id": "{{ players }}"
+           }
+          },
+          {
+           "set_conversation_response": "Paused."
+          }
+         ],
+         "else": [
+          {
+           "set_conversation_response": "{{ nothing }}"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "bare_pause"
+      }
+     ],
+     "sequence": [
+      {
+       "variables": {
+        "nothing": "Nothing to pause."
+       }
+      },
+      {
+       "choose": [
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(ringing) == 'Timer' }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "input_select.select_option",
+           "target": {
+            "entity_id": "{{ ringing }}"
+           },
+           "data": {
+            "option": "Off"
+           }
+          },
+          {
+           "set_conversation_response": "Timer stopped."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ states(ringing) == 'Alarm' }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "input_select.select_option",
+           "target": {
+            "entity_id": "{{ ringing }}"
+           },
+           "data": {
+            "option": "Off"
+           }
+          },
+          {
+           "set_conversation_response": "Alarm stopped."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
+           "value_template": "{{ is_state(timer, 'active') }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "timer.pause",
+           "target": {
+            "entity_id": "{{ timer }}"
+           }
+          },
+          {
+           "set_conversation_response": "Timer paused."
+          }
+         ]
+        }
+       ],
+       "default": [
+        {
+         "variables": {
+          "players": "{{ (area_entities(area) if area else []) | select('match','media_player\\.') | select('is_state','playing') | list }}"
+         }
+        },
+        {
+         "if": [
+          {
+           "condition": "template",
+           "value_template": "{{ players | count > 0 }}"
+          }
+         ],
+         "then": [
+          {
+           "action": "media_player.media_pause",
+           "target": {
+            "entity_id": "{{ players }}"
+           }
+          },
+          {
+           "set_conversation_response": "Paused."
+          }
+         ],
+         "else": [
+          {
+           "set_conversation_response": "{{ nothing }}"
+          }
+         ]
         }
        ]
       }
