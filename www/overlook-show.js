@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.1";
+const VERSION = "0.22.4";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
 // phone tiles with play/pause and power, always, instead of volume
@@ -612,10 +612,8 @@ class OverlookShow extends LitElement {
     let pos = a.media_position || 0;
     if (playing && a.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a.media_position_updated_at).getTime()) / 1000;
     pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
-    const vol = a.volume_level;
     const src = String(a.app_name || a.source || "").replace(/\s*\(.*\)$/, "").replace(/ Connect$/, "");
     const call = (svc, d = {}) => (ev) => { ev.stopPropagation(); this._call("media_player", svc, Object.assign({ entity_id: id }, d)); };
-    const step = (d) => call("volume_set", { volume_level: clamp(Math.round((vol + d) * 100) / 100, 0, 1) });
     const b = (icon, fn, cls = "") => html`<button class="np-btn ${cls}" @click=${fn}><ha-icon icon=${icon}></ha-icon></button>`;
     return html`
       <div class="screen np">
@@ -627,7 +625,7 @@ class OverlookShow extends LitElement {
             <div class="np-src"><ha-icon icon=${playing ? "mdi:music" : "mdi:pause"}></ha-icon>${playing ? (src || "Now playing") : "Paused"}</div>
             ${b("mdi:chevron-down", (ev) => { ev.stopPropagation(); this._npHidden = true; }, "x")}
           </div>
-          <div class="np-title">${a.media_title}</div>
+          <div class="np-title ${String(a.media_title).length > 10 ? "long" : ""}">${a.media_title}</div>
           <div class="np-artist">${a.media_artist || ""}</div>
           ${dur ? html`
             <div class="np-track"><div style="width:${(pos / dur) * 100}%"></div></div>
@@ -636,10 +634,6 @@ class OverlookShow extends LitElement {
             ${b("mdi:skip-previous", call("media_previous_track"))}
             ${b(playing ? "mdi:pause" : "mdi:play", call("media_play_pause"), "main")}
             ${b("mdi:skip-next", call("media_next_track"))}
-            ${vol != null ? html`
-              <div class="np-vol">
-                ${b("mdi:minus", step(-0.05), "sm")}<span>${Math.round(vol * 100)}%</span>${b("mdi:plus", step(0.05), "sm")}
-              </div>` : nothing}
           </div>
         </div>
       </div>`;
@@ -3356,25 +3350,24 @@ class OverlookShow extends LitElement {
     .np-src { display: flex; align-items: center; gap: 1.2vw; font-family: var(--display); font-weight: 700;
               font-size: 5vh; color: var(--warm); white-space: nowrap; overflow: hidden; }
     .np-src ha-icon { --mdc-icon-size: 6vh; flex: none; }
-    .np-title { margin-top: auto; font-family: var(--display); font-weight: 700; font-size: 8.5vh; line-height: 1.1;
+    .np-title { margin-top: auto; font-family: var(--display); font-weight: 700; font-size: 11vh; line-height: 1.14;
                 display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .np-artist { margin-top: 1.5vh; font-family: var(--body); font-weight: 600; font-size: 5.5vh; color: #b4bdd0;
+    .np-title.long { font-size: 7.5vh; }
+    .np-artist { margin-top: 1.5vh; font-family: var(--body); font-weight: 600; font-size: 7.5vh; color: #b4bdd0;
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .np-track { margin-top: 4vh; height: 1.4vh; min-height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+    .np-track { margin-top: 3.5vh; height: 1.6vh; min-height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; flex: none; }
     .np-track div { height: 100%; border-radius: 999px; background: var(--warm); transition: width 1s linear; }
-    .np-times { display: flex; justify-content: space-between; margin-top: 1.2vh; font-family: var(--body); font-weight: 600;
-                font-size: 4vh; color: #8e99b0; font-variant-numeric: tabular-nums; }
-    .np-ctl { margin-top: auto; display: flex; align-items: center; gap: 1.2vw; }
-    .np-btn { flex: none; width: 14vh; height: 14vh; border-radius: 50%; background: rgba(255, 255, 255, 0.1); color: #f4f6fb;
+    .np-times { display: flex; justify-content: space-between; margin-top: 1.4vh; font-family: var(--body); font-weight: 600;
+                font-size: 5.5vh; color: #8e99b0; font-variant-numeric: tabular-nums; }
+    /* the timer's squircle buttons: three across, play/pause in the warm accent */
+    .np-ctl { margin-top: auto; flex: none; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2vw; }
+    .np-btn { height: 22vh; border-radius: 7vh; background: rgba(255, 255, 255, 0.1); color: #f4f6fb;
               display: grid; place-items: center; transition: transform 0.12s; }
-    .np-btn ha-icon { --mdc-icon-size: 7.5vh; }
-    .np-btn.main { width: 18vh; height: 18vh; background: var(--warm); color: #1d1206; }
-    .np-btn.main ha-icon { --mdc-icon-size: 10vh; }
-    .np-btn.sm, .np-btn.x { width: 10vh; height: 10vh; }
-    .np-btn.sm ha-icon, .np-btn.x ha-icon { --mdc-icon-size: 6vh; }
-    .np-btn:active { transform: scale(0.94); }
-    .np-vol { margin-left: auto; display: flex; align-items: center; gap: 0.6vw; font-family: var(--body); font-weight: 700;
-              font-size: 4vh; color: #b4bdd0; font-variant-numeric: tabular-nums; }
+    .np-btn ha-icon { --mdc-icon-size: 11vh; }
+    .np-btn.main { background: var(--warm); color: #1d1206; }
+    .np-btn.x { width: 11vh; height: 11vh; border-radius: 50%; }
+    .np-btn.x ha-icon { --mdc-icon-size: 6.5vh; }
+    .np-btn:active { transform: scale(0.97); }
     /* voice clock: timer and alarm screens, always dark like the night clock (StandBy-style) */
     .ck { --ck-bg: linear-gradient(165deg, #0b0f18 0%, #121827 100%); --ck-ink: #f4f6fb; --ck-dim: #8e99b0;
           --ck-hot: var(--warm); --ck-on-hot: #1d1206; --ck-btn: rgba(255, 255, 255, 0.1);
