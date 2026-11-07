@@ -215,9 +215,12 @@ long names scroll) until it stops; the chevron closes it to photos, where a
 line under the clock shows the track and reopens it on a tap. The idle return brings it back while
 music plays, a pause lets it go after `idle`, and a dark room keeps the red clock.
 
-The Echo's top button (the old mic-mute, `gpio-privacy-button`, which sent KEY_POWER) is remapped
-to VOLUME_MUTE by `/data/system/devices/keylayout/gpio-privacy-button.kl` on the device
-(`key 116   VOLUME_MUTE`, written as root over ADB, picked up at boot). It toggles the media stream
-only, so music, Sleep Sounds and Assist go quiet while timers and alarms still ring. The button no
-longer sleeps the screen. Delete the file and reboot to undo. A new voice screen needs the
+The Echo's top button (the old mic-mute, `gpio-privacy-button`, which sent KEY_POWER) is media mute.
+Its red light is hardware (`/sys/devices/platform/gpio-privacy/state`, SW_MUTE_DEVICE on
+`/dev/input/event0`), so mute follows the light rather than toggling per press: `device/echo/privmute.sh`,
+installed at `/data/local/tmp/privmute.sh`, waits on event0 and sets STREAM_MUSIC mute to match.
+`automation.master_bedroom_echo_watchdog` starts it at boot and restarts it within 5 minutes if it dies.
+`/data/system/devices/keylayout/gpio-privacy-button.kl` maps the button to nothing, so it no longer
+sleeps the screen. Media only: music, Sleep Sounds and Assist go quiet; timers and alarms still ring.
+Pressing volume up while muted unmutes without turning the light off. A new voice screen needs the
 five helpers for its area, a `rooms` entry in the ringing automation, and `clock` on its card.
