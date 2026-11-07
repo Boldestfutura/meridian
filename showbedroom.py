@@ -31,7 +31,9 @@ CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             voice_satellite="assist_satellite.bedroom_echo_va",
             # timers and alarms set by voice (ha_config/voice_clock*.json): full-screen countdown,
             # ringing screens with Reset/Stop and Stop/Snooze, and "Alarm set" for 8 seconds
-            clock="bedroom")
+            clock="bedroom",
+            # music on the Echo (not Sleep Sounds) takes the whole screen until it stops or is closed
+            nowplaying="media_player.bedroom_echo")
 
 
 def build():

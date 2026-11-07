@@ -208,5 +208,9 @@ alarm volume), brightens a dark screen, turns Sleep Sounds off for an alarm, and
 The Show card shows it with option `clock: <area>` (Bedroom Show only): a running or ringing
 timer takes the whole screen with Reset and Stop until it ends (tap the digits to pause), a
 ringing alarm shows the time with Stop and Snooze, and a newly set alarm shows "Alarm set" for
-8 seconds. In a dark room the countdown uses the night clock's red. A new voice screen needs the
+8 seconds. In a dark room the countdown uses the night clock's red. Option `nowplaying: <media_player>` (Bedroom Show: `media_player.bedroom_echo`) does the
+same for music: anything playing on the Echo except Sleep Sounds takes the whole screen (art, title,
+progress, prev/play/next, volume −/+) until it stops; the chevron closes it to photos, where a
+line under the clock shows the track and reopens it on a tap. The idle return brings it back while
+music plays, a pause lets it go after `idle`, and a dark room keeps the red clock. A new voice screen needs the
 five helpers for its area, a `rooms` entry in the ringing automation, and `clock` on its card.
