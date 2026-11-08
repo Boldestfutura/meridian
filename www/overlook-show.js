@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.16";
+const VERSION = "0.22.17";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -424,6 +424,17 @@ class OverlookShow extends LitElement {
     if (!w || w.state === "unavailable" || w.state === "unknown") return ["mdi:cloud-off-outline", "No forecast", "var(--muted)"];
     return WEATHER[w.state] || WEATHER.cloudy;
   }
+  // weather icon: our own artwork (www/weather, drawn by tools/weather_icons.py); the plain glyph
+  // when there is no forecast, or in one colour (the red night page)
+  _wxIcon(state, cls = "", mono = "") {
+    const off = !state || state === "unavailable" || state === "unknown";
+    const key = off ? null : (WEATHER[state] ? state : "cloudy");
+    if (!key || mono) {
+      const c = key ? WEATHER[key] : ["mdi:cloud-off-outline", "", "var(--muted)"];
+      return html`<ha-icon class=${cls} icon=${c[0]} style="color:${mono || c[2]}"></ha-icon>`;
+    }
+    return html`<img class="wxi ${cls}" src=${this._u(`/local/weather/${key}.svg?v=1`)} alt="" draggable="false">`;
+  }
   _deg(t) { return typeof t === "number" && isFinite(t) ? `${Math.round(t)}°` : "–"; }
   _links() { return this._config.links || {}; }
   _call(domain, service, data) {
@@ -801,6 +812,7 @@ class OverlookShow extends LitElement {
       return d.toLocaleDateString("en-AU", short ? { weekday: "short" } : { weekday: "long", day: "numeric", month: "short" });
     };
     const icon = (c) => (WEATHER[c] || WEATHER.cloudy);
+    const night = this._night() ? "#a8231b" : "";   // the red night page keeps one-colour glyphs
     const rain = (f) => (f.precipitation >= 0.2 ? `${f.precipitation < 1 ? "<1" : Math.round(f.precipitation)} mm` : "");
     const close = () => { clearTimeout(this._wxTimer); this._wx = null; };
     let body;
@@ -817,7 +829,7 @@ class OverlookShow extends LitElement {
         <div class="wx-day">
           <div class="wx-main">
             <div class="wx-label">${label(f)}</div>
-            <ha-icon class="wx-big" icon=${ic} style="color:${col}"></ha-icon>
+            ${this._wxIcon(f.condition, "wx-big", night)}
             <div class="wx-name">${name}</div>
           </div>
           <div class="wx-side">
@@ -833,7 +845,7 @@ class OverlookShow extends LitElement {
               <div class="wx-hours">${hours.map((h) => html`
                 <div class="wx-hour">
                   <span>${this._ampm(new Date(h.datetime))}</span>
-                  <ha-icon icon=${icon(h.condition)[0]} style="color:${icon(h.condition)[2]}"></ha-icon>
+                  ${this._wxIcon(h.condition, "", night)}
                   <b>${this._deg(h.temperature)}</b>
                   ${typeof hpct(h) === "number" ? html`<i class="wx-pct">${hpct(h)}%</i>` : nothing}
                 </div>`)}</div>` : nothing}
@@ -845,7 +857,7 @@ class OverlookShow extends LitElement {
           ${days.map((f) => { const [ic, name, col] = icon(f.condition); return html`
             <div class="wx-col">
               <span class="wx-dow">${label(f, true)}</span>
-              <ha-icon icon=${ic} style="color:${col}"></ha-icon>
+              ${this._wxIcon(f.condition, "", night)}
               <span class="wx-cname">${name}</span>
               <b class="wx-chi">${this._deg(f.temperature)}</b>
               <span class="wx-clo">${this._deg(f.templow)}</span>
@@ -864,8 +876,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="topright ${onPhoto ? "on-photo" : ""}"
            @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
-        ${cond ? html`<ha-icon class="wx" icon=${cond[0]}
-            style="color:${onPhoto ? "#fff" : cond[2]}"></ha-icon>
+        ${cond ? html`${this._wxIcon(w.state, "wx")}
           <span class="temp">${this._deg(t)}</span>` : nothing}
         <span class="clock">${this._time(this._now)}</span>
       </div>
@@ -1495,7 +1506,7 @@ class OverlookShow extends LitElement {
             <button class="card hub-out" @click=${() => this._open(this._config.weather)}>
               <div class="card-title">Outside</div>
               <div class="hub-out-row">
-                <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+                ${this._wxIcon(w.state)}
                 <span class="hub-out-temp">${this._deg(w.attributes.temperature)}</span>
                 <div class="wx-side">
                   <div class="wx-cond">${cond[1]}</div>
@@ -1532,7 +1543,7 @@ class OverlookShow extends LitElement {
             <div class="card desk-card">
               <div class="card-title">Outside</div>
               <div class="wx-card" @click=${() => this._open(this._config.weather)}>
-                <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+                ${this._wxIcon(w.state)}
                 <span class="wx-temp">${this._deg(w.attributes.temperature)}</span>
                 <div class="wx-side">
                   <div class="wx-cond">${cond[1]}</div>
@@ -2135,7 +2146,7 @@ class OverlookShow extends LitElement {
         <div class="date-num">${n.getDate()}</div>
         ${w ? html`
           <div class="wx-card">
-            <ha-icon icon=${cond[0]} style="color:${cond[2]}"></ha-icon>
+            ${this._wxIcon(w.state)}
             <span class="wx-temp">${this._deg(w.attributes.temperature)}</span>
             <div class="wx-side">
               <div class="wx-cond">${cond[1]}</div>
@@ -2828,7 +2839,7 @@ class OverlookShow extends LitElement {
     .desk-pair + .desk-pair { margin-top: 6px; }
     .desk-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .desk-card .wx-card { margin-top: 10px; padding: 0; background: none; border-radius: 0; cursor: pointer; }
-    .desk-card .wx-card ha-icon { --mdc-icon-size: 40px; }
+    .desk-card .wx-card ha-icon, .desk-card .wx-card .wxi { --mdc-icon-size: 40px; }
     .desk-card .wx-temp { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
     .desk-hp { padding: 0; }
     .desk-hp .thermo { background: none; padding: 18px; }
@@ -2860,7 +2871,7 @@ class OverlookShow extends LitElement {
                 line-height: 1; color: var(--accent); letter-spacing: -0.02em; margin: 2px 0 14px; flex: 1; display: flex; align-items: center; }
     .wx-card { margin-top: auto; width: 100%; background: var(--inset); border-radius: 22px;
                padding: 14px 16px; display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px; }
-    .wx-card ha-icon { --mdc-icon-size: 30px; }
+    .wx-card ha-icon, .wx-card .wxi { --mdc-icon-size: 30px; }
     .wx-temp { font-size: 30px; font-weight: 600; }
     .wx-side { text-align: right; }
     .wx-cond { font-size: 14px; font-weight: 600; }
@@ -3266,7 +3277,7 @@ class OverlookShow extends LitElement {
       .date-top { font-size: 17px; }
       .date-num { margin: 0 0 8px; }
       .wx-card { padding: 8px 12px; border-radius: 16px; gap: 6px; }
-      .wx-card ha-icon { --mdc-icon-size: 24px; }
+      .wx-card ha-icon, .wx-card .wxi { --mdc-icon-size: 24px; }
       .wx-temp { font-size: 22px; }
       .wx-cond { font-size: 12px; }
       .wx-hl { font-size: 11px; }
@@ -3528,6 +3539,10 @@ class OverlookShow extends LitElement {
     .wx-main { display: grid; justify-items: center; gap: 1vh; text-align: center; }
     .wx-label { font-family: var(--display); font-weight: 700; font-size: 6.5vh; }
     .wx-big { --mdc-icon-size: 27vh; width: 27vh; height: 27vh; }
+    /* the artwork fills less of its box than an mdi glyph, so it draws a little larger */
+    img.wxi { width: calc(var(--mdc-icon-size, 24px) * 1.2); height: calc(var(--mdc-icon-size, 24px) * 1.2);
+              margin: calc(var(--mdc-icon-size, 24px) * -0.1); flex: none; display: block; object-fit: contain;
+              -webkit-user-drag: none; user-select: none; pointer-events: none; }
     .wx-name { font-weight: 600; font-size: 6vh; color: var(--ink); opacity: 0.8; }
     .wx-side { display: grid; gap: 3vh; }
     .wx-temps { display: flex; align-items: baseline; gap: 2vw; font-family: var(--display); }
@@ -3541,7 +3556,7 @@ class OverlookShow extends LitElement {
                 background: var(--card); border-radius: 3vh; padding: 2vh 1vw; }
     .wx-hour { display: grid; justify-items: center; gap: 0.6vh; font-size: 4.6vh; font-weight: 600; color: var(--ink); }
     .wx-hour > span { opacity: 0.75; }
-    .wx-hour ha-icon { --mdc-icon-size: 6.5vh; }
+    .wx-hour ha-icon, .wx-hour .wxi { --mdc-icon-size: 6.5vh; }
     .wx-hour b { font-size: 5.4vh; }
     .wx-pct { font-style: normal; font-weight: 700; font-size: 4.4vh; color: var(--cool); }
     .wx-week { display: grid; gap: 1.4vw; width: 100%; }
@@ -3549,6 +3564,7 @@ class OverlookShow extends LitElement {
               padding: 3.5vh 0.6vw; text-align: center; min-width: 0; }
     .wx-dow { font-family: var(--display); font-weight: 700; font-size: 5.4vh; }
     .wx-col ha-icon { --mdc-icon-size: 12vh; width: 12vh; height: 12vh; }
+    .wx-col .wxi { --mdc-icon-size: 12vh; }
     .wx-cname { font-size: 4.2vh; font-weight: 600; line-height: 1.1; color: var(--ink); opacity: 0.8; min-height: 2.2em;
                 display: flex; align-items: center; }
     .wx-chi { font-family: var(--display); font-weight: 800; font-size: 8.5vh; line-height: 1; }
@@ -3618,7 +3634,7 @@ class OverlookShow extends LitElement {
     .hub-stack > .card { min-height: 0; overflow: hidden; }
     .hub-out { display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; text-align: left; color: var(--ink); }
     .hub-out-row { display: flex; align-items: center; gap: 16px; }
-    .hub-out-row ha-icon { --mdc-icon-size: 52px; }
+    .hub-out-row ha-icon, .hub-out-row .wxi { --mdc-icon-size: 52px; }
     .hub-out-temp { font-family: var(--display); font-weight: 700; font-size: 58px; line-height: 1; letter-spacing: -0.02em; }
     .hub .hub-out .wx-side { margin-left: auto; }
     .hub .hub-out .wx-cond { font-size: 19px; white-space: nowrap; }

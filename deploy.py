@@ -44,10 +44,10 @@ def push_show(ws, ids):
                     "-i", os.path.expanduser("~/.config/ha/vmkey"),
                     os.path.join(here, "www/overlook-show.js"), os.path.join(here, "www/lit-all.min.js"),
                     "root@%s:/config/www/" % HOST], check=True)
-    # artwork the card shows for the amp's TV and phono inputs
+    # artwork: the amp's TV and phono inputs, and the weather icons (tools/weather_icons.py)
     subprocess.run(["scp", "-q", "-r", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
                     "-i", os.path.expanduser("~/.config/ha/vmkey"),
-                    os.path.join(here, "www/inputs"), "root@%s:/config/www/" % HOST], check=True)
+                    os.path.join(here, "www/inputs"), os.path.join(here, "www/weather"), "root@%s:/config/www/" % HOST], check=True)
     import shownative
     pj = os.path.join(here, "www/overlook-popups.json")
     json.dump(shownative.popups_json(), open(pj, "w"))
