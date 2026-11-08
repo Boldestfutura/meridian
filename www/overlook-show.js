@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.24.0";
+const VERSION = "0.24.1";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -1362,7 +1362,7 @@ class OverlookShow extends LitElement {
       const v = e ? Number(x.attr ? e.attributes[x.attr] : e.state) : NaN;
       return isNaN(v) ? null : v;
     };
-    // each series as steps, finished off with the value right now
+    // each series: its readings, finished off with the value right now
     const lines = s.series.map((x) => {
       // s.valid = [min, max]: a sensor glitch (a 0 from a test, say) would flatten every other line
       const ok = (v) => !s.valid || (v >= s.valid[0] && v <= s.valid[1]);
@@ -1380,16 +1380,24 @@ class OverlookShow extends LitElement {
       for (const p of pts) { if (p[0] <= t) v = p[1]; else break; }
       return v;
     };
-    let plot = lines;
+    // every line on a 15-minute grid, then a one-hour rolling average: raw readings come in coarse
+    // steps (0.5° or 1%), which drew as a staircase
+    const N = Math.round(hours * 4), grid = [];
+    for (let i = 0; i <= N; i++) grid.push(t0 + ((t1 - t0) * i) / N);
+    const smooth = (vals) => vals.map((v, i) => {
+      if (v === null) return null;
+      const w = vals.slice(Math.max(0, i - 2), i + 3).filter((x) => x !== null);
+      return w.reduce((a, b) => a + b, 0) / w.length;
+    });
+    const onGrid = (vals) => smooth(vals).map((v, i) => [grid[i], v]).filter((p) => p[1] !== null);
+    let plot = lines.map((l) => ({ ...l, pts: onGrid(grid.map((t) => at(l.pts, t))) }));
     if (s.average) {
-      const N = 144, pts = [];
-      for (let i = 0; i <= N; i++) {
-        const t = t0 + ((t1 - t0) * i) / N;
+      const mean = grid.map((t) => {
         const vals = lines.map((l) => at(l.pts, t)).filter((v) => v !== null);
-        if (vals.length) pts.push([t, vals.reduce((a, b) => a + b, 0) / vals.length]);
-      }
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      });
       const nows = lines.map((l) => l.now).filter((v) => v !== null);
-      plot = [{ name: s.name, color: s.color || "var(--accent)", pts,
+      plot = [{ name: s.name, color: s.color || "var(--accent)", pts: onGrid(mean),
         now: nows.length ? nows.reduce((a, b) => a + b, 0) / nows.length : null }];
     }
     const all = plot.flatMap((l) => l.pts.filter((p) => p[0] >= t0).map((p) => p[1]));
@@ -1401,15 +1409,16 @@ class OverlookShow extends LitElement {
     if (hi - lo < 2) { const m = (hi + lo) / 2; lo = m - 1; hi = m + 1; }
     const W = 320, H = 110;
     const X = (t) => ((Math.max(t, t0) - t0) / (t1 - t0)) * W, Y = (v) => H - 6 - ((v - lo) / (hi - lo)) * (H - 12);
+    // a curve through the midpoints between grid points: smooth, and never past the real values
     const path = (pts) => {
-      const q = pts.filter((p, i) => p[0] >= t0 || (pts[i + 1] && pts[i + 1][0] > t0));
+      const q = pts.map((p) => [X(p[0]), Y(p[1])]);
       if (!q.length) return "";
-      let d = `M${X(q[0][0]).toFixed(1)} ${Y(q[0][1]).toFixed(1)}`;
-      q.forEach((p, i) => {
-        if (!i) return;
-        if (!s.average) d += ` L${X(p[0]).toFixed(1)} ${Y(q[i - 1][1]).toFixed(1)}`;
-        d += ` L${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`;
-      });
+      const f = (n) => n.toFixed(1);
+      let d = `M${f(q[0][0])} ${f(q[0][1])}`;
+      for (let i = 1; i < q.length - 1; i++) {
+        d += ` Q${f(q[i][0])} ${f(q[i][1])} ${f((q[i][0] + q[i + 1][0]) / 2)} ${f((q[i][1] + q[i + 1][1]) / 2)}`;
+      }
+      if (q.length > 1) d += ` L${f(q[q.length - 1][0])} ${f(q[q.length - 1][1])}`;
       return d;
     };
     const one = plot.length === 1;
