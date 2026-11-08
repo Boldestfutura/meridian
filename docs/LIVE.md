@@ -188,3 +188,19 @@ The Echo's top button is a media mute whose red light always matches: `device/ec
 Echo follows the light, `automation.master_bedroom_echo_watchdog` keeps it running. How, why, install
 and undo: [ECHO_MUTE_BUTTON.md](ECHO_MUTE_BUTTON.md). A new voice screen needs the
 five helpers for its area, a `rooms` entry in the ringing automation, and `clock` on its card.
+
+
+## Voice music (2026-11-08)
+
+"Play Fleetwood Mac", "play some Radiohead", "play Dreams by Fleetwood Mac", "play my golden
+hour playlist", "play Discover Weekly", and bare "play music" (resumes). End with "in the
+kitchen" / "on the amp" / "in the guest room" / "in the bedroom" to pick a speaker; otherwise
+it plays in the room of the device you spoke to (typed Assist: bedroom). One sentence trigger,
+`automation.voice_music` (`ha_config/voice_music.json`), works out the kind from the words
+("... playlist", "... by <artist>", "some <artist>") and asks Music Assistant: playlists
+are matched loosely against the library (`get_library`, so spoken names need not be exact),
+the rest with `music_assistant.search`; a bare name takes an exact artist, then song, then
+album, then the top artist. Speakers are the MA players: bedroom `media_player.bedroom_echo`,
+kitchen `homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest `guest_bedroom_homepod_mini_2`.
+Pause, skip and volume are HA's built-in media intents (bare "pause" goes through the timer
+automation first).

@@ -1,0 +1,197 @@
+{
+ "id": "voice_music",
+ "alias": "Voice Music",
+ "description": "\"Play ...\" by voice through Music Assistant (Spotify). Artist (\"play Fleetwood Mac\", \"play some Radiohead\"), song (\"play Dreams by Fleetwood Mac\"), playlist (\"play my golden hour playlist\", matched loosely against the library). End with \"in the kitchen\" / \"on the amp\" / \"in the guest room\" / \"in the bedroom\" to pick a speaker; otherwise it plays in the room of the device you spoke to (bedroom if typed). Pause, skip and volume are HA's built-in media commands.",
+ "mode": "parallel",
+ "triggers": [
+  {
+   "trigger": "conversation",
+   "command": [
+    "play {q}",
+    "put on {q}",
+    "listen to {q}"
+   ]
+  }
+ ],
+ "actions": [
+  {
+   "variables": {
+    "players": {
+     "bedroom": "media_player.bedroom_echo",
+     "kitchen": "media_player.homepod_mini_kitchen_2",
+     "living_room": "media_player.living_room_amp_2",
+     "guest_bedroom": "media_player.guest_bedroom_homepod_mini_2"
+    },
+    "labels": {
+     "bedroom": "the bedroom",
+     "kitchen": "the kitchen",
+     "living_room": "the amp",
+     "guest_bedroom": "the guest room"
+    },
+    "said": "{{ (trigger.slots.q | default('')) | lower | regex_replace('[.?!]+$', '') | trim }}",
+    "room_m": "{{ said | regex_findall('^(.+?)\\s+(?:in|on|through)\\s+(?:the\\s+)?(kitchen|living room amp|living room|lounge|amp|guest bedroom|guest room|spare room|master bedroom|bedroom)$') }}",
+    "room": "{% if room_m %}{% set r = room_m[0][1] %}{{ 'kitchen' if r == 'kitchen' else 'living_room' if r in ['living room amp','living room','lounge','amp'] else 'guest_bedroom' if r in ['guest bedroom','guest room','spare room'] else 'bedroom' }}{% endif %}",
+    "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in players else 'bedroom' }}",
+    "target_room": "{{ room if room else here }}",
+    "player": "{{ players[target_room] }}",
+    "where": "{{ '' if target_room == here else ' in ' ~ labels[target_room] if target_room != 'living_room' else ' on the amp' }}",
+    "q": "{{ room_m[0][0] | trim if room_m else said }}",
+    "kind": "{% if q in ['music','some music','something','anything','songs','some songs','my music'] %}resume{% elif q is search(' playlist$') %}playlist{% elif q is search('^(some |music by |songs by |the artist )') %}artist{% elif ' by ' in q %}track{% else %}any{% endif %}",
+    "name": "{% if kind == 'playlist' %}{{ q | regex_replace('^(my|the|our) ', '') | regex_replace(' playlist$', '') | trim }}{% elif kind == 'artist' %}{{ q | regex_replace('^(some |music by |songs by |the artist )', '') | regex_replace(' (music|songs)$', '') | trim }}{% elif kind == 'track' %}{{ q.rsplit(' by ', 1)[0] | regex_replace('^(the song |the track )', '') | trim }}{% else %}{{ q }}{% endif %}",
+    "by": "{{ q.rsplit(' by ', 1)[1] | trim if kind == 'track' else '' }}"
+   }
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ kind == 'resume' }}"
+    }
+   ],
+   "then": [
+    {
+     "action": "media_player.media_play",
+     "target": {
+      "entity_id": "{{ player }}"
+     }
+    },
+    {
+     "set_conversation_response": "Playing{{ where }}."
+    },
+    {
+     "stop": "resumed"
+    }
+   ]
+  },
+  {
+   "variables": {
+    "uri": "",
+    "found": ""
+   }
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ kind in ['playlist', 'any'] }}"
+    }
+   ],
+   "then": [
+    {
+     "action": "music_assistant.get_library",
+     "response_variable": "lib",
+     "data": {
+      "config_entry_id": "01M5X2AA5Q3KVXX3Y748NF29NC",
+      "media_type": "playlist",
+      "limit": 500
+     }
+    },
+    {
+     "variables": {
+      "pick": "{%- macro norm(s) -%}{{ s | lower | regex_replace('[^a-z0-9 ]', ' ') | regex_replace('\\s+', ' ') | trim }}{%- endmacro -%}\n{%- set qn = norm(name) -%}\n{%- set ns = namespace(best=none, score=0) -%}\n{%- for p in lib['items'] -%}\n  {%- set n = norm(p.name) -%}\n  {%- set words = qn.split(' ') -%}\n  {%- set hits = words | select('in', n.split(' ')) | list | count -%}\n  {%- set s = 100 if n == qn else 80 if (n.startswith(qn) or qn.startswith(n)) and n|length > 2 else 60 if qn in n else (40 * hits / words|count) if hits == words|count else 0 -%}\n  {%- if s > ns.score -%}{%- set ns.best = p -%}{%- set ns.score = s -%}{%- endif -%}\n{%- endfor -%}\n{{ {'uri': ns.best.uri, 'name': ns.best.name | trim} if ns.best and (kind == 'playlist' or ns.score >= 100) else {} }}"
+     }
+    },
+    {
+     "variables": {
+      "uri": "{{ pick.uri | default('') }}",
+      "found": "{{ ('the ' ~ pick.name ~ ' playlist') if pick else '' }}"
+     }
+    }
+   ]
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ not uri and kind in ['artist', 'track', 'any', 'playlist'] }}"
+    }
+   ],
+   "then": [
+    {
+     "if": [
+      {
+       "condition": "template",
+       "value_template": "{{ kind == 'track' }}"
+      }
+     ],
+     "then": [
+      {
+       "action": "music_assistant.search",
+       "response_variable": "res",
+       "data": {
+        "config_entry_id": "01M5X2AA5Q3KVXX3Y748NF29NC",
+        "name": "{{ name }}",
+        "limit": 5,
+        "media_type": "{{ ['track'] if kind == 'track' else ['artist'] if kind == 'artist' else ['playlist'] if kind == 'playlist' else ['artist', 'track', 'album'] }}",
+        "artist": "{{ by }}"
+       }
+      },
+      {
+       "variables": {
+        "pick": "{%- macro norm(s) -%}{{ s | lower | regex_replace('^the ', '') | regex_replace('[^a-z0-9 ]', ' ') | regex_replace('\\s+', ' ') | trim }}{%- endmacro -%}\n{%- set qn = norm(name) -%}\n{%- set A = res.artists | default([]) -%}{%- set T = res.tracks | default([]) -%}{%- set L = res.albums | default([]) -%}{%- set P = res.playlists | default([]) -%}\n{%- macro track(t) -%}{{ t.name }}{% set a = t.artists | default([]) | map(attribute='name') | list %}{{ ' by ' ~ a[0] if a else '' }}{%- endmacro -%}\n{%- if kind == 'track' and T -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- elif kind == 'artist' and A -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'playlist' and P -%}{{ {'uri': P[0].uri, 'name': 'the ' ~ P[0].name ~ ' playlist'} }}\n{%- elif kind == 'any' and A and norm(A[0].name) == qn -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'any' and T and norm(T[0].name) == qn -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- elif kind == 'any' and L and norm(L[0].name) == qn -%}{{ {'uri': L[0].uri, 'name': L[0].name} }}\n{%- elif kind == 'any' and A -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'any' and T -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- else -%}{}{%- endif -%}"
+       }
+      },
+      {
+       "variables": {
+        "uri": "{{ pick.uri | default('') }}",
+        "found": "{{ pick.name | default('') }}"
+       }
+      }
+     ],
+     "else": [
+      {
+       "action": "music_assistant.search",
+       "response_variable": "res",
+       "data": {
+        "config_entry_id": "01M5X2AA5Q3KVXX3Y748NF29NC",
+        "name": "{{ name }}",
+        "limit": 5,
+        "media_type": "{{ ['track'] if kind == 'track' else ['artist'] if kind == 'artist' else ['playlist'] if kind == 'playlist' else ['artist', 'track', 'album'] }}"
+       }
+      },
+      {
+       "variables": {
+        "pick": "{%- macro norm(s) -%}{{ s | lower | regex_replace('^the ', '') | regex_replace('[^a-z0-9 ]', ' ') | regex_replace('\\s+', ' ') | trim }}{%- endmacro -%}\n{%- set qn = norm(name) -%}\n{%- set A = res.artists | default([]) -%}{%- set T = res.tracks | default([]) -%}{%- set L = res.albums | default([]) -%}{%- set P = res.playlists | default([]) -%}\n{%- macro track(t) -%}{{ t.name }}{% set a = t.artists | default([]) | map(attribute='name') | list %}{{ ' by ' ~ a[0] if a else '' }}{%- endmacro -%}\n{%- if kind == 'track' and T -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- elif kind == 'artist' and A -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'playlist' and P -%}{{ {'uri': P[0].uri, 'name': 'the ' ~ P[0].name ~ ' playlist'} }}\n{%- elif kind == 'any' and A and norm(A[0].name) == qn -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'any' and T and norm(T[0].name) == qn -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- elif kind == 'any' and L and norm(L[0].name) == qn -%}{{ {'uri': L[0].uri, 'name': L[0].name} }}\n{%- elif kind == 'any' and A -%}{{ {'uri': A[0].uri, 'name': A[0].name} }}\n{%- elif kind == 'any' and T -%}{{ {'uri': T[0].uri, 'name': track(T[0])} }}\n{%- else -%}{}{%- endif -%}"
+       }
+      },
+      {
+       "variables": {
+        "uri": "{{ pick.uri | default('') }}",
+        "found": "{{ pick.name | default('') }}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ not uri }}"
+    }
+   ],
+   "then": [
+    {
+     "set_conversation_response": "I couldn't find {{ name }} on Spotify."
+    },
+    {
+     "stop": "not found"
+    }
+   ]
+  },
+  {
+   "action": "music_assistant.play_media",
+   "target": {
+    "entity_id": "{{ player }}"
+   },
+   "data": {
+    "media_id": "{{ uri }}",
+    "enqueue": "replace"
+   }
+  },
+  {
+   "set_conversation_response": "Playing {{ found }}{{ where }}."
+  }
+ ]
+}
