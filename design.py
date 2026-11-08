@@ -568,7 +568,7 @@ def media_card(entity, label, controls=("play", "vol_down", "vol_up"), icon="mdi
         "custom_fields": {
             "a": """[[[
               const e = states['%s'];
-              const art = e.attributes.entity_picture;
+              const art = ({'TV': '/local/inputs/tv.svg?v=1', 'Line-in': '/local/inputs/phono.svg?v=1'})[e.attributes.source] || e.attributes.entity_picture;
               if (art) return `<img src="${art}" style="width:42px;height:42px;border-radius:10px;object-fit:cover;display:block">`;
               const bg = %s ? '%s' : '%s';
               const fg = %s ? '#ffffff' : '%s';

@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.15";
+const VERSION = "0.22.16";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -23,6 +23,11 @@ function rgbToHsl(r, g, b) {
   return [h * 60, s, l];
 }
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
+// the amp's inputs get their own artwork and names in place of album art
+const INPUTS = {
+  "TV": { art: "/local/inputs/tv.svg?v=1", title: "TV", sub: "TV audio" },
+  "Line-in": { art: "/local/inputs/phono.svg?v=1", title: "Phono", sub: "Turntable" },
+};
 // phone tiles with play/pause and power, always, instead of volume
 const POWER_TILES = ["media_player.living_room"];
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -1251,9 +1256,9 @@ class OverlookShow extends LitElement {
           <div class="art" style=${this._pic(a) ? `background-image:url('${this._pic(a)}')` : ""}>
             ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
           <div class="media-text">
-            ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
-            <div class="media-title">${a.media_title || (off ? "Off" : "Nothing playing")}</div>
-            ${a.media_artist ? html`<div class="media-artist">${a.media_artist}</div>` : nothing}
+            ${this._src(a) ? html`<div class="media-src">${this._src(a)}</div>` : nothing}
+            <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
+            ${this._artist(a) ? html`<div class="media-artist">${this._artist(a)}</div>` : nothing}
           </div>
           ${e.attributes.supported_features & 128 ? html`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
@@ -1628,8 +1633,8 @@ class OverlookShow extends LitElement {
           </div>
           <div class="media-text">
             <div class="media-src">${m.name || a.friendly_name}</div>
-            <div class="player-title">${active ? a.media_title : state}</div>
-            ${active && (a.media_artist || a.app_name) ? html`<div class="media-artist">${a.media_artist || a.app_name}</div>` : nothing}
+            <div class="player-title">${active ? this._title(a) : state}</div>
+            ${active && (this._artist(a) || a.app_name) ? html`<div class="media-artist">${this._artist(a) || a.app_name}</div>` : nothing}
           </div>
           ${active ? html`
             <button class="round play" @click=${() => this._call("media_player", "media_play_pause", { entity_id: id })}>
@@ -1940,7 +1945,11 @@ class OverlookShow extends LitElement {
 
   // A cast runs the dashboard from cast.home-assistant.io, so a bare "/local/..." or
   // "/api/..." path would point at Google's server. hassUrl() makes it absolute.
-  _pic(a) { return this._u(a.entity_picture || TRACK_ART[a.media_title]); }
+  _input(a) { return INPUTS[a.source] || null; }
+  _pic(a) { const i = this._input(a); return this._u((i && i.art) || a.entity_picture || TRACK_ART[a.media_title]); }
+  _title(a) { const i = this._input(a); return i ? i.title : a.media_title; }
+  _artist(a) { const i = this._input(a); return i ? i.sub : (a.media_artist || ""); }
+  _src(a) { return this._input(a) ? "Input" : (a.app_name || a.source); }
   _u(p) { return p && p[0] === "/" && p[1] !== "/" && this.hass && this.hass.hassUrl ? this.hass.hassUrl(p) : p; }
 
   _recipeCard(id) {
@@ -2161,8 +2170,8 @@ class OverlookShow extends LitElement {
     const e = sp.shown, a = e.attributes;
     const playing = e.state === "playing";
     const vol = a.volume_level != null ? a.volume_level : null;
-    const title = a.media_title || "Nothing playing";
-    const sub = a.media_artist || (a.media_title ? "" : "Pick a speaker or start something in Spotify");
+    const title = this._title(a) || "Nothing playing";
+    const sub = this._artist(a) || (a.media_title ? "" : "Pick a speaker or start something in Spotify");
     // every big screen: the % pill already shows the level, so no bar,
     // just - and + sharing the row as squircles
     const pair = !this._config.phone;
@@ -2174,7 +2183,7 @@ class OverlookShow extends LitElement {
             ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}
           </div>
           <div class="media-text">
-            ${a.app_name || a.source ? html`<div class="media-src">${a.app_name || a.source}</div>` : nothing}
+            ${this._src(a) ? html`<div class="media-src">${this._src(a)}</div>` : nothing}
             <div class="media-title">${title}</div>
             <div class="media-artist">${sub}</div>
           </div>
