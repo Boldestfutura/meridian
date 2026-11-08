@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.20";
+const VERSION = "0.22.21";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -4240,4 +4240,13 @@ window.customCards.push(
 
 window.customCards = window.customCards || [];
 window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
+// the Echo's top button (its mute button) reaches the page as an unknown "Power" key, and the
+// browser then draws a keyboard focus ring on whatever was last tapped; drop focus instead
+window.addEventListener("keydown", (e) => {
+  if (e.code !== "Power") return;
+  let a = document.activeElement;
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  if (a && a.blur) a.blur();
+}, true);
+
 console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
