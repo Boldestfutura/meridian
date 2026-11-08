@@ -3,7 +3,10 @@ template:
   # Guest Bedroom HomePod mini readings, pushed from an Apple Home automation
   # (converted to a shortcut: Get the state of the HomePod's temperature and
   # humidity, then Get Contents of URL, POST JSON {"temperature":..,"humidity":..}).
-  # The values keep whatever arrived last.
+  # Key names are matched ignoring case and spaces (Shortcuts easily adds a trailing space).
+  # The values keep whatever arrived last. In HA, an automation flicks an input_boolean that
+  # the HomeKit Bridge shares with Apple Home every 30 minutes; the Apple Home automation
+  # runs when it turns on.
   - triggers:
       - trigger: webhook
         webhook_id: guest-bedroom-homepod-CHANGE-ME
@@ -16,7 +19,9 @@ template:
         state_class: measurement
         unit_of_measurement: "°C"
         state: >
-          {% set m = ((trigger.json | default({})).get('temperature', '') | string) | regex_findall('-?[0-9]+(?:[.,][0-9]+)?') %}
+          {% set ns = namespace(v='') %}
+          {% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'temperature' %}{% set ns.v = v %}{% endfor %}
+          {% set m = (ns.v | string) | regex_findall('-?[0-9]+(?:[.,][0-9]+)?') %}
           {{ (m[0] | replace(',', '.') | float) | round(1) if m else this.state }}
       - name: Guest Bedroom Humidity
         unique_id: guest_bedroom_homepod_humidity
@@ -24,5 +29,7 @@ template:
         state_class: measurement
         unit_of_measurement: "%"
         state: >
-          {% set m = ((trigger.json | default({})).get('humidity', '') | string) | regex_findall('[0-9]+(?:[.,][0-9]+)?') %}
+          {% set ns = namespace(v='') %}
+          {% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'humidity' %}{% set ns.v = v %}{% endfor %}
+          {% set m = (ns.v | string) | regex_findall('[0-9]+(?:[.,][0-9]+)?') %}
           {{ (m[0] | replace(',', '.') | float) | round(0) | int if m else this.state }}
