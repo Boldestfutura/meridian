@@ -1,0 +1,28 @@
+# Goes under `template:` in configuration.yaml. Pick your own random webhook_id: anyone on the LAN who knows it can set these values.
+template:
+  # Guest Bedroom HomePod mini readings, pushed from an Apple Home automation
+  # (converted to a shortcut: Get the state of the HomePod's temperature and
+  # humidity, then Get Contents of URL, POST JSON {"temperature":..,"humidity":..}).
+  # The values keep whatever arrived last.
+  - triggers:
+      - trigger: webhook
+        webhook_id: guest-bedroom-homepod-CHANGE-ME
+        allowed_methods: [POST]
+        local_only: true
+    sensor:
+      - name: Guest Bedroom Temperature
+        unique_id: guest_bedroom_homepod_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: >
+          {% set m = ((trigger.json | default({})).get('temperature', '') | string) | regex_findall('-?[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(1) if m else this.state }}
+      - name: Guest Bedroom Humidity
+        unique_id: guest_bedroom_homepod_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        state: >
+          {% set m = ((trigger.json | default({})).get('humidity', '') | string) | regex_findall('[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(0) | int if m else this.state }}

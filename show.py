@@ -24,6 +24,15 @@ def air(suffix=""):
     ]
 
 
+# The guest bedroom HomePod mini's thermometer and hygrometer. HA can't read a HomePod, so an
+# Apple Home automation posts them to a webhook (template sensors in configuration.yaml).
+GUEST_AIR = [
+    {"entity": "sensor.guest_bedroom_temperature", "name": "Temp", "icon": "mdi:thermometer",
+     "unit": "°", "color": "#f39a43"},
+    {"entity": "sensor.guest_bedroom_humidity", "name": "Humidity", "icon": "mdi:water-percent",
+     "color": "#3f86f2"},
+]
+
 KITCHEN_SCENES = [
     {"entity": "script.kitchen_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
     {"entity": "script.kitchen_evening", "name": "Evening", "icon": "mdi:weather-sunset"},
@@ -112,6 +121,7 @@ CARD = {
         {"name": "Guest", "icon": "mdi:bed-outline",
          "lights": [{"entity": "light.guest_bedroom_lamp", "name": "Guest Lamp", "icon": "mdi:lamp"}],
          "media": [{"entity": "media_player.guest_bedroom_homepod_mini", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
+         "sensors": GUEST_AIR,   # the HomePod's own sensors, pushed in by an Apple Home shortcut
          "scenes": [{"entity": "script.guest_bedroom_welcome", "name": "Welcome", "icon": "mdi:hand-wave"},
                     {"entity": "script.guest_bedroom_bright", "name": "Bright", "icon": "mdi:white-balance-sunny"},
                     {"entity": "script.guest_bedroom_dimmed", "name": "Dim", "icon": "mdi:lightbulb-on-30"},
