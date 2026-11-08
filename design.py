@@ -475,6 +475,23 @@ def _mbtn(entity, icon, service, accent=False):
     }
 
 
+# every volume -/+ button moves this much (volume_up/down would use each
+# player's own step, 5% on Music Assistant)
+VOL_STEP = 3
+
+
+def vol_level_js(entity, step):
+    """button-card template: the player's volume moved `step` percent, clamped."""
+    return ("[[[ const v = Math.round((states['%s'].attributes.volume_level || 0) * 100); "
+            "return Math.min(100, Math.max(0, v + (%d))) / 100; ]]]" % (entity, step))
+
+
+def _vol_btn(entity, icon, step):
+    b = _mbtn(entity, icon, "volume_set")
+    b["tap_action"]["service_data"]["volume_level"] = vol_level_js(entity, step)
+    return b
+
+
 def _play_btn(entity):
     p = "states['%s'].state === 'playing'" % entity
     return {
@@ -517,8 +534,8 @@ def _control(entity, tok):
     if tok == "mute":     return _mute_btn(entity)
     if tok == "prev":     return _mbtn(entity, "mdi:skip-previous", "media_previous_track")
     if tok == "next":     return _mbtn(entity, "mdi:skip-next", "media_next_track")
-    if tok == "vol_up":   return _mbtn(entity, "mdi:volume-plus", "volume_up")
-    if tok == "vol_down": return _mbtn(entity, "mdi:volume-minus", "volume_down")
+    if tok == "vol_up":   return _vol_btn(entity, "mdi:volume-plus", VOL_STEP)
+    if tok == "vol_down": return _vol_btn(entity, "mdi:volume-minus", -VOL_STEP)
     if tok == "power":    return _mbtn(entity, "mdi:power", "toggle")
     raise ValueError(tok)
 

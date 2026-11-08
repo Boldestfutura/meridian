@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.14";
+const VERSION = "0.22.15";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -88,6 +88,8 @@ const PHONE_PAGES = [
 ];
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+// every volume -/+ button moves this much
+const VOL_STEP = 0.03;
 // HA's companion app turns a window "haptic" event into a real tap on the phone (iPhones
 // have no navigator.vibrate); this is the same event button-card fires
 // colour presets for the light sheet: hue, saturation, name
@@ -1265,10 +1267,10 @@ class OverlookShow extends LitElement {
         </div>
         ${vol != null ? html`
           <div class="vol">
-            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
+            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol - VOL_STEP) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:minus"></ha-icon></button>
             <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
-            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
+            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol + VOL_STEP) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:plus"></ha-icon></button>
             <button class="round small ${muted ? "is-muted" : ""}" title="Mute" @click=${() => mp("volume_mute", { is_volume_muted: !muted })}>
               <ha-icon icon=${muted ? "mdi:volume-off" : "mdi:volume-high"}></ha-icon></button>
@@ -1635,14 +1637,14 @@ class OverlookShow extends LitElement {
         </div>
         ${showVol && phone ? html`
           <div class="transport power-pair">
-            <button class="round small" title="Volume down" @click=${step(-0.05)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <button class="round small" title="Volume up" @click=${step(0.05)}><ha-icon icon="mdi:plus"></ha-icon></button>
+            <button class="round small" title="Volume down" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="round small" title="Volume up" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${showVol && !phone ? html`
           <div class="vol vol-pair vol-pct">
-            <button class="round small" @click=${step(-0.05)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="round small" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <span class="where-vol">${pct}%</span>
-            <button class="round small" @click=${step(0.05)}><ha-icon icon="mdi:plus"></ha-icon></button>
+            <button class="round small" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${powerTile ? html`
           <div class="transport power-pair">
@@ -2191,10 +2193,10 @@ class OverlookShow extends LitElement {
         </div>
         ${vol != null ? html`
           <div class="vol ${pair ? "vol-pair" : ""}">
-            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol - 0.05) * 100) / 100, 0, 1) })}>
+            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol - VOL_STEP) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:minus"></ha-icon></button>
             ${pair ? nothing : html`<div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>`}
-            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol + 0.05) * 100) / 100, 0, 1) })}>
+            <button class="round small" @click=${() => this._call("media_player", "volume_set", { entity_id: e.entity_id, volume_level: clamp(Math.round((vol + VOL_STEP) * 100) / 100, 0, 1) })}>
               <ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
       </div>`;
