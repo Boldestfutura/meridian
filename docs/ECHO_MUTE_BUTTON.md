@@ -72,9 +72,14 @@ To undo: `install-mute-button.sh <echo-ip> --uninstall`, remove the automation, 
 
 ## Things to know
 
-- Pressing **volume up while muted** unmutes the sound but leaves the light on, because Android
-  does that itself and the light only changes with the button. Press the button twice to get them
-  back in step.
+- The light is the truth. If anything else changes mute (volume up, a dashboard volume button,
+  an app), the script puts it back to match the light within 2 seconds. Volume buttons do nothing
+  audible while the light is on.
+- The hardware ignores presses for 1 second after the light changes, and presses held longer
+  than 3 seconds (device tree `enable-gpio-toggle-duration` 1000 ms,
+  `privacy-event-max-press-duration` 3000 ms). Press, wait a second, press again.
+- Software can turn the light on (`echo 1 > /sys/devices/platform/gpio-privacy/enable`) but
+  never off; only a press turns it off.
 - Mute follows the light within a fraction of a second, even with quick presses.
 - The audio-service call number (9) is for Android 11. Another Android version numbers the
   calls differently: after installing elsewhere, press a few times and run `--check`.

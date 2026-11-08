@@ -20,6 +20,12 @@ sync_mute() {
   service call audio 9 i32 3 i32 $d i32 0 s16 com.android.shell >/dev/null 2>&1
 }
 sync_mute
+# the light is the truth: anything else that changes mute (volume up unmutes, a dashboard
+# volume button, an app) is put back within 2 s. Reading it costs ~60 ms.
+muted() { dumpsys audio | grep -A1 '^- STREAM_MUSIC:' | grep -q 'Muted: true' && echo 1 || echo 0; }
+( while sleep 2; do
+    [ "$(cat /sys/devices/platform/gpio-privacy/state)" = "$(muted)" ] || sync_mute
+  done ) &
 getevent /dev/input/event0 | while read -r type code value; do
   [ "$type" = "0005" ] && sync_mute
 done
