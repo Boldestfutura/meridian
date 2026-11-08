@@ -1,19 +1,20 @@
-# Task: Paget's Spotify + a swipeable Playlists section on ha-tablet
+# Task: Paget's Spotify playlists on the Show dashboards
 
-Self-contained brief for an AI agent. Read `AGENTS.md` and `README.md` first, then this.
-Written 2026-10-27, when Cameron's half of this was finished and verified.
+Self-contained brief for an AI agent. Read `AGENTS.md`, `README.md` and `docs/DASHBOARDS.md`
+first, then this. Written 2026-10-27 for the old ha-tablet dashboard; Steps 4 and 5 were
+rewritten for the Show card on 2026-11-08, when the classic dashboards were retired.
 
 ## Goal
 
-On the **ha-tablet** dashboard, the **Media** tab's "Playlists" section becomes a
-sideways swipe of two pages:
+The Show card's playlist row (`_playlists()` in `www/overlook-show.js`, on Kitchen Show's
+kitchen page, the Hub's Media page and Computer Show) gains Paget's playlists next to
+Cameron's:
 
-- page 1: Cameron's playlists (exactly what is there today)
-- page 2: Paget's playlists
+- Cameron's playlists, exactly what is there today
+- Paget's playlists, from her own Spotify account through Music Assistant
 
-It should swipe like the **Scenes** strip on the same dashboard, and its header gets the
-same bouncing chevron (`d.room_header(..., swipe=True)`). Tapping a playlist plays it on
-the selected speaker, the same as now. Nothing else on any dashboard changes.
+Cameron should be able to tell whose playlist he is looking at. Tapping one plays it on the
+selected speaker, the same as now. Nothing else on any dashboard changes.
 
 ## What exists today (do not rebuild it)
 
@@ -36,11 +37,9 @@ the selected speaker, the same as now. Nothing else on any dashboard changes.
     `[{name, uri, image}]`, up to 8. It lists Cameron's recent names first, then MA's
     `last_played_desc`. MA's generated mixes and the Plex playlists are filtered out
     **by name**.
-- `tablet.py`: `playlist_slot(i)` and `media_panel()` build the 8 slots. Each slot is
-  its own grid card. It hides with `numeric_state above i` and taps
-  `music_assistant.play_media`.
-- `design.py`: `pill_strip(items, rows=, col_w=)` is the horizontal scroller the Scenes
-  strip uses.
+- `www/overlook-show.js`: `_playlists()` draws `sensor.tablet_playlists`' `items` as cover
+  tiles in a sideways scroller; a tap calls `music_assistant.play_media` on the Active
+  Media speaker. The sensor is set by `playlists:` in `show.CARD`.
 
 ## Step 1: the human part (Cameron and Paget, at home)
 
@@ -99,53 +98,32 @@ An agent cannot do these. Wait until Cameron says all three are done.
 - Mirror every change into `ha_config/tablet_playlists.yaml`, with the placeholder
   config entry id, never the real one.
 
-## Step 4: the swipe UI (tablet.py)
+## Step 4: the UI (www/overlook-show.js)
 
-- Today the slots are 8 separate grid cards, two per row at 6 columns each. Replace them
-  with **one** full-width card (12 columns) that scrolls sideways one page at a time.
-  - Use `d.pill_strip`, or a button-card in its style, holding two pages.
-  - Each page is a 2-column x 4-row block of slots, exactly as wide as the strip.
-  - Add `scroll-snap-type: x mandatory` on the scroller and `scroll-snap-align: start`
-    on each page, so a swipe lands on a page and doesn't stop halfway.
-- Reuse `playlist_slot(i)` so the look and tap action stay the same. Parameterise it by
-  attribute (`items` / `items_paget`) and by the count used to hide empty slots. Inside
-  a nested card, hide an empty slot with a conditional card or by returning nothing.
-  Section `visibility` only works on top-level cards.
-- Add a small label above each page, or a header that changes: "Cameron" / "Paget".
-  Cameron should be able to tell which page he's on. Keep it in the existing style
-  (`d.INK` / `d.MUTED`, the Figtree `d.FONT`).
-- Change the header to `d.room_header("Playlists", "mdi:playlist-music", swipe=True)`.
-  That gives the same bouncing chevron the Scenes header has.
-- **button-card swallows clicks on nested cards' custom_fields** in some setups. After
-  deploying, tap a slot on page 2 for real and confirm it plays (see Verify).
+- Ask Cameron how to show the two accounts before building: a second row, a
+  Cameron / Paget switch above the row, or one row with a small name on each cover.
+- Read the second list from a new attribute (`items_paget`) on the same sensor, so
+  `show.CARD["playlists"]` stays one entity.
+- Keep the cover tiles and the tap action as they are.
 
-## Step 5: deploy (Cameron hand-edits these dashboards)
+## Step 5: deploy
 
-- **Never regenerate a live dashboard.** Read the live config (`lovelace/config`,
-  url_path `ha-tablet`) and save a backup copy. Then replace **only** the Playlists
-  header and the 8 slot cards. Assert everything else is byte-identical before
-  `lovelace/config/save`. `./deploy.py --patch tablet` is the pattern, and `deploy.py`'s
-  docstring explains it.
-- Find the cards by full equality with what the generator built before your change,
-  not by title. There is a second "Scenes" header on the tablet, for example.
-- Keep `tablet.py` in step with what is now live, so a rebuild wouldn't undo it.
+- Bump `VERSION` in `show.py` and `www/overlook-show.js`, then
+  `./deploy.py show showhub showcomputer showbedroom shownative` (see `docs/DASHBOARDS.md`).
+- Reload the Nest Hub's cast so it picks up the new card.
 
 ## Verify by using it, not by screenshot
 
-- Drive the page over CDP with `tools/cdp.py`. Launch headless Helium on port 9233 at
-  1280x800. Kill it by the PID from `ss -ltnp 'sport = :9233'`, **never `pkill -f`**:
-  that kills its own shell.
-- Swipe the strip (set `scrollLeft` on the scroller) and check it snaps to page 2.
+- Drive the page in a headless browser with `tools/cdp.py`. Kill the browser by PID,
+  **never `pkill -f`**: that kills its own shell.
+- Check Kitchen Show at 1280x800 and the Hub's Media page at 1024x600.
 - Tap one of Paget's playlists and check the selected MA player starts playing. **Only
   play audio when nobody is home** (`person.cameron` and `person.paget` both
   `not_home`), and pause afterwards.
-- Also check 800x1280 (the tablet in portrait).
 
 ## Commit
 
-- Before every push, check the repo is **private**: an unauthenticated
-  `curl https://api.github.com/repos/Boldestfutura/overlook-ha` must return 404.
-  Pushing over SSH works while it's private; never ask for it to be made public.
+- The repo is **public** (Cameron's choice, 2026-11-03). Everything pushed is world-readable.
 - Scan the diff for IPs, tokens and the real MA config entry id before committing.
 - End commit messages with a `Co-Authored-By:` line for whichever agent did the work.
 

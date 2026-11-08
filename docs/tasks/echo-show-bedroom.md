@@ -1,19 +1,28 @@
 # Echo Show 5 (2nd gen) as the Master Bedroom screen
 
-Status (2026-10-28): dashboard built and live at `/ha-bedroom/clock`; device not bought yet.
+Status (2026-11-08): live. Rooted, LineageOS 18.1, at 192.168.1.133 (ADB on :5555).
+It shows **Bedroom Show** (`/ha-show-bedroom/show`, `showbedroom.py`) and is the bedroom's
+voice satellite and speaker.
 
-## The dashboard (done)
+## How it runs
 
-`bedroom.py`, deployed with `./deploy.py bedroom`. Four panel views: Clock, Lights,
-Music, Air. A rail down the right edge switches between them, after the Stockpot
-enclosure's demo screen (thestockpot.net, "Echo Show Enclosure"). Master Bedroom
-entities only. Music plays on the Echo itself through Music Assistant
-(`media_player.bedroom_echo`, via SendSpin Player), using the same playlist sensor as the
-tablet.
-
-Checked in headless Helium at 960x480 (light and dark) and 640x320. Rail taps navigate.
-Heights follow `--header-height`, so the page should still fill the screen if a kiosk
-hides HA's toolbar. That hasn't been seen on the device yet.
+- **View Assist Companion (VACA)**, `com.msp1974.vacompanion`, is the Android home app. It is
+  the voice satellite (wake word "Alexa", HA Cloud pipeline) and shows the dashboard in its
+  WebView. Its entities are `*.bedroom_echo_va_*` (screen brightness, light sensor, alarm).
+  The HA companion app is disabled.
+- **A card change reaches the Echo only after a VERSION bump and a VACA restart:**
+  ```sh
+  adb -s 192.168.1.133:5555 shell 'am force-stop com.msp1974.vacompanion; monkey -p com.msp1974.vacompanion -c android.intent.category.LAUNCHER 1'
+  ```
+  It takes about 30 s to load. Desktop-browser tests don't catch a stale copy: look at the
+  device (`adb exec-out screencap -p`) or its WebView over CDP
+  (`adb forward tcp:9339 localabstract:webview_devtools_remote_<pid>`).
+- **Watchdog:** `ha_config/echo_watchdog.json` uses HA's ADB entity
+  (`media_player.echo_show_adb`) to put VACA back in front after a reboot or if it drops out,
+  and starts the mute-button script (`docs/ECHO_MUTE_BUTTON.md`).
+- **Brightness:** `ha_config/bedroom_brightness.json`. Auto brightness while the room is lit; a
+  fixed low level and the red night clock while `binary_sensor.bedroom_dark` is on.
+- **Speaker:** SendSpin Player connects it to Music Assistant as `media_player.bedroom_echo`.
 
 ## Before it arrives
 
@@ -26,7 +35,7 @@ hides HA's toolbar. That hasn't been seen on the device yet.
 
 Source: the XDA thread "[UNLOCK][ROOT][TWRP][UNBRICK] Amazon Echo Show 5 2nd Gen - 2021
 (cronos)" by Rortiz2, and github.com/R0rt1z2/amonet (branch `mt8163-cronos`). Re-read
-both on the day; XDA blocks scripted fetches, so open it in Helium.
+both on the day; XDA blocks scripted fetches, so open it in a normal browser.
 
 1. Get **amonet-cronos v2.0.1 or newer**. Older versions can leave the bootloader
    locked, and the failure is `the command you input is restricted on locked hw`.
@@ -42,18 +51,6 @@ both on the day; XDA blocks scripted fetches, so open it in Helium.
    `adb shell locksettings set-disabled true` and
    `adb shell settings put system screen_off_timeout 1800000` (it has been seen
    reverting, so check it again later).
-
-## Make it the bedroom screen
-
-- Install a kiosk browser (Fully Kiosk Browser is the usual choice) and point it at
-  `http://192.168.1.117:8123/ha-bedroom/clock`.
-- Log in with a dedicated non-admin HA user for the device.
-- Still to decide:
-  - Whether to hide HA's toolbar with the kiosk-mode HACS plugin.
-  - Night dimming: Fully's brightness schedule, or a motion/time automation.
-  - Whether it returns to Clock after a minute idle (Fully can do this).
-- Check its real CSS viewport once it's running. If Android reports a density
-  above 1x, the page sees less than 960x480. 640x320 has been checked and still fits.
 
 ## Not chosen
 

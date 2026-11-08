@@ -1,217 +1,109 @@
 # Overlook for Home Assistant
 
-Home Assistant dashboards generated from Python and deployed over the websocket API.
+Echo Show-style Home Assistant dashboards. The whole UI is one custom Lit card,
+[`www/overlook-show.js`](www/overlook-show.js); a few Python files say which entities go where
+for each screen, and `deploy.py` ships the card and saves the dashboards over the websocket API.
 
-**There are two kinds, kept side by side:** the classic button-card dashboards below,
-and the newer Echo Show-style **Show** dashboards (Kitchen Show, Phone Show) built on one
-custom Lit card. How to change and deploy each safely is in
-**[docs/DASHBOARDS.md](docs/DASHBOARDS.md)**. Read that first.
-
-Separately, [docs/ECHO_MUTE_BUTTON.md](docs/ECHO_MUTE_BUTTON.md) turns an Echo Show 5's top button
-into a mute button (installer and an AI-agent runbook in `device/echo/`).
-
-The classic set:
-
-| dashboard | shape | built for |
+| dashboard | screen | layout |
 |---|---|---|
-| `kitchen` | fixed panel, no scrolling | 1024x600 wall display (Nest Hub) |
-| `phone` | single column, room sections | handheld |
-| `tablet` | control centre, rail + room switcher | iPad, both orientations |
-| `computer` | whole house at once, 4 columns | 1920x1080 and 1440x900 laptops |
+| **Kitchen Show** `ha-show` | 8" kitchen tablet, 1280x800 | dock on the left, date, favourites, calendar and shopping list; idles to photos |
+| **Hub Show** `ha-show-hub` | Nest Hub, 1024x600, cast | photos are home; Controls, Media, Climate, Calendar and Recipes behind the dock |
+| **Bedroom Show** `ha-show-bedroom` | Echo Show 5, 960x480 | photos and a big clock, bedroom controls, red night clock, voice timers and alarms |
+| **Computer Show** `ha-show-computer` | 1440x820 to 1920x950, beside HA's sidebar | the whole house on one page |
+| **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from the card's pieces, so HA's own editor works |
 
-Flat, borderless cards; tints derived from an accent with `color-mix()` so light and
-dark both work from one definition; detail lives in pop-ups rather than dropdowns.
+How to change and deploy them: **[docs/DASHBOARDS.md](docs/DASHBOARDS.md)**.
+Working on this house's live install: [docs/LIVE.md](docs/LIVE.md).
+Separately, [docs/ECHO_MUTE_BUTTON.md](docs/ECHO_MUTE_BUTTON.md) turns an Echo Show 5's top
+button into a mute button.
 
-## What they look like
+**Type:** Unbounded (headings, clock, big numbers) and Figtree (everything else), from Google
+Fonts. Weather icons are our own SVGs, drawn by [`tools/weather_icons.py`](tools/weather_icons.py).
 
-### Computer — the whole house, no scrolling
-![Computer dashboard](docs/images/computer.png)
+*Calendar entries, the shopping list and the photo in these screenshots are placeholders.*
 
-### Kitchen — fixed 1024x600 wall panel
-![Kitchen panel](docs/images/kitchen.png)
+## Kitchen Show
+![Kitchen Show](docs/images/kitchen-show.png)
+![Kitchen Show, dark](docs/images/kitchen-show-dark.png)
 
-### Tablet — control centre with a room switcher
-![Tablet dashboard](docs/images/tablet.png)
+**Home** goes room by room, with lights as split pills you drag to dim. **Recipes** come from
+Norish, synced into HA every 30 minutes.
+![Kitchen Show, Home](docs/images/kitchen-show-home.png)
+![Kitchen Show, Calendar](docs/images/kitchen-show-calendar.png)
+![Kitchen Show, Recipes](docs/images/kitchen-show-recipes.png)
 
-### Phone — light and dark
+## Hub Show
+![Hub Show, photos](docs/images/hub-photos.png)
 <p>
-  <img src="docs/images/phone.png" width="300" alt="Phone dashboard, light">
-  <img src="docs/images/phone-dark.png" width="300" alt="Phone dashboard, dark">
+  <img src="docs/images/hub-controls.png" width="49%" alt="Hub Show, Controls">
+  <img src="docs/images/hub-climate.png" width="49%" alt="Hub Show, Climate">
 </p>
 
-Dark mode is not a second palette: surfaces come from the theme's own CSS variables
-and every tint is `color-mix()`'d against whatever surface is current.
-
-### Pop-ups — where the detail lives
-
-`button-card` cannot draw a dropdown, a slider or a stepper, so anything that needs
-one taps through to a Bubble Card pop-up. There are 23. A tile shows the current
-value; the pop-up holds the controls.
-
+## Bedroom Show
+![Bedroom Show, photos](docs/images/bedroom-photos.png)
 <p>
-  <img src="docs/images/popup-amp.png" width="330" alt="Amp pop-up: volume, source, and the sound-mode toggles">
-  <img src="docs/images/popup-plant.png" width="330" alt="Plant pop-up: a week of soil moisture and temperature">
+  <img src="docs/images/bedroom-controls.png" width="49%" alt="Bedroom Show, Controls">
+  <img src="docs/images/bedroom-climate.png" width="49%" alt="Bedroom Show, Climate">
 </p>
 
-**Amp** is the one that drove most of the styling work. The volume row tints blue and
-turns red when muted, the mute button darkening with it. `Input` and `Source` are
-button-cards that open a second pop-up — pop-ups can open from inside pop-ups. The
-`Bass` and `Treble` sliders are native `tile` cards wrapped in a button-card with
-`--ha-card-background: transparent`, which is how a native control sits flush on a
-tint. **Plant** pairs two `mini-graph-card`s with the current readings underneath.
+## Computer Show
+![Computer Show](docs/images/computer-show.png)
+![Computer Show, dark](docs/images/computer-show-dark.png)
 
+## Phone Show
 <p>
-  <img src="docs/images/popup-heatpump.png" width="330" alt="Heatpump pop-up: fan speed, swing, filter state">
-  <img src="docs/images/popup-appletv.png" width="330" alt="Apple TV pop-up: now playing and app picker">
+  <img src="docs/images/phone-show.png" width="260" alt="Phone Show, light">
+  <img src="docs/images/phone-show-dark.png" width="260" alt="Phone Show, dark">
 </p>
 
-**Heatpump** keeps fan speed and swing as tiles that open their own option pickers,
-and `Filter` turns red on its own when it needs attention. **Apple TV** is a
-two-high half-width now-playing card next to the app picker; the transport buttons
-were deliberately removed.
-
+Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
 <p>
-  <img src="docs/images/popup-temperature.png" width="330" alt="Temperature pop-up: one bubble per room">
-  <img src="docs/images/popup-weather.png" width="330" alt="Weather pop-up with a five day forecast">
+  <img src="docs/images/phone-show-amp.png" width="260" alt="Amp sheet">
+  <img src="docs/images/phone-show-heatpump.png" width="260" alt="Heat pump sheet">
 </p>
-
-**Temperature** is the pattern behind the top strip: the pill shows the range across
-the house, and tapping it breaks the range out per room. Living Room reads `21.7°`
-without a unit because it is sourced from a climate entity's
-`current_temperature` attribute rather than a sensor — forcing a `°C` fallback made
-VOC render as "18–26°", so the fallback is empty on purpose. **Weather** carries the
-five-day forecast as a native card.
-
-## The Show dashboards
-
-An Echo Show-style look built as one custom Lit card (`www/overlook-show.js`), kept
-alongside the classic dashboards rather than replacing them. How to change and deploy
-them: [docs/DASHBOARDS.md](docs/DASHBOARDS.md).
-
-### Kitchen Show: 8" kitchen tablet, 1280x800
-![Kitchen Show, kitchen page](docs/images/show/tablet-kitchen.png)
-![Kitchen Show, dark](docs/images/show/tablet-kitchen-dark.png)
-
-**Home** goes room by room, with lights as split pills you drag to dim. **Recipes** come
-from Norish, synced into HA every 30 minutes.
-![Kitchen Show, Home page](docs/images/show/tablet-home.png)
-![Kitchen Show, Recipes](docs/images/show/tablet-recipes.png)
-
-### Phone Show: ha-phone's layout in the Show look
-<p>
-  <img src="docs/images/show/phone-home.png" width="260" alt="Phone Show, light">
-  <img src="docs/images/show/phone-home-dark.png" width="260" alt="Phone Show, dark">
-</p>
-
-Tapping a speaker, plant, heat pump or status pill opens a bottom sheet instead of a
-Bubble Card pop-up:
-<p>
-  <img src="docs/images/show/phone-popup-amp.png" width="260" alt="Amp sheet">
-  <img src="docs/images/show/phone-popup-heatpump.png" width="260" alt="Heat pump sheet">
-</p>
-
-*Calendar and shopping-list entries in these screenshots are placeholders.*
-
-## Why it is generated rather than hand-written YAML
-
-Each dashboard is ~60-280 KB of JSON. The cards are near-identical with different
-entities, and a change to, say, the tile height has to land in ~90 places. `design.py`
-holds the card builders; the dashboard modules are thin layouts over it.
 
 ## Requirements
 
-- Home Assistant **2026.10** or similar
-- [`custom:button-card`](https://github.com/custom-cards/button-card) — every card
-- [`Bubble Card`](https://github.com/Clooos/Bubble-Card) — the pop-ups
-- A theme named `Overlook` (any theme works; the dashboards only rely on standard
-  HA CSS variables). Ours is in [`themes/overlook.yaml`](themes/overlook.yaml):
-  copy it to `/config/themes/overlook/`, call `frontend.reload_themes`, then
-  `frontend.set_theme` with `name: Overlook` to make it the app-wide default.
-  **A theme needs both `modes.light` and `modes.dark`.** With only `dark`, HA
-  forces dark mode on every device, whatever the device is set to.
-- A long-lived access token at `~/.config/ha/token`
-
-**`card-mod` is deliberately not used.** On HA 2026.10 it loads, logs its banner and
-injects no styles at all — see `design.py`. Everything here uses button-card's native
-`styles`, which is why the code looks the way it does.
-
-### Tablet Media tab
-
-The tablet's fifth tab plays music through **Music Assistant**, not HA's Spotify
-integration: Spotify's API cannot drive a Sonos, and HomePods only take AirPlay.
-It needs the Music Assistant integration, an `input_select.tablet_speaker` helper
-(options as in `tablet.SPEAKERS`), a `Media` option on `input_select.tablet_room`,
-and the trigger-based template sensor in
-[`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml) appended to
-the `template:` list in `configuration.yaml`.
+- Home Assistant **2026.10** or similar. Nothing from HACS: Lit is vendored in `www/`.
+- SSH to the HA box (`deploy.py` copies the card to `/config/www` with `scp`) and a long-lived
+  access token at `~/.config/ha/token`.
+- Optional, per feature: `album_slideshow` cameras for the photos, Music Assistant for
+  playlists (the template sensor in [`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml)),
+  Norish for recipes (`tools/norish_sync.py`), a `todo` list and calendars.
+- The `Overlook` theme ([`themes/overlook.yaml`](themes/overlook.yaml)) for HA's own pages and
+  the Phone Show's sections view. **A theme needs both `modes.light` and `modes.dark`**: with
+  only `dark`, HA forces dark mode on every device.
 
 ## Use
 
 ```sh
-./deploy.py --list                 # what is on the box
-./deploy.py kitchen computer       # rebuild those from the generators
-./deploy.py --dry-run phone        # build and diff, write nothing
-./deploy.py --patch phone          # patch the LIVE config, keep hand edits
+./deploy.py --list                       # what is on the box
+./deploy.py show showhub showbedroom     # ship the card, save those dashboards
+./deploy.py --dry-run showcomputer       # build and diff, write nothing
 ```
 
-`HA_HOST` and `HA_TOKEN_FILE` override the defaults.
-
-### Deploy vs patch
-
-Plain deploy **replaces** a dashboard. `--patch` reads what is live, swaps only the
-cards it owns, and refuses to write if anything else moved. Use `--patch` for any
-dashboard that has been edited in the HA UI — otherwise those edits are silently lost.
+`HA_HOST` and `HA_TOKEN_FILE` override the defaults. Bump `VERSION` in both `show.py` and
+`www/overlook-show.js` with every card change, or browsers keep the old one.
 
 ## Layout
 
 ```
-design.py      the design language: every card builder, the palette, the colour logic
-patch3.py      status pills, the 17 pop-ups, and the in-place patcher
-patch.py       older single-purpose patcher, kept for reference
-kitchen.py     \
-phone.py        | one module per dashboard, thin layouts over design.py
-tablet.py       |
-computer.py    /
-deploy.py      CLI
-ha_ws.py       minimal websocket client (no websocket library needed)
-tools/cdp.py   headless-browser driver used to verify renders
+www/overlook-show.js   the card: every layout (tablet, hub, bedside, desk, phone) in one file
+www/lit-all.min.js     Lit, vendored
+www/weather/ inputs/   artwork: weather icons, the amp's TV and phono inputs
+show.py                Kitchen Show and the shared CARD config, VERSION
+showhub.py             Hub Show
+showbedroom.py         Bedroom Show
+showcomputer.py        Computer Show
+showphone.py           the phone's rooms, scenes and pop-ups (data only)
+shownative.py          Phone Show, as native HA sections
+deploy.py  ha_ws.py    CLI and a minimal websocket client
+ha_config/             automations and sensors the dashboards rely on (repo copies)
+device/echo/           Echo Show 5 mute button
+tools/                 weather icon generator, Norish sync, headless-browser driver
 ```
-
-`tools/cdp.py` drives a headless Chromium over the DevTools protocol to check a
-dashboard actually rendered — measuring card sizes, catching clipped labels, clicking
-things and reading back the result. Screenshots alone repeatedly failed to catch
-broken cards here.
-
-## Sizing cards: use HA's own grid, not a wrapper
-
-Home Assistant's sections view (`hui-grid-section`) is a **12-column grid of 56px
-rows with an 8px gap**. Every card takes `grid_options`, and both axes are real:
-
-```python
-{"grid_options": {"columns": 6, "rows": 2}}   # half width, two rows tall
-```
-
-That matters because a grid row takes its height from the tallest card in it. A
-media card here is a fixed 124px against a tile's 56, so a tile placed beside one
-floats at the top of the row with ~68px of dead space underneath it.
-
-The fix is `rows`, not a container. `columns: 6, rows: 2` spans the media card
-over two rows — 56 + 8 + 56 = 120px — and tiles flow around it:
-
-```
-HomePod (6 wide, 2 rows)  |  Dehumidifier
-                          |  Mushroom Lamp
-Bedside Left (6)          |  Bedside Right (6)
-```
-
-**Every tile stays an independent card**, so they can still be dragged anywhere in
-the HA UI and the grid re-packs them. A custom "stack two cards in one cell"
-wrapper was written here first and then deleted: it filled the row, but it fused
-the two tiles into a single card and they could no longer be moved apart. If a
-layout needs cards of different heights to line up, reach for `rows` first — there
-is almost certainly no need to build anything.
 
 ## Adapting it to another install
 
-See **[AGENTS.md](AGENTS.md)** — a brief written for an LLM: what to change, what to
-leave alone, how to verify, and the platform traps that are not obvious.
+See **[AGENTS.md](AGENTS.md)**, a brief written for an LLM: what to change, what to leave
+alone, how to verify, and the traps that are not obvious.

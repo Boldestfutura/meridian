@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Build and deploy the Overlook dashboards to Home Assistant.
 
-    ./deploy.py --list                  what is on the box
-    ./deploy.py kitchen computer        rebuild those two from the generators
-    ./deploy.py --patch phone           patch the LIVE phone config in place
-    ./deploy.py --dry-run kitchen       build and diff, write nothing
+    ./deploy.py --list                      what is on the box
+    ./deploy.py show showhub                rebuild those two from the generators
+    ./deploy.py --dry-run showbedroom       build and diff, write nothing
 
-`--patch` is the safe mode for a dashboard that has been edited by hand: it
-reads what is live, swaps only the cards it owns, and refuses to write if
-anything else moved. Plain deploy overwrites the whole config.
+Every Show dashboard first ships the card (www/overlook-show.js) and its artwork, then
+saves its config. ha-show-native is the exception: once it has been edited in HA's own
+editor, only the card ships and the live layout is kept.
 """
-import argparse, copy, itertools, json, os, sys
+import argparse, itertools, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ha_ws
@@ -18,13 +17,7 @@ import ha_ws
 HOST = os.environ.get("HA_HOST", "192.168.1.117")
 TOKEN_FILE = os.environ.get("HA_TOKEN_FILE", "~/.config/ha/token")
 
-TARGETS = {           # url_path -> (module, title, icon)
-    "kitchen":  ("ha-kitchen",  "Kitchen",  "mdi:countertop"),
-    "phone":    ("ha-phone",    "Phone",    "mdi:cellphone"),
-    "tablet":   ("ha-tablet",   "Tablet",   "mdi:tablet"),
-    "computer": ("ha-computer", "Computer", "mdi:laptop"),
-    "bedroom":  ("ha-bedroom",  "Bedroom",  "mdi:bed-king"),
-    "homey_lights": ("ha-homey", "Homey lights test", "mdi:lightbulb-outline"),
+TARGETS = {           # name -> (url_path, title, icon)
     "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
     "shownative": ("ha-show-native", "Phone Show", "mdi:cellphone-cog"),
     "showcomputer": ("ha-show-computer", "Computer Show", "mdi:monitor-dashboard"),
@@ -79,14 +72,7 @@ def edited_live(name, live):
 
 
 def build(name):
-    mod = __import__(name)
-    cfg = mod.build()
-    if name == "tablet":                      # tablet keeps the pop-ups beside the strip
-        import patch3
-        cfg["views"][0]["sections"][0]["cards"] += [
-            dict(p, grid_options={"columns": "full"}) for p in patch3.popups()]
-        patch3.attach_nav(cfg)
-    return cfg
+    return __import__(name).build()
 
 
 def diff(a, b, p=""):
@@ -108,8 +94,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("targets", nargs="*", choices=list(TARGETS) + [[]], default=[])
     ap.add_argument("--list", action="store_true")
-    ap.add_argument("--patch", action="store_true",
-                    help="patch the live config instead of replacing it")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     ws, ids = connect()
@@ -119,6 +103,7 @@ def main():
             print("  %-16s %s" % (d.get("url_path"), d.get("title")))
         return
 
+    shipped = False                           # the card is the same file for all of them
     for name in a.targets or list(TARGETS):
         url, title, icon = TARGETS[name]
         have = {d["url_path"] for d in
@@ -128,24 +113,9 @@ def main():
                        title=title, icon=icon, show_in_sidebar=True, require_admin=False)
             print("created %s" % url)
 
-        if (name in ("show", "showcomputer", "showbedroom", "showhub") or name in NATIVE) and not a.dry_run:
-            push_show(ws, ids)
-
-        if a.patch:
-            import patch3
-            live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
-            before = copy.deepcopy(live)
-            patch3.apply_all(live); patch3.attach_nav(live)
-            outside = [p for p in diff(before, live)
-                       if not p.startswith("/views[0]/sections[0]")
-                       and not p.endswith("tap_action") and "/tap_action/" not in p]
-            if outside:
-                print("REFUSING %s - would change %d things outside its own section:" % (url, len(outside)))
-                for p in outside[:8]: print("    ", p)
-                continue
-            cfg = live
-        else:
-            cfg = build(name)
+        if not a.dry_run and not shipped:
+            push_show(ws, ids); shipped = True
+        cfg = build(name)
 
         if name in NATIVE and url in have:
             live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url).get("result")

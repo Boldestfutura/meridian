@@ -8,7 +8,6 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 `./deploy.py show` copies the card to /config/www, bumps its resource version,
 and saves this config.
 """
-import design as d
 
 VERSION = "0.22.22"
 def air(suffix=""):
