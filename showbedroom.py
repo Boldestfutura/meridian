@@ -34,6 +34,8 @@ CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
             clock="bedroom",
             # music on the Echo (not Sleep Sounds) takes the whole screen until it stops or is closed
             nowplaying="media_player.bedroom_echo",
+            # closed with the chevron while still playing: back after 40 s untouched (not 5 min)
+            nowplaying_return=40,
             # light while the sun is up, dark after sunset (the Echo's own auto dark mode has no location)
             scheme="sun.sun")
 

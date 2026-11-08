@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.21";
+const VERSION = "0.22.22";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -243,7 +243,10 @@ class OverlookShow extends LitElement {
   _poke() {
     clearTimeout(this._idleTimer);
     if (!this._config || !this._config.photos) return;
-    // at night a woken screen goes back to the red clock after 30s, not five minutes
+    // at night a woken screen goes back to the red clock after 30s, not five minutes; music
+    // closed with the chevron comes back after `nowplaying_return` seconds while it still plays
+    const e = this._npEnt(), npBack = this._npHidden && e && e.state === "playing";
+    const wait = this._night() ? 30 : (npBack && this._config.nowplaying_return) || this._config.idle;
     this._idleTimer = setTimeout(() => {
       if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
       this._picker = false;
@@ -252,7 +255,7 @@ class OverlookShow extends LitElement {
       this._light = null;
       this._page = "photos";
       this._npHidden = false;   // music still on: back to the now-playing screen
-    }, (this._night() ? 30 : this._config.idle) * 1000);
+    }, wait * 1000);
   }
 
   // --- subscriptions: shopping list, forecast, calendar --------------------
@@ -620,7 +623,7 @@ class OverlookShow extends LitElement {
 
   // option `nowplaying`: the screen's own speaker. Music on it (cast from Spotify or started
   // anywhere) takes the whole screen like the timer, and stays until it stops or is closed
-  // with the chevron; the idle return brings it back while it's still playing, and a pause
+  // with the chevron; the idle return (`nowplaying_return` s, else `idle`) brings it back while it's still playing, and a pause
   // lets it go after `idle`. Sleep Sounds and a dark room never show it.
   _npEnt() {
     const id = this._config && this._config.nowplaying;
@@ -722,7 +725,7 @@ class OverlookShow extends LitElement {
         <div class="np-side">
           <div class="np-head">
             <div class="np-src"><ha-icon icon=${playing ? "mdi:music" : "mdi:pause"}></ha-icon>${playing ? (src || "Now playing") : "Paused"}</div>
-            ${b("mdi:chevron-down", (ev) => { ev.stopPropagation(); this._npHidden = true; }, "x")}
+            ${b("mdi:chevron-down", (ev) => { ev.stopPropagation(); this._npHidden = true; this._poke(); }, "x")}
           </div>
           <div class="np-title mq"><span>${a.media_title}</span></div>
           <div class="np-artist mq"><span>${a.media_artist || ""}</span></div>
