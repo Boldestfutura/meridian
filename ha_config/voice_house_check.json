@@ -1,0 +1,158 @@
+{
+  "alias": "Voice: House Check",
+  "mode": "parallel",
+  "description": "Questions about the house, answered without changing anything: who's home, is Cameron/Paget home, is the door/window open, is anything still on, how's the air in the house, do the plants need water. Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "who's home",
+        "who is home",
+        "is anyone home",
+        "is anybody home",
+        "who's (here|in)"
+      ],
+      "id": "who"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "is (Cameron|Paget) (home|here|in)",
+        "where is (Cameron|Paget)",
+        "where's (Cameron|Paget)"
+      ],
+      "id": "person"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "is the [front] door (open|closed|shut)",
+        "did I (leave|shut|close) the [front] door [open]",
+        "is the window (open|closed|shut)"
+      ],
+      "id": "door"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "is anything [still] on",
+        "is there anything [still] on",
+        "what's [still] on",
+        "what is [still] on",
+        "did (I|we) leave anything on"
+      ],
+      "id": "on"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "how's the air in the house",
+        "how is the air in the house",
+        "(what's|what is) the air quality in the house",
+        "how's the air at home",
+        "(what's|what is) the house air quality"
+      ],
+      "id": "air"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "do the plants need (water|watering)",
+        "(how are|how're) the plants [doing]",
+        "are the plants (ok|okay|thirsty|dry)",
+        "do I need to water the plants"
+      ],
+      "id": "plants"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "s": "{{ trigger.sentence | lower }}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "who"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set h = ['person.cameron','person.paget'] | select('is_state','home') | map('state_attr','friendly_name') | list %}{% if h | count == 2 %}Cameron and Paget are both home.{% elif h %}{{ h[0] }} is home.{% else %}Nobody's home.{% endif %}{{ ' Guest mode is on.' if is_state('input_boolean.guest_mode','on') else '' }}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "person"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set p = 'paget' if 'paget' in s else 'cameron' %}{% set n = p | capitalize %}{% set st = states('person.' ~ p) %}{% if st == 'home' %}{{ n }} is home.{% elif st == 'not_home' %}{{ n }} is out.{% elif st in ['unknown','unavailable'] %}I don't know where {{ n }} is.{% else %}{{ n }} is at {{ st }}.{% endif %}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "door"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% if 'window' in s %}{% set e = 'binary_sensor.window_sensor' %}{% set w = 'window' %}{% else %}{% set e = 'binary_sensor.door_sensor' %}{% set w = 'door' %}{% endif %}{% set st = states(e) %}{% if st == 'on' %}The {{ w }} is open{% set since = (now() - states[e].last_changed).total_seconds() // 60 %}{{ ', and has been for ' ~ (since | int) ~ ' minutes' if 1 < since < 180 else '' }}.{% elif st == 'off' %}The {{ w }} is closed.{% else %}I can't tell, the {{ w }} sensor isn't responding.{% endif %}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "on"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set lights = states.light | rejectattr('entity_id','in',['light.all_lights','light.kitchen_lights','light.master_bedroom_lights','light.living_room']) | selectattr('state','eq','on') | map(attribute='name') | list %}{% set things = [] %}{% if lights %}{% set things = things + [lights | join(', ') ] %}{% endif %}{% if not is_state('climate.living_room','off') %}{% set things = things + ['the heat pump'] %}{% endif %}{% if is_state('switch.smart_plug','on') %}{% set things = things + ['the smart plug'] %}{% endif %}{% if is_state('switch.tp_link_power_strip_6e3f_dehumidifier','on') %}{% set things = things + ['the dehumidifier'] %}{% endif %}{% set playing = ['media_player.bedroom_echo','media_player.homepod_mini_kitchen_2','media_player.living_room_amp_2','media_player.guest_bedroom_homepod_mini_2'] | select('is_state','playing') | map('state_attr','friendly_name') | list %}{% if playing %}{% set things = things + ['music on ' ~ playing | join(' and ')] %}{% endif %}{% if things %}On right now: {{ things | join('; ') }}.{% else %}Everything's off.{% endif %}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "air"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set k = states('sensor.air_quality_monitor_temperature') | float(none) %}{% set b = states('sensor.air_quality_monitor_temperature_2') | float(none) %}{% set kh = states('sensor.air_quality_monitor_humidity') | float(none) %}{% set bh = states('sensor.air_quality_monitor_humidity_2') | float(none) %}{% set pm = [states('sensor.air_quality_monitor_pm2_5') | float(0), states('sensor.air_quality_monitor_pm2_5_2') | float(0)] | max %}{% set voc = [states('sensor.air_quality_monitor_voc_index') | float(0), states('sensor.air_quality_monitor_voc_index_2') | float(0)] | max %}The air is {{ 'poor' if pm > 35 or voc > 250 else 'okay' if pm > 12 or voc > 150 else 'good' }}. {% if k is not none %}The kitchen is {{ k | round(0) | int }} degrees{{ ' and ' ~ (kh | round(0) | int) ~ ' percent humidity' if kh is not none else '' }}. {% endif %}{% if b is not none %}The bedroom is {{ b | round(0) | int }} degrees{{ ' and ' ~ (bh | round(0) | int) ~ ' percent humidity' if bh is not none else '' }}.{% endif %}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "plants"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set f = states('sensor.soil_moisture_sensor_1_humidity') | float(none) %}{% set b = states('sensor.moisture_sensor_2_humidity') | float(none) %}{{ 'Yes, something needs water.' if is_state('binary_sensor.any_plant_needs_water','on') else 'No, they are fine.' }}{% if f is not none %} The fiddle leaf fig is at {{ f | round(0) | int }} percent{% endif %}{% if b is not none %}{{ ' and the' if f is not none else ' The' }} banana leaf is at {{ b | round(0) | int }} percent{% endif %}{{ ' moisture.' if f is not none or b is not none else '' }}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_house_check"
+}

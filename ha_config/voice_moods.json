@@ -1,0 +1,170 @@
+{
+  "alias": "Voice: Moods",
+  "mode": "parallel",
+  "description": "Lighting moods by voice. 'Movie time', 'goodnight / I'm going to bed' (Goodnight script), and per room: relax, reading, wind down, night light, evening, brighten up, dim. A mood acts on the room of the device you spoke to, or the room you name ('relax mode in the living room'). Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "movie time",
+        "it's movie time",
+        "(start|turn on) movie (time|mode)",
+        "movie mode",
+        "let's watch a movie"
+      ],
+      "id": "movie"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "goodnight",
+        "good night",
+        "night night",
+        "(I'm|I am|we're|we are) going to bed",
+        "bedtime",
+        "it's bedtime",
+        "time for bed"
+      ],
+      "id": "night"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(relax|relaxing|chill) [mode] [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "(reading|read) (mode|light|lights) [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "wind down [mode] [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "night light [mode] [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "evening (mode|lights) [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "(brighten up|bright mode|full brightness|make it bright) [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "(dim mode|dim it down|make it dim|dimmed mode) [in] [the] [living room|lounge|kitchen|bedroom|master bedroom|guest room|guest bedroom|spare room]",
+        "welcome [mode] [in] [the] (guest room|guest bedroom|spare room)"
+      ],
+      "id": "mood"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in ['bedroom','kitchen','living_room','guest_bedroom'] else 'bedroom' }}",
+        "room": "{% set s = trigger.sentence | lower %}{% if 'guest' in s or 'spare' in s %}guest_bedroom{% elif 'living' in s or 'lounge' in s %}living_room{% elif 'kitchen' in s %}kitchen{% elif 'bedroom' in s %}bedroom{% else %}{{ here }}{% endif %}",
+        "moods": {
+          "bedroom": {
+            "reading": "script.bedroom_reading",
+            "wind": "script.bedroom_wind_down",
+            "relax": "script.bedroom_wind_down",
+            "bright": "script.bedroom_bright",
+            "dim": "script.bedroom_dimmed"
+          },
+          "living_room": {
+            "relax": "script.living_room_relax",
+            "wind": "script.living_room_relax",
+            "night": "script.living_room_night_light",
+            "bright": "script.living_room_bright",
+            "dim": "script.living_room_dimmed",
+            "reading": "script.living_room_bright"
+          },
+          "kitchen": {
+            "relax": "script.kitchen_evening",
+            "wind": "script.kitchen_evening",
+            "evening": "script.kitchen_evening",
+            "bright": "script.kitchen_bright",
+            "dim": "script.kitchen_dimmed"
+          },
+          "guest_bedroom": {
+            "bright": "script.guest_bedroom_bright",
+            "dim": "script.guest_bedroom_dimmed",
+            "relax": "script.guest_bedroom_dimmed",
+            "wind": "script.guest_bedroom_dimmed",
+            "welcome": "script.guest_bedroom_welcome",
+            "reading": "script.guest_bedroom_bright"
+          }
+        },
+        "mood": "{% set s = trigger.sentence | lower %}{% if 'read' in s %}reading{% elif 'wind' in s %}wind{% elif 'night' in s %}night{% elif 'evening' in s %}evening{% elif 'welcome' in s %}welcome{% elif 'bright' in s %}bright{% elif 'dim' in s %}dim{% else %}relax{% endif %}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "movie"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "scene.turn_on",
+              "target": {
+                "entity_id": "scene.new_scene"
+              }
+            },
+            {
+              "set_conversation_response": "Movie time."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "night"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "script.turn_on",
+              "target": {
+                "entity_id": "script.goodnight"
+              }
+            },
+            {
+              "set_conversation_response": "Goodnight. I've turned off the lights and the heat pump."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "mood"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "label": "{{ {'bedroom':'the bedroom','kitchen':'the kitchen','living_room':'the living room','guest_bedroom':'the guest room'}[room] }}",
+                "script": "{{ moods[room].get(mood) }}"
+              }
+            },
+            {
+              "if": [
+                {
+                  "condition": "template",
+                  "value_template": "{{ not script }}"
+                }
+              ],
+              "then": [
+                {
+                  "set_conversation_response": "There isn't a {{ {'wind':'wind down','night':'night light'}.get(mood, mood) }} setting for {{ label }}."
+                },
+                {
+                  "stop": "no mood"
+                }
+              ]
+            },
+            {
+              "action": "script.turn_on",
+              "target": {
+                "entity_id": "{{ script }}"
+              }
+            },
+            {
+              "set_conversation_response": "{{ {'bright':'Brightened up','dim':'Dimmed the lights','reading':'Reading lights on','wind':'Winding down','relax':'Relax mode','night':'Night light on','evening':'Evening lights on','welcome':'Guest room ready'}[mood] }}{{ '' if room == here else ' in ' ~ label }}."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_moods"
+}

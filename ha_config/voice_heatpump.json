@@ -1,0 +1,170 @@
+{
+  "alias": "Voice: Heat Pump",
+  "mode": "parallel",
+  "description": "Heat pump by voice. 'I'm cold' / 'warm it up': heat at 22, or one degree warmer if already heating. 'I'm hot' / 'cool it down': cool at 22, or one degree cooler if already cooling. 'Turn the heat pump off', 'what's the heat pump set to'. Range 18-26. Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "(I'm|I am|we're|we are) (cold|freezing|chilly)",
+        "it's (cold|freezing|chilly) [in here]",
+        "warm (it|the house|the room|things) up",
+        "make it warmer",
+        "(turn|put) the heat (on|up)",
+        "heat the house"
+      ],
+      "id": "cold"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(I'm|I am|we're|we are) (hot|boiling|too warm)",
+        "it's (hot|boiling|too warm|stuffy) [in here]",
+        "cool (it|the house|the room|things) down",
+        "make it cooler",
+        "(turn|put) the (air con|aircon|air conditioning|cooling) on"
+      ],
+      "id": "hot"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(turn|switch) off the (heat pump|heatpump|air con|aircon|air conditioning|heating|cooling)",
+        "(turn|switch) the (heat pump|heatpump|air con|aircon|air conditioning|heating|cooling) off",
+        "heat pump off"
+      ],
+      "id": "off"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "what's the (heat pump|heatpump|air con|aircon) (set to|doing|on)",
+        "what is the (heat pump|heatpump|air con|aircon) (set to|doing|on)",
+        "is the (heat pump|heatpump|air con|aircon|heating) on"
+      ],
+      "id": "status"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "mode": "{{ states('climate.living_room') }}",
+        "target": "{{ state_attr('climate.living_room','temperature') | int(21) }}",
+        "inside": "{{ state_attr('climate.living_room','current_temperature') }}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "cold"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "t": "{{ [target + 1, 26] | min if mode == 'heat' else 22 }}"
+              }
+            },
+            {
+              "action": "climate.set_temperature",
+              "target": {
+                "entity_id": "climate.living_room"
+              },
+              "data": {
+                "hvac_mode": "heat",
+                "temperature": "{{ t }}"
+              }
+            },
+            {
+              "set_conversation_response": "{{ 'Turned the heating up to' if mode == 'heat' else 'Heating on, set to' }} {{ t }} degrees."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "hot"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "t": "{{ [target - 1, 18] | max if mode == 'cool' else 22 }}"
+              }
+            },
+            {
+              "action": "climate.set_temperature",
+              "target": {
+                "entity_id": "climate.living_room"
+              },
+              "data": {
+                "hvac_mode": "cool",
+                "temperature": "{{ t }}"
+              }
+            },
+            {
+              "set_conversation_response": "{{ 'Turned the cooling down to' if mode == 'cool' else 'Cooling on, set to' }} {{ t }} degrees."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "off"
+            }
+          ],
+          "sequence": [
+            {
+              "if": [
+                {
+                  "condition": "state",
+                  "entity_id": "climate.living_room",
+                  "state": "off"
+                }
+              ],
+              "then": [
+                {
+                  "set_conversation_response": "The heat pump is already off."
+                },
+                {
+                  "stop": "already off"
+                }
+              ]
+            },
+            {
+              "action": "climate.set_hvac_mode",
+              "target": {
+                "entity_id": "climate.living_room"
+              },
+              "data": {
+                "hvac_mode": "off"
+              }
+            },
+            {
+              "set_conversation_response": "Heat pump off."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "status"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% if mode == 'off' %}The heat pump is off. It's {{ inside | round(0) | int }} degrees in the living room.{% else %}The heat pump is {{ {'heat':'heating','cool':'cooling','heat_cool':'on auto','dry':'drying','fan_only':'on fan only'}.get(mode, mode) }}, set to {{ target }} degrees. It's {{ inside | round(0) | int }} degrees in the living room.{% endif %}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_heatpump"
+}

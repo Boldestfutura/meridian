@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.24.1";
+const VERSION = "0.24.2";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -402,6 +402,19 @@ class OverlookShow extends LitElement {
       this._wxTimer = setTimeout(() => {
         if (this._page === "climate" && !(this._touchedAt > at)) this._go("photos");
       }, 60 * 1000);
+      return;
+    }
+    // "show me the calendar / photos / controls / music": that page for a minute, then home
+    if (d.action === "page" && d.page) {
+      this._wx = null;
+      const at = Date.now(), page = d.page;
+      this._go(page);
+      this._poke();
+      if (page !== "photos") {
+        this._wxTimer = setTimeout(() => {
+          if (this._page === page && !(this._touchedAt > at)) this._go("photos");
+        }, 60 * 1000);
+      }
       return;
     }
     if (d.action !== "weather") { this._wx = null; return; }

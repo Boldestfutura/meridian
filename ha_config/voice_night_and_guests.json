@@ -1,0 +1,131 @@
+{
+  "alias": "Voice: Sleep Sounds and Guest Mode",
+  "mode": "parallel",
+  "description": "'Play sleep sounds' / 'stop sleep sounds' (input_boolean.bedroom_night_mode, the Sleep Sounds tile). 'We've got guests' / 'the guests have gone' (Guest Mode). Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "play [the] sleep sounds",
+        "(turn|switch) on [the] sleep sounds",
+        "sleep sounds on",
+        "start [the] sleep sounds"
+      ],
+      "id": "sleep_on"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(stop|end) [the] sleep sounds",
+        "(turn|switch) off [the] sleep sounds",
+        "(turn|switch) [the] sleep sounds off",
+        "sleep sounds off"
+      ],
+      "id": "sleep_off"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(we've|we have) got guests",
+        "(we've|we have) (guests|visitors|people) (over|staying)",
+        "(the) guests are (here|staying)",
+        "guest mode on",
+        "(turn|switch) on guest mode"
+      ],
+      "id": "guests_on"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(the) guests (have|'ve) (gone|left)",
+        "(our) guests (have|'ve) (gone|left)",
+        "guest mode off",
+        "(turn|switch) off guest mode"
+      ],
+      "id": "guests_off"
+    }
+  ],
+  "actions": [
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "sleep_on"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_on",
+              "target": {
+                "entity_id": "input_boolean.bedroom_night_mode"
+              }
+            },
+            {
+              "set_conversation_response": "Sleep sounds on."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "sleep_off"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.bedroom_night_mode"
+              }
+            },
+            {
+              "set_conversation_response": "Sleep sounds off."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "guests_on"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_on",
+              "target": {
+                "entity_id": "input_boolean.guest_mode"
+              }
+            },
+            {
+              "set_conversation_response": "Guest mode on."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "guests_off"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.guest_mode"
+              }
+            },
+            {
+              "set_conversation_response": "Guest mode off."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_night_and_guests"
+}

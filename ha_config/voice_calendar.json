@@ -1,0 +1,67 @@
+{
+  "alias": "Voice: Calendar",
+  "mode": "parallel",
+  "description": "'What's on today / tomorrow / this weekend' from the P + c calendar, birthdays and Australian holidays, and opens the Calendar page on the screen you asked (spoken only, not typed). Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "(what's|what is|what have we got|what do we have|what do I have|what have I got) on (today|tomorrow|this weekend)",
+        "(what's|what is) happening (today|tomorrow|this weekend)",
+        "(what's|what is) on the calendar [today|tomorrow|this weekend]",
+        "(do|have) (I|we) (got|have) anything on (today|tomorrow|this weekend)"
+      ],
+      "id": "cal"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in ['bedroom','kitchen','living_room','guest_bedroom'] else 'bedroom' }}",
+        "s": "{{ trigger.sentence | lower }}",
+        "day": "{{ 'weekend' if 'weekend' in s else 'tomorrow' if 'tomorrow' in s else 'today' }}",
+        "start": "{% set d = today_at('00:00') %}{% if day == 'tomorrow' %}{{ (d + timedelta(days=1)).isoformat() }}{% elif day == 'weekend' %}{% set wd = d.weekday() %}{{ (d + timedelta(days=(5 - wd) if wd < 5 else 0)).isoformat() }}{% else %}{{ now().isoformat() }}{% endif %}",
+        "end": "{% set d = today_at('00:00') %}{% if day == 'tomorrow' %}{{ (d + timedelta(days=2)).isoformat() }}{% elif day == 'weekend' %}{% set wd = d.weekday() %}{{ (d + timedelta(days=(7 - wd) if wd < 6 else 1)).isoformat() }}{% else %}{{ (d + timedelta(days=1)).isoformat() }}{% endif %}"
+      }
+    },
+    {
+      "action": "calendar.get_events",
+      "target": {
+        "entity_id": [
+          "calendar.p_c",
+          "calendar.birthdays",
+          "calendar.holidays_in_australia"
+        ]
+      },
+      "data": {
+        "start_date_time": "{{ start }}",
+        "end_date_time": "{{ end }}"
+      },
+      "response_variable": "cal"
+    },
+    {
+      "if": [
+        {
+          "condition": "template",
+          "value_template": "{{ trigger.device_id is not none }}"
+        }
+      ],
+      "then": [
+        {
+          "action": "input_text.set_value",
+          "target": {
+            "entity_id": "input_text.overlook_voice"
+          },
+          "data": {
+            "value": "{{ {'area': here, 'action': 'page', 'page': 'calendar', 't': now().timestamp() | int} | to_json }}"
+          },
+          "continue_on_error": true
+        }
+      ]
+    },
+    {
+      "set_conversation_response": "{% set ns = namespace(ev=[]) %}{% for k, v in cal.items() %}{% for e in v.events %}{% set ns.ev = ns.ev + [e] %}{% endfor %}{% endfor %}{% set evs = ns.ev | sort(attribute='start') %}{% set when = {'today':'today','tomorrow':'tomorrow','weekend':'this weekend'}[day] %}{% if not evs %}Nothing on {{ when }}.{% else %}{% set ns2 = namespace(out=[]) %}{% for e in evs[:5] %}{% if 'T' in e.start %}{% set t = as_datetime(e.start) | as_local %}{% set at = t.strftime('%-I') ~ ('' if t.minute == 0 else t.strftime(':%M')) ~ (' am' if t.hour < 12 else ' pm') %}{% set lead = (t.strftime('%A') ~ ' ' if day == 'weekend' else '') ~ 'at ' ~ at %}{% set ns2.out = ns2.out + [(e.summary | replace(' @ ', ' at ') | replace('@', ' at ') | replace(' & ', ' and ')) ~ ' ' ~ lead] %}{% else %}{% set ns2.out = ns2.out + [(e.summary | replace(' @ ', ' at ') | replace('@', ' at ') | replace(' & ', ' and ')) ~ ((' on ' ~ as_datetime(e.start).strftime('%A')) if day == 'weekend' else '')] %}{% endif %}{% endfor %}{{ when | capitalize }}: {{ ns2.out | join(', then ') }}.{{ ' And ' ~ (evs | count - 5) ~ ' more.' if evs | count > 5 else '' }}{% endif %}"
+    }
+  ],
+  "id": "voice_calendar"
+}

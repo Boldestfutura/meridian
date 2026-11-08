@@ -1,0 +1,183 @@
+{
+  "alias": "Voice: Music Control",
+  "mode": "parallel",
+  "description": "Music on the speaker in the room you spoke to (or the one playing): what's playing, turn it up/down (3% steps like the buttons), skip, pause. 'Play ...' is Voice Music. Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "what's playing",
+        "what is playing",
+        "what('s| is) this song",
+        "what song is this",
+        "who (sings|is singing) this",
+        "who('s| is) this"
+      ],
+      "id": "what"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "turn it up",
+        "turn the (music|volume) up",
+        "turn up the (music|volume)",
+        "louder",
+        "(a bit|a little) louder"
+      ],
+      "id": "up"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "turn it down",
+        "turn the (music|volume) down",
+        "turn down the (music|volume)",
+        "quieter",
+        "(a bit|a little) quieter"
+      ],
+      "id": "down"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "skip [this] [song|track]",
+        "next (song|track)",
+        "play the next (song|track)"
+      ],
+      "id": "skip"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "pause the (music|song)",
+        "stop the (music|song)",
+        "pause music"
+      ],
+      "id": "pause"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in ['bedroom','kitchen','living_room','guest_bedroom'] else 'bedroom' }}",
+        "players": {
+          "bedroom": "media_player.bedroom_echo",
+          "kitchen": "media_player.homepod_mini_kitchen_2",
+          "living_room": "media_player.living_room_amp_2",
+          "guest_bedroom": "media_player.guest_bedroom_homepod_mini_2"
+        },
+        "player": "{% set mine = players[here] %}{% if is_state(mine, 'playing') %}{{ mine }}{% else %}{{ (players.values() | select('is_state','playing') | list + [mine]) | first }}{% endif %}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "what"
+            }
+          ],
+          "sequence": [
+            {
+              "set_conversation_response": "{% set t = state_attr(player,'media_title') %}{% set a = state_attr(player,'media_artist') %}{% if not is_state(player,'playing') or not t %}Nothing's playing.{% else %}This is {{ t }}{{ ' by ' ~ a if a else '' }}.{% endif %}"
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "up"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "v": "{{ [((state_attr(player,'volume_level') or 0) + 0.03), 1] | min | round(2) }}"
+              }
+            },
+            {
+              "action": "media_player.volume_set",
+              "target": {
+                "entity_id": "{{ player }}"
+              },
+              "data": {
+                "volume_level": "{{ v }}"
+              }
+            },
+            {
+              "set_conversation_response": ""
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "down"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "v": "{{ [((state_attr(player,'volume_level') or 0) - 0.03), 0] | max | round(2) }}"
+              }
+            },
+            {
+              "action": "media_player.volume_set",
+              "target": {
+                "entity_id": "{{ player }}"
+              },
+              "data": {
+                "volume_level": "{{ v }}"
+              }
+            },
+            {
+              "set_conversation_response": ""
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "skip"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "media_player.media_next_track",
+              "target": {
+                "entity_id": "{{ player }}"
+              }
+            },
+            {
+              "set_conversation_response": ""
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "pause"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "media_player.media_pause",
+              "target": {
+                "entity_id": "{{ player }}"
+              }
+            },
+            {
+              "set_conversation_response": "Paused."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_music_control"
+}

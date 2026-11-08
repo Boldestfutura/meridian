@@ -1,0 +1,67 @@
+{
+  "alias": "Voice: Heat Pump for Half an Hour",
+  "mode": "restart",
+  "description": "'Warm the house up for half an hour' / 'cool the house down for 30 minutes': heat or cool at 22 for 30 minutes, then off. Saying it again restarts the 30 minutes. Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "warm (it|the house|the room|things) up for (half an hour|30 minutes|thirty minutes)",
+        "heat the house for (half an hour|30 minutes|thirty minutes)"
+      ],
+      "id": "warm"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "cool (it|the house|the room|things) down for (half an hour|30 minutes|thirty minutes)"
+      ],
+      "id": "cool"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "m": "{{ 'heat' if trigger.id == 'warm' else 'cool' }}"
+      }
+    },
+    {
+      "action": "climate.set_temperature",
+      "target": {
+        "entity_id": "climate.living_room"
+      },
+      "data": {
+        "hvac_mode": "{{ m }}",
+        "temperature": 22
+      }
+    },
+    {
+      "set_conversation_response": "{{ 'Heating' if m == 'heat' else 'Cooling' }} at 22 degrees for half an hour."
+    },
+    {
+      "delay": {
+        "minutes": 30
+      }
+    },
+    {
+      "if": [
+        {
+          "condition": "template",
+          "value_template": "{{ states('climate.living_room') == m }}"
+        }
+      ],
+      "then": [
+        {
+          "action": "climate.set_hvac_mode",
+          "target": {
+            "entity_id": "climate.living_room"
+          },
+          "data": {
+            "hvac_mode": "off"
+          }
+        }
+      ]
+    }
+  ],
+  "id": "voice_heatpump_timed"
+}

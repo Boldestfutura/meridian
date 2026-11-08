@@ -1,0 +1,112 @@
+{
+  "alias": "Voice: Christmas Lights and Screen",
+  "mode": "parallel",
+  "description": "'Christmas lights on/off' (living room smart plug). 'Show me the photos / calendar / controls / music' on the screen you spoke to (needs card 0.24.2+). Added 2026-11-09.",
+  "triggers": [
+    {
+      "trigger": "conversation",
+      "command": [
+        "(turn|switch) on the christmas lights",
+        "(turn|switch) the christmas lights on",
+        "christmas lights on"
+      ],
+      "id": "xmas_on"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "(turn|switch) off the christmas lights",
+        "(turn|switch) the christmas lights off",
+        "christmas lights off"
+      ],
+      "id": "xmas_off"
+    },
+    {
+      "trigger": "conversation",
+      "command": [
+        "show [me] the (photos|pictures|calendar|controls|lights|music|media|home screen|clock)",
+        "go (home|back)"
+      ],
+      "id": "show"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in ['bedroom','kitchen','living_room','guest_bedroom'] else 'bedroom' }}",
+        "s": "{{ trigger.sentence | lower }}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "xmas_on"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "switch.turn_on",
+              "target": {
+                "entity_id": "switch.smart_plug"
+              }
+            },
+            {
+              "set_conversation_response": "Christmas lights on."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "xmas_off"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "switch.turn_off",
+              "target": {
+                "entity_id": "switch.smart_plug"
+              }
+            },
+            {
+              "set_conversation_response": "Christmas lights off."
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "show"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "page": "{% if 'calendar' in s %}calendar{% elif 'control' in s or 'light' in s %}controls{% elif 'music' in s or 'media' in s %}media{% else %}photos{% endif %}"
+              }
+            },
+            {
+              "action": "input_text.set_value",
+              "target": {
+                "entity_id": "input_text.overlook_voice"
+              },
+              "data": {
+                "value": "{{ {'area': here, 'action': 'page', 'page': page, 't': now().timestamp() | int} | to_json }}"
+              },
+              "continue_on_error": true
+            },
+            {
+              "set_conversation_response": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "id": "voice_misc"
+}
