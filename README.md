@@ -17,8 +17,10 @@ Working on this house's live install: [docs/LIVE.md](docs/LIVE.md).
 Separately, [docs/ECHO_MUTE_BUTTON.md](docs/ECHO_MUTE_BUTTON.md) turns an Echo Show 5's top
 button into a mute button.
 
-**Type:** Unbounded (headings, clock, big numbers) and Figtree (everything else), from Google
-Fonts. Weather icons are our own SVGs, drawn by [`tools/weather_icons.py`](tools/weather_icons.py).
+**Type:** Amazon Ember Display (headings, clock, big numbers) and Amazon Ember (everything
+else), the typefaces Echo devices use. The font files are not in this repo; see
+[Fonts](#fonts) for how to get them. Weather icons are our own SVGs, drawn by
+[`tools/weather_icons.py`](tools/weather_icons.py).
 
 *Calendar entries, the shopping list and the photo in these screenshots are placeholders.*
 
@@ -70,9 +72,38 @@ Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
 - Optional, per feature: `album_slideshow` cameras for the photos, Music Assistant for
   playlists (the template sensor in [`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml)),
   Norish for recipes (`tools/norish_sync.py`), a `todo` list and calendars.
+- Amazon Ember, optional: see [Fonts](#fonts).
 - The `Overlook` theme ([`themes/overlook.yaml`](themes/overlook.yaml)) for HA's own pages and
   the Phone Show's sections view. **A theme needs both `modes.light` and `modes.dark`**: with
   only `dark`, HA forces dark mode on every device.
+
+## Fonts
+
+The dashboards are set in **Amazon Ember**. Amazon owns it and publishes it on its
+[Echo typography guidelines](https://developer.amazon.com/en-US/alexa/branding/echo-guidelines/identity-guidelines/typography)
+page ("Download (font, 25 MB)"), so it isn't redistributed here. Without it the
+dashboards still work and fall back to the system font.
+
+To use it:
+
+1. Download the font set from that page and unzip it. Inside is
+   `amazon_typography_webfonts.zip`; unzip that too.
+2. On the HA box, make `/config/www/fonts/amazon-ember/` and copy these into it:
+
+   | file | from |
+   |---|---|
+   | `AmazonEmber_W_Rg.woff2`, `AmazonEmber_W_SBd.woff2`, `AmazonEmber_W_Bd.woff2`, `AmazonEmber_W_He.woff2` | `webfonts/` |
+   | `AmazonEmberDisplay_W_Rg.woff2`, `AmazonEmberDisplay_W_Md.woff2`, `AmazonEmberDisplay_W_Bd.woff2`, `AmazonEmberDisplay_W_He.woff2` | `webfonts/` |
+   | `Amazon-Ember-Medium.ttf`, renamed to `AmazonEmber_Md.ttf` | `Ember/` in the outer zip (the web set has no Medium) |
+
+3. Run `./deploy.py` for any Show dashboard. It copies [`www/fonts/ember.css`](www/fonts/ember.css)
+   beside them.
+4. For HA's own pages and other cards, add `/local/fonts/amazon-ember/ember.css` as a
+   Lovelace resource of type *Stylesheet* (Settings > Dashboards > Resources). The
+   `Overlook` theme already names `Amazon Ember` as its font.
+
+The card loads the files itself, through HA's absolute URL, so a Nest Hub cast gets them too.
+HA's static files already allow `cast.home-assistant.io`, so nothing else is needed.
 
 ## Use
 
@@ -90,7 +121,8 @@ Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
 ```
 www/overlook-show.js   the card: every layout (tablet, hub, bedside, desk, phone) in one file
 www/lit-all.min.js     Lit, vendored
-www/weather/ inputs/   artwork: weather icons, the amp's TV and phono inputs
+www/weather/           weather icons (drawn by tools/weather_icons.py)
+www/fonts/ember.css    @font-face rules for Amazon Ember (the font files are not in the repo)
 show.py                Kitchen Show and the shared CARD config, VERSION
 showhub.py             Hub Show
 showbedroom.py         Bedroom Show

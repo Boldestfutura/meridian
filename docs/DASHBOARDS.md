@@ -19,7 +19,7 @@ More screenshots in the [README](../README.md).
 | `www/overlook-show.js` | the whole UI: one Lit card, every layout in one file |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
-| `www/inputs/*.svg` | artwork for the amp's TV and phono inputs |
+| `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
 | `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`, the shared config: rooms, scenes, status pills, calendars, recipes. The other dashboards start from `show.CARD` |
 | `showhub.py` | Hub Show (`ha-show-hub`) for the Nest Hub (1024x600, cast): `hub` mode. Photos are home; the dock opens Controls, Media, Climate, Calendar and Recipes. Kept alive by `ha_config/kitchen_cast_keepalive.json` |
 | `showbedroom.py` | Bedroom Show (`ha-show-bedroom`) for the Echo Show 5 (960x480): `bedside` mode. Photos with the clock are home; Controls, Media, Climate, Calendar. Red night clock, voice timers and alarms (`clock`), full-screen now playing (`nowplaying`, `nowplaying_return`). Everything comes from the Bedroom room in `show.CARD` |
@@ -114,6 +114,9 @@ off on 2026-11-04.
   must go through `this._u()` (makes it absolute with `hass.hassUrl`), or it points at
   Google's server and the image comes up blank.
 - Under 680px tall the compact layout kicks in; the heat pump card is the tightest fit.
+- **The timer and alarm digits are sized from the font's widths** (`_ckFit`: Ember Display
+  800 digits are 0.6em, colons 0.31em). Change the display font and those numbers must change.
+- The amp's inputs (`INPUTS`) show an icon on a light accent tint instead of artwork.
 - **Screenshots for this public repo use placeholders.** The calendar, shopping list and photo
   are faked in the page before capture, and HA's sidebar is cropped off (it shows the
   signed-in user's picture).

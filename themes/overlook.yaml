@@ -1,6 +1,6 @@
 # Overlook — matched to IMG_0951: a light grey ground, pure white cards,
-# large radii, no shadows, and Figtree, which is already loaded as a Lovelace
-# resource. Set as the default theme for both light and dark, so the whole
+# large radii, no shadows, and Amazon Ember (loaded by the Lovelace resource
+# /local/fonts/amazon-ember/ember.css). Set as the default theme for both light and dark, so the whole
 # app (sidebar, header, settings, dialogs) wears it, not just the dashboards.
 #
 # Anything not set here falls back to HA's own light or dark default.
@@ -16,9 +16,9 @@ Overlook:
   button-card-border-radius: "22px"
 
   # --- type ---------------------------------------------------------------
-  primary-font-family: "Figtree, system-ui, -apple-system, sans-serif"
-  paper-font-common-base_-_font-family: "Figtree, system-ui, sans-serif"
-  paper-font-body1_-_font-family: "Figtree, system-ui, sans-serif"
+  primary-font-family: "'Amazon Ember', system-ui, -apple-system, sans-serif"
+  paper-font-common-base_-_font-family: "'Amazon Ember', system-ui, sans-serif"
+  paper-font-body1_-_font-family: "'Amazon Ember', system-ui, sans-serif"
 
   # --- amber, used sparingly, exactly as the reference does ---------------
   primary-color: "#f59e0b"

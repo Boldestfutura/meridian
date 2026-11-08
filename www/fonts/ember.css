@@ -1,0 +1,10 @@
+/* Amazon Ember for HA's own pages and cards. The Show card loads the same faces itself. */
+@font-face { font-family: "Amazon Ember"; src: url("AmazonEmber_W_Rg.woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Amazon Ember"; src: url("AmazonEmber_Md.ttf"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Amazon Ember"; src: url("AmazonEmber_W_SBd.woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Amazon Ember"; src: url("AmazonEmber_W_Bd.woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Amazon Ember"; src: url("AmazonEmber_W_He.woff2"); font-weight: 800; font-display: swap; }
+@font-face { font-family: "Amazon Ember Display"; src: url("AmazonEmberDisplay_W_Rg.woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Amazon Ember Display"; src: url("AmazonEmberDisplay_W_Md.woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Amazon Ember Display"; src: url("AmazonEmberDisplay_W_Bd.woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Amazon Ember Display"; src: url("AmazonEmberDisplay_W_He.woff2"); font-weight: 800; font-display: swap; }

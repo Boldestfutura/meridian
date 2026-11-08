@@ -109,6 +109,11 @@ MA players are the `_2` entities (`media_player.living_room_amp_2`, `homepod_min
   appear in the recent list: the API won't return them.
 - **Next job:** `docs/tasks/paget-spotify.md`.
 
+**Font.** Amazon Ember since 2026-11-08 (Cameron supplied Amazon's font set). The files are in
+`/config/www/fonts/amazon-ember/` on HA only, never in this public repo; Lovelace resource
+`/local/fonts/amazon-ember/ember.css` (type css) carries them to HA's own cards. It replaced the two
+duplicate Figtree resources.
+
 **Theme.** `themes/overlook.yaml` (deployed to `/config/themes/overlook/`) is the app-wide
 default; HA's own pages and the Phone Show's sections view use it.
 - It needs **both** `modes.light` and `modes.dark`: HA forces dark on a theme that only has dark.

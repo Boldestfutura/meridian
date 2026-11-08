@@ -16,9 +16,9 @@ Overlook Blue:
   button-card-border-radius: "22px"
 
   # --- type ---------------------------------------------------------------
-  primary-font-family: "Figtree, system-ui, -apple-system, sans-serif"
-  paper-font-common-base_-_font-family: "Figtree, system-ui, sans-serif"
-  paper-font-body1_-_font-family: "Figtree, system-ui, sans-serif"
+  primary-font-family: "'Amazon Ember', system-ui, -apple-system, sans-serif"
+  paper-font-common-base_-_font-family: "'Amazon Ember', system-ui, sans-serif"
+  paper-font-body1_-_font-family: "'Amazon Ember', system-ui, sans-serif"
 
   # --- the Show's blue; lit lights are its warm orange ----------------------
   primary-color: "#1d5cf0"

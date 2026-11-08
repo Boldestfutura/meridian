@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.22";
+const VERSION = "0.23.0";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -23,10 +23,10 @@ function rgbToHsl(r, g, b) {
   return [h * 60, s, l];
 }
 const TRACK_ART = { "Stream Sounds": "/local/sounds/stream.svg?v=2" };
-// the amp's inputs get their own artwork and names in place of album art
+// the amp's inputs get their own icon and names in place of album art
 const INPUTS = {
-  "TV": { art: "/local/inputs/tv.svg?v=1", title: "TV", sub: "TV audio" },
-  "Line-in": { art: "/local/inputs/phono.svg?v=1", title: "Phono", sub: "Turntable" },
+  "TV": { icon: "mdi:television", title: "TV", sub: "TV audio" },
+  "Line-in": { icon: "mdi:record-player", title: "Phono", sub: "Turntable" },
 };
 // phone tiles with play/pause and power, always, instead of volume
 const POWER_TILES = ["media_player.living_room"];
@@ -121,13 +121,25 @@ const CLASS_ICON = {
 const TYPE_ICON = { light: "mdi:lightbulb", media: "mdi:speaker", climate: "mdi:thermostat", plant: "mdi:sprout",
                     switch: "mdi:toggle-switch-outline", sensor: "mdi:eye-outline", scene: "mdi:palette" };
 
-const loadFonts = () => {
+// Amazon Ember, served by HA from /config/www/fonts/amazon-ember (not in this repo: the README
+// says where to get it). Without the files everything falls back to the system font.
+// The URLs go through hassUrl so a cast (cast.home-assistant.io) fetches them from HA.
+const FONT_DIR = "/local/fonts/amazon-ember/";
+const FONT_FACES = [
+  ["Amazon Ember", "AmazonEmber_W_Rg.woff2", 400], ["Amazon Ember", "AmazonEmber_Md.ttf", 500],
+  ["Amazon Ember", "AmazonEmber_W_SBd.woff2", 600], ["Amazon Ember", "AmazonEmber_W_Bd.woff2", 700],
+  ["Amazon Ember", "AmazonEmber_W_He.woff2", 800],
+  ["Amazon Ember Display", "AmazonEmberDisplay_W_Rg.woff2", 400], ["Amazon Ember Display", "AmazonEmberDisplay_W_Md.woff2", 500],
+  ["Amazon Ember Display", "AmazonEmberDisplay_W_Bd.woff2", 700], ["Amazon Ember Display", "AmazonEmberDisplay_W_He.woff2", 800],
+];
+const loadFonts = (hass) => {
   if (document.getElementById("overlook-show-fonts")) return;
-  const l = document.createElement("link");
-  l.id = "overlook-show-fonts";
-  l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
-  document.head.appendChild(l);
+  const base = hass && hass.hassUrl ? hass.hassUrl(FONT_DIR) : FONT_DIR;
+  const st = document.createElement("style");
+  st.id = "overlook-show-fonts";
+  st.textContent = FONT_FACES.map(([fam, file, w]) =>
+    `@font-face { font-family: "${fam}"; src: url("${base}${file}"); font-weight: ${w}; font-display: swap; }`).join("\n");
+  document.head.appendChild(st);
 };
 
 const fireHaptic = (type = "light") => {
@@ -213,13 +225,7 @@ class OverlookShow extends LitElement {
       this._hdr = setInterval(hide, 400);
       hide();
     }
-    if (!document.getElementById("overlook-show-fonts")) {
-      const l = document.createElement("link");
-      l.id = "overlook-show-fonts";
-      l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&display=swap";
-      document.head.appendChild(l);
-    }
+    if (this.hass) loadFonts(this.hass);
   }
 
   disconnectedCallback() {
@@ -289,6 +295,7 @@ class OverlookShow extends LitElement {
     if (this._config.nowplaying) this._marquee();
     if (changed.has("hass") && this.hass && !this._subscribed) {
       this._subscribed = true;
+      loadFonts(this.hass);
       this._subscribe();
     }
     if (this._page === "calendar" && !this._config.phone) this._fitChips();
@@ -519,10 +526,10 @@ class OverlookShow extends LitElement {
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
     return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
   }
-  // digits as big as the screen allows: Unbounded 800 digits are about 0.8em wide, colons 0.4em
+  // digits as big as the screen allows: Amazon Ember Display 800 digits are 0.6em wide, colons 0.31em
   _ckFit(text, extra = 0) {
     const s = String(text);
-    const em = [...s].reduce((w, ch) => w + (ch === ":" ? 0.4 : 0.8), 0) + extra;
+    const em = [...s].reduce((w, ch) => w + (ch === ":" ? 0.34 : 0.62), 0) + extra;
     return `font-size:min(44vh, ${(58 / em).toFixed(2)}vw)`;
   }
   _ckSecs(hms) {
@@ -1267,8 +1274,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="pplayer ${muted ? "muted-vol" : ""}">
         <div class="pp-top">
-          <div class="art" style=${this._pic(a) ? `background-image:url('${this._pic(a)}')` : ""}>
-            ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}</div>
+          ${this._art(a)}
           <div class="media-text">
             ${this._src(a) ? html`<div class="media-src">${this._src(a)}</div>` : nothing}
             <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
@@ -1642,9 +1648,10 @@ class OverlookShow extends LitElement {
       <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
         ${phone && showVol ? html`<span class="ph-vol">${pct}%</span>` : nothing}
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
+          ${!phone && active && this._input(a) ? this._art(a, "small") : html`
           <div class="art small" style=${!phone && pic ? `background-image:url('${pic}')` : ""}>
             ${!phone && pic ? nothing : html`<ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon>`}
-          </div>
+          </div>`}
           <div class="media-text">
             <div class="media-src">${m.name || a.friendly_name}</div>
             <div class="player-title">${active ? this._title(a) : state}</div>
@@ -1960,7 +1967,13 @@ class OverlookShow extends LitElement {
   // A cast runs the dashboard from cast.home-assistant.io, so a bare "/local/..." or
   // "/api/..." path would point at Google's server. hassUrl() makes it absolute.
   _input(a) { return INPUTS[a.source] || null; }
-  _pic(a) { const i = this._input(a); return this._u((i && i.art) || a.entity_picture || TRACK_ART[a.media_title]); }
+  _pic(a) { return this._input(a) ? null : this._u(a.entity_picture || TRACK_ART[a.media_title]); }
+  // the square beside a title: the artwork, or the input's icon on a tint, or a music note
+  _art(a, cls = "") {
+    const pic = this._pic(a), i = this._input(a);
+    return html`<div class="art ${cls} ${i ? "input-art" : ""}" style=${pic ? `background-image:url('${pic}')` : ""}>
+      ${pic ? nothing : html`<ha-icon icon=${(i && i.icon) || "mdi:music-note"}></ha-icon>`}</div>`;
+  }
   _title(a) { const i = this._input(a); return i ? i.title : a.media_title; }
   _artist(a) { const i = this._input(a); return i ? i.sub : (a.media_artist || ""); }
   _src(a) { return this._input(a) ? "Input" : (a.app_name || a.source); }
@@ -2180,9 +2193,7 @@ class OverlookShow extends LitElement {
       <div class="card media-card">
         <div class="card-title">Active Media</div>
         <div class="media-row">
-          <div class="art" style=${this._pic(a) ? `background-image:url('${this._pic(a)}')` : ""}>
-            ${this._pic(a) ? nothing : html`<ha-icon icon="mdi:music-note"></ha-icon>`}
-          </div>
+          ${this._art(a)}
           <div class="media-text">
             ${this._src(a) ? html`<div class="media-src">${this._src(a)}</div>` : nothing}
             <div class="media-title">${title}</div>
@@ -2705,8 +2716,8 @@ class OverlookShow extends LitElement {
       --track: #dbe5f5;
       --track-strong: #b9c6db;
       --shadow: 0 1px 2px rgba(22, 42, 84, 0.04), 0 10px 30px rgba(22, 42, 84, 0.07);
-      --display: Unbounded, Figtree, system-ui, sans-serif;
-      --body: Figtree, system-ui, sans-serif;
+      --display: "Amazon Ember Display", "Amazon Ember", system-ui, sans-serif;
+      --body: "Amazon Ember", system-ui, sans-serif;
       display: block;
     }
     @media (prefers-color-scheme: dark) {
@@ -2872,6 +2883,9 @@ class OverlookShow extends LitElement {
     .media-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 12px; align-items: center; }
     .art { width: 76px; height: 76px; border-radius: 16px; background: var(--inset) center / cover;
            display: grid; place-items: center; color: var(--muted); }
+    .art.input-art { background: color-mix(in srgb, var(--accent) 16%, var(--card)); color: var(--accent); }
+    .art.input-art ha-icon { --mdc-icon-size: 38px; }
+    .art.small.input-art ha-icon { --mdc-icon-size: 26px; }
     .media-text { min-width: 0; }
     .media-src { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
     .media-title { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3754,6 +3768,8 @@ class OverlookShow extends LitElement {
     .pplayer.muted-vol { background: color-mix(in srgb, #e5484d 12%, var(--inset)); }
     .pp-top { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; }
     .pp-top .art { width: 64px; height: 64px; background-color: var(--card); }
+    .pp-top .art.input-art { background-color: color-mix(in srgb, var(--accent) 16%, var(--card)); }
+    .pp-top .art.input-art ha-icon { --mdc-icon-size: 32px; }
     .pp-ctrl { display: flex; justify-content: center; align-items: center; gap: 22px; }
     .pp-ctrl .round.play { width: 56px; height: 56px; background: var(--accent); color: #fff; }
     .pp-ctrl .round.small, .pplayer .vol .round.small, .pp-top .round.small { background: var(--card); }
