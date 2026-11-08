@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.18";
+const VERSION = "0.22.20";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -3577,6 +3577,13 @@ class OverlookShow extends LitElement {
     .bedside .photo-cap { left: auto; right: 22px; bottom: 20px; text-align: right; }
     .bedside .cap-big { font-size: 17px; }
     .bedside .topright { right: 22px; }
+    /* the Hub is read from across the kitchen: clock and weather bigger again over photos */
+    .hub .topright.on-photo { gap: 14px; }
+    .hub .topright.on-photo .clock { font-size: 108px; font-weight: 600; letter-spacing: -0.02em; }
+    .hub .topright.on-photo .temp { font-size: 54px; }
+    .hub .topright.on-photo .wx { --mdc-icon-size: 52px; }
+    .hub .np-line { top: calc(env(safe-area-inset-top, 0px) + 150px); }
+    .hub .topright .clock { font-size: 40px; font-weight: 600; }
     .bedside .topright.on-photo .clock { font-size: 76px; }
     .bedside .topright.on-photo .temp { font-size: 42px; }
     .bedside .topright.on-photo .wx { --mdc-icon-size: 40px; }
