@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.22.17";
+const VERSION = "0.22.18";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -2092,21 +2092,8 @@ class OverlookShow extends LitElement {
         <div class="photo-cap">
           ${album ? html`<div class="cap-small">${album}</div>` : nothing}
           ${d ? html`<div class="cap-big">${d.getDate()} ${LONG_MONTHS[d.getMonth()]} ${d.getFullYear()}</div>` : nothing}
-          ${cam && cam.attributes.entry_id ? html`
-            <div class="photo-nav" @click=${(ev) => ev.stopPropagation()}>
-              <button title="Previous photo" @click=${() => this._slide(cam, "previous_slide")}>
-                <ha-icon icon="mdi:chevron-left"></ha-icon></button>
-              <button title="Next photo" @click=${() => this._slide(cam, "next_slide")}>
-                <ha-icon icon="mdi:chevron-right"></ha-icon></button>
-            </div>` : nothing}
         </div>
       </div>`;
-  }
-
-  // step the slideshow; it stays on photos, and the idle timer restarts with the tap
-  _slide(cam, service) {
-    fireHaptic("selection");
-    this._call("album_slideshow", service, { entry_id: cam.attributes.entry_id });
   }
 
   // --- kitchen ------------------------------------------------------------
@@ -2789,9 +2776,10 @@ class OverlookShow extends LitElement {
     .topright .clock { font-size: 34px; font-weight: 500; letter-spacing: -0.01em; margin-left: 8px;
                        font-variant-numeric: tabular-nums; }
     .topright.on-photo { color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
-    .topright.on-photo .clock { font-size: 52px; }
-    .topright.on-photo .temp { font-size: 30px; }
-    .np-line { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 100px); right: 30px; z-index: 3;
+    .topright.on-photo .clock { font-size: 62px; }
+    .topright.on-photo .temp { font-size: 40px; font-weight: 600; }
+    .topright.on-photo .wx { --mdc-icon-size: 38px; }
+    .np-line { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 112px); right: 30px; z-index: 3;
                max-width: 46%; display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px;
                border-radius: 999px; background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
                color: #fff; font-family: var(--body); text-align: left; }
@@ -3241,14 +3229,8 @@ class OverlookShow extends LitElement {
     .photo-shade { position: absolute; inset: 0; pointer-events: none;
                    background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 62%, rgba(0,0,0,.5) 100%); }
     .photo-cap { position: absolute; left: 40px; bottom: 36px; color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,.4); }
-    .cap-small { font-size: 16px; font-weight: 500; opacity: 0.9; }
-    .cap-big { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
-    .photo-nav { display: flex; gap: 8px; margin-top: 14px; }
-    .photo-nav button { width: 40px; height: 40px; border-radius: 50%; border: 0; display: grid; place-items: center;
-                        background: rgba(20, 32, 56, 0.55); color: #fff; cursor: pointer; text-shadow: none;
-                        -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-    .photo-nav button:active { transform: scale(0.94); background: rgba(20, 32, 56, 0.75); }
-    .photo-nav ha-icon { --mdc-icon-size: 24px; }
+    .cap-small { font-size: 14px; font-weight: 500; opacity: 0.85; }
+    .cap-big { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
 
     /* compact: an 8-inch tablet may only be ~600px tall in CSS pixels */
     @media (max-height: 680px) {
@@ -3592,14 +3574,12 @@ class OverlookShow extends LitElement {
     /* photos keep the dock over them on every screen; the caption sits bottom right */
     .on-photo .dock { position: relative; z-index: 1; }
     .on-photo .photo-cap { left: auto; right: 40px; text-align: right; }
-    .on-photo .photo-nav { justify-content: flex-end; }
     .bedside .photo-cap { left: auto; right: 22px; bottom: 20px; text-align: right; }
-    .bedside .cap-big { font-size: 22px; }
-    .bedside .photo-nav { justify-content: flex-end; }
+    .bedside .cap-big { font-size: 17px; }
     .bedside .topright { right: 22px; }
-    .bedside .topright.on-photo .clock { font-size: 68px; }
-    .bedside .topright.on-photo .temp { font-size: 34px; }
-    .bedside .topright.on-photo .wx { --mdc-icon-size: 32px; }
+    .bedside .topright.on-photo .clock { font-size: 76px; }
+    .bedside .topright.on-photo .temp { font-size: 42px; }
+    .bedside .topright.on-photo .wx { --mdc-icon-size: 40px; }
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
