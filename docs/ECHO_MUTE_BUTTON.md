@@ -39,9 +39,12 @@ So mute now follows **the light**, not the key:
 1. `/data/system/devices/keylayout/gpio-privacy-button.kl` gives the button its own key layout
    with no keys in it, so presses no longer reach Android as POWER (applies after a reboot).
 2. [`device/echo/privmute.sh`](../device/echo/privmute.sh) runs on the Echo, waits on
-   `event0`, and whenever the light changes sets media mute to match it (sending
-   `input keyevent 164` only when they differ, then waiting for the audio service to show the
-   change so quick presses can't double-toggle).
+   `event0`, and whenever the light changes sets media mute to match it with one call to the
+   audio service (`service call audio 9 ...`, `adjustStreamVolume` with ADJUST_MUTE or
+   ADJUST_UNMUTE on Android 11). It sets, never toggles, so it can't drift, and it takes about
+   50 ms. The first version sent `input keyevent 164`, which takes 1.7 s on the Echo, so quick
+   presses ran behind the light. Only one copy may run: two cancelled each other out on every
+   press, so the script stops any other copy when it starts.
 3. Something starts the script at boot: Magisk's `service.d` if it's installed; otherwise a Home
    Assistant automation over ADB ([`device/echo/ha-automation.yaml`](../device/echo/ha-automation.yaml)),
    which also restarts it within 5 minutes if it ever dies. In this house that job is done by
@@ -72,7 +75,9 @@ To undo: `install-mute-button.sh <echo-ip> --uninstall`, remove the automation, 
 - Pressing **volume up while muted** unmutes the sound but leaves the light on, because Android
   does that itself and the light only changes with the button. Press the button twice to get them
   back in step.
-- The script takes a second or two to follow the light, mostly waiting on `dumpsys audio`.
+- Mute follows the light within a fraction of a second, even with quick presses.
+- The audio-service call number (9) is for Android 11. Another Android version numbers the
+  calls differently: after installing elsewhere, press a few times and run `--check`.
 - The button no longer sleeps the screen. On these screens that's what you want; brightness and
   the night clock are handled elsewhere.
 - `getevent` watches one device per call, and evdev drops a switch event with the same value as

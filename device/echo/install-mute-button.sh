@@ -85,6 +85,7 @@ fi
 sh_ "p=\$(cat $PIDF 2>/dev/null); [ -n \"\$p\" ] && grep -q privmute /proc/\$p/cmdline 2>/dev/null && kill \$p; true"
 sh_ "su shell -c 'setsid sh $SCRIPT </dev/null >/dev/null 2>&1 &' 2>/dev/null || setsid sh $SCRIPT </dev/null >/dev/null 2>&1 &"
 sleep 2
+for i in 1 2 3 4 5; do running && break; sleep 1; done
 running || die "script didn't start; check: adb -s $DEV shell sh -x $SCRIPT"
 echo
 check
