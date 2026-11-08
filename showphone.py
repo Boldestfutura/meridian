@@ -74,9 +74,20 @@ def tiles(*items, title=None):
     return {"type": "tiles", "title": title, "items": list(items)}
 
 
+# one colour per room, the same in the temperature and humidity pop-ups
+ROOM_COLORS = {"Kitchen": "#f39a43", "Master Bedroom": "#8e6cf0", "Living Room": "#1fb39b", "Guest Bedroom": "#3f86f2"}
+
+
 def air_popup(key, title, icon, kitchen, bedroom, extra=()):
-    return {"title": title, "icon": icon, "sections": [tiles(
-        t(kitchen, "Kitchen", icon), t(bedroom, "Master Bedroom", icon), *extra)]}
+    rooms = [t(kitchen, "Kitchen", icon), t(bedroom, "Master Bedroom", icon), *extra]
+    series = [dict(entity=r["entity"], name=r["name"], color=ROOM_COLORS[r["name"]],
+                   **({"attr": r["attr"]} if r.get("attr") else {})) for r in rooms]
+    unit, valid = ("%", [1, 100]) if key == "humidity" else ("°", [5, 45])
+    g = dict(series=series, hours=24, unit=unit, valid=valid)
+    return {"title": title, "icon": icon, "sections": [
+        dict(type="multigraph", name="Each room", **g),
+        dict(type="multigraph", name="House average", average=True, color="#e5484d", **g),
+        tiles(*rooms)]}
 
 
 def player_popup(entity, title, icon, *more):

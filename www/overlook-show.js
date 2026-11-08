@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.23.0";
+const VERSION = "0.24.0";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -1073,19 +1073,33 @@ class OverlookShow extends LitElement {
   }
 
   async _loadHistory(p) {
-    const ids = p.sections.filter((s) => s.type === "graph").map((s) => s.entity);
-    if (!ids.length) return;
-    const hours = Math.max(...p.sections.filter((s) => s.type === "graph").map((s) => s.hours || 168));
-    const start = new Date(Date.now() - hours * 3600 * 1000);
+    const graphs = p.sections.filter((s) => s.type === "graph" || s.type === "multigraph");
+    if (!graphs.length) return;
+    // a multigraph line can be an attribute (the heat pump's own reading); those need attributes in the history
+    const series = graphs.flatMap((s) => s.series || [{ entity: s.entity }]);
+    const plain = [...new Set(series.filter((x) => !x.attr).map((x) => x.entity))];
+    const withAttr = [...new Set(series.filter((x) => x.attr).map((x) => x.entity))];
+    const hours = Math.max(...graphs.map((s) => s.hours || 168));
+    const start = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    // without end_time HA returns only the first day after start
+    const q = (ids, extra) => this.hass.callApi("GET", `history/period/${start}?filter_entity_id=${ids.join(",")}`
+      + `&end_time=${new Date().toISOString()}${extra}`);
     try {
-      // without end_time HA returns only the first day after start
-      const r = await this.hass.callApi("GET", `history/period/${start.toISOString()}?filter_entity_id=${ids.join(",")}`
-        + `&end_time=${new Date().toISOString()}&minimal_response&no_attributes`);
+      const [r1, r2] = await Promise.all([plain.length ? q(plain, "&minimal_response&no_attributes") : [],
+        withAttr.length ? q(withAttr, "&significant_changes_only=0") : []]);
       const hist = Object.assign({}, this._hist);
-      r.forEach((list) => {
+      r1.forEach((list) => {
         if (!list.length) return;
         hist[list[0].entity_id] = list.map((x) => [new Date(x.last_changed).getTime(), Number(x.state)])
           .filter((x) => !isNaN(x[1]));
+      });
+      r2.forEach((list) => {
+        if (!list.length) return;
+        const id = list[0].entity_id;
+        series.filter((x) => x.entity === id && x.attr).forEach((x) => {
+          hist[`${id}|${x.attr}`] = list.map((h) => [new Date(h.last_updated || h.last_changed).getTime(),
+            Number((h.attributes || {})[x.attr])]).filter((h) => !isNaN(h[1]));
+        });
       });
       this._hist = hist;
     } catch (e) { console.warn("overlook-show: history", e); }
@@ -1171,6 +1185,7 @@ class OverlookShow extends LitElement {
     switch (s.type) {
       case "player": return html`${head}${this._popPlayer(s.entity)}`;
       case "graph": return html`${head}${this._popGraph(s)}`;
+      case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
       default: return html`${head}<div class="pop-grid">${s.items.map((x) => this._popTile(x))}</div>`;
     }
@@ -1336,6 +1351,83 @@ class OverlookShow extends LitElement {
         </svg>
         <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e && e.attributes.unit_of_measurement === "%" ? "%" : "°"} ${(s.hours || 168) >= 168 ? "this week" : "today"}</span>
           <span>${(s.hours || 168) >= 48 ? `${(s.hours || 168) / 24} days` : `${s.hours} hours`}</span></div>
+      </div>`;
+  }
+
+  // one reading per room, each its own colour (or, with average: true, one line for their mean)
+  _popMultiGraph(s) {
+    const hours = s.hours || 24, t1 = Date.now(), t0 = t1 - hours * 3600 * 1000;
+    const cur = (x) => {
+      const e = this._st(x.entity);
+      const v = e ? Number(x.attr ? e.attributes[x.attr] : e.state) : NaN;
+      return isNaN(v) ? null : v;
+    };
+    // each series as steps, finished off with the value right now
+    const lines = s.series.map((x) => {
+      // s.valid = [min, max]: a sensor glitch (a 0 from a test, say) would flatten every other line
+      const ok = (v) => !s.valid || (v >= s.valid[0] && v <= s.valid[1]);
+      let pts = ((this._hist || {})[x.attr ? `${x.entity}|${x.attr}` : x.entity] || []).filter((p) => ok(p[1]));
+      let c = cur(x);
+      if (c !== null && !ok(c)) c = null;
+      if (c !== null) pts.push([t1, c]);
+      return { ...x, pts, now: c };
+    });
+    const unit = s.unit || "°";
+    const fmtv = (v) => (v === null || v === undefined ? "–" : unit === "%" ? `${Math.round(v)}%` : `${v.toFixed(1)}°`);
+    // value of a stepped series at time t: the last reading at or before t
+    const at = (pts, t) => {
+      let v = null;
+      for (const p of pts) { if (p[0] <= t) v = p[1]; else break; }
+      return v;
+    };
+    let plot = lines;
+    if (s.average) {
+      const N = 144, pts = [];
+      for (let i = 0; i <= N; i++) {
+        const t = t0 + ((t1 - t0) * i) / N;
+        const vals = lines.map((l) => at(l.pts, t)).filter((v) => v !== null);
+        if (vals.length) pts.push([t, vals.reduce((a, b) => a + b, 0) / vals.length]);
+      }
+      const nows = lines.map((l) => l.now).filter((v) => v !== null);
+      plot = [{ name: s.name, color: s.color || "var(--accent)", pts,
+        now: nows.length ? nows.reduce((a, b) => a + b, 0) / nows.length : null }];
+    }
+    const all = plot.flatMap((l) => l.pts.filter((p) => p[0] >= t0).map((p) => p[1]));
+    if (all.length < 2) {
+      return html`<div class="graph"><div class="graph-head"><span>${s.name}</span></div>
+        <div class="graph-empty muted">${this._hist ? "Not enough history yet" : "Loading…"}</div></div>`;
+    }
+    let lo = Math.min(...all), hi = Math.max(...all);
+    if (hi - lo < 2) { const m = (hi + lo) / 2; lo = m - 1; hi = m + 1; }
+    const W = 320, H = 110;
+    const X = (t) => ((Math.max(t, t0) - t0) / (t1 - t0)) * W, Y = (v) => H - 6 - ((v - lo) / (hi - lo)) * (H - 12);
+    const path = (pts) => {
+      const q = pts.filter((p, i) => p[0] >= t0 || (pts[i + 1] && pts[i + 1][0] > t0));
+      if (!q.length) return "";
+      let d = `M${X(q[0][0]).toFixed(1)} ${Y(q[0][1]).toFixed(1)}`;
+      q.forEach((p, i) => {
+        if (!i) return;
+        if (!s.average) d += ` L${X(p[0]).toFixed(1)} ${Y(q[i - 1][1]).toFixed(1)}`;
+        d += ` L${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`;
+      });
+      return d;
+    };
+    const one = plot.length === 1;
+    return html`
+      <div class="graph mgraph">
+        <div class="graph-head"><span>${s.name}</span>${one ? html`<b>${fmtv(plot[0].now)}</b>` : nothing}</div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          ${plot.map((l) => {
+            const d = path(l.pts);
+            return svg`${one ? svg`<path d="${d} L${W} ${H} L0 ${H} Z" fill=${l.color} opacity="0.14"></path>` : nothing}
+              <path d=${d} fill="none" stroke=${l.color} stroke-width=${one ? 2.5 : 2} vector-effect="non-scaling-stroke"
+                    stroke-linejoin="round" stroke-linecap="round"></path>`;
+          })}
+        </svg>
+        ${one ? nothing : html`<div class="mg-legend">${plot.map((l) => html`
+          <span><i style="background:${l.color}"></i>${l.name}<b>${fmtv(l.now)}</b></span>`)}</div>`}
+        <div class="graph-foot muted"><span>${fmtv(lo)}–${fmtv(hi)}</span>
+          <span>${hours >= 48 ? `${hours / 24} days` : `${hours} hours`}</span></div>
       </div>`;
   }
 
@@ -3782,6 +3874,11 @@ class OverlookShow extends LitElement {
     .graph svg { display: block; width: 100%; height: 90px; margin-top: 8px; }
     .graph-foot { display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px; }
     .graph-empty { height: 90px; display: grid; place-items: center; font-size: 13px; }
+    .mgraph svg { height: 110px; }
+    .mg-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 8px; font-size: 13px; }
+    .mg-legend span { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .mg-legend i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .mg-legend b { margin-left: auto; font-weight: 600; }
     .hp-now.linked { cursor: pointer; }
     .hp-more { --mdc-icon-size: 20px; color: var(--muted); align-self: center; }
     .player-row { cursor: pointer; }

@@ -87,7 +87,8 @@ off on 2026-11-04.
   `{entity, name, person}` or `{entity, name, icon, tone, when, toggle}`. `tone` is
   `warn` / `bad` / `cool` / `accent`. `when` = only show while in that state.
 - **A phone pop-up:** add a sheet to `POPUPS` in `showphone.py`. Its sections are `tiles`,
-  `choices`, `player` or `graph`. Then add `LINKS[entity] = "<popup id>"` so tapping that
+  `choices`, `player`, `graph` (one entity) or `multigraph` (several `series`, each with its own
+  colour, or one averaged line with `average: true`; `valid: [min, max]` drops impossible readings). Then add `LINKS[entity] = "<popup id>"` so tapping that
   entity opens it. Anything without a link opens HA's normal more-info.
 - **A weather icon:** edit `tools/weather_icons.py`, run it, and bump the `?v=` on the icon
   URL in `_wxIcon` so screens fetch the new files.
