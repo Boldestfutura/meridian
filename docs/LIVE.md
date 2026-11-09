@@ -114,7 +114,7 @@ MA players are the `_2` entities (`media_player.living_room_amp_2`, `homepod_min
 `/local/fonts/amazon-ember/ember.css` (type css) carries them to HA's own cards. It replaced the two
 duplicate Figtree resources.
 
-**Theme.** `themes/overlook.yaml` (deployed to `/config/themes/overlook/`) is the app-wide
+**Theme.** `themes/meridian.yaml` (deployed to `/config/themes/meridian/`) is the app-wide
 default; HA's own pages and the Phone Show's sections view use it.
 - It needs **both** `modes.light` and `modes.dark`: HA forces dark on a theme that only has dark.
 - HA 2026 buttons and toggles read `--ha-color-primary-05..95`, not `primary-color`.

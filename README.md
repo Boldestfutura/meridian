@@ -1,8 +1,16 @@
 # Meridian for Home Assistant
 
-Echo Show-style Home Assistant dashboards. The whole UI is one custom Lit card,
-[`www/overlook-show.js`](www/overlook-show.js); a few Python files say which entities go where
-for each screen, and `deploy.py` ships the card and saves the dashboards over the websocket API.
+Echo Show-style Home Assistant dashboards, a matching theme and a set of phone cards.
+
+- **Meridian cards**: tiles, room headings, scenes and status pills with pop-ups, set up in
+  HA's own card editor. Installed from HA's marketplace (HACS). See [Install](#install-with-hacs).
+- **The Show screens**: full-screen layouts for wall tablets, a Nest Hub and an Echo Show,
+  deployed with `deploy.py`.
+- **The Meridian theme** for HA's own pages.
+
+Both come from one Lit source, [`www/overlook-show.js`](www/overlook-show.js), built twice: the
+phone cards into `dist/meridian.js`, the Show screens into the card `deploy.py` ships. A few
+Python files say which entities go where on each screen.
 
 | dashboard | screen | layout |
 |---|---|---|
@@ -10,7 +18,7 @@ for each screen, and `deploy.py` ships the card and saves the dashboards over th
 | **Hub Show** `ha-show-hub` | Nest Hub, 1024x600, cast | photos are home; Controls, Media, Climate, Calendar and Recipes behind the dock |
 | **Bedroom Show** `ha-show-bedroom` | Echo Show 5, 960x480 | photos and a big clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1440x820 to 1920x950, beside HA's sidebar | the whole house on one page |
-| **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from the card's pieces, so HA's own editor works |
+| **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |
 
 How to change and deploy them: **[docs/DASHBOARDS.md](docs/DASHBOARDS.md)**.
 Working on this house's live install: [docs/LIVE.md](docs/LIVE.md).
@@ -66,9 +74,10 @@ Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
 
 ## Install with HACS
 
-The phone cards install on their own, with no deploy script:
+Meridian cards install on their own, with no deploy script. HACS is built into recent HA
+releases as the marketplace; the steps are the same:
 
-1. HACS → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/meridian`, type **Dashboard**.
+1. HACS (marketplace) → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/meridian`, type **Dashboard**.
 2. Install **Meridian cards**, then reload the browser.
 3. On a sections dashboard, **+ Add card** → search "Meridian": tile, room heading, scenes,
    status and edit button. Every setting, pop-ups included, is in HA's card editor.
@@ -128,13 +137,17 @@ HA's static files already allow `cast.home-assistant.io`, so nothing else is nee
 ```
 
 `HA_HOST` and `HA_TOKEN_FILE` override the defaults. Bump `VERSION` in both `show.py` and
-`www/overlook-show.js` with every card change, or browsers keep the old one.
+`www/overlook-show.js` with every card change, or browsers keep the old one. `deploy.py` also
+rebuilds `dist/meridian.js`; phone-card changes reach HA once that is pushed to GitHub and
+updated in HACS.
 
 ## Layout
 
 ```
-www/overlook-show.js   the card: every layout (tablet, hub, bedside, desk, phone) in one file
+www/overlook-show.js   the source: every Show layout and the Meridian cards in one file
 www/lit-all.min.js     Lit, vendored
+dist/meridian.js       Meridian cards, built from the source; what HACS installs
+hacs.json              HACS manifest
 www/weather/           weather icons (drawn by tools/weather_icons.py)
 www/fonts/ember.css    @font-face rules for Amazon Ember (the font files are not in the repo)
 show.py                Kitchen Show and the shared CARD config, VERSION

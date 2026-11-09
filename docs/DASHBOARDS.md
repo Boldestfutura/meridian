@@ -16,7 +16,8 @@ More screenshots in the [README](../README.md).
 
 | file | what it is |
 |---|---|
-| `www/overlook-show.js` | the whole UI: one Lit card, every layout in one file |
+| `www/overlook-show.js` | the source: the Show card (every layout) and the Meridian cards in one file |
+| `dist/meridian.js` | Meridian cards, built from the source by `deploy.py`; what HACS installs. Commit it |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
@@ -46,7 +47,8 @@ kitchen tablet.
    ```sh
    ./deploy.py show showhub showbedroom showcomputer shownative
    ```
-   This copies the JS and artwork to `/config/www` over SSH, points the resource at the new
+   This builds the Show card (and `dist/meridian.js` for HACS), copies the card and
+   artwork to `/config/www` over SSH, points the resource at the new
    version and rewrites the dashboards. ha-show, ha-show-hub, ha-show-bedroom and
    ha-show-computer hold no UI edits, so their config lives in the Python; ha-show-native is
    only rewritten while nobody has edited it in HA.
@@ -66,22 +68,26 @@ kitchen tablet.
 `ha-show-native` is the Phone Show built so HA's own editor works on it. Cameron signed it
 off on 2026-11-04.
 
-- **Home** is an HA sections view. Every tile is its own card: `overlook-tile` (an
+- **Home** is an HA sections view built from **Meridian cards**, installed from HACS
+  (`dist/meridian.js`). Every tile is its own card: `meridian-tile` (an
   entity; it picks light / switch / speaker / heat pump / plant / reading / scene from
-  the domain, or `kind:` says), `overlook-heading` (room name, icon, all-lights `group`),
-  `overlook-scenes` (the scene row), `overlook-status` (the pills). They draw with the
-  same markup and CSS as the single card, so they look the same.
-- **One view, no tabs.** The last section is **`overlook-edit-button`**: it hides HA's header
+  the domain, or `kind:` says), `meridian-heading` (room name, icon, all-lights `group`),
+  `meridian-scenes` (the scene row), `meridian-status` (the pills). They draw with the
+  same markup and CSS as the Show card, so they look the same. The old `overlook-*` names
+  still work as aliases.
+- **One view, no tabs.** The last section is **`meridian-edit-button`**: it hides HA's header
   and puts an Edit dashboard button at the bottom; HA's header comes back with Done. While
   any of the cards above are on screen it also sets HA's grid to the design's sizes (62px
   rows, 10px gaps, 16px sides). A tile is one row, a player two.
-- Light sheets and pop-ups open in one layer on `<body>` (`overlook-overlay`). Each card
+- Light sheets and pop-ups open in one layer on `<body>` (`meridian-overlay`). Each card
   carries its own pop-up (`popup:` on a tile, on each status pill and reading), edited in
   HA's card editor: title, icon, then sections (player, tiles, choices, graph, graph of
   several). Tiles, Scenes and Status have full UI editors; no YAML needed.
 - `./deploy.py shownative` writes the layout **only while it is unedited** (snapshot in
-  `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version and
-  ships only the JS.
+  `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version.
+- **Shipping a card change:** `deploy.py` rebuilds `dist/meridian.js`; commit and push it,
+  then update Meridian cards in HACS. The Show screens' card goes straight to `/config/www`
+  and never registers the Meridian cards, so the two can't clash.
 
 ## Adding things
 

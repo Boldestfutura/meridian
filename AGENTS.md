@@ -10,6 +10,9 @@ things that already went wrong once.
 Read `README.md` first for what the dashboards are, and `docs/DASHBOARDS.md` for how they
 are built and deployed.
 
+**Only want the phone cards?** Install Meridian cards from HACS (README, Install with HACS) and
+build the dashboard in HA's own editor. Nothing below is needed for that.
+
 ## What you are changing, and what you are not
 
 | file | house-specific? | touch it? |
