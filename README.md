@@ -1,4 +1,4 @@
-# Overlook for Home Assistant
+# Meridian for Home Assistant
 
 Echo Show-style Home Assistant dashboards. The whole UI is one custom Lit card,
 [`www/overlook-show.js`](www/overlook-show.js); a few Python files say which entities go where
@@ -68,8 +68,8 @@ Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
 
 The phone cards install on their own, with no deploy script:
 
-1. HACS → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/overlook-ha`, type **Dashboard**.
-2. Install **Overlook cards**, then reload the browser.
+1. HACS → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/meridian`, type **Dashboard**.
+2. Install **Meridian cards**, then reload the browser.
 3. On a sections dashboard, **+ Add card** → search "Overlook": tile, room heading, scenes,
    status and edit button. Every setting, pop-ups included, is in HA's card editor.
 
