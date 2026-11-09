@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.26.0";
+var VERSION = "0.27.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4792,6 +4792,11 @@ var OverlookShow = class extends dt {
     .phone .mini-scene ha-icon { background: var(--accent-soft); }
     .phone .mini-scene.on { background: var(--accent); }
     .phone .mini-scene.on ha-icon { background: rgba(255, 255, 255, 0.2); }
+    /* favourites: on is the tiles' warm orange, not the scenes' blue */
+    .phone .fav-sq.lit { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
+    .phone .fav-sq.lit ha-icon { background: var(--warm); color: #fff; }
+    .phone .fav-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-bottom: 6px; }
+    .phone .fav-grid .fav-sq { width: auto; height: auto; aspect-ratio: 1; min-width: 0; }
     .phone .status { margin: -10px -16px -22px; padding: 10px 16px 24px; }
     .phone .tab { height: 40px; padding: 0 14px; font-size: 14px; gap: 6px; }
 
@@ -5675,6 +5680,130 @@ var OverlookStatus = class extends OverlookPiece {
   }
 };
 definePhone("status", OverlookStatus);
+var FAV_DOMAINS = /* @__PURE__ */ new Set(["light", "switch", "fan", "input_boolean", "script", "scene", "media_player", "climate"]);
+var FAV_EVERY = 10 * 60 * 1e3;
+var OverlookFavourites = class extends OverlookPiece {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "count", selector: { number: { min: 4, max: 16, step: 4, mode: "box" } } },
+        { name: "pinned", selector: { entity: { multiple: true, filter: [...FAV_DOMAINS].map((domain) => ({ domain })) } } },
+        { name: "hidden", selector: { entity: { multiple: true } } }
+      ],
+      computeLabel: (s2) => ({ count: "How many tiles", pinned: "Always show", hidden: "Never show" })[s2.name],
+      computeHelper: (s2) => s2.name === "count" ? "Home Assistant picks them from what you use most at this time of day. Things that are on go first." : void 0
+    };
+  }
+  static getStubConfig() {
+    return { count: 8 };
+  }
+  getGridOptions() {
+    return { columns: "full", rows: "auto" };
+  }
+  setConfig(config) {
+    super.setConfig(config);
+    if (this._predicted) this._order = this._rank();
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    this._timer = setInterval(() => this._fetch(), FAV_EVERY);
+    if (this.hass) this._fetch();
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._timer);
+  }
+  updated(changed) {
+    super.updated(changed);
+    if (changed.has("hass") && this.hass && !this._asked) this._fetch();
+  }
+  async _fetch() {
+    if (!this.hass) return;
+    this._asked = true;
+    try {
+      const r2 = await this.hass.callWS({ type: "usage_prediction/common_control" });
+      this._predicted = r2 && r2.entities || [];
+      this._err = null;
+    } catch (e2) {
+      this._predicted = this._predicted || [];
+      this._err = e2 && e2.code === "unknown_command" ? "old" : "fail";
+    }
+    this._order = this._rank();
+    this.requestUpdate();
+  }
+  _isOn(id) {
+    const e2 = this._st(id);
+    if (!e2) return false;
+    const dom = id.split(".")[0];
+    if (dom === "media_player") return e2.state === "playing";
+    if (dom === "climate") return !["off", "unavailable", "unknown"].includes(e2.state);
+    return e2.state === "on";
+  }
+  _rank() {
+    const c2 = this._config, hide = new Set(c2.hidden || []), seen = /* @__PURE__ */ new Set();
+    const reg = this.hass.entities || {};
+    const plain = (id) => !(reg[id] && (reg[id].hidden || reg[id].entity_category));
+    const ok = (id) => id && !hide.has(id) && !seen.has(id) && FAV_DOMAINS.has(id.split(".")[0]) && this._st(id) && plain(id);
+    const pinned = (c2.pinned || []).filter((id) => ok(id) && seen.add(id));
+    const rest = (this._predicted || []).filter((id) => ok(id) && seen.add(id));
+    const list = [...pinned, ...rest].slice(0, Math.max(pinned.length, c2.count || 8));
+    const lit = Object.keys(this.hass.states).filter((id) => ["light", "climate"].includes(id.split(".")[0]) && ok(id) && this._isOn(id));
+    while (list.length % 4 && lit.length) {
+      const id = lit.shift();
+      seen.add(id);
+      list.push(id);
+    }
+    return [...list.filter((id) => this._isOn(id)), ...list.filter((id) => !this._isOn(id))];
+  }
+  // a favourite's pop-up is the one its own tile carries elsewhere on this dashboard
+  _ownPopups() {
+    const m2 = {};
+    const root = findHuiRoot();
+    const walk = (o2) => {
+      if (Array.isArray(o2)) {
+        o2.forEach(walk);
+        return;
+      }
+      if (!o2 || typeof o2 !== "object") return;
+      if (o2.entity && o2.popup && Array.isArray(o2.popup.sections) && o2.popup.sections.length && !m2[o2.entity]) m2[o2.entity] = o2.popup;
+      for (const k2 of ["views", "sections", "cards", "status", "status_air"]) if (o2[k2]) walk(o2[k2]);
+    };
+    walk(root && root.lovelace && root.lovelace.config);
+    return m2;
+  }
+  // the Scenes row's square: tap is the quick control, hold opens it (light sheet, pop-up, or HA's dialog)
+  _favSquare(id) {
+    const e2 = this._st(id);
+    if (!e2) return J;
+    const dom = id.split(".")[0], type = DOMAIN_TYPE[dom];
+    const name = e2.attributes.friendly_name || id;
+    const icon = e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || DOMAIN_ICON[dom];
+    const tap = () => {
+      if (type === "media") return this._call("media_player", e2.state === "off" ? "turn_on" : "media_play_pause", { entity_id: id });
+      if (type === "climate") return this._call("climate", this._isOn(id) ? "turn_off" : "turn_on", { entity_id: id });
+      if (dom === "script" || dom === "scene") return this._call(dom, "turn_on", { entity_id: id });
+      return this._call("homeassistant", "toggle", { entity_id: id });
+    };
+    const hold = () => type === "light" ? this._openLight(id) : this._open(id);
+    const { down, move, up, click } = this._tapHold(id, tap, hold);
+    return Z`
+      <button class="mini-scene fav-sq ${this._isOn(id) ? "lit" : ""}" title=${name}
+              @pointerdown=${down} @pointermove=${move} @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
+              @click=${click}>
+        <ha-icon icon=${icon}></ha-icon>
+        <span class="ms-name">${name}</span></button>`;
+  }
+  render() {
+    if (!this.hass || !this._config) return J;
+    if (!this._order) return Z`<div class="phone piece"><div class="fav-grid"></div></div>`;
+    if (!this._order.length) {
+      const why = this._err === "old" ? "Favourites need Home Assistant 2025.10 or later." : this._err ? "Couldn't ask Home Assistant for your favourites." : "Nothing yet. Home Assistant learns your favourites as you use your dashboards.";
+      return Z`<div class="phone piece"><div class="card missing"><ha-icon icon="mdi:star-outline"></ha-icon>${why}</div></div>`;
+    }
+    return Z`<div class="phone piece"><div class="fav-grid">${this._order.map((id) => this._favSquare(id))}</div></div>`;
+  }
+};
+definePhone("favourites", OverlookFavourites);
 var edFire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 async function loadHaForm() {
   if (customElements.get("ha-form") && customElements.get("ha-expansion-panel")) return;
@@ -6064,6 +6193,7 @@ if (BUILD !== "show") window.customCards.push(
   { type: "meridian-heading", name: "Meridian room heading", description: "A room name with an all-lights button", preview: true },
   { type: "meridian-scenes", name: "Meridian scenes", description: "A row of scene buttons" },
   { type: "meridian-status", name: "Meridian status", description: "People, alerts and house readings as pills, each with a pop-up" },
+  { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" }
 );
 if (BUILD !== "phone") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });

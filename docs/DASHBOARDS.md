@@ -72,7 +72,10 @@ off on 2026-11-04.
   (`dist/meridian.js`). Every tile is its own card: `meridian-tile` (an
   entity; it picks light / switch / speaker / heat pump / plant / reading / scene from
   the domain, or `kind:` says), `meridian-heading` (room name, icon, all-lights `group`),
-  `meridian-scenes` (the scene row), `meridian-status` (the pills). They draw with the
+  `meridian-scenes` (the scene row), `meridian-status` (the pills), `meridian-favourites`
+  (a 4-wide grid of scene-sized squares filled from HA's `usage_prediction/common_control`,
+  per signed-in user, re-asked every 10 minutes; on things first, order fixed between fetches so
+  nothing jumps under a finger; `pinned` / `hidden` / `count`). They draw with the
   same markup and CSS as the Show card, so they look the same. The old `overlook-*` names
   still work as aliases.
 - **One view, no tabs.** The last section is **`meridian-edit-button`**: it hides HA's header

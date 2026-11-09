@@ -80,7 +80,13 @@ releases as the marketplace; the steps are the same:
 1. HACS (marketplace) → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/meridian`, type **Dashboard**.
 2. Install **Meridian cards**, then reload the browser.
 3. On a sections dashboard, **+ Add card** → search "Meridian": tile, room heading, scenes,
-   status and edit button. Every setting, pop-ups included, is in HA's card editor.
+   favourites, status and edit button. Every setting, pop-ups included, is in HA's card editor.
+
+**Meridian favourites** needs no setup: it shows the controls each person uses most at this
+time of day, as Home Assistant learns them (the `usage_prediction` integration, HA 2025.10 or
+later, the same list as HA's own "Common controls"). Whatever is on goes first. Tap is the
+quick control; hold opens the light sheet or the thing's pop-up. "Always show" and "Never show"
+correct it.
 
 HACS ships `dist/meridian.js` (Lit bundled in): the phone cards only. The full-screen Show
 card for wall screens and the Echo is not in it; `deploy.py` builds and ships that one.
