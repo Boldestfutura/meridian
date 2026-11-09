@@ -1048,7 +1048,18 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.25.3";
+var VERSION = "0.26.0";
+var BUILD = false ? "all" : "phone";
+var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
+var define = (tag, cls) => {
+  if (!customElements.get(tag)) customElements.define(tag, cls);
+};
+var definePhone = (name, cls) => {
+  if (BUILD === "show") return;
+  define(`meridian-${name}`, cls);
+  if (ALIASES) define(`overlook-${name}`, class extends cls {
+  });
+};
 function rgbToHsl(r2, g2, b2) {
   r2 /= 255;
   g2 /= 255;
@@ -5190,7 +5201,7 @@ try {
   CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" });
 } catch (e2) {
 }
-if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
+if (BUILD !== "phone") define("overlook-show", OverlookShow);
 var LAST_SCROLL = 0;
 var PIECES = 0;
 var SCROLL_HOOKED = false;
@@ -5213,7 +5224,7 @@ function findHuiRoot() {
 var OVERLAY = null;
 var overlay = (hass) => {
   if (!OVERLAY) {
-    OVERLAY = document.createElement("overlook-overlay");
+    OVERLAY = document.createElement("meridian-overlay");
     document.body.appendChild(OVERLAY);
   }
   if (hass && OVERLAY.hass !== hass) OVERLAY.hass = hass;
@@ -5367,7 +5378,7 @@ var OverlookOverlay = class extends OverlookShow {
       </div>`;
   }
 };
-if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
+definePhone("overlay", OverlookOverlay);
 var NATIVE_GRID = `
   :host {
     --ha-section-grid-row-height: 62px;
@@ -5482,7 +5493,7 @@ var OverlookEditButton = class extends dt {
     .note { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--secondary-text-color); padding: 10px; }
   `;
 };
-if (!customElements.get("overlook-edit-button")) customElements.define("overlook-edit-button", OverlookEditButton);
+definePhone("edit-button", OverlookEditButton);
 var TILE_KINDS = [
   ["light", "Light"],
   ["switch", "Switch"],
@@ -5569,7 +5580,7 @@ var OverlookTile = class extends OverlookPiece {
     return Z`<div class="phone piece"><div class="ph-grid one">${body}</div></div>`;
   }
 };
-if (!customElements.get("overlook-tile")) customElements.define("overlook-tile", OverlookTile);
+definePhone("tile", OverlookTile);
 var OverlookHeading = class extends OverlookPiece {
   static getConfigForm() {
     return {
@@ -5607,7 +5618,7 @@ var OverlookHeading = class extends OverlookPiece {
       </div></div>`;
   }
 };
-if (!customElements.get("overlook-heading")) customElements.define("overlook-heading", OverlookHeading);
+definePhone("heading", OverlookHeading);
 var OverlookScenes = class extends OverlookPiece {
   static getConfigForm() {
     return {
@@ -5638,7 +5649,7 @@ var OverlookScenes = class extends OverlookPiece {
     return Z`<div class="phone piece"><div class="fav-scenes">${items.map((x2) => this._miniScene(x2))}</div></div>`;
   }
 };
-if (!customElements.get("overlook-scenes")) customElements.define("overlook-scenes", OverlookScenes);
+definePhone("scenes", OverlookScenes);
 var OverlookStatus = class extends OverlookPiece {
   static getConfigForm() {
     return {
@@ -5663,7 +5674,7 @@ var OverlookStatus = class extends OverlookPiece {
     return Z`<div class="phone piece">${this._status()}</div>`;
   }
 };
-if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
+definePhone("status", OverlookStatus);
 var edFire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 async function loadHaForm() {
   if (customElements.get("ha-form") && customElements.get("ha-expansion-panel")) return;
@@ -5932,7 +5943,7 @@ var OverlookPopupEditor = class extends dt {
       </div>`;
   }
 };
-if (!customElements.get("overlook-popup-editor")) customElements.define("overlook-popup-editor", OverlookPopupEditor);
+definePhone("popup-editor", OverlookPopupEditor);
 var OverlookEditorBase = class extends dt {
   static get properties() {
     return { hass: { attribute: false }, _config: { state: true }, _ready: { state: true } };
@@ -5960,16 +5971,16 @@ var OverlookEditorBase = class extends dt {
 var OverlookTileEditor = class extends OverlookEditorBase {
   render() {
     if (!this._ready || !this.hass || !this._config) return J;
-    const form = customElements.get("overlook-tile").getConfigForm();
+    const form = OverlookTile.getConfigForm();
     const { popup, ...rest } = this._config;
     return Z`
       <ha-form .hass=${this.hass} .data=${rest} .schema=${form.schema} .computeLabel=${form.computeLabel}
         @value-changed=${(ev) => this._patch({ ...ev.detail.value, type: this._config.type })}></ha-form>
-      <overlook-popup-editor .hass=${this.hass} .value=${popup}
-        @popup-changed=${(ev) => this._patch({ popup: ev.detail.value })}></overlook-popup-editor>`;
+      <meridian-popup-editor .hass=${this.hass} .value=${popup}
+        @popup-changed=${(ev) => this._patch({ popup: ev.detail.value })}></meridian-popup-editor>`;
   }
 };
-if (!customElements.get("overlook-tile-editor")) customElements.define("overlook-tile-editor", OverlookTileEditor);
+definePhone("tile-editor", OverlookTileEditor);
 var PILL_SCHEMA = [
   { name: "entity", required: true, selector: { entity: {} } },
   { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } }, { name: "icon", selector: { icon: {} } }] },
@@ -6011,8 +6022,8 @@ var OverlookStatusEditor = class extends OverlookEditorBase {
       (x2, put) => Z`
       <ha-form .hass=${this.hass} .data=${toForm(x2)} .schema=${schema} .computeLabel=${edLabel}
         @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x2.popup }))}></ha-form>
-      <overlook-popup-editor .hass=${this.hass} .value=${x2.popup} .label=${help}
-        @popup-changed=${(ev) => put(tidy({ ...x2, popup: ev.detail.value }))}></overlook-popup-editor>`,
+      <meridian-popup-editor .hass=${this.hass} .value=${x2.popup} .label=${help}
+        @popup-changed=${(ev) => put(tidy({ ...x2, popup: ev.detail.value }))}></meridian-popup-editor>`,
       (a2) => this._patch({ [key]: a2.length ? a2 : void 0 })
     );
   }
@@ -6044,26 +6055,25 @@ var OverlookStatusEditor = class extends OverlookEditorBase {
           <ha-icon icon="mdi:plus"></ha-icon>Add a reading</button></div></div>`;
   }
 };
-if (!customElements.get("overlook-status-editor")) customElements.define("overlook-status-editor", OverlookStatusEditor);
-customElements.get("overlook-tile").getConfigElement = () => document.createElement("overlook-tile-editor");
-customElements.get("overlook-status").getConfigElement = () => document.createElement("overlook-status-editor");
+definePhone("status-editor", OverlookStatusEditor);
+OverlookTile.getConfigElement = () => document.createElement("meridian-tile-editor");
+OverlookStatus.getConfigElement = () => document.createElement("meridian-status-editor");
 window.customCards = window.customCards || [];
-window.customCards.push(
-  { type: "overlook-tile", name: "Overlook tile", description: "One light, switch, speaker, heat pump, plant, reading or scene", preview: true },
-  { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
-  { type: "overlook-scenes", name: "Overlook scenes", description: "The row of scene buttons" },
-  { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
-  { type: "overlook-edit-button", name: "Overlook edit button", description: "Hides HA's header; an Edit dashboard button at the bottom" }
+if (BUILD !== "show") window.customCards.push(
+  { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
+  { type: "meridian-heading", name: "Meridian room heading", description: "A room name with an all-lights button", preview: true },
+  { type: "meridian-scenes", name: "Meridian scenes", description: "A row of scene buttons" },
+  { type: "meridian-status", name: "Meridian status", description: "People, alerts and house readings as pills, each with a pop-up" },
+  { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" }
 );
-window.customCards = window.customCards || [];
-window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
+if (BUILD !== "phone") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 window.addEventListener("keydown", (e2) => {
   if (e2.code !== "Power") return;
   let a2 = document.activeElement;
   while (a2 && a2.shadowRoot && a2.shadowRoot.activeElement) a2 = a2.shadowRoot.activeElement;
   if (a2 && a2.blur) a2.blur();
 }, true);
-console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
+console.info(`%c ${BUILD === "phone" ? "meridian" : "overlook-show"} ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
 /**
  * @license
  * Copyright 2019 Google LLC

@@ -70,12 +70,13 @@ The phone cards install on their own, with no deploy script:
 
 1. HACS → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/meridian`, type **Dashboard**.
 2. Install **Meridian cards**, then reload the browser.
-3. On a sections dashboard, **+ Add card** → search "Overlook": tile, room heading, scenes,
+3. On a sections dashboard, **+ Add card** → search "Meridian": tile, room heading, scenes,
    status and edit button. Every setting, pop-ups included, is in HA's card editor.
 
-HACS ships `dist/overlook-show.js` (Lit bundled in). Amazon Ember is not included; without
-it the cards fall back to the system font. The weather icons, sounds and recipes the
-full-screen Shows use are not in the HACS copy either; use `deploy.py` for those.
+HACS ships `dist/meridian.js` (Lit bundled in): the phone cards only. The full-screen Show
+card for wall screens and the Echo is not in it; `deploy.py` builds and ships that one.
+Cards first added as `custom:overlook-tile` (and the other `overlook-*` names) still work.
+Amazon Ember is not included; without it the cards fall back to the system font.
 
 ## Requirements
 

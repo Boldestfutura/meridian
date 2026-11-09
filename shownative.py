@@ -20,7 +20,7 @@ AUTO = {"light": "light", "media_player": "media", "climate": "climate", "switch
 
 
 def tile(x):
-    card = {"type": "custom:overlook-tile", "entity": x["entity"]}
+    card = {"type": "custom:meridian-tile", "entity": x["entity"]}
     for k in ("name", "icon"):
         if x.get(k):
             card[k] = x[k]
@@ -43,18 +43,18 @@ def section(*cards):
 
 
 def heading(name, icon, group=None):
-    h = {"type": "custom:overlook-heading", "name": name, "icon": icon}
+    h = {"type": "custom:meridian-heading", "name": name, "icon": icon}
     if group:
         h["group"] = group
     return h
 
 
 def build():
-    home = [section({"type": "custom:overlook-status", "status": with_popups(show.CARD["status"]),
+    home = [section({"type": "custom:meridian-status", "status": with_popups(show.CARD["status"]),
                      "status_air": with_popups(STATUS_AIR)}),
-            section(heading("Scenes", "mdi:creation"), {"type": "custom:overlook-scenes", "scenes": SCENES})]
+            section(heading("Scenes", "mdi:creation"), {"type": "custom:meridian-scenes", "scenes": SCENES})]
     home += [section(heading(r["name"], r["icon"], r.get("group")), *[tile(x) for x in r["items"]]) for r in ROOMS]
-    home.append(section({"type": "custom:overlook-edit-button"}))
+    home.append(section({"type": "custom:meridian-edit-button"}))
     return {"title": "Phone Show (new)", "views": [
         {"title": "Home", "path": "home", "icon": "mdi:home-variant-outline", "type": "sections",
          "max_columns": 4, "sections": home},

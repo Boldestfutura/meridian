@@ -12,7 +12,19 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.25.3";
+const VERSION = "0.26.0";
+// Two builds come out of this one file (deploy.py): the room screens' full-screen card
+// (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
+// MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
+// MERIDIAN_ALIASES (default on) also registers each phone card under its old overlook-* name.
+const BUILD = typeof MERIDIAN_BUILD === "undefined" ? "all" : MERIDIAN_BUILD;
+const ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
+const define = (tag, cls) => { if (!customElements.get(tag)) customElements.define(tag, cls); };
+const definePhone = (name, cls) => {
+  if (BUILD === "show") return;
+  define(`meridian-${name}`, cls);
+  if (ALIASES) define(`overlook-${name}`, class extends cls {});
+};
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -3957,7 +3969,7 @@ class OverlookShow extends LitElement {
 
 // a typed --ov-at can transition; an untyped custom property would jump
 try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
-if (!customElements.get("overlook-show")) customElements.define("overlook-show", OverlookShow);
+if (BUILD !== "phone") define("overlook-show", OverlookShow);
 
 // --- native cards: the phone home as ordinary HA cards --------------------------------
 // Each card draws one piece of the phone home with the same markup and CSS as the
@@ -3992,7 +4004,7 @@ function findHuiRoot() {
 let OVERLAY = null;
 const overlay = (hass) => {
   if (!OVERLAY) {
-    OVERLAY = document.createElement("overlook-overlay");
+    OVERLAY = document.createElement("meridian-overlay");
     document.body.appendChild(OVERLAY);
   }
   if (hass && OVERLAY.hass !== hass) OVERLAY.hass = hass;
@@ -4136,7 +4148,7 @@ class OverlookOverlay extends OverlookShow {
       </div>`;
   }
 }
-if (!customElements.get("overlook-overlay")) customElements.define("overlook-overlay", OverlookOverlay);
+definePhone("overlay", OverlookOverlay);
 
 // --- HA's view root: grid sizes and the hidden header -------------------------------
 // While any native piece is on screen HA's grid takes the design's sizes.
@@ -4252,7 +4264,7 @@ class OverlookEditButton extends LitElement {
     .note { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--secondary-text-color); padding: 10px; }
   `;
 }
-if (!customElements.get("overlook-edit-button")) customElements.define("overlook-edit-button", OverlookEditButton);
+definePhone("edit-button", OverlookEditButton);
 
 const TILE_KINDS = [["light", "Light"], ["switch", "Switch"], ["media", "Speaker / TV"], ["climate", "Heat pump"],
   ["plant", "Plant"], ["sensor", "Reading"], ["scene", "Scene / script"]];
@@ -4321,7 +4333,7 @@ class OverlookTile extends OverlookPiece {
     return html`<div class="phone piece"><div class="ph-grid one">${body}</div></div>`;
   }
 }
-if (!customElements.get("overlook-tile")) customElements.define("overlook-tile", OverlookTile);
+definePhone("tile", OverlookTile);
 
 // a room's heading, with its all-lights button
 class OverlookHeading extends OverlookPiece {
@@ -4358,7 +4370,7 @@ class OverlookHeading extends OverlookPiece {
       </div></div>`;
   }
 }
-if (!customElements.get("overlook-heading")) customElements.define("overlook-heading", OverlookHeading);
+definePhone("heading", OverlookHeading);
 
 // the Scenes row: round-icon squares that scroll sideways
 class OverlookScenes extends OverlookPiece {
@@ -4387,7 +4399,7 @@ class OverlookScenes extends OverlookPiece {
     return html`<div class="phone piece"><div class="fav-scenes">${items.map((x) => this._miniScene(x))}</div></div>`;
   }
 }
-if (!customElements.get("overlook-scenes")) customElements.define("overlook-scenes", OverlookScenes);
+definePhone("scenes", OverlookScenes);
 
 // who's home, what needs a look, and the house's readings (low-high across the rooms)
 class OverlookStatus extends OverlookPiece {
@@ -4411,7 +4423,7 @@ class OverlookStatus extends OverlookPiece {
     return html`<div class="phone piece">${this._status()}</div>`;
   }
 }
-if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
+definePhone("status", OverlookStatus);
 
 // --- editors: each card's settings in HA's own form, pop-up included ------------------
 const edFire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
@@ -4644,7 +4656,7 @@ class OverlookPopupEditor extends LitElement {
       </div>`;
   }
 }
-if (!customElements.get("overlook-popup-editor")) customElements.define("overlook-popup-editor", OverlookPopupEditor);
+definePhone("popup-editor", OverlookPopupEditor);
 
 class OverlookEditorBase extends LitElement {
   static get properties() { return { hass: { attribute: false }, _config: { state: true }, _ready: { state: true } }; }
@@ -4668,16 +4680,16 @@ class OverlookEditorBase extends LitElement {
 class OverlookTileEditor extends OverlookEditorBase {
   render() {
     if (!this._ready || !this.hass || !this._config) return nothing;
-    const form = customElements.get("overlook-tile").getConfigForm();
+    const form = OverlookTile.getConfigForm();
     const { popup, ...rest } = this._config;
     return html`
       <ha-form .hass=${this.hass} .data=${rest} .schema=${form.schema} .computeLabel=${form.computeLabel}
         @value-changed=${(ev) => this._patch({ ...ev.detail.value, type: this._config.type })}></ha-form>
-      <overlook-popup-editor .hass=${this.hass} .value=${popup}
-        @popup-changed=${(ev) => this._patch({ popup: ev.detail.value })}></overlook-popup-editor>`;
+      <meridian-popup-editor .hass=${this.hass} .value=${popup}
+        @popup-changed=${(ev) => this._patch({ popup: ev.detail.value })}></meridian-popup-editor>`;
   }
 }
-if (!customElements.get("overlook-tile-editor")) customElements.define("overlook-tile-editor", OverlookTileEditor);
+definePhone("tile-editor", OverlookTileEditor);
 
 const PILL_SCHEMA = [
   { name: "entity", required: true, selector: { entity: {} } },
@@ -4708,8 +4720,8 @@ class OverlookStatusEditor extends OverlookEditorBase {
     }, (x, put) => html`
       <ha-form .hass=${this.hass} .data=${toForm(x)} .schema=${schema} .computeLabel=${edLabel}
         @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x.popup }))}></ha-form>
-      <overlook-popup-editor .hass=${this.hass} .value=${x.popup} .label=${help}
-        @popup-changed=${(ev) => put(tidy({ ...x, popup: ev.detail.value }))}></overlook-popup-editor>`,
+      <meridian-popup-editor .hass=${this.hass} .value=${x.popup} .label=${help}
+        @popup-changed=${(ev) => put(tidy({ ...x, popup: ev.detail.value }))}></meridian-popup-editor>`,
     (a) => this._patch({ [key]: a.length ? a : undefined }));
   }
 
@@ -4732,22 +4744,20 @@ class OverlookStatusEditor extends OverlookEditorBase {
           <ha-icon icon="mdi:plus"></ha-icon>Add a reading</button></div></div>`;
   }
 }
-if (!customElements.get("overlook-status-editor")) customElements.define("overlook-status-editor", OverlookStatusEditor);
+definePhone("status-editor", OverlookStatusEditor);
 
-customElements.get("overlook-tile").getConfigElement = () => document.createElement("overlook-tile-editor");
-customElements.get("overlook-status").getConfigElement = () => document.createElement("overlook-status-editor");
+OverlookTile.getConfigElement = () => document.createElement("meridian-tile-editor");
+OverlookStatus.getConfigElement = () => document.createElement("meridian-status-editor");
 
 window.customCards = window.customCards || [];
-window.customCards.push(
-  { type: "overlook-tile", name: "Overlook tile", description: "One light, switch, speaker, heat pump, plant, reading or scene", preview: true },
-  { type: "overlook-heading", name: "Overlook room heading", description: "A room's name with its all-lights button", preview: true },
-  { type: "overlook-scenes", name: "Overlook scenes", description: "The row of scene buttons" },
-  { type: "overlook-status", name: "Overlook status", description: "People, alerts and the house readings" },
-  { type: "overlook-edit-button", name: "Overlook edit button", description: "Hides HA's header; an Edit dashboard button at the bottom" },
+if (BUILD !== "show") window.customCards.push(
+  { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
+  { type: "meridian-heading", name: "Meridian room heading", description: "A room name with an all-lights button", preview: true },
+  { type: "meridian-scenes", name: "Meridian scenes", description: "A row of scene buttons" },
+  { type: "meridian-status", name: "Meridian status", description: "People, alerts and house readings as pills, each with a pop-up" },
+  { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
 );
-
-window.customCards = window.customCards || [];
-window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
+if (BUILD !== "phone") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 // the Echo's top button (its mute button) reaches the page as an unknown "Power" key, and the
 // browser then draws a keyboard focus ring on whatever was last tapped; drop focus instead
 window.addEventListener("keydown", (e) => {
@@ -4757,4 +4767,4 @@ window.addEventListener("keydown", (e) => {
   if (a && a.blur) a.blur();
 }, true);
 
-console.info(`%c overlook-show ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
+console.info(`%c ${BUILD === "phone" ? "meridian" : "overlook-show"} ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");

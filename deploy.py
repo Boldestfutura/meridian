@@ -33,10 +33,16 @@ def push_show(ws, ids):
     """Copy the show card to /config/www and point its resource at this version."""
     import show, subprocess
     here = os.path.dirname(os.path.abspath(__file__))
+    # two builds of www/overlook-show.js: the room screens' card goes to /config/www here; the
+    # phone cards go to dist/meridian.js, which is committed and installed by HACS
+    show_js = os.path.join(here, ".build/overlook-show.js")
+    for build, out in (("show", show_js), ("phone", os.path.join(here, "dist/meridian.js"))):
+        subprocess.run(["npx", "-y", "esbuild@0.24.0", os.path.join(here, "www/overlook-show.js"), "--bundle",
+                        "--format=esm", "--log-level=warning", "--define:MERIDIAN_BUILD=\"%s\"" % build,
+                        "--outfile=" + out], check=True)
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
                     "-i", os.path.expanduser("~/.config/ha/vmkey"),
-                    os.path.join(here, "www/overlook-show.js"), os.path.join(here, "www/lit-all.min.js"),
-                    "root@%s:/config/www/" % HOST], check=True)
+                    show_js, "root@%s:/config/www/overlook-show.js" % HOST], check=True)
     # artwork: the weather icons (tools/weather_icons.py)
     subprocess.run(["scp", "-q", "-r", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
                     "-i", os.path.expanduser("~/.config/ha/vmkey"),
@@ -45,10 +51,6 @@ def push_show(ws, ids):
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
                     "-i", os.path.expanduser("~/.config/ha/vmkey"), os.path.join(here, "www/fonts/ember.css"),
                     "root@%s:/config/www/fonts/amazon-ember/" % HOST], check=True)
-    # the same card as one file, for HACS (dist/ is committed; HACS installs from it)
-    subprocess.run(["npx", "-y", "esbuild@0.24.0", os.path.join(here, "www/overlook-show.js"), "--bundle",
-                    "--format=esm", "--log-level=warning", "--outfile=" + os.path.join(here, "dist/overlook-show.js")],
-                   check=True)
     url = "/local/overlook-show.js?v=" + show.VERSION
     res = ha_ws.call(ws, next(ids), type="lovelace/resources")["result"]
     mine = [r for r in res if r["url"].startswith("/local/overlook-show.js")]
