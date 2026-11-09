@@ -86,7 +86,7 @@ full-screen Shows use are not in the HACS copy either; use `deploy.py` for those
   playlists (the template sensor in [`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml)),
   Norish for recipes (`tools/norish_sync.py`), a `todo` list and calendars.
 - Amazon Ember, optional: see [Fonts](#fonts).
-- The `Overlook` theme ([`themes/overlook.yaml`](themes/overlook.yaml)) for HA's own pages and
+- The `Meridian` theme ([`themes/meridian.yaml`](themes/meridian.yaml)) for HA's own pages and
   the Phone Show's sections view. **A theme needs both `modes.light` and `modes.dark`**: with
   only `dark`, HA forces dark mode on every device.
 
@@ -113,7 +113,7 @@ To use it:
    beside them.
 4. For HA's own pages and other cards, add `/local/fonts/amazon-ember/ember.css` as a
    Lovelace resource of type *Stylesheet* (Settings > Dashboards > Resources). The
-   `Overlook` theme already names `Amazon Ember` as its font.
+   `Meridian` theme already names `Amazon Ember` as its font.
 
 The card loads the files itself, through HA's absolute URL, so a Nest Hub cast gets them too.
 HA's static files already allow `cast.home-assistant.io`, so nothing else is needed.

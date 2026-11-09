@@ -1,10 +1,10 @@
-# Overlook Blue — Overlook's shapes in the Phone Show's colours (www/overlook-show.js):
+# Meridian Blue — Meridian's shapes in the Phone Show's colours (www/overlook-show.js):
 # the Show's blue accent, its blue-grey ground and navy ink, so the app around the
 # Phone Show (sidebar, settings, dialogs, toggles) matches it. Lit lights stay the
-# Show's warm orange. Picked per device in the profile; Overlook stays the default.
+# Show's warm orange. Picked per device in the profile; Meridian stays the default.
 #
 # Anything not set here falls back to HA's own light or dark default.
-Overlook Blue:
+Meridian Blue:
   # --- shape: the reference's defining trait ------------------------------
   ha-card-border-radius: "18px"
   ha-card-border-width: "0px"

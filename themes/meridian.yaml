@@ -1,10 +1,10 @@
-# Overlook — matched to IMG_0951: a light grey ground, pure white cards,
+# Meridian — matched to IMG_0951: a light grey ground, pure white cards,
 # large radii, no shadows, and Amazon Ember (loaded by the Lovelace resource
 # /local/fonts/amazon-ember/ember.css). Set as the default theme for both light and dark, so the whole
 # app (sidebar, header, settings, dialogs) wears it, not just the dashboards.
 #
 # Anything not set here falls back to HA's own light or dark default.
-Overlook:
+Meridian:
   # --- shape: the reference's defining trait ------------------------------
   ha-card-border-radius: "18px"
   ha-card-border-width: "0px"
@@ -31,7 +31,7 @@ Overlook:
   mush-rgb-amber: "245,158,11"
 
   # HA 2026 draws buttons, toggles and tabs from this scale, not from
-  # primary-color. 50 is the Overlook amber; 40 is the loud fill that white
+  # primary-color. 50 is the Meridian amber; 40 is the loud fill that white
   # text sits on, so it is darkened for contrast. HA picks the steps per mode.
   ha-color-primary-05: "#1f1300"
   ha-color-primary-10: "#2f1d00"
