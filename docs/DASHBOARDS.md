@@ -75,11 +75,13 @@ off on 2026-11-04.
   and puts an Edit dashboard button at the bottom; HA's header comes back with Done. While
   any of the cards above are on screen it also sets HA's grid to the design's sizes (62px
   rows, 10px gaps, 16px sides). A tile is one row, a player two.
-- Light sheets and pop-ups open in one layer on `<body>` (`overlook-overlay`). Pop-ups and
-  links ship as `/local/overlook-popups.json` (written by deploy, gitignored).
+- Light sheets and pop-ups open in one layer on `<body>` (`overlook-overlay`). Each card
+  carries its own pop-up (`popup:` on a tile, on each status pill and reading), edited in
+  HA's card editor: title, icon, then sections (player, tiles, choices, graph, graph of
+  several). Tiles, Scenes and Status have full UI editors; no YAML needed.
 - `./deploy.py shownative` writes the layout **only while it is unedited** (snapshot in
   `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version and
-  ships only the JS and pop-ups.
+  ships only the JS.
 
 ## Adding things
 

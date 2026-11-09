@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.24.4";
+const VERSION = "0.25.0";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -1200,7 +1200,7 @@ class OverlookShow extends LitElement {
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
-      default: return html`${head}<div class="pop-grid">${s.items.map((x) => this._popTile(x))}</div>`;
+      default: return html`${head}<div class="pop-grid">${(s.items || []).map((x) => this._popTile(x))}</div>`;
     }
   }
 
@@ -1242,6 +1242,10 @@ class OverlookShow extends LitElement {
 
   // one tile in a sheet: switches toggle, buttons press, numbers step, the rest open more-info
   _popTile(x) {
+    if (!x.name) {
+      const e0 = this._st(x.entity);
+      x = { ...x, name: (e0 && e0.attributes.friendly_name) || x.entity };
+    }
     if (x.when) {
       const w = this._st(x.when.entity);
       if (!w || w.state !== x.when.state) return nothing;
@@ -1286,7 +1290,7 @@ class OverlookShow extends LitElement {
     const [dom, svc] = s.service.split(".");
     return html`
       <div class="choices ${s.compact ? "compact" : ""}">
-        ${s.options.map(([v, name, icon]) => html`
+        ${(s.options || []).map((o) => (Array.isArray(o) ? o : [o.value, o.name || o.value, o.icon || "mdi:circle-medium"])).map(([v, name, icon]) => html`
           <button class="choice ${now === v ? "on" : ""}"
                   @click=${() => this._call(dom, svc, { entity_id: s.entity, [s.field]: v })}>
             <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
@@ -3959,7 +3963,7 @@ if (!customElements.get("overlook-show")) customElements.define("overlook-show",
 // single-card version (.phone, .ph-grid, .ph-sec ...), so they look the same. HA's own
 // editor arranges them: the edit-button card sets HA's grid to the design's sizes (62px
 // rows, 10px gaps) and hides HA's header. Sheets open in one shared
-// layer on <body>; pop-ups and their links come from /local/overlook-popups.json.
+// layer on <body>; each card carries its own pop-up in its config.
 
 // last time anything on the page scrolled: a light under a scrolling finger is not a hold
 let LAST_SCROLL = 0;
@@ -4015,14 +4019,11 @@ class OverlookPiece extends OverlookShow {
       SCROLL_HOOKED = true;
       window.addEventListener("scroll", () => { LAST_SCROLL = performance.now(); }, { capture: true, passive: true });
     }
-    this._relink = () => this.requestUpdate();
-    window.addEventListener("overlook-popups", this._relink);
   }
 
   disconnectedCallback() {
     LitElement.prototype.disconnectedCallback.call(this);
     PIECES--;
-    window.removeEventListener("overlook-popups", this._relink);
   }
 
   updated(changed) {
@@ -4048,8 +4049,18 @@ class OverlookPiece extends OverlookShow {
   }
 
   _openLight(id) { overlay(this.hass).openLight(id, this._config.name); }
-  _open(id) { overlay(this.hass)._open(id); }
-  _links() { return overlay()._links(); }
+  // the pop-ups this card carries: its own, or each pill's and reading's (status card)
+  _ownPopups() {
+    const c = this._config, m = {};
+    if (c.popup && c.entity) m[c.entity] = c.popup;
+    for (const x of [...(c.status || []), ...(c.status_air || [])]) if (x.popup && x.entity) m[x.entity] = x.popup;
+    return m;
+  }
+  _links() { return Object.fromEntries(Object.keys(this._ownPopups()).map((k) => [k, k])); }
+  _open(id) {
+    const p = this._ownPopups()[id];
+    if (p) overlay(this.hass).openPopup(p); else overlay(this.hass)._moreInfo(id);
+  }
   getCardSize() { return 1; }
 }
 
@@ -4059,10 +4070,16 @@ class OverlookOverlay extends OverlookShow {
     super();
     this.setConfig({ phone: true, weather: null });
     this._names = {};
-    fetch(`/local/overlook-popups.json?v=${VERSION}`).then((r) => r.json()).then((j) => {
-      this._config = Object.assign({}, this._config, { popups: j.popups || {}, links: j.links || {} });
-      window.dispatchEvent(new Event("overlook-popups"));
-    }).catch((e) => console.warn("overlook: pop-ups", e));
+  }
+
+  // a card's own pop-up, handed over whole
+  openPopup(p) {
+    if (!p || !(p.sections || []).length) return;
+    fireHaptic("light");
+    this._config = Object.assign({}, this._config, { popups: { card: p } });
+    this._pop = null;
+    this._pop = "card";
+    this._loadHistory(p);
   }
 
   connectedCallback() {
@@ -4345,8 +4362,10 @@ if (!customElements.get("overlook-heading")) customElements.define("overlook-hea
 class OverlookScenes extends OverlookPiece {
   static getConfigForm() {
     return {
-      schema: [{ name: "scenes", selector: { object: {} } }],
-      computeLabel: () => "Scenes (entity, and optionally name and icon, for each)",
+      schema: [{ name: "scenes", selector: { object: { multiple: true, label_field: "name", description_field: "entity", fields: {
+        entity: { label: "Scene, script or switch", required: true, selector: { entity: {} } },
+        name: { label: "Name", selector: { text: {} } }, icon: { label: "Icon", selector: { icon: {} } } } } } }],
+      computeLabel: () => "Scenes",
     };
   }
 
@@ -4391,6 +4410,321 @@ class OverlookStatus extends OverlookPiece {
   }
 }
 if (!customElements.get("overlook-status")) customElements.define("overlook-status", OverlookStatus);
+
+// --- editors: each card's settings in HA's own form, pop-up included ------------------
+const edFire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+
+// HA builds its form controls on demand; a tile card's editor pulls in ha-form and every selector
+async function loadHaForm() {
+  if (customElements.get("ha-form") && customElements.get("ha-expansion-panel")) return;
+  try {
+    const helpers = await window.loadCardHelpers();
+    const card = await helpers.createCardElement({ type: "tile", entity: "sun.sun" });
+    if (card.constructor.getConfigElement) await card.constructor.getConfigElement();
+  } catch (e) { console.warn("overlook: editor parts", e); }
+  await customElements.whenDefined("ha-form");
+}
+
+// colours are hex in the config; HA's colour picker works in [r, g, b]
+const toRgb = (h) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h || "");
+  if (!m) return h;
+  const n = parseInt(m[1], 16);
+  return [n >> 16, (n >> 8) & 255, n & 255];
+};
+const toHex = (a) => (Array.isArray(a) ? "#" + a.map((v) => Number(v).toString(16).padStart(2, "0")).join("") : a);
+const recolour = (v, f) => (Array.isArray(v) ? v.map((x) => recolour(x, f))
+  : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "color" ? f(x) : recolour(x, f)]))
+  : v);
+// drop empty fields so the YAML stays as short as hand-written
+const tidy = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== "" && v !== null
+  && !(Array.isArray(v) && !v.length)));
+
+const ED_LABELS = {
+  entity: "Entity", name: "Name", icon: "Icon", title: "Heading", items: "Tiles", wide: "Full width",
+  attr: "Show an attribute instead (e.g. current_temperature)", unit: "Unit", when: "Only while",
+  state: "State", color: "Colour", hours: "Hours shown", series: "Lines", average: "One line: the average of all",
+  valid_min: "Ignore readings below", valid_max: "Ignore readings above", options: "Options", value: "Value",
+  compact: "Small buttons", choose: "What to choose", sources: "Sensors it covers (low–high)",
+  tone: "Colour", person: "Person (always shown, home or away)", toggle: "Tap toggles it (no pop-up)",
+  show_when: "Shown while the state is (blank = on)",
+};
+const edLabel = (s) => ED_LABELS[s.name] || s.name;
+
+const TILE_FIELDS = {
+  entity: { label: "Entity", required: true, selector: { entity: {} } },
+  name: { label: "Name", selector: { text: {} } },
+  icon: { label: "Icon", selector: { icon: {} } },
+  wide: { label: "Full width", selector: { boolean: {} } },
+  attr: { label: "Attribute instead of state", selector: { text: {} } },
+  unit: { label: "Unit (with an attribute)", selector: { text: {} } },
+  when: { label: "Only while", selector: { object: { fields: {
+    entity: { label: "Entity", selector: { entity: {} } }, state: { label: "is", selector: { text: {} } } } } } },
+};
+const SERIES_FIELDS = {
+  entity: { label: "Entity", required: true, selector: { entity: {} } },
+  name: { label: "Name", selector: { text: {} } },
+  color: { label: "Colour", selector: { color_rgb: {} } },
+  attr: { label: "Attribute instead of state", selector: { text: {} } },
+};
+// what a Choices row picks, and the service that sets it
+const CHOOSE = [["source", "Source / app"], ["sound_mode", "Sound mode"], ["fan_mode", "Fan speed"],
+  ["swing_mode", "Swing"], ["preset_mode", "Preset"]];
+const chooseList = (attr) => ({ source: "source_list", sound_mode: "sound_mode_list" })[attr] || `${attr}s`;
+const chooseService = (entity, attr) => {
+  const dom = (entity || "").split(".")[0] || "media_player";
+  return attr === "source" || attr === "sound_mode" ? `${dom}.select_${attr}` : `${dom}.set_${attr}`;
+};
+
+const SECTION_KINDS = [["player", "Player", "mdi:play-circle-outline"], ["tiles", "Tiles", "mdi:view-grid-outline"],
+  ["choices", "Choices", "mdi:format-list-bulleted-square"], ["graph", "Graph", "mdi:chart-line"],
+  ["multigraph", "Graph of several", "mdi:chart-multiline"]];
+
+const SECTION_SCHEMA = {
+  player: [{ name: "entity", required: true, selector: { entity: { domain: "media_player" } } }],
+  tiles: [{ name: "title", selector: { text: {} } },
+    { name: "items", selector: { object: { multiple: true, label_field: "name", description_field: "entity", fields: TILE_FIELDS } } }],
+  choices: [{ name: "title", selector: { text: {} } },
+    { type: "grid", name: "", schema: [
+      { name: "entity", required: true, selector: { entity: {} } },
+      { name: "choose", required: true, selector: { select: { mode: "dropdown",
+        options: CHOOSE.map(([value, label]) => ({ value, label })) } } }] },
+    { name: "compact", selector: { boolean: {} } },
+    { name: "options", selector: { object: { multiple: true, label_field: "name", description_field: "value", fields: {
+      value: { label: "Value (as the entity names it)", required: true, selector: { text: {} } },
+      name: { label: "Name", selector: { text: {} } }, icon: { label: "Icon", selector: { icon: {} } } } } } }],
+  graph: [{ name: "title", selector: { text: {} } },
+    { name: "entity", required: true, selector: { entity: {} } },
+    { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } }, { name: "color", selector: { color_rgb: {} } }] },
+    { name: "hours", selector: { number: { min: 1, max: 720, mode: "box", unit_of_measurement: "h" } } }],
+  multigraph: [{ name: "title", selector: { text: {} } },
+    { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } },
+      { name: "hours", selector: { number: { min: 1, max: 720, mode: "box", unit_of_measurement: "h" } } },
+      { name: "unit", selector: { text: {} } }, { name: "color", selector: { color_rgb: {} } },
+      { name: "valid_min", selector: { number: { mode: "box" } } }, { name: "valid_max", selector: { number: { mode: "box" } } }] },
+    { name: "average", selector: { boolean: {} } },
+    { name: "series", selector: { object: { multiple: true, label_field: "name", description_field: "entity", fields: SERIES_FIELDS } } }],
+};
+
+// a section as the form edits it, and back
+function sectionToForm(s) {
+  const d = recolour({ ...s }, toRgb);
+  if (s.type === "choices") {
+    d.choose = s.attr;
+    d.options = (s.options || []).map((o) => (Array.isArray(o) ? tidy({ value: o[0], name: o[1], icon: o[2] }) : o));
+  }
+  if (s.valid) { d.valid_min = s.valid[0]; d.valid_max = s.valid[1]; }
+  delete d.valid; delete d.attr; delete d.service; delete d.field; delete d.type;
+  if (s.type !== "choices") { if (s.attr) d.attr = s.attr; }
+  return d;
+}
+function sectionFromForm(type, d) {
+  const s = recolour({ type, ...d }, toHex);
+  if (type === "choices") {
+    const attr = d.choose || "source";
+    Object.assign(s, { attr, field: attr, service: chooseService(d.entity, attr) });
+    delete s.choose;
+  }
+  if (d.valid_min != null || d.valid_max != null) s.valid = [d.valid_min ?? -1e9, d.valid_max ?? 1e9];
+  delete s.valid_min; delete s.valid_max;
+  return tidy(s);
+}
+
+const sectionHeader = (s, hass) => {
+  const kind = SECTION_KINDS.find((k) => k[0] === s.type) || SECTION_KINDS[1];
+  const e = s.entity && hass && hass.states[s.entity];
+  const what = s.title || s.name || (e && e.attributes.friendly_name) || s.entity
+    || (s.items ? `${s.items.length} tile${s.items.length === 1 ? "" : "s"}` : "");
+  return { label: kind[1], icon: kind[2], what };
+};
+
+// one list of panels: reorder, remove, open to edit
+const edList = (items, head, body, onChange) => {
+  const move = (i, d) => {
+    const a = [...items], j = i + d;
+    if (j < 0 || j >= a.length) return;
+    [a[i], a[j]] = [a[j], a[i]];
+    onChange(a);
+  };
+  const stop = (f) => (ev) => { ev.stopPropagation(); ev.preventDefault(); f(); };
+  return html`<div class="ed-list">${items.map((x, i) => {
+    const h = head(x);
+    return html`
+      <ha-expansion-panel outlined .header=${h.label} .secondary=${h.what || ""}>
+        <ha-icon slot="leading-icon" icon=${h.icon}></ha-icon>
+        <div slot="icons" class="ed-icons">
+          <button class="ed-ib" title="Move up" ?disabled=${i === 0} @click=${stop(() => move(i, -1))}><ha-icon icon="mdi:arrow-up"></ha-icon></button>
+          <button class="ed-ib" title="Move down" ?disabled=${i === items.length - 1} @click=${stop(() => move(i, 1))}><ha-icon icon="mdi:arrow-down"></ha-icon></button>
+          <button class="ed-ib" title="Remove" @click=${stop(() => onChange(items.filter((_, k) => k !== i)))}><ha-icon icon="mdi:delete-outline"></ha-icon></button>
+        </div>
+        <div class="ed-body">${body(x, (y) => onChange(items.map((z, k) => (k === i ? y : z))))}</div>
+      </ha-expansion-panel>`;
+  })}</div>`;
+};
+
+const ED_STYLES = css`
+  :host { display: block; }
+  .ed-group { margin-top: 24px; }
+  .ed-group > h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 16px; font-weight: 500; }
+  .ed-group > p { margin: 0 0 12px; color: var(--secondary-text-color); font-size: 13px; line-height: 1.4; }
+  .ed-list { display: flex; flex-direction: column; gap: 8px; }
+  ha-expansion-panel { --expansion-panel-summary-padding: 0 8px; --expansion-panel-content-padding: 0; }
+  ha-expansion-panel ha-icon[slot="leading-icon"] { color: var(--secondary-text-color); margin-inline-end: 8px; }
+  .ed-icons { display: flex; }
+  .ed-ib { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+           background: none; color: var(--secondary-text-color); cursor: pointer; }
+  .ed-ib:hover { background: var(--secondary-background-color); }
+  .ed-ib[disabled] { opacity: 0.3; cursor: default; background: none; }
+  .ed-ib ha-icon { --mdc-icon-size: 20px; }
+  .ed-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .ed-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .ed-chip { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 36px; border-radius: 18px;
+             border: 1px solid var(--divider-color); background: none; color: var(--primary-color); font: inherit;
+             font-size: 14px; font-weight: 500; cursor: pointer; }
+  .ed-chip:hover { background: var(--secondary-background-color); }
+  .ed-chip ha-icon { --mdc-icon-size: 18px; }
+  .ed-chip.quiet { color: var(--secondary-text-color); }
+  .ed-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+`;
+
+// a pop-up: its title and icon, then its sections in order
+class OverlookPopupEditor extends LitElement {
+  static get properties() { return { hass: { attribute: false }, value: { attribute: false }, label: {} }; }
+  static styles = ED_STYLES;
+
+  _set(v) { this.value = v; edFire(this, "value-changed", { value: v }); }
+
+  _fill(s, put) {
+    // the options the entity itself offers, keeping any names and icons already set
+    const e = this.hass.states[s.entity], attr = s.attr || "source";
+    const list = e && e.attributes[chooseList(attr)];
+    if (!Array.isArray(list)) return;
+    const old = Object.fromEntries((s.options || []).map((o) => (Array.isArray(o) ? [o[0], { value: o[0], name: o[1], icon: o[2] }] : [o.value, o])));
+    put({ ...s, options: list.map((v) => old[v] || { value: v }) });
+  }
+
+  render() {
+    const p = this.value;
+    if (!p) {
+      return html`<div class="ed-group"><h3><ha-icon icon="mdi:card-text-outline"></ha-icon>Pop-up</h3>
+        <p>${this.label || "Without one, a tap opens HA's own details for the entity."}</p>
+        <div class="ed-add"><button class="ed-chip" @click=${() => this._set({ title: "", icon: "", sections: [] })}>
+          <ha-icon icon="mdi:plus"></ha-icon>Add a pop-up</button></div></div>`;
+    }
+    const sections = p.sections || [];
+    const putSections = (a) => this._set({ ...p, sections: a });
+    return html`
+      <div class="ed-group">
+        <div class="ed-row"><h3><ha-icon icon="mdi:card-text-outline"></ha-icon>Pop-up</h3>
+          <button class="ed-chip quiet" @click=${() => this._set(undefined)}><ha-icon icon="mdi:close"></ha-icon>Remove pop-up</button></div>
+        <ha-form .hass=${this.hass} .data=${{ title: p.title, icon: p.icon }} .computeLabel=${(s) => ({ title: "Pop-up title", icon: "Pop-up icon" })[s.name]}
+          .schema=${[{ type: "grid", name: "", schema: [{ name: "title", selector: { text: {} } }, { name: "icon", selector: { icon: {} } }] }]}
+          @value-changed=${(ev) => this._set(tidy({ ...p, ...ev.detail.value, sections }))}></ha-form>
+        <p style="margin-top:16px">Sections, top to bottom</p>
+        ${edList(sections, (s) => sectionHeader(s, this.hass), (s, put) => html`
+          <ha-form .hass=${this.hass} .data=${sectionToForm(s)} .schema=${SECTION_SCHEMA[s.type] || SECTION_SCHEMA.tiles}
+            .computeLabel=${edLabel} @value-changed=${(ev) => put(sectionFromForm(s.type || "tiles", ev.detail.value))}></ha-form>
+          ${s.type === "choices" ? html`<div><button class="ed-chip" @click=${() => this._fill(s, put)}>
+            <ha-icon icon="mdi:auto-fix"></ha-icon>Fill options from the entity</button></div>` : nothing}`, putSections)}
+        <div class="ed-add">${SECTION_KINDS.map(([type, label, icon]) => html`
+          <button class="ed-chip" @click=${() => putSections([...sections, type === "tiles" ? { type, items: [] } : { type }])}>
+            <ha-icon icon=${icon}></ha-icon>${label}</button>`)}</div>
+      </div>`;
+  }
+}
+if (!customElements.get("overlook-popup-editor")) customElements.define("overlook-popup-editor", OverlookPopupEditor);
+
+class OverlookEditorBase extends LitElement {
+  static get properties() { return { hass: { attribute: false }, _config: { state: true }, _ready: { state: true } }; }
+  static styles = ED_STYLES;
+  setConfig(c) { this._config = c; }
+  connectedCallback() {
+    super.connectedCallback();
+    loadHaForm().then(() => { this._ready = true; });
+  }
+  _patch(p) {
+    const c = { ...this._config };
+    for (const [k, v] of Object.entries(p)) {
+      if (v === undefined || v === "" || v === null) delete c[k]; else c[k] = v;
+    }
+    this._config = c;
+    edFire(this, "config-changed", { config: c });
+  }
+}
+
+// a tile: the same fields as before, then its pop-up
+class OverlookTileEditor extends OverlookEditorBase {
+  render() {
+    if (!this._ready || !this.hass || !this._config) return nothing;
+    const form = customElements.get("overlook-tile").getConfigForm();
+    const { popup, ...rest } = this._config;
+    return html`
+      <ha-form .hass=${this.hass} .data=${rest} .schema=${form.schema} .computeLabel=${form.computeLabel}
+        @value-changed=${(ev) => this._patch({ ...ev.detail.value, type: this._config.type })}></ha-form>
+      <overlook-popup-editor .hass=${this.hass} .value=${popup}
+        @value-changed=${(ev) => this._patch({ popup: ev.detail.value })}></overlook-popup-editor>`;
+  }
+}
+if (!customElements.get("overlook-tile-editor")) customElements.define("overlook-tile-editor", OverlookTileEditor);
+
+const PILL_SCHEMA = [
+  { name: "entity", required: true, selector: { entity: {} } },
+  { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } }, { name: "icon", selector: { icon: {} } }] },
+  { name: "tone", selector: { select: { mode: "dropdown", options: [
+    { value: "warn", label: "Amber (warning)" }, { value: "bad", label: "Red (problem)" },
+    { value: "cool", label: "Blue" }, { value: "accent", label: "Accent" }] } } },
+  { name: "show_when", selector: { text: {} } },
+  { name: "person", selector: { boolean: {} } },
+  { name: "toggle", selector: { boolean: {} } },
+];
+const READING_SCHEMA = [
+  { name: "entity", required: true, selector: { entity: { domain: "sensor" } } },
+  { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } }, { name: "icon", selector: { icon: {} } },
+    { name: "unit", selector: { text: {} } }, { name: "color", selector: { color_rgb: {} } }] },
+  { name: "sources", selector: { object: { multiple: true, label_field: "entity", fields: {
+    entity: { label: "Entity", required: true, selector: { entity: {} } },
+    attr: { label: "Attribute instead of state", selector: { text: {} } } } } } },
+];
+
+// people and alerts, then the house readings; each can carry its own pop-up
+class OverlookStatusEditor extends OverlookEditorBase {
+  _items(key, schema, blank, toForm, fromForm, help) {
+    const items = this._config[key] || [];
+    return edList(items, (x) => {
+      const e = this.hass.states[x.entity];
+      return { label: x.name || (e && e.attributes.friendly_name) || x.entity || "New", what: x.entity,
+               icon: x.icon || (x.person ? "mdi:account" : key === "status_air" ? "mdi:thermometer" : "mdi:alert-circle-outline") };
+    }, (x, put) => html`
+      <ha-form .hass=${this.hass} .data=${toForm(x)} .schema=${schema} .computeLabel=${edLabel}
+        @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x.popup }))}></ha-form>
+      <overlook-popup-editor .hass=${this.hass} .value=${x.popup} .label=${help}
+        @value-changed=${(ev) => put(tidy({ ...x, popup: ev.detail.value }))}></overlook-popup-editor>`,
+    (a) => this._patch({ [key]: a.length ? a : undefined }));
+  }
+
+  render() {
+    if (!this._ready || !this.hass || !this._config) return nothing;
+    const pillTo = (x) => { const { popup, when, ...d } = x; return { ...d, show_when: when }; };
+    const pillFrom = (d) => { const { show_when, ...x } = d; return tidy({ ...x, when: show_when }); };
+    const readTo = (x) => { const { popup, ...d } = x; return recolour(d, toRgb); };
+    const readFrom = (d) => tidy(recolour(d, toHex));
+    return html`
+      <div class="ed-group" style="margin-top:0"><h3><ha-icon icon="mdi:account-multiple"></ha-icon>People and alerts</h3>
+        <p>People always show. Anything else shows only while it's on.</p>
+        ${this._items("status", PILL_SCHEMA, {}, pillTo, pillFrom)}
+        <div class="ed-add"><button class="ed-chip" @click=${() => this._patch({ status: [...(this._config.status || []), { entity: "" }] })}>
+          <ha-icon icon="mdi:plus"></ha-icon>Add a pill</button></div></div>
+      <div class="ed-group"><h3><ha-icon icon="mdi:thermometer"></ha-icon>Readings</h3>
+        <p>Each shows the lowest and highest of its sensors.</p>
+        ${this._items("status_air", READING_SCHEMA, {}, readTo, readFrom)}
+        <div class="ed-add"><button class="ed-chip" @click=${() => this._patch({ status_air: [...(this._config.status_air || []), { entity: "" }] })}>
+          <ha-icon icon="mdi:plus"></ha-icon>Add a reading</button></div></div>`;
+  }
+}
+if (!customElements.get("overlook-status-editor")) customElements.define("overlook-status-editor", OverlookStatusEditor);
+
+customElements.get("overlook-tile").getConfigElement = () => document.createElement("overlook-tile-editor");
+customElements.get("overlook-status").getConfigElement = () => document.createElement("overlook-status-editor");
 
 window.customCards = window.customCards || [];
 window.customCards.push(

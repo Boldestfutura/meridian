@@ -64,9 +64,22 @@ Tapping a speaker, plant, heat pump or status pill opens a bottom sheet:
   <img src="docs/images/phone-show-heatpump.png" width="260" alt="Heat pump sheet">
 </p>
 
+## Install with HACS
+
+The phone cards install on their own, with no deploy script:
+
+1. HACS → ⋮ → **Custom repositories** → add `https://github.com/Boldestfutura/overlook-ha`, type **Dashboard**.
+2. Install **Overlook cards**, then reload the browser.
+3. On a sections dashboard, **+ Add card** → search "Overlook": tile, room heading, scenes,
+   status and edit button. Every setting, pop-ups included, is in HA's card editor.
+
+HACS ships `dist/overlook-show.js` (Lit bundled in). Amazon Ember is not included; without
+it the cards fall back to the system font. The weather icons, sounds and recipes the
+full-screen Shows use are not in the HACS copy either; use `deploy.py` for those.
+
 ## Requirements
 
-- Home Assistant **2026.10** or similar. Nothing from HACS: Lit is vendored in `www/`.
+- Home Assistant **2026.10** or similar. Lit is vendored in `www/`.
 - SSH to the HA box (`deploy.py` copies the card to `/config/www` with `scp`) and a long-lived
   access token at `~/.config/ha/token`.
 - Optional, per feature: `album_slideshow` cameras for the photos, Music Assistant for

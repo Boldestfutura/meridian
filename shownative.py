@@ -5,8 +5,9 @@ HA sections view, so HA's own editor arranges them (drag, resize, the pencil, + 
 card). One view, no tabs. The overlook-edit-button card at the bottom hides HA's
 header, sets HA's grid to the design's sizes and opens HA's editor.
 
-`./deploy.py shownative` ships the card JS (shared with ha-show) and the pop-ups JSON,
-and writes this layout only while the live one is still what it last wrote: once it
+Each card carries its own pop-up (`popup:`), editable in HA's card editor.
+
+`./deploy.py shownative` ships the card JS (shared with ha-show), and writes this layout only while the live one is still what it last wrote: once it
 has been edited in HA, that version stays.
 """
 import show
@@ -23,11 +24,18 @@ def tile(x):
     for k in ("name", "icon"):
         if x.get(k):
             card[k] = x[k]
+    if x["entity"] in LINKS:
+        card["popup"] = POPUPS[LINKS[x["entity"]]]
     if AUTO.get(x["entity"].split(".")[0]) != x["type"]:
         card["kind"] = x["type"]
     if x["type"] == "media":   # the phone hides a speaker that's switched off at the wall
         card["visibility"] = [{"condition": "state", "entity": x["entity"], "state_not": "unavailable"}]
     return card
+
+
+def with_popups(items):
+    """Each pill or reading carries the pop-up it opens."""
+    return [dict(x, popup=POPUPS[LINKS[x["entity"]]]) if x["entity"] in LINKS else x for x in items]
 
 
 def section(*cards):
@@ -42,7 +50,8 @@ def heading(name, icon, group=None):
 
 
 def build():
-    home = [section({"type": "custom:overlook-status", "status": show.CARD["status"], "status_air": STATUS_AIR}),
+    home = [section({"type": "custom:overlook-status", "status": with_popups(show.CARD["status"]),
+                     "status_air": with_popups(STATUS_AIR)}),
             section(heading("Scenes", "mdi:creation"), {"type": "custom:overlook-scenes", "scenes": SCENES})]
     home += [section(heading(r["name"], r["icon"], r.get("group")), *[tile(x) for x in r["items"]]) for r in ROOMS]
     home.append(section({"type": "custom:overlook-edit-button"}))
@@ -51,7 +60,3 @@ def build():
          "max_columns": 4, "sections": home},
     ]}
 
-
-def popups_json():
-    """Served as /local/overlook-popups.json: the native cards' pop-ups and what opens them."""
-    return {"popups": POPUPS, "links": LINKS}

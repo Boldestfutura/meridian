@@ -45,11 +45,10 @@ def push_show(ws, ids):
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
                     "-i", os.path.expanduser("~/.config/ha/vmkey"), os.path.join(here, "www/fonts/ember.css"),
                     "root@%s:/config/www/fonts/amazon-ember/" % HOST], check=True)
-    import shownative
-    pj = os.path.join(here, "www/overlook-popups.json")
-    json.dump(shownative.popups_json(), open(pj, "w"))
-    subprocess.run(["scp", "-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
-                    "-i", os.path.expanduser("~/.config/ha/vmkey"), pj, "root@%s:/config/www/" % HOST], check=True)
+    # the same card as one file, for HACS (dist/ is committed; HACS installs from it)
+    subprocess.run(["npx", "-y", "esbuild@0.24.0", os.path.join(here, "www/overlook-show.js"), "--bundle",
+                    "--format=esm", "--log-level=warning", "--outfile=" + os.path.join(here, "dist/overlook-show.js")],
+                   check=True)
     url = "/local/overlook-show.js?v=" + show.VERSION
     res = ha_ws.call(ws, next(ids), type="lovelace/resources")["result"]
     mine = [r for r in res if r["url"].startswith("/local/overlook-show.js")]
@@ -124,7 +123,7 @@ def main():
         if name in NATIVE and url in have:
             live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url).get("result")
             if live and edited_live(name, live):
-                print("%-9s edited in HA - kept the live layout (card JS and pop-ups shipped)" % name)
+                print("%-9s edited in HA - kept the live layout (card JS shipped)" % name)
                 continue
 
         if a.dry_run:

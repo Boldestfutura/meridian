@@ -8,7 +8,6 @@ live_*.json
 screenshots/
 .live-backup-*/
 .deployed/
-www/overlook-popups.json
 # Amazon Ember lives on HA only, never here
 *.woff
 *.woff2
