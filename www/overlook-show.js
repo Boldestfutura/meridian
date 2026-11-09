@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.24.2";
+const VERSION = "0.24.3";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -1299,6 +1299,18 @@ class OverlookShow extends LitElement {
     const a = e.attributes, playing = e.state === "playing", off = ["off", "standby"].includes(e.state);
     const vol = a.volume_level, muted = a.is_volume_muted;
     const mp = (svc, data = {}) => this._call("media_player", svc, Object.assign({ entity_id: id }, data));
+    const step = (d) => () => mp("volume_set", { volume_level: clamp(Math.round((vol + d) * 100) / 100, 0, 1) });
+    // where the track is, ticking once a second while this pop-up is open
+    const dur = a.media_duration || 0;
+    let pos = a.media_position || 0;
+    if (playing && a.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a.media_position_updated_at).getTime()) / 1000;
+    pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+    if (playing && dur && !this._ppTick) {
+      this._ppTick = setInterval(() => {
+        if (!this._pop) { clearInterval(this._ppTick); this._ppTick = null; return; }
+        this._npNow = Date.now(); this.requestUpdate();
+      }, 1000);
+    }
     return html`
       <div class="pplayer ${muted ? "muted-vol" : ""}">
         <div class="pp-top">
@@ -1318,13 +1330,15 @@ class OverlookShow extends LitElement {
             <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
           <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button>
         </div>
+        ${dur ? html`
+          <div class="pp-prog">
+            <div class="pp-track"><div style="width:${(pos / dur) * 100}%"></div></div>
+            <div class="pp-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>
+          </div>` : nothing}
         ${vol != null ? html`
-          <div class="vol">
-            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol - VOL_STEP) * 100) / 100, 0, 1) })}>
-              <ha-icon icon="mdi:minus"></ha-icon></button>
-            <div class="vol-bar"><div style="width:${Math.round(vol * 100)}%"></div></div>
-            <button class="round small" @click=${() => mp("volume_set", { volume_level: clamp(Math.round((vol + VOL_STEP) * 100) / 100, 0, 1) })}>
-              <ha-icon icon="mdi:plus"></ha-icon></button>
+          <div class="pp-vol">
+            <button class="round small" title="Volume down" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="round small" title="Volume up" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
             <button class="round small ${muted ? "is-muted" : ""}" title="Mute" @click=${() => mp("volume_mute", { is_volume_muted: !muted })}>
               <ha-icon icon=${muted ? "mdi:volume-off" : "mdi:volume-high"}></ha-icon></button>
           </div>` : nothing}
@@ -3886,8 +3900,16 @@ class OverlookShow extends LitElement {
     .pp-top .art.input-art ha-icon { --mdc-icon-size: 32px; }
     .pp-ctrl { display: flex; justify-content: center; align-items: center; gap: 22px; }
     .pp-ctrl .round.play { width: 56px; height: 56px; background: var(--accent); color: #fff; }
-    .pp-ctrl .round.small, .pplayer .vol .round.small, .pp-top .round.small { background: var(--card); }
-    .pplayer .vol { grid-template-columns: auto 1fr auto auto; }
+    .pp-ctrl .round.small, .pp-top .round.small { background: var(--card); }
+    /* volume: - and + share 80% of the row as squircles, mute takes the other 20% */
+    .pp-vol { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; }
+    .pp-vol .round.small { width: 100%; height: 52px; border-radius: 16px; background: var(--card); }
+    .pp-vol .round.small ha-icon { --mdc-icon-size: 24px; }
+    .pp-prog { display: flex; flex-direction: column; gap: 6px; }
+    .pp-track { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .pp-track div { height: 100%; border-radius: 999px; background: var(--accent); transition: width 1s linear; }
+    .pp-times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
+                font-variant-numeric: tabular-nums; color: var(--muted); }
     .round.small.power-on { color: var(--accent); }
     .round.small.is-muted { color: #e5484d; }
     .graph { padding: 14px 14px 10px; border-radius: 22px; background: var(--inset); }
