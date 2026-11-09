@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.24.3";
+const VERSION = "0.24.4";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -3845,7 +3845,10 @@ class OverlookShow extends LitElement {
     .ptile.alert { background: color-mix(in srgb, var(--warm) 16%, var(--inset)); }
     .ptile.alert .tile-ico { color: var(--warm); }
     .ptile:active { transform: scale(0.98); }
-    .ptile.stepper { grid-column: 1 / -1; grid-template-columns: 38px 1fr auto; }
+    /* half width: name and value on top, - and + squircles sharing the row underneath */
+    .ptile.stepper { grid-column: auto; grid-template-columns: 38px 1fr; }
+    .ptile.stepper .steps-btns { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ptile.stepper .steps-btns .round.small { width: 100%; height: 40px; border-radius: 13px; }
     /* light sheet */
     .lsheet-state { display: block; font-family: var(--body); font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
     .lsheet-state.lit { color: var(--warm); }
