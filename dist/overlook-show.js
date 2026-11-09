@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.25.0";
+var VERSION = "0.25.1";
 function rgbToHsl(r2, g2, b2) {
   r2 /= 255;
   g2 /= 255;
@@ -2593,8 +2593,8 @@ var OverlookShow = class extends dt {
       if (c2 !== null) pts.push([t1, c2]);
       return { ...x2, pts, now: c2 };
     });
-    const unit = s2.unit || "\xB0";
-    const fmtv = (v2) => v2 === null || v2 === void 0 ? "\u2013" : unit === "%" ? `${Math.round(v2)}%` : `${v2.toFixed(1)}\xB0`;
+    const unit = s2.unit != null ? s2.unit : "\xB0";
+    const fmtv = (v2) => v2 === null || v2 === void 0 ? "\u2013" : unit === "%" ? `${Math.round(v2)}%` : unit === "\xB0" ? `${v2.toFixed(1)}\xB0` : `${Math.round(v2)}${unit}`;
     const at2 = (pts, t3) => {
       let v2 = null;
       for (const p2 of pts) {

@@ -78,11 +78,15 @@ def tiles(*items, title=None):
 ROOM_COLORS = {"Kitchen": "#f39a43", "Master Bedroom": "#8e6cf0", "Living Room": "#1fb39b", "Guest Bedroom": "#3f86f2"}
 
 
+# what each reading is in, and the range a real one stays inside (a glitch outside it is dropped)
+AIR_RANGE = {"temperature": ("°", [5, 45]), "humidity": ("%", [1, 100]), "pm2_5": ("", [0, 1000]), "voc": ("", [1, 500])}
+
+
 def air_popup(key, title, icon, kitchen, bedroom, extra=()):
     rooms = [t(kitchen, "Kitchen", icon), t(bedroom, "Master Bedroom", icon), *extra]
     series = [dict(entity=r["entity"], name=r["name"], color=ROOM_COLORS[r["name"]],
                    **({"attr": r["attr"]} if r.get("attr") else {})) for r in rooms]
-    unit, valid = ("%", [1, 100]) if key == "humidity" else ("°", [5, 45])
+    unit, valid = AIR_RANGE[key]
     g = dict(series=series, hours=24, unit=unit, valid=valid)
     return {"title": title, "icon": icon, "sections": [
         dict(type="multigraph", name="Each room", **g),

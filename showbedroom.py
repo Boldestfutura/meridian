@@ -10,6 +10,7 @@ from the Bedroom entry in show.CARD["rooms"], so its group and switches show up 
 Controls and its sensors on Climate. Hold the clock for 1.5s to uncover HA.
 """
 import show
+from showphone import AIR_RANGE
 
 VERSION = show.VERSION
 ROOM = next(r for r in show.CARD["rooms"] if r["name"] == "Bedroom")
@@ -21,7 +22,18 @@ ROOM = dict(ROOM, switches=ROOM.get("switches", []) + [
 SPEAKERS = sorted((dict(s, auto=s["name"] == "Bedroom Echo") for s in show.CARD["speakers"]),
                   key=lambda s: s["name"] != "Bedroom Echo")
 
-CARD = dict(show.CARD, bedside=True, room=ROOM, speakers=SPEAKERS,
+# Climate: tapping a reading opens its last 24 hours, for this room only
+TITLES = {"temperature": "Temperature", "humidity": "Humidity", "pm2_5": "Fine dust (PM2.5)", "voc": "Air quality (VOC)"}
+POPUPS, LINKS = {}, {}
+for x in show.air("_2"):
+    key = x["entity"].split("air_quality_monitor_")[1][:-2].replace("voc_index", "voc")
+    unit, valid = AIR_RANGE[key]
+    POPUPS[key] = {"title": TITLES[key], "icon": x["icon"], "sections": [
+        {"type": "multigraph", "name": "Last 24 hours", "hours": 24, "unit": unit, "valid": valid,
+         "series": [{"entity": x["entity"], "name": "Bedroom", "color": x["color"]}]}]}
+    LINKS[x["entity"]] = key
+
+CARD = dict(show.CARD, bedside=True, popups=POPUPS, links=LINKS, room=ROOM, speakers=SPEAKERS,
             photos="camera.album_slideshow_family_bedroom", status=[], scenes=[],
             # when the room is dark (lights off, Echo light sensor under 3 lx): a red clock on black
             night="binary_sensor.bedroom_dark",

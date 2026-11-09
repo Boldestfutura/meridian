@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.25.0";
+const VERSION = "0.25.1";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -1403,8 +1403,9 @@ class OverlookShow extends LitElement {
       if (c !== null) pts.push([t1, c]);
       return { ...x, pts, now: c };
     });
-    const unit = s.unit || "°";
-    const fmtv = (v) => (v === null || v === undefined ? "–" : unit === "%" ? `${Math.round(v)}%` : `${v.toFixed(1)}°`);
+    const unit = s.unit != null ? s.unit : "°";
+    const fmtv = (v) => (v === null || v === undefined ? "–" : unit === "%" ? `${Math.round(v)}%`
+      : unit === "°" ? `${v.toFixed(1)}°` : `${Math.round(v)}${unit}`);
     // value of a stepped series at time t: the last reading at or before t
     const at = (pts, t) => {
       let v = null;
