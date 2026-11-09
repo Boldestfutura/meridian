@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.25.1";
+const VERSION = "0.25.3";
 // artwork for local files that carry none, keyed by the title Music Assistant reports
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -4053,8 +4053,9 @@ class OverlookPiece extends OverlookShow {
   // the pop-ups this card carries: its own, or each pill's and reading's (status card)
   _ownPopups() {
     const c = this._config, m = {};
-    if (c.popup && c.entity) m[c.entity] = c.popup;
-    for (const x of [...(c.status || []), ...(c.status_air || [])]) if (x.popup && x.entity) m[x.entity] = x.popup;
+    const ok = (p) => p && Array.isArray(p.sections) && p.sections.length;   // an empty one: HA's details instead
+    if (ok(c.popup) && c.entity) m[c.entity] = c.popup;
+    for (const x of [...(c.status || []), ...(c.status_air || [])]) if (ok(x.popup) && x.entity) m[x.entity] = x.popup;
     return m;
   }
   _links() { return Object.fromEntries(Object.keys(this._ownPopups()).map((k) => [k, k])); }
@@ -4540,9 +4541,11 @@ const sectionHeader = (s, hass) => {
 };
 
 // one list of panels: reorder, remove, open to edit
-const edList = (items, head, body, onChange) => {
+// `get` returns the list as it is now, read at each edit (not the copy from the last render)
+const edList = (get, head, body, onChange) => {
+  const items = get();
   const move = (i, d) => {
-    const a = [...items], j = i + d;
+    const a = [...get()], j = i + d;
     if (j < 0 || j >= a.length) return;
     [a[i], a[j]] = [a[j], a[i]];
     onChange(a);
@@ -4556,9 +4559,9 @@ const edList = (items, head, body, onChange) => {
         <div slot="icons" class="ed-icons">
           <button class="ed-ib" title="Move up" ?disabled=${i === 0} @click=${stop(() => move(i, -1))}><ha-icon icon="mdi:arrow-up"></ha-icon></button>
           <button class="ed-ib" title="Move down" ?disabled=${i === items.length - 1} @click=${stop(() => move(i, 1))}><ha-icon icon="mdi:arrow-down"></ha-icon></button>
-          <button class="ed-ib" title="Remove" @click=${stop(() => onChange(items.filter((_, k) => k !== i)))}><ha-icon icon="mdi:delete-outline"></ha-icon></button>
+          <button class="ed-ib" title="Remove" @click=${stop(() => onChange(get().filter((_, k) => k !== i)))}><ha-icon icon="mdi:delete-outline"></ha-icon></button>
         </div>
-        <div class="ed-body">${body(x, (y) => onChange(items.map((z, k) => (k === i ? y : z))))}</div>
+        <div class="ed-body">${body(x, (y) => onChange(get().map((z, k) => (k === i ? y : z))))}</div>
       </ha-expansion-panel>`;
   })}</div>`;
 };
@@ -4593,7 +4596,14 @@ class OverlookPopupEditor extends LitElement {
   static get properties() { return { hass: { attribute: false }, value: { attribute: false }, label: {} }; }
   static styles = ED_STYLES;
 
-  _set(v) { this.value = v; edFire(this, "value-changed", { value: v }); }
+  // its own event name: HA's forms inside fire value-changed too, and those bubble out of
+  // this element's shadow root looking just like it (a section's fields once replaced a pop-up)
+  _set(v) { this.value = v; edFire(this, "popup-changed", { value: v }); }
+
+  constructor() {
+    super();
+    this.addEventListener("value-changed", (ev) => ev.stopPropagation());
+  }
 
   _fill(s, put) {
     // the options the entity itself offers, keeping any names and icons already set
@@ -4613,16 +4623,17 @@ class OverlookPopupEditor extends LitElement {
           <ha-icon icon="mdi:plus"></ha-icon>Add a pop-up</button></div></div>`;
     }
     const sections = p.sections || [];
-    const putSections = (a) => this._set({ ...p, sections: a });
+    // always from this.value: two quick edits must not start from the same old copy
+    const putSections = (a) => this._set({ ...this.value, sections: a });
     return html`
       <div class="ed-group">
         <div class="ed-row"><h3><ha-icon icon="mdi:card-text-outline"></ha-icon>Pop-up</h3>
           <button class="ed-chip quiet" @click=${() => this._set(undefined)}><ha-icon icon="mdi:close"></ha-icon>Remove pop-up</button></div>
         <ha-form .hass=${this.hass} .data=${{ title: p.title, icon: p.icon }} .computeLabel=${(s) => ({ title: "Pop-up title", icon: "Pop-up icon" })[s.name]}
           .schema=${[{ type: "grid", name: "", schema: [{ name: "title", selector: { text: {} } }, { name: "icon", selector: { icon: {} } }] }]}
-          @value-changed=${(ev) => this._set(tidy({ ...p, ...ev.detail.value, sections }))}></ha-form>
+          @value-changed=${(ev) => this._set(tidy({ ...this.value, title: ev.detail.value.title, icon: ev.detail.value.icon }))}></ha-form>
         <p style="margin-top:16px">Sections, top to bottom</p>
-        ${edList(sections, (s) => sectionHeader(s, this.hass), (s, put) => html`
+        ${edList(() => (this.value && this.value.sections) || [], (s) => sectionHeader(s, this.hass), (s, put) => html`
           <ha-form .hass=${this.hass} .data=${sectionToForm(s)} .schema=${SECTION_SCHEMA[s.type] || SECTION_SCHEMA.tiles}
             .computeLabel=${edLabel} @value-changed=${(ev) => put(sectionFromForm(s.type || "tiles", ev.detail.value))}></ha-form>
           ${s.type === "choices" ? html`<div><button class="ed-chip" @click=${() => this._fill(s, put)}>
@@ -4663,7 +4674,7 @@ class OverlookTileEditor extends OverlookEditorBase {
       <ha-form .hass=${this.hass} .data=${rest} .schema=${form.schema} .computeLabel=${form.computeLabel}
         @value-changed=${(ev) => this._patch({ ...ev.detail.value, type: this._config.type })}></ha-form>
       <overlook-popup-editor .hass=${this.hass} .value=${popup}
-        @value-changed=${(ev) => this._patch({ popup: ev.detail.value })}></overlook-popup-editor>`;
+        @popup-changed=${(ev) => this._patch({ popup: ev.detail.value })}></overlook-popup-editor>`;
   }
 }
 if (!customElements.get("overlook-tile-editor")) customElements.define("overlook-tile-editor", OverlookTileEditor);
@@ -4690,8 +4701,7 @@ const READING_SCHEMA = [
 // people and alerts, then the house readings; each can carry its own pop-up
 class OverlookStatusEditor extends OverlookEditorBase {
   _items(key, schema, blank, toForm, fromForm, help) {
-    const items = this._config[key] || [];
-    return edList(items, (x) => {
+    return edList(() => this._config[key] || [], (x) => {
       const e = this.hass.states[x.entity];
       return { label: x.name || (e && e.attributes.friendly_name) || x.entity || "New", what: x.entity,
                icon: x.icon || (x.person ? "mdi:account" : key === "status_air" ? "mdi:thermometer" : "mdi:alert-circle-outline") };
@@ -4699,7 +4709,7 @@ class OverlookStatusEditor extends OverlookEditorBase {
       <ha-form .hass=${this.hass} .data=${toForm(x)} .schema=${schema} .computeLabel=${edLabel}
         @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x.popup }))}></ha-form>
       <overlook-popup-editor .hass=${this.hass} .value=${x.popup} .label=${help}
-        @value-changed=${(ev) => put(tidy({ ...x, popup: ev.detail.value }))}></overlook-popup-editor>`,
+        @popup-changed=${(ev) => put(tidy({ ...x, popup: ev.detail.value }))}></overlook-popup-editor>`,
     (a) => this._patch({ [key]: a.length ? a : undefined }));
   }
 
