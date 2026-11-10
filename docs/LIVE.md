@@ -59,23 +59,36 @@ deploy them.
 
 ## What exists, by dashboard
 
-**Kitchen Show** `ha-show` (`show.py`, 1280x800)
-- For the ALLDOCUBE 8" tablet, which hasn't arrived yet. Until then it is used in a browser.
-
-**Hub Show** `ha-show-hub` (Nest Hub 1st gen, 1024x600, cast): Meridian screen cards, edited in HA. Since 2026-11-10 it is the Echo dashboard's layout with kitchen entities (Controls, Media, Climate, Calendar); the old `showhub.py` layout is backed up at `~/.config/ha/ha-show-hub.before-kitchen-2026-11-10.json`
-- `automation.kitchen_display_keep_the_cast_alive` (`ha_config/kitchen_cast_keepalive.json`)
-  casts `ha-show-hub/controls` every 2 minutes when the Hub is off or idle, or showing an HA
-  dashboard other than a `Hub Show:` page. It never interrupts music or video playing on it.
-- To reload it after a card change: `media_player.turn_off` the Hub, wait, then
-  `cast.show_lovelace_view`. Casting the same view again does not reload the page.
-- **Never use a card that loads images by relative URL here.** The cast receiver runs at
-  cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
-
-**Kitchen Tablet Show** `kitchen-tablet-show` (ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS): a copy of Hub Show with the dock's `clock: kitchen`, `voice: kitchen` and `voice_satellite`. Set up 2026-11-10.
-- Runs in VACA 0.14.1 (the Android home app), device "Kitchen Tablet VA" in area Kitchen, entities `*.kitchen_tablet_va_*`. Pipeline Claude, wake word Alexa (microWakeWord, 6.5). Camera permission denied and its entity disabled.
-- VACA's start page is the integration option `default_dashboard` (`kitchen-tablet-show/controls`), not a user's default panel.
-- Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`, `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`; `voice_clock_ring` has a `kitchen` room.
-- ADB is Wireless debugging (paired with luna), so the port changes on every boot: `adb mdns services` finds it. No HA ADB watchdog like the Echo's.
+**Kitchen Show** `ha-show` (`show.py`, view `show`): the tablet pages in `www/tablet.js`. Shown on
+the kitchen tablet and cast to the Nest Hub since 2026-11-11. Hub Show (`ha-show-hub`), Kitchen
+Tablet Show (`kitchen-tablet-show`) and View Assist (`view-assist`) were deleted that day;
+backups in `~/.config/ha/*.deleted-2026-11-11.json`.
+- **Tablet:** ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS. Runs in VACA 0.14.1 (the
+  Android home app), device "Kitchen Tablet VA" in area Kitchen, entities `*.kitchen_tablet_va_*`.
+  Pipeline Claude, wake word Alexa (microWakeWord, 6.5). Camera permission denied and its entity
+  disabled.
+  - VACA's start page is the integration option `default_dashboard` (`ha-show/show`), not a
+    user's default panel. Change it through the integration's options flow.
+  - Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`,
+    `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`;
+    `voice_clock_ring` has a `kitchen` room.
+  - ADB is Wireless debugging (paired with luna), so the port changes on every boot:
+    `adb mdns services` finds it. No HA ADB watchdog like the Echo's.
+  - The white bar at the left edge is Android's gesture handle (natural portrait bottom). It
+    can't be hidden without a kiosk app, which would break VACA's voice. Left as it is.
+  - The WebView keeps old JS for a URL it has seen: bump `VERSION` on every deploy.
+- **Nest Hub** (1st gen, 1024x600, cast): `automation.kitchen_display_keep_the_cast_alive`
+  (`ha_config/kitchen_cast_keepalive.json`) casts `ha-show/show` every 2 minutes when the Hub
+  is off or idle, or showing an HA dashboard other than a `Kitchen Show:` page. It never
+  interrupts music or video playing on it.
+  - To reload it after a card change: `media_player.turn_off` the Hub, wait, then
+    `cast.show_lovelace_view`. Casting the same view again does not reload the page.
+  - **Never use a card that loads images by relative URL here.** The cast receiver runs at
+    cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
+- **Feeds the pages read:** `/local/norish/plan.json` (`tools/ha/norish_plan.py`, the week's
+  meal plan) and `/local/nowplaying/index.json` (`tools/ha/plex_art.py`, Plex background and
+  logo per show or film, fetched when the Apple TV starts something new). Plex's URL and token
+  are in `/config/.plex.json` (mode 600), never in the repo.
 
 **Master Bedroom Echo Show** `master-bedroom-echo-show` (Echo Show 5 2nd gen, 788x394): Meridian screen cards (`meridian-dock`, large button, large sensor, calendar, media, playlists), edited in HA. Replaced Bedroom Show (`ha-show-bedroom`) on 2026-11-10; the `bedside` options below now live on its `meridian-dock`
 - Runs in the View Assist Companion app (VACA), which is also the voice satellite. Device
@@ -153,7 +166,7 @@ bedroom stream sounds. `automation.master_bedroom_sleep_sounds` (`ha_config/slee
 plays Stream Sounds on the Echo at 9%, looping, while it is on and stops when it goes off.
 The 9pm-7:30am automation (`ha_config/bedroom_night.json`) only flips the switch now. Every
 dashboard has a Sleep Sounds tile for it: the Bedroom room's scenes and the favourites in
-`show.py`, the Phone Show scenes, the Hub's Scenes sheet and a Controls tile on the Echo. A manual "on" stops at the next 7:30am or
+`show.py` (and the tablet's quick actions), the Phone Show scenes and a Controls tile on the Echo. A manual "on" stops at the next 7:30am or
 when everyone leaves, like the automatic one.
 
 ## Room climate by voice and alerts (2026-11-08)

@@ -2,13 +2,14 @@
 
 Self-contained brief for an AI agent. Read `AGENTS.md`, `README.md` and `docs/DASHBOARDS.md`
 first, then this. Written 2026-10-27 for the old ha-tablet dashboard; Steps 4 and 5 were
-rewritten for the Show card on 2026-11-08, when the classic dashboards were retired.
+rewritten for the Show card on 2026-11-08, and the Goal on 2026-11-11 for the tablet pages.
 
 ## Goal
 
-The Show card's playlist row (`_playlists()` in `www/overlook-show.js`, on Kitchen Show's
-kitchen page, the Hub's Media page and Computer Show) gains Paget's playlists next to
-Cameron's:
+The Show card's playlist tiles (`_playlists()` in `www/overlook-show.js`, drawn on the Kitchen
+Show's **Media** page by `www/tablet.js`, which the kitchen tablet and the Nest Hub both show,
+and by the `meridian-playlists` card on Computer Show and the bedroom Echo) gain Paget's
+playlists next to Cameron's:
 
 - Cameron's playlists, exactly what is there today
 - Paget's playlists, from her own Spotify account through Music Assistant
@@ -116,7 +117,8 @@ An agent cannot do these. Wait until Cameron says all three are done.
 
 - Drive the page in a headless browser with `tools/cdp.py`. Kill the browser by PID,
   **never `pkill -f`**: that kills its own shell.
-- Check Kitchen Show at 1280x800 and the Hub's Media page at 1024x600.
+- Check the Kitchen Show's Media page (`/ha-show/show`) at 1280x800 and at 1024x600 (the
+  Hub's size), plus Computer Show and the bedroom Echo's Media page.
 - Tap one of Paget's playlists and check the selected MA player starts playing. **Only
   play audio when nobody is home** (`person.cameron` and `person.paget` both
   `not_home`), and pause afterwards.

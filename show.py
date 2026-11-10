@@ -1,6 +1,6 @@
-"""Test dashboard (ha-show): the kitchen screen in the Echo Show 16 layout.
+"""Kitchen Show (ha-show/show): the kitchen tablet's pages, also cast to the Nest Hub.
 
-For the 8" tablet. Everything is one custom card, www/overlook-show.js, which
+The pages themselves are www/tablet.js. Everything is one custom card, www/overlook-show.js, which
 covers the whole screen: a dock of pages on the left, weather and the clock top
 right. It opens on the Family album and goes back to it after five idle minutes.
 Hold the clock for 1.5s to uncover HA itself (for edit mode).
@@ -80,7 +80,7 @@ CARD = {
         {"entity": "binary_sensor.any_plant_needs_water", "name": "Water plants", "icon": "mdi:watering-can-outline", "tone": "cool"},
         {"entity": "input_boolean.guest_mode", "name": "Guest mode", "icon": "mdi:account-group", "tone": "accent", "toggle": True},
     ],
-    # Home page: one tab per room, the same things the ha-tablet dashboard shows
+    # Rooms page: one tab per room
     "rooms": [
         {"name": "Kitchen", "icon": "mdi:stove", "group": "light.kitchen_lights",
          "lights": [{"entity": "light.kitchen_light_2", "name": "Kitchen Light", "icon": "mdi:ceiling-light"},

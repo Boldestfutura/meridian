@@ -6,7 +6,7 @@ ha-computer, ha-bedroom, ha-homey) were retired on 2026-11-08: removed from HA a
 repo. Their code is in git history before that date if anything ever needs digging out.
 
 <p>
-  <img src="images/kitchen-show.png" width="520" alt="Kitchen Show">
+  <img src="images/tablet-home.png" width="520" alt="Kitchen Show">
   <img src="images/phone-show.png" width="180" alt="Phone Show">
 </p>
 
@@ -16,20 +16,30 @@ More screenshots in the [README](../README.md).
 
 | file | what it is |
 |---|---|
-| `www/overlook-show.js` | the source: the Show card (every layout) and the Meridian cards in one file |
+| `www/overlook-show.js` | the source: the Show card and the Meridian cards in one file |
+| `www/tablet.js` | the Kitchen Show's pages (Home, Rooms, Climate, Media, Recipes) and their CSS, all under `.tablet`; imported by `overlook-show.js` |
 | `dist/meridian.js` | Meridian cards, built from the source by `deploy.py`; what HACS installs. Commit it |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
-| `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`, the shared config: rooms, scenes, status pills, calendars, recipes. The other dashboards start from `show.CARD` |
+| `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`: rooms, scenes, status pills, calendars, recipes, and the tablet's own keys (`tablet_tv`, `tablet_players`, `tablet_quick`, `scheme`) |
 | `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` reads it |
 | `shownative.py` | Phone Show (`ha-show-native`): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
+| `tools/ha/norish_plan.py` | writes the Norish meal plan to `/config/www/norish/plan.json` for the Home and Recipes pages; runs on HA |
+| `tools/ha/plex_art.py` | fetches Plex's background and logo for what the Apple TV plays into `/config/www/nowplaying/` (`shell_command.plex_art`); runs on HA |
 
-Every dashboard runs the **same JS file**. A flag in the config picks the layout, and its CSS
-lives under a class of the same name: `phone`, `desk`, `bedside`, `hub`. No flag is the
-kitchen tablet.
+The Show card has one full-screen layout, the Kitchen Show's pages in `www/tablet.js`. Every
+other dashboard is built from Meridian cards in HA's editor, from the same JS file.
+
+**Kitchen Show config keys** (`show.CARD`):
+- `tablet_quick`: the Home page's quick actions, in order, scrolling sideways seven at a time.
+  Each is `{entity, name, icon}`; `{timer: true}` puts the kitchen timer there.
+- `tablet_players`: the Media page's speakers. `volume` sends volume to another entity (the
+  Apple TV's goes to the amp); `follows` hides a player while the one it follows is on.
+- `tablet_tv`: the player whose Plex art fills the Home page's TV tile.
+- `scheme`: `sun.sun` switches light and dark with sunrise and sunset.
 
 ## Changing one
 
@@ -54,8 +64,7 @@ kitchen tablet.
    started again (`media_player.turn_off`, then `cast.show_lovelace_view`); recasting the same
    view does not reload it.
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
-   - Kitchen Show `/ha-show/show` at 1280x800
-   - Hub Show `/ha-show-hub/controls` at 1024x600, every dock page (Meridian screen cards, edited in HA, not by deploy.py)
+   - Kitchen Show `/ha-show/show` at 1280x800 and at 1024x600 (the Nest Hub), every page
    - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every dock page (Meridian screen cards, edited in HA, not by deploy.py)
    - Computer Show `/ha-show-computer/home` at 1920x1080, sidebar open (Meridian cards, edited in HA, not by deploy.py)
    - Phone Show `/ha-show-native/home` at 390 wide
@@ -107,9 +116,9 @@ off on 2026-11-04.
   light sheet opens: brightness pill, power, warm/cool white bar, 8 colour swatches (only on
   bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the corner opens
   HA's standard dialog.
-- **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet, or the
-  Home tab on the phone.
+- **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet.
 - **Idle:** after 5 minutes the tablet, Hub and Echo go to photos (not while a recipe is open).
+  A tap on the photos goes back to Home.
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.
 

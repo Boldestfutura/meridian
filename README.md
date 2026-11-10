@@ -4,18 +4,17 @@ Echo Show-style Home Assistant dashboards, a matching theme and a set of phone c
 
 - **Meridian cards**: tiles, room headings, scenes and status pills with pop-ups, set up in
   HA's own card editor. Installed from HA's marketplace (HACS). See [Install](#install-with-hacs).
-- **The Show screens**: full-screen layouts for wall tablets, a Nest Hub and an Echo Show,
+- **The Kitchen Show**: a full-screen layout for the kitchen tablet, also cast to a Nest Hub,
   deployed with `deploy.py`.
 - **The Meridian theme** for HA's own pages.
 
 Both come from one Lit source, [`www/overlook-show.js`](www/overlook-show.js), built twice: the
-phone cards into `dist/meridian.js`, the Show screens into the card `deploy.py` ships. A few
+phone cards into `dist/meridian.js`, the Kitchen Show into the card `deploy.py` ships. A few
 Python files say which entities go where on each screen.
 
 | dashboard | screen | layout |
 |---|---|---|
-| **Kitchen Show** `ha-show` | 8" kitchen tablet, 1280x800 | dock on the left, date, favourites, calendar and shopping list; idles to photos |
-| **Hub Show** `ha-show-hub` | Nest Hub, 1024x600, cast | the Echo Show layout for the kitchen, built from Meridian screen cards in HA's editor: photos when idle, kitchen lights, the kitchen HomePod, the kitchen air monitor, calendar |
+| **Kitchen Show** `ha-show` | 8" kitchen tablet, 1280x800, and the Nest Hub, 1024x600, cast | five pages (`www/tablet.js`): Home (tonight's dinner, now playing, shopping list, quick actions, calendar), Rooms, Climate, Media, Recipes; idles to photos |
 | **Master Bedroom Echo Show** `master-bedroom-echo-show` | Echo Show 5, 788x394 | built from the Meridian screen cards in HA's editor: photos and a clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1920x1080, beside HA's sidebar | the whole house on one page, built from Meridian cards in HA's editor: large weather, heat pump and speaker tiles, 2x tiles under each room heading |
 | **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |
@@ -30,23 +29,27 @@ else), the typefaces Echo devices use. The font files are not in this repo; see
 [Fonts](#fonts) for how to get them. Weather icons are our own SVGs, drawn by
 [`tools/weather_icons.py`](tools/weather_icons.py).
 
-*Calendar entries, the shopping list and the photo in these screenshots are placeholders.*
+*Calendar entries, the shopping list, what's playing and the photo in these screenshots are
+placeholders; the playlist covers are blurred.*
 
 ## Kitchen Show
-![Kitchen Show](docs/images/kitchen-show.png)
-![Kitchen Show, dark](docs/images/kitchen-show-dark.png)
+![Kitchen Show, Home](docs/images/tablet-home.png)
 
-**Home** goes room by room, with lights as split pills you drag to dim. **Recipes** come from
-Norish, synced into HA every 30 minutes.
-![Kitchen Show, Home](docs/images/kitchen-show-home.png)
-![Kitchen Show, Calendar](docs/images/kitchen-show-calendar.png)
-![Kitchen Show, Recipes](docs/images/kitchen-show-recipes.png)
-
-## Hub Show
+**Home** leads with tonight's dinner from the Norish meal plan (or a favourite to try), what is
+playing (for the TV, Plex's background art with the show's logo), the shopping list (tap the box
+to tick, the name to edit), a sideways row of quick actions and the week's calendar. Light by
+day, dark after sunset (`scheme: sun.sun`).
+![Kitchen Show, Home, dark](docs/images/tablet-home-dark.png)
 <p>
-  <img src="docs/images/hub-controls.png" width="49%" alt="Hub Show, Controls">
-  <img src="docs/images/hub-climate.png" width="49%" alt="Hub Show, Climate">
+  <img src="docs/images/tablet-rooms.png" width="49%" alt="Kitchen Show, Rooms">
+  <img src="docs/images/tablet-climate.png" width="49%" alt="Kitchen Show, Climate">
 </p>
+<p>
+  <img src="docs/images/tablet-media-dark.png" width="49%" alt="Kitchen Show, Media">
+  <img src="docs/images/tablet-recipes.png" width="49%" alt="Kitchen Show, Recipes">
+</p>
+
+The Nest Hub shows the same pages at 1024x600; under 680px tall a compact layout takes over.
 
 ## Master Bedroom Echo Show
 ![Bedroom Show, photos](docs/images/bedroom-photos.png)
@@ -157,7 +160,7 @@ HA's static files already allow `cast.home-assistant.io`, so nothing else is nee
 
 ```sh
 ./deploy.py --list                       # what is on the box
-./deploy.py show                         # ship the card, save Kitchen Show
+./deploy.py show                         # ship the card, save Kitchen Show (tablet and Hub)
 ./deploy.py --dry-run show               # build and diff, write nothing
 ```
 
@@ -170,7 +173,8 @@ rebuilds `dist/meridian.js`. Pushing a new `VERSION` to `main` publishes a GitHu
 ## Layout
 
 ```
-www/overlook-show.js   the source: every Show layout and the Meridian cards in one file
+www/overlook-show.js   the source: the Show card and the Meridian cards in one file
+www/tablet.js          the Kitchen Show's pages (Home, Rooms, Climate, Media, Recipes)
 www/lit-all.min.js     Lit, vendored
 dist/meridian.js       Meridian cards, built from the source; what HACS installs
 hacs.json              HACS manifest
@@ -182,7 +186,8 @@ shownative.py          Phone Show, as native HA sections
 deploy.py  ha_ws.py    CLI and a minimal websocket client
 ha_config/             automations and sensors the dashboards rely on (repo copies)
 device/echo/           Echo Show 5 mute button
-tools/                 weather icon generator, Norish sync, headless-browser driver
+tools/                 weather icon generator, Norish sync, headless-browser driver;
+                       tools/ha/ runs on HA (Norish meal plan, Plex art for the TV tile)
 ```
 
 ## Adapting it to another install

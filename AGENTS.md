@@ -62,8 +62,9 @@ screenshot repeatedly showed a dashboard as fine while it was broken.
 
 Checks worth running every time:
 
-- **Every layout.** The tablet, hub, bedside, desk and phone layouts share one file; a
-  change for one can break another. Load each at its own size.
+- **Every dashboard.** The Kitchen Show (1280x800 tablet and 1024x600 Nest Hub), the Echo,
+  Computer and Phone dashboards all run one file; a change for one can break another. Load
+  each at its own size.
 - **Overflow and clipping:** walk shadow roots for elements where
   `scrollWidth > offsetWidth + 1`, and check `scrollHeight` against the window.
 - **Did it actually fire?** Subscribe to `call_service` on the websocket and tap the
