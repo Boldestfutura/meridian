@@ -1961,7 +1961,7 @@ var TABLET_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.29.4";
+var VERSION = "0.30.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -2022,36 +2022,12 @@ var WEATHER = {
   "hail": ["mdi:weather-hail", "Hail", "#8fb6e8"],
   "exceptional": ["mdi:alert-circle-outline", "Warning", "#e2574c"]
 };
-var PAGES = [
-  ["kitchen", "Kitchen", "mdi:stove"],
-  ["home", "Home", "mdi:home-outline"],
-  ["calendar", "Calendar", "mdi:calendar-month-outline"],
-  ["recipes", "Recipes", "mdi:silverware-fork-knife"]
-];
-var BEDSIDE_PAGES = [
-  ["controls", "Controls", "mdi:tune-variant"],
-  ["media", "Media", "mdi:music"],
-  ["climate", "Climate", "mdi:thermometer"],
-  ["calendar", "Calendar", "mdi:calendar-month-outline"]
-];
-var HUB_PAGES = [
-  ["controls", "Controls", "mdi:tune-variant"],
-  ["media", "Media", "mdi:music"],
-  ["climate", "Climate", "mdi:thermometer"],
-  ["calendar", "Calendar", "mdi:calendar-month-outline"],
-  ["recipes", "Recipes", "mdi:silverware-fork-knife"]
-];
 var AIR = {
   temperature: ["Temperature", "#e0a63c", (v2) => v2 < 17 ? "Cool" : v2 > 25 ? "Warm" : "Comfortable"],
   humidity: ["Humidity", "#5a7ea8", (v2) => v2 < 35 ? "Dry" : v2 > 60 ? "Humid" : "Comfortable"],
   pm2_5: ["Fine dust (PM2.5)", "#3f8f63", (v2) => v2 <= 12 ? "Good" : v2 <= 35 ? "Moderate" : "Poor"],
   voc: ["Air quality (VOC)", "#3f8f8a", (v2) => v2 <= 150 ? "Good" : v2 <= 250 ? "Moderate" : "Poor"]
 };
-var PHONE_PAGES = [
-  ["kitchen", "Home", "mdi:home-variant-outline"],
-  ["calendar", "Calendar", "mdi:calendar-month-outline"],
-  ["recipes", "Recipes", "mdi:silverware-fork-knife"]
-];
 var clamp = (v2, a2, b2) => Math.min(b2, Math.max(a2, v2));
 var VOL_STEP = 0.03;
 var SWATCHES = [
@@ -2198,7 +2174,7 @@ var OverlookShow = class extends dt {
       links: {}
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.desk ? "desk" : this._config.bedside ? "photos" : this._config.page || (this._config.photos ? "photos" : this._config.tablet ? "home" : "kitchen");
+    this._page = this._config.page || (this._config.photos ? "photos" : "home");
     if (this._page === "calendar") {
       this._page = null;
       this._go("calendar");
@@ -2234,18 +2210,6 @@ var OverlookShow = class extends dt {
     window.addEventListener("pointerdown", this._touch, true);
     window.addEventListener("keydown", this._touch, true);
     this._poke();
-    if (this._config && this._config.windowed) {
-      const hide = () => {
-        const r2 = findHuiRoot();
-        if (r2 !== this._root) {
-          styleHuiRoot(this._root, "");
-          this._root = r2;
-        }
-        styleHuiRoot(r2, r2 && r2.lovelace && r2.lovelace.editMode ? "" : HIDE_HEADER);
-      };
-      this._hdr = setInterval(hide, 400);
-      hide();
-    }
     if (this.hass) loadFonts(this.hass);
   }
   disconnectedCallback() {
@@ -2261,11 +2225,6 @@ var OverlookShow = class extends dt {
     clearTimeout(this._npPause);
     window.removeEventListener("pointerdown", this._touch, true);
     window.removeEventListener("keydown", this._touch, true);
-    if (this._hdr) {
-      clearInterval(this._hdr);
-      this._hdr = null;
-      styleHuiRoot(this._root, "");
-    }
     this._unsub();
   }
   // bedside night mode: `night` is an input_boolean the bedroom automation turns on 9pm-7:30am
@@ -2869,34 +2828,16 @@ var OverlookShow = class extends dt {
       }}>
         <ha-icon icon="mdi:fullscreen"></ha-icon></button>`;
     }
-    if (this._config.phone) {
-      return Z`
-        <div class="screen phone">
-          <main class="page" @scroll=${() => {
-        this._scrolledAt = performance.now();
-      }}>${this._pageBody()}</main>
-          ${this._tabBar()}
-          ${this._picker ? this._speakerSheet() : J}
-          ${this._pop ? this._popSheet() : J}
-          ${this._light ? this._lightSheet() : J}
-        </div>`;
-    }
     if (this._wx) return this._wxPage();
-    const photos = this._page === "photos", bed = this._config.bedside;
-    if (bed && photos && this._night()) return this._nightClock();
+    const photos = this._page === "photos";
     return Z`
-      <div class="screen ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
-                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${this._config.tablet ? "tablet" : ""} ${photos ? "on-photo" : ""}">
+      <div class="screen tablet ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : J}
-        ${this._config.desk ? J : this._dock()}
-        ${photos ? J : Z`<main class="page">${this._pageBody()}</main>`}
-        ${this._page === "kitchen" || this._page === "desk" ? this._status() : J}
-        ${this._config.desk || bed && !photos ? J : this._topRight(photos)}
-        ${this._picker ? this._speakerSheet() : J}
-        ${this._scenes ? this._scenesSheet() : J}
+        ${this._dock()}
+        ${photos ? J : Z`<main class="page">${tabletPage(this)}</main>`}
+        ${this._topRight(photos)}
         ${this._pop ? this._popSheet() : J}
         ${this._light ? this._lightSheet() : J}
-        ${this._dayOpen && this._page === "calendar" ? this._daySheet() : J}
       </div>`;
   }
   // the bedside at night: a big red clock on black, nothing else; a tap wakes the dock on Lights.
@@ -3029,26 +2970,6 @@ var OverlookShow = class extends dt {
       }, 1500);
     }, () => clearTimeout(hold)];
   }
-  // holding the Home tab uncovers HA (the phone has no clock to hold)
-  _tabBar() {
-    const [down, up] = this._holdToUncover();
-    return Z`
-      <nav class="tabbar">
-        ${PHONE_PAGES.map(([id, name, icon]) => Z`
-          <button class="dock-btn ${this._page === id ? "on" : ""}" @click=${() => {
-      fireHaptic("selection");
-      this._go(id);
-      this._top();
-    }}
-                  @pointerdown=${id === "kitchen" ? down : null} @pointerup=${up} @pointerleave=${up}>
-            <ha-icon icon=${icon}></ha-icon><span>${name}</span>
-          </button>`)}
-      </nav>`;
-  }
-  _top() {
-    const p2 = this.shadowRoot && this.shadowRoot.querySelector(".page");
-    if (p2) p2.scrollTop = 0;
-  }
   // --- status pills: who's home, then anything that needs a look ---------------
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
@@ -3084,49 +3005,6 @@ var OverlookShow = class extends dt {
           <small>${x3.name}</small></button>`;
     });
     return Z`<div class="status">${pills}${air}</div>`;
-  }
-  // --- phone home: ha-phone's order (status, scenes, each room) in this look ----
-  _phoneHome() {
-    return Z`
-      <div class="ph">
-        ${this._status()}
-        ${this._config.scenes.length ? Z`
-          <section>
-            <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
-            <div class="fav-scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div>
-          </section>` : J}
-        ${this._config.phone_rooms.map((r2) => this._phoneRoom(r2))}
-      </div>`;
-  }
-  _phoneRoom(r2) {
-    const g2 = this._st(r2.group);
-    const lit = g2 && g2.state === "on";
-    return Z`
-      <section>
-        <div class="ph-sec"><ha-icon icon=${r2.icon}></ha-icon><span>${r2.name}</span>
-          ${g2 ? Z`<button class="ph-group ${lit ? "on" : ""}" title="All lights"
-              @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r2.group })}>
-              <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : J}
-        </div>
-        <div class="ph-grid">
-          ${r2.items.map((x3) => {
-      const e2 = this._st(x3.entity);
-      if (!e2) return J;
-      switch (x3.type) {
-        case "climate":
-          return Z`<div class="card ph-hp">${this._thermostat(x3.entity)}</div>`;
-        case "media":
-          return e2.state === "unavailable" ? J : this._player(x3);
-        case "plant":
-          return this._plantTile(x3);
-        case "switch":
-          return this._switchTile(x3);
-        default:
-          return this._lightTile(x3);
-      }
-    })}
-        </div>
-      </section>`;
   }
   // tap does onTap, a still 500ms hold does onHold (see _lightTile for why it's this careful)
   _tapHold(key, onTap, onHold) {
@@ -3595,7 +3473,7 @@ var OverlookShow = class extends dt {
     return Z`
       <nav class="dock">
         <div class="dock-pill">
-          ${(this._config.tablet ? TABLET_PAGES : this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => Z`
+          ${TABLET_PAGES.map(([id, name, icon]) => Z`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
               <ha-icon icon=${icon}></ha-icon>
@@ -3606,253 +3484,6 @@ var OverlookShow = class extends dt {
             <ha-icon icon="mdi:image-multiple-outline"></ha-icon>
           </button>` : J}
       </nav>`;
-  }
-  _pageBody() {
-    if (this._config.tablet) return tabletPage(this);
-    switch (this._page) {
-      case "kitchen":
-        return this._config.phone ? this._phoneHome() : this._kitchen();
-      case "recipes":
-        return this._recipes();
-      case "calendar":
-        return this._calendar();
-      case "home":
-        return this._home();
-      case "desk":
-        return this._desk();
-      case "controls":
-        return this._config.hub ? this._hubControls() : this._bedControls();
-      case "media":
-        return this._config.hub ? this._hubMedia() : this._bedMedia();
-      case "climate":
-        return this._config.hub ? this._hubClimate() : this._bedClimate();
-      default: {
-        const p2 = PAGES.find((x3) => x3[0] === this._page);
-        return Z`<div class="soon card">
-          <ha-icon icon=${p2[2]}></ha-icon>
-          <div class="soon-title">${p2[1]}</div>
-          <div class="muted">Coming in the next round.</div>
-        </div>`;
-      }
-    }
-  }
-  // --- home: a tab per room ----------------------------------------------------
-  _home() {
-    const rooms = this._config.rooms || [];
-    if (!rooms.length) return J;
-    const r2 = rooms.find((x3) => x3.name === this._room) || rooms[0];
-    return Z`
-      <div class="home">
-        <div class="tabs">
-          ${rooms.map((x3) => Z`
-            <button class="tab ${x3 === r2 ? "on" : ""}" @click=${() => {
-      this._room = x3.name;
-    }}>
-              <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}
-        </div>
-        ${r2.music ? this._musicRoom() : this._room_(r2)}
-      </div>`;
-  }
-  // --- bedside (the Echo Show 5 by the bed) ------------------------------------
-  // config.room is the bedroom from show.CARD.rooms; the pages only show what it has
-  _bedControls() {
-    const r2 = this._config.room || {};
-    const group = r2.group && this._st(r2.group);
-    const groupOn = !!group && group.state === "on";
-    return Z`
-      <div class="bed-controls">
-        ${group ? this._controlTile(
-      "All Lights",
-      "mdi:lightbulb-group",
-      "var(--warm)",
-      group,
-      () => this._call("light", groupOn ? "turn_off" : "turn_on", { entity_id: r2.group })
-    ) : J}
-        ${(r2.switches || []).map((x3) => {
-      const e2 = this._st(x3.entity);
-      return e2 ? this._controlTile(
-        x3.name,
-        x3.icon,
-        "#3f86f2",
-        e2,
-        () => this._call("homeassistant", "toggle", { entity_id: x3.entity })
-      ) : J;
-    })}
-      </div>`;
-  }
-  // the climate tile's layout for something you switch: tinted only while it's on
-  _controlTile(name, icon, colour, e2, tap) {
-    const on = e2.state === "on";
-    return Z`
-      <button class="card air-tile control-tile ${on ? "on" : ""}" style="--c:${colour}" @click=${tap}>
-        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
-        <span class="air-name">${name}<span class="air-q">${on ? "On" : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
-      </button>`;
-  }
-  _bedMedia() {
-    const pl = this._playlists();
-    return Z`
-      <div class="bed-two">
-        ${this._mediaCard()}
-        ${pl === J ? J : Z`<div class="card bed-card bed-pl">${pl}</div>`}
-      </div>`;
-  }
-  // a big reading: its number, its name and a one-word verdict, tinted in its colour
-  _airTile(x3) {
-    const e2 = this._st(x3.entity);
-    if (!e2) return J;
-    const k2 = Object.keys(AIR).find((n2) => x3.entity.includes(n2));
-    const [label, colour, verdict] = AIR[k2] || [x3.name, x3.color || "var(--accent)", () => ""];
-    const v2 = Number(e2.state), ok = !isNaN(v2) && e2.state !== "";
-    return Z`
-      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x3.entity)}>
-        <span class="air-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
-        <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</small></span>
-        <span class="air-name">${label}<span class="air-q">${ok ? verdict(v2) : "No reading"}</span></span>
-      </button>`;
-  }
-  _bedClimate() {
-    const r2 = this._config.room || {};
-    return Z`
-      <div class="bed-air">
-        ${(r2.sensors || []).map((x3) => this._airTile(x3))}
-      </div>`;
-  }
-  // --- hub (the Nest Hub in the kitchen) ------------------------------------------
-  // config.hub_rooms: the rooms whose lights get a tile; config.tv: the TV's power tile
-  _hubControls() {
-    const tv = this._config.tv && this._st(this._config.tv.entity);
-    const tvOn = !!tv && !["off", "standby", "unavailable"].includes(tv.state);
-    return Z`
-      <div class="bed-two hub-sq-left">
-        <div class="bed-controls hub-controls">
-          ${(this._config.hub_rooms || []).map((r2) => {
-      const g2 = this._st(r2.group), on = !!g2 && g2.state === "on";
-      return g2 ? this._controlTile(
-        r2.name,
-        r2.icon,
-        "var(--warm)",
-        g2,
-        () => this._call("light", on ? "turn_off" : "turn_on", { entity_id: r2.group })
-      ) : J;
-    })}
-          <button class="card air-tile control-tile" style="--c:var(--accent)" @click=${() => {
-      this._scenes = true;
-    }}>
-            <span class="air-ico"><ha-icon icon="mdi:creation"></ha-icon></span>
-            <span class="air-name">Scenes<span class="air-q">Tap for more</span></span>
-          </button>
-          ${tv ? this._controlTile(
-      this._config.tv.name,
-      this._config.tv.icon,
-      "#8e5cf0",
-      { state: tvOn ? "on" : tv.state },
-      () => this._call("media_player", tvOn ? "turn_off" : "turn_on", { entity_id: this._config.tv.entity })
-    ) : J}
-        </div>
-        <div class="hub-stack">${this._mediaCard()}${this._shopping()}</div>
-      </div>`;
-  }
-  _scenesSheet() {
-    const close = () => {
-      this._scenes = false;
-    };
-    return Z`
-      <div class="scrim" @click=${close}>
-        <div class="sheet card scenes-sheet" @click=${(ev) => ev.stopPropagation()}>
-          <div class="card-title">Scenes</div>
-          <div class="hub-scenes">${(this._config.hub_scenes || []).map((x3) => this._miniScene(x3))}</div>
-        </div>
-      </div>`;
-  }
-  // everything playing or paused anywhere, then the playlists
-  _hubMedia() {
-    const all = (this._config.rooms || []).flatMap((r2) => r2.media || []);
-    const live2 = all.filter((m2) => {
-      const e2 = this._st(m2.entity);
-      return e2 && ["playing", "paused"].includes(e2.state);
-    });
-    const pl = this._playlists();
-    return Z`
-      <div class="bed-two">
-        <div class="hub-players">
-          ${live2.length ? live2.map((m2) => this._player(m2)) : Z`
-            <div class="card soon"><ha-icon icon="mdi:music-off"></ha-icon><div class="muted">Nothing playing</div></div>`}
-        </div>
-        ${pl === J ? J : Z`<div class="card bed-card bed-pl">${pl}</div>`}
-      </div>`;
-  }
-  // outside over the heat pump, beside the kitchen's air readings
-  _hubClimate() {
-    const r2 = this._config.room || {};
-    const w2 = this._st(this._config.weather), f2 = this._forecast;
-    const cond = w2 ? this._cond(w2) : null;
-    return Z`
-      <div class="bed-two hub-sq-right">
-        <div class="hub-stack">
-          ${w2 ? Z`
-            <button class="card hub-out" @click=${() => this._open(this._config.weather)}>
-              <div class="card-title">Outside</div>
-              <div class="hub-out-row">
-                ${this._wxIcon(w2.state)}
-                <span class="hub-out-temp">${this._deg(w2.attributes.temperature)}</span>
-                <div class="wx-side">
-                  <div class="wx-cond">${cond[1]}</div>
-                  ${f2 && w2.state !== "unavailable" ? Z`<div class="wx-hl">H ${Math.round(f2.temperature)}°&nbsp;&nbsp;L ${Math.round(f2.templow)}°</div>` : J}
-                </div>
-              </div>
-            </button>` : J}
-          ${this._config.climate ? Z`<div class="card desk-hp hub-hp">${this._thermostat()}</div>` : J}
-        </div>
-        <div class="bed-air">${(r2.sensors || []).map((x3) => this._airTile(x3))}</div>
-      </div>`;
-  }
-  // --- desk (the computer): the whole house on one page, laid out like ha-computer:
-  // outside, heat pump and scenes, then a column per room; the bedrooms share the last
-  _desk() {
-    const rooms = (this._config.rooms || []).filter((r2) => !r2.music);
-    const w2 = this._st(this._config.weather), f2 = this._forecast;
-    const cond = w2 ? this._cond(w2) : null;
-    const [down, up] = this._holdToUncover();
-    const head = (name) => Z`<div class="desk-title" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${name}</div>`;
-    const byRoom = (key, tile) => rooms.filter((r2) => (r2[key] || []).length).map((r2) => Z`
-      <div class="desk-sub"><ha-icon class="desk-ico" icon=${r2.icon}></ha-icon>${r2.name}</div>
-      ${r2[key].map((x3) => tile(x3))}`);
-    const lit = rooms.filter((r2) => (r2.lights || []).length);
-    const plugs = byRoom("switches", (x3) => this._switchTile(x3));
-    const plants = byRoom("plants", (x3) => this._plantTile(x3));
-    return Z`
-      <div class="desk">
-        <div class="desk-col">
-          ${w2 || this._config.climate ? head("Climate") : J}
-          ${w2 ? Z`
-            <div class="card desk-card">
-              <div class="card-title">Outside</div>
-              <div class="wx-card" @click=${() => this._open(this._config.weather)}>
-                ${this._wxIcon(w2.state)}
-                <span class="wx-temp">${this._deg(w2.attributes.temperature)}</span>
-                <div class="wx-side">
-                  <div class="wx-cond">${cond[1]}</div>
-                  ${f2 && w2.state !== "unavailable" ? Z`<div class="wx-hl">H ${Math.round(f2.temperature)}°&nbsp;&nbsp;L ${Math.round(f2.templow)}°</div>` : J}
-                </div>
-              </div>
-            </div>` : J}
-          ${this._config.climate ? Z`
-            <div class="card desk-card desk-hp">${this._thermostat()}</div>` : J}
-          ${this._config.scenes.length ? Z`${head("Scenes")}
-            <div class="card desk-card">
-              <div class="fav-scenes desk-scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div></div>` : J}
-        </div>
-        <div class="desk-col desk-mid">
-          ${lit.length ? Z`${head("Lights")}<div class="desk-pair">${lit.map((r2) => this._deskLights(r2))}</div>` : J}
-          ${plugs.length || plants.length ? Z`
-            <div class="desk-pair">
-              ${plugs.length ? Z`<div class="desk-stack">${head("Plugs")}${plugs}</div>` : J}
-              ${plants.length ? Z`<div class="desk-stack">${head("Plants")}${plants}</div>` : J}
-            </div>` : J}
-        </div>
-        <div class="desk-col">${head("Media")}${byRoom("media", (m2) => this._player(m2))}</div>
-      </div>`;
   }
   // a room's lights on the desk: its name and All on/off, then its pills
   _deskLights(r2) {
@@ -3870,40 +3501,6 @@ var OverlookShow = class extends dt {
               ${lit ? "All off" : "All on"}</button>` : J}
         </div>
         <div class="desk-favs" style="--n:${Math.max(3, lights.length)}">${lights.map((l2) => this._pill(l2))}</div>
-      </div>`;
-  }
-  _room_(r2) {
-    const lights = r2.lights || [];
-    const lit = lights.filter((l2) => {
-      const e2 = this._st(l2.entity);
-      return e2 && e2.state === "on";
-    }).length;
-    let side = [
-      ...(r2.media || []).map((m2) => this._player(m2)),
-      ...(r2.switches || []).map((x3) => this._switchTile(x3)),
-      ...(r2.plants || []).map((x3) => this._plantTile(x3)),
-      ...(r2.sensors || []).length ? [Z`<div class="room-env">${this._sensors(r2.sensors)}</div>`] : []
-    ];
-    const scenesAside = !side.length;
-    if (scenesAside) side = (r2.scenes || []).map((x3) => this._sceneBtn(x3, true));
-    return Z`
-      <div class="room ${r2.climate ? "has-hp" : ""}">
-        <div class="card room-lights">
-          <div class="card-title">Lights <span class="count">${lit ? `${lit} on` : ""}</span>
-            ${r2.group && this._st(r2.group) ? Z`
-              <button class="all-btn" @click=${() => this._call("light", lit ? "turn_off" : "turn_on", { entity_id: r2.group })}>
-                ${lit ? "All off" : "All on"}</button>` : J}
-          </div>
-          <div class="favs room-favs ${r2.climate ? "" : "no-hp"}" style="--n:${lights.length}">
-            ${lights.map((l2) => this._pill(l2))}
-            ${r2.climate ? this._thermostat(r2.climate) : J}
-          </div>
-        </div>
-        ${side.length ? Z`<div class="room-side">${side}</div>` : J}
-        ${!scenesAside && (r2.scenes || []).length ? Z`
-          <div class="scenes">
-            ${r2.scenes.map((x3) => this._sceneBtn(x3))}
-          </div>` : J}
       </div>`;
   }
   _player(m2) {
@@ -4038,13 +3635,6 @@ var OverlookShow = class extends dt {
         <ha-icon icon=${x3.icon}></ha-icon>
         <span class="ms-name">${x3.name}</span></button>`;
   }
-  _musicRoom() {
-    return Z`
-      <div class="music">
-        ${this._mediaCard()}
-        <div class="card music-pl">${this._playlists()}</div>
-      </div>`;
-  }
   // --- calendar: month grid + what's on --------------------------------------
   _gridStart(first) {
     const d2 = new Date(first);
@@ -4169,29 +3759,6 @@ var OverlookShow = class extends dt {
     if (!e2.start.dateTime) return "All day";
     const s2 = this._d(e2.start);
     return s2.toDateString() === d2.toDateString() ? this._ampm(s2) : "Ongoing";
-  }
-  // the big screen's day sheet: everything on the tapped day, with times and places
-  _daySheet() {
-    const k2 = this._dayOpen, d2 = this._day(k2), ev = this._byDay(this._cal || [])[k2] || [];
-    const close = () => {
-      this._dayOpen = null;
-    };
-    return Z`
-      <div class="scrim" @click=${close}>
-        <div class="sheet card day-sheet" @click=${(ev2) => ev2.stopPropagation()}>
-          <div class="card-title">${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d2.getDay()]}
-            ${d2.getDate()} ${LONG_MONTHS[d2.getMonth()]}</div>
-          ${ev.length ? ev.map((e2) => Z`
-            <div class="wo-ev">
-              <span class="wo-time">${this._when(e2, d2)}</span>
-              <span class="bar" style="background:${e2.colour}"></span>
-              <div class="wo-text">
-                <div class="ev-name">${e2.summary}</div>
-                ${e2.location ? Z`<div class="wo-loc muted">${e2.location.split(",")[0]}</div>` : J}
-              </div>
-            </div>`) : Z`<div class="empty muted">Nothing on.</div>`}
-        </div>
-      </div>`;
   }
   _whatsOn(byDay, today) {
     const sel = this._day(this._sel);
@@ -4395,38 +3962,13 @@ var OverlookShow = class extends dt {
     const album = cam && cam.attributes.album_title;
     return Z`
       <div class="photo" @click=${() => {
-      if (!this._config.bedside) this._go(this._config.hub ? "controls" : "kitchen");
+      if (!this._config.bedside) this._go("home");
     }}>
         ${pic ? Z`<img src=${this._u(pic)} alt="">` : J}
         <div class="photo-shade"></div>
         <div class="photo-cap">
           ${album ? Z`<div class="cap-small">${album}</div>` : J}
           ${d2 ? Z`<div class="cap-big">${d2.getDate()} ${LONG_MONTHS[d2.getMonth()]} ${d2.getFullYear()}</div>` : J}
-        </div>
-      </div>`;
-  }
-  // --- kitchen ------------------------------------------------------------
-  _kitchen() {
-    return Z`
-      <div class="kitchen">
-        <div class="col col-a">
-          ${this._dateCard()}
-          ${this._mediaCard()}
-        </div>
-        <div class="col col-b card">
-          <div class="card-title">Favourites</div>
-          <div class="favs" style="--n:${this._config.lights.length}">
-            ${this._config.lights.map((l2) => this._pill(l2))}
-            ${this._config.climate ? this._thermostat() : J}
-          </div>
-          ${this._config.scenes.length ? Z`
-            <div class="fav-scenes" title="Scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div>` : J}
-          ${this._playlists()}
-        </div>
-        <div class="col col-c">
-          ${this._agenda()}
-          ${this._shopping()}
-          ${this._sensors()}
         </div>
       </div>`;
   }
@@ -4912,29 +4454,6 @@ var OverlookShow = class extends dt {
       }, 2500);
     }, 700);
   }
-  // --- right column ---------------------------------------------------------
-  _agenda() {
-    const ev = this._events;
-    const now = /* @__PURE__ */ new Date();
-    const today = now.toDateString();
-    const rows = (ev || []).filter((e2) => {
-      return this._d(e2.end) > now;
-    }).slice(0, 4);
-    const fmt = (e2) => {
-      const s2 = this._d(e2.start);
-      const day = s2.toDateString() === today || s2 < now ? "" : `${DAYS[s2.getDay()][0]}${DAYS[s2.getDay()].slice(1).toLowerCase()} `;
-      return e2.start.dateTime ? day + this._ampm(s2) : day ? day + "\xB7 All day" : "All day";
-    };
-    return Z`
-      <div class="card agenda">
-        <div class="card-title">Today</div>
-        ${ev == null ? Z`<div class="empty muted">Connect Google Calendar in Home Assistant and today's events show here.</div>` : rows.length ? rows.map((e2) => Z`
-            <div class="event">
-              <span class="bar" style="background:${e2.colour}"></span>
-              <div><div class="ev-time muted">${fmt(e2)}</div><div class="ev-name">${e2.summary}</div></div>
-            </div>`) : Z`<div class="empty muted">Nothing else today.</div>`}
-      </div>`;
-  }
   _shopping() {
     if (!this._config.todo) return J;
     const items = this._todo || [];
@@ -4980,24 +4499,6 @@ var OverlookShow = class extends dt {
     this._call("todo", "add_item", { entity_id: this._config.todo, item: text });
     input.value = "";
     input.focus();
-  }
-  _sensors(s2 = this._config.sensors || []) {
-    if (!s2.length) return J;
-    return Z`
-      <div class="sensors">
-        ${s2.map((x3) => {
-      const e2 = this._st(x3.entity);
-      if (!e2) return J;
-      const v2 = Number(e2.state);
-      const shown = isNaN(v2) ? e2.state : x3.decimals != null ? v2.toFixed(x3.decimals) : Math.round(v2);
-      return Z`
-            <div class="sensor card">
-              <ha-icon icon=${x3.icon} style="color:${x3.color || "var(--accent)"}"></ha-icon>
-              <div class="s-val">${shown}<span>${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</span></div>
-              <div class="s-name muted">${x3.name}</div>
-            </div>`;
-    })}
-      </div>`;
   }
   static styles = [o`
     :host {
@@ -5069,7 +4570,7 @@ var OverlookShow = class extends dt {
       padding-top: env(safe-area-inset-top, 0px);
       user-select: none; -webkit-user-select: none;
     }
-    .screen.windowed { position: relative; inset: auto; z-index: auto; height: 100vh; height: 100dvh; }
+
     .restore { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: 48px; height: 48px;
                border-radius: 50%; background: #1d5cf0; color: #fff; display: grid; place-items: center; }
     .muted { color: var(--muted); }
@@ -5120,52 +4621,22 @@ var OverlookShow = class extends dt {
     .page { padding: 76px 28px 24px 18px; min-height: 0; height: 100%; }
 
     /* kitchen: three columns */
-    .kitchen { display: grid; grid-template-columns: 0.95fr 1.45fr 1fr; gap: 18px; height: 100%; min-height: 0; }
-    /* desk: no dock; four columns that each scroll on their own if they run long */
-    .screen.desk-screen { grid-template-columns: 1fr; }
-    .screen.desk-screen > .status { left: 20px; right: 20px; }
-    .desk-screen .page { padding-left: 28px; }
-    .desk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; height: 100%; min-height: 0; }
-    .desk-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; scrollbar-width: none;
-                margin: -10px -12px; padding: 10px 12px 24px; }
-    .desk-col::-webkit-scrollbar { display: none; }
+
+    
     .desk-card { padding: 18px 18px 18px; flex: none; }
     .desk-card .card-title { display: flex; align-items: center; gap: 8px; }
     .desk-ico { --mdc-icon-size: 20px; color: var(--muted); }
-    .desk-title { padding: 2px 4px 0; font-family: var(--display); font-size: 20px; font-weight: 700;
-                  letter-spacing: -0.01em; user-select: none; }
-    .desk-sub { display: flex; align-items: center; gap: 6px; padding: 4px 4px 0; margin-bottom: -6px;
-                font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-    .desk-sub .desk-ico { --mdc-icon-size: 16px; }
-    /* lights, plugs and plants share the two middle columns */
-    .desk-mid { grid-column: span 2; }
-    .desk-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
-    .desk-pair + .desk-pair { margin-top: 6px; }
-    .desk-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .desk-card .wx-card { margin-top: 10px; padding: 0; background: none; border-radius: 0; cursor: pointer; }
     .desk-card .wx-card ha-icon, .desk-card .wx-card .wxi { --mdc-icon-size: 40px; }
     .desk-card .wx-temp { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
-    .desk-hp { padding: 0; }
-    .desk-hp .thermo { background: none; padding: 18px; }
-    /* computer: the heat pump's buttons sit on the card itself, so give them the phone's light grey */
-    .desk-screen .desk-hp .hp-step, .desk-screen .desk-hp .mode:not(.on) { background: var(--inset); }
     .desk-favs { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: 10px;
                  height: 250px; margin-top: 12px; }
-    .desk .pill-wrap { min-width: 0; overflow: hidden; container-type: inline-size; }
-    .desk .split { --w: min(72px, 100cqw); }
-    .desk .pill-head > div { min-width: 0; }
+
+    
+
     /* narrow pills (a laptop with the sidebar open): the dots go above the name, which
        then gets the pill's whole width and only breaks a word with a hyphen */
     .desk-favs { container: favs / inline-size; }
-    @container favs (max-width: 320px) {
-      .desk .pill-wrap { padding: 10px 9px 12px; }
-      .desk .pill-head { position: relative; padding-top: 20px; }
-      .desk .pill-head .dots { position: absolute; top: -4px; right: -5px; width: 26px; height: 26px; margin: 0; }
-      .desk .pill-name { font-size: 13px; hyphens: auto; -webkit-hyphens: auto; }
-    }
-    .desk-scenes { flex-wrap: wrap; margin-top: 0; }
-    .desk-scenes .mini-scene { flex: 0 0 calc((100% - 20px) / 3); height: 88px; }
-    .col { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
 
     .date-card { flex: 1.15; padding: 22px 22px 18px; display: flex; flex-direction: column;
                  align-items: center; min-height: 0; }
@@ -5210,11 +4681,6 @@ var OverlookShow = class extends dt {
     .vol-bar { height: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
     .vol-bar div { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.25s; }
 
-    /* favourites */
-    .col-b { padding: 20px 22px 22px; }
-    .col-b { display: flex; flex-direction: column; overflow: hidden; }
-    .favs { flex: 1; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(150px, 0.8fr)) 1.4fr;
-            gap: 14px; min-height: 0; margin-top: 14px; }
     .fav-scenes { flex: none; display: flex; gap: 10px; margin-top: 12px; }
     .mini-scene { flex: 1 1 0; min-width: 0; height: 96px; padding: 10px 6px; border-radius: 18px; background: var(--inset);
                   display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 6px;
@@ -5258,7 +4724,6 @@ var OverlookShow = class extends dt {
               box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.25); }
     .pill-wrap { position: relative; }
     .pl-title { margin-top: 14px; }
-    .col-b .hp-target { margin-top: 18px; }
     .pl-row { flex: none; height: clamp(100px, 13.5vh, 120px); margin: 12px -22px -22px; padding: 0 22px 22px; display: flex; gap: 12px;
               overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 22px; scrollbar-width: none; }
     .pl-row::-webkit-scrollbar { display: none; }
@@ -5298,13 +4763,12 @@ var OverlookShow = class extends dt {
     .mode.on ha-icon { color: inherit; }
 
     /* right column */
-    .agenda, .shopping { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-    .agenda { flex: 1; }
+    .shopping { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
     .shopping { flex: 1.1; }
     .empty { font-size: 14px; line-height: 1.4; }
-    .event { display: grid; grid-template-columns: 4px 1fr; gap: 10px; align-items: stretch; }
-    .event .bar { border-radius: 4px; }
-    .ev-time { font-size: 12px; }
+
+    
     .ev-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .add { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft);
            color: var(--accent); display: grid; place-items: center; }
@@ -5319,12 +4783,8 @@ var OverlookShow = class extends dt {
     .item { display: flex; align-items: center; gap: 12px; text-align: left; font-size: 16px; padding: 7px 0; }
     .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--track-strong); flex: none; }
     .item:active .box { background: var(--accent); border-color: var(--accent); }
-    .sensors { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; }
-    .sensor { border-radius: 22px; padding: 12px 12px 10px; display: flex; flex-direction: column; gap: 2px; }
-    .sensor ha-icon { --mdc-icon-size: 20px; }
-    .s-val { font-size: 20px; font-weight: 700; margin-top: 4px; }
-    .s-val span { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 1px; }
-    .s-name { font-size: 12px; }
+
+    
 
     /* recipes */
     .recipes { height: 100%; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
@@ -5380,9 +4840,9 @@ var OverlookShow = class extends dt {
 
     /* placeholder pages */
     /* home: room tabs */
-    .home { height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-    .tabs { display: flex; gap: 8px; flex: none; margin: -66px -8px -8px; padding: 8px; box-sizing: content-box; max-width: calc(100% - 230px); overflow-x: auto; scrollbar-width: none; }
-    .tabs::-webkit-scrollbar { display: none; }
+
+    
+
     .tab { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 999px; flex: none;
            background: var(--card); box-shadow: var(--shadow); font-weight: 600; font-size: 15px; color: var(--muted); }
     .tab ha-icon { --mdc-icon-size: 20px; }
@@ -5403,20 +4863,9 @@ var OverlookShow = class extends dt {
     .st.accent { background: var(--accent-soft); color: var(--accent); }
     .st.reading small { font-size: 12px; font-weight: 500; color: var(--muted); }
     /* the Nest Hub and the tablet: people, alerts and the four readings fit beside the clock without labels */
-    @media (max-width: 1400px) {
-      .screen:not(.desk-screen) > .status { right: 180px; gap: 6px; }
-      .screen:not(.desk-screen) > .status .tab { padding: 0 13px; gap: 6px; }
-      .screen:not(.desk-screen) > .status .reading small { display: none; }
-    }
     .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
-    .room.has-hp { grid-template-columns: 1fr 340px; }
-    .room-lights { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-    .room-favs.no-hp { grid-template-columns: repeat(var(--n, 1), 190px); }
     .all-btn { margin-left: auto; height: 36px; padding: 0 16px; border-radius: 999px; background: var(--inset);
                font-size: 14px; font-weight: 600; }
-    .room-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; scrollbar-width: none;
-                 margin: -10px -12px; padding: 10px 12px 24px; }
-    .room-side::-webkit-scrollbar { display: none; }
     .player { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: none; }
     .player-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
     .art.small { width: 52px; height: 52px; border-radius: 12px; }
@@ -5432,11 +4881,8 @@ var OverlookShow = class extends dt {
     .tile-text .muted { font-size: 13px; }
     .tile-val { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .tile-val small { font-size: 14px; color: var(--muted); margin-left: 1px; }
-    .room-env { flex: none; }
-    .room-env .sensors { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
-    .scenes { grid-column: 1 / -1; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none;
-              margin: -10px -12px -24px; padding: 10px 12px 24px; }
-    .scenes::-webkit-scrollbar { display: none; }
+
+    
     .scene { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
              height: 120px; min-width: 150px; padding: 16px 18px; border-radius: 24px; text-align: left;
              font-weight: 600; font-size: 16px; flex: none; }
@@ -5445,17 +4891,12 @@ var OverlookShow = class extends dt {
     .scene.on { background: var(--accent); color: #fff; }
     .scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
     .scene:active, .tile:active { transform: scale(0.98); }
-    .music { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
-    .music .media-card { justify-content: flex-start; gap: 18px; }
-    .music .media-row { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 14px; flex: 1; align-content: center; }
-    .music .art { width: min(240px, 100%); height: auto; aspect-ratio: 1; border-radius: 24px; }
-    .music .art ha-icon { --mdc-icon-size: 64px; }
-    .music .media-title { font-size: 22px; }
-    .music-pl { padding: 20px 22px 22px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-    .music-pl .pl-title { margin-top: 0; }
-    .music-pl .pl-row { flex: 1; height: auto; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr);
-                        grid-auto-rows: max-content; overflow-y: auto; scroll-snap-type: none; }
-    .music-pl .pl { height: auto; width: 100%; }
+
+    
+
+    
+
+    
 
     /* calendar */
     .calendar { display: grid; grid-template-columns: 2.7fr 1fr; gap: 18px; height: 100%; min-height: 0; }
@@ -5511,8 +4952,6 @@ var OverlookShow = class extends dt {
     .big .chip b:empty { display: none; }
     .big .chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .big .more { align-self: stretch; text-align: center; padding: 2px 0; border-radius: 7px; background: var(--card); }
-    .day-sheet { max-height: 80%; overflow-y: auto; }
-    .day-sheet .empty { padding: 8px 0 4px; }
     .whatson { padding: 20px 20px 8px; display: flex; flex-direction: column; min-height: 0; }
     .wo-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin-top: 4px; padding-bottom: 12px; }
     .wo-list::-webkit-scrollbar { display: none; }
@@ -5562,7 +5001,7 @@ var OverlookShow = class extends dt {
       .topright { top: calc(env(safe-area-inset-top, 0px) + 12px); right: 22px; }
       .topright .clock { font-size: 28px; }
       .topright .temp { font-size: 22px; }
-      .kitchen, .col, .calendar { gap: 12px; }
+      .calendar { gap: 12px; }
       .month { padding: 14px 14px 12px; }
       .month-head { padding-bottom: 8px; }
       .month-head h1 { font-size: 22px; }
@@ -5591,8 +5030,7 @@ var OverlookShow = class extends dt {
       .round { width: 40px; height: 40px; }
       .round.small { width: 32px; height: 32px; }
       .where, .where-vol { height: 36px; font-size: 14px; }
-      .col-b { padding: 14px 16px 16px; }
-      .favs { margin-top: 10px; gap: 10px; grid-template-columns: minmax(88px, 0.6fr) minmax(0, 1.4fr); }
+
       .pill-wrap, .thermo { padding: 10px 12px; border-radius: 18px; }
       .pill-head { min-height: 34px; }
       .pill-name { font-size: 14px; }
@@ -5619,12 +5057,11 @@ var OverlookShow = class extends dt {
       .pl-row { height: 96px; margin: 8px -16px -16px; padding: 0 16px 16px; gap: 10px; scroll-padding: 0 16px; }
       .pl { border-radius: 16px; }
       .pl-name { font-size: 13px; left: 9px; top: 8px; }
-      .agenda, .shopping { padding: 12px 14px; gap: 6px; }
+      .shopping { padding: 12px 14px; gap: 6px; }
       .item { font-size: 15px; padding: 5px 0; }
       .add { width: 30px; height: 30px; }
-      .sensors { gap: 10px; }
-      .sensor { border-radius: 18px; padding: 8px 10px; }
-      .s-val { font-size: 17px; margin-top: 2px; }
+
+      
       .recipe { gap: 12px; }
       .lib-head h1 { font-size: 22px; }
       .rc-name { font-size: 13px; }
@@ -5635,22 +5072,11 @@ var OverlookShow = class extends dt {
     .phone .page { height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
                    padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 104px); }
     .phone .card { border-radius: 26px; }
-    .tabbar { position: absolute; z-index: 4; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-              display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 7px; border-radius: 28px;
-              background: var(--bar); border: 1px solid var(--card-edge); box-shadow: 0 10px 40px rgba(22, 42, 84, 0.18);
-              backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); }
     .screen.phone::after { content: ""; position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; pointer-events: none;
                            height: calc(env(safe-area-inset-bottom, 0px) + 120px);
                            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
                            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 55%);
                            mask-image: linear-gradient(to bottom, transparent, #000 55%); }
-    .tabbar .dock-btn { width: auto; height: 54px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-    .tabbar .dock-btn ha-icon { --mdc-icon-size: 24px; }
-    .tabbar .dock-btn span { font-size: 11px; font-weight: 600; }
-
-    /* phone home: ha-phone's order */
-    .ph { display: flex; flex-direction: column; gap: 18px; }
-    .ph section { display: flex; flex-direction: column; gap: 10px; }
     .ph-sec { display: flex; align-items: center; gap: 9px; padding: 0 4px; min-height: 40px; font-size: 17px; font-weight: 700;
               letter-spacing: -0.01em; }
     .ph-sec ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
@@ -5819,8 +5245,6 @@ var OverlookShow = class extends dt {
     @keyframes ck-blink { 50% { opacity: 0.35; } }
     .ck-colon { opacity: 0.5; margin: 0 0.02em; position: relative; top: -0.05em; }
     .ck-ampm { font-size: 0.24em; font-weight: 700; margin-left: 0.12em; color: var(--ck-dim); letter-spacing: 0; }
-    .ck-track { height: 1.6vh; min-height: 6px; border-radius: 999px; background: var(--ck-btn); overflow: hidden; }
-    .ck-track div { height: 100%; border-radius: 999px; background: var(--ck-hot); transition: width 1s linear; }
     .ck-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4vw; }
     .ck-btn { height: 24vh; border-radius: 7vh; background: var(--ck-btn); color: var(--ck-ink); display: flex;
               align-items: center; justify-content: center; gap: 1.6vw; font-family: var(--display); font-weight: 700;
@@ -5916,19 +5340,19 @@ var OverlookShow = class extends dt {
     .bedside .cap-big { font-size: 17px; }
     .bedside .topright { right: 22px; }
     /* the Hub is read from across the kitchen: clock and weather bigger again over photos */
-    .hub .topright.on-photo { gap: 14px; }
-    .hub .topright.on-photo .clock { font-size: 108px; font-weight: 600; letter-spacing: -0.02em; }
-    .hub .topright.on-photo .temp { font-size: 54px; }
-    .hub .topright.on-photo .wx { --mdc-icon-size: 52px; }
-    .hub .np-line { top: calc(env(safe-area-inset-top, 0px) + 150px); }
-    .hub .topright .clock { font-size: 40px; font-weight: 600; }
+
+    
+
+    
+
+    
     .bedside .topright.on-photo .clock { font-size: 76px; }
     .bedside .topright.on-photo .temp { font-size: 42px; }
     .bedside .topright.on-photo .wx { --mdc-icon-size: 40px; }
     .bed-card { padding: 16px 18px; min-height: 0; }
     .bed-card .card-title { display: flex; align-items: center; gap: 8px; }
     .bed-two { height: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-height: 0; }
-    .bedside .media-card, .hub .media-card { flex: none; height: 100%; }
+    .bedside .media-card { flex: none; height: 100%; }
     /* the bedside and Hub media card: no bar, just - and + sharing the row as squircles,
        and a bigger speaker pill and % so they read from across the room */
     .vol.vol-pair { grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -5944,44 +5368,23 @@ var OverlookShow = class extends dt {
     .screen:not(.phone) .player .vol-pct .where-vol { height: 46px; min-width: 76px; font-size: 18px; }
     .vol-pair .round.small { width: 100%; height: 56px; border-radius: 18px; }
     .vol-pair .round.small ha-icon { --mdc-icon-size: 28px; }
-    .hub-controls { grid-template-rows: 1fr 1fr; }
-    .hub-players { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
-    .hub-hp { display: flex; flex-direction: column; min-height: 0; }
     /* the Hub's dock: bigger targets than the tablet's compact one */
-    .screen.hub { grid-template-columns: 94px 1fr; }
-    .hub .dock-pill { gap: 6px; padding: 7px; border-radius: 26px; }
-    .hub .dock-btn { width: 62px; height: 62px; border-radius: 20px; }
-    .hub .dock-btn ha-icon { --mdc-icon-size: 30px; }
-    /* the 2x2 tiles stay square (two rows of the page's height); the wide cards take what's left */
-    .hub .hub-sq-left { grid-template-columns: calc(100vh - 76px) minmax(0, 1fr); }
-    .hub .hub-sq-right { grid-template-columns: minmax(0, 1fr) calc(100vh - 76px); }
-    .hub-stack { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0; }
-    .hub-stack > .card { min-height: 0; overflow: hidden; }
+
+    
+
+    
     .hub-out { display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; text-align: left; color: var(--ink); }
     .hub-out-row { display: flex; align-items: center; gap: 16px; }
     .hub-out-row ha-icon, .hub-out-row .wxi { --mdc-icon-size: 52px; }
     .hub-out-temp { font-family: var(--display); font-weight: 700; font-size: 58px; line-height: 1; letter-spacing: -0.02em; }
-    .hub .hub-out .wx-side { margin-left: auto; }
-    .hub .hub-out .wx-cond { font-size: 19px; white-space: nowrap; }
-    .hub .hub-out .wx-hl { font-size: 17px; }
-    .hub-hp .thermo { flex: 1; padding: 16px 18px; gap: 0; }
-    .hub .hub-hp .hp-temp { font-size: 52px; }
-    .hub .hub-hp .hp-mode { font-size: 17px; }
-    .hub .hub-hp .hp-target { margin-top: auto; }
-    .hub .hub-hp .hp-step { width: 64px; height: 52px; border-radius: 16px; }
-    .hub .hub-hp .hp-set { font-size: 30px; }
-    .hub .hub-hp .modes { height: 52px; gap: 10px; margin-top: 10px; }
-    .hub .hub-hp .mode { font-size: 16px; border-radius: 18px; }
-    .hub .hub-hp .mode ha-icon { --mdc-icon-size: 24px; }
-    .scenes-sheet { width: min(560px, 90vw); }
-    .hub-scenes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+    
+
     .bed-pl { display: flex; flex-direction: column; overflow: hidden; }
     .bed-pl .pl-title { margin: 0; }
     .bed-pl .pl-row { flex: 1; height: auto; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr);
                       grid-auto-rows: min-content; gap: 10px; overflow-y: auto; }
     .bed-pl .pl { width: 100%; height: auto; border-radius: 16px; }
-    .bed-air { height: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 14px; }
-    .bed-controls { height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .air-tile.control-tile { grid-template-columns: auto; background: var(--card); border-color: var(--card-edge); }
     .air-tile.control-tile.on { background: color-mix(in srgb, var(--c) 14%, var(--card)); border-color: transparent; }
     .air-tile.control-tile .air-ico { width: 76px; height: 76px; background: var(--inset); color: var(--muted); }
