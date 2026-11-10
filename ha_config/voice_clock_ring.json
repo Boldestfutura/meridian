@@ -1,8 +1,7 @@
 {
  "id": "voice_clock_ring",
  "alias": "Voice Timers and Alarms - Ringing",
- "description": "Rings the room's Echo (VACA's alarm switch, its alarm volume) when timer.<area>_timer finishes or input_datetime.<area>_alarm_time arrives while input_boolean.<area>_alarm is on, by setting input_select.<area>_ringing to Timer or Alarm; the Show card shows the stop/reset or stop/snooze screen from that. Ringing back to Off silences it and puts the screen brightness back; a finished alarm turns itself off. Stops by itself after 10 minutes. Per-room device entities are in the `rooms` variable.",
- "mode": "queued",
+ "description": "Rings the room's Echo (VACA's alarm switch, its alarm volume) when timer.<area>_timer finishes or input_datetime.<area>_alarm_time arrives while input_boolean.<area>_alarm is on, by setting input_select.<area>_ringing to Timer or Alarm; the Show card shows the stop/reset or stop/snooze screen from that. Ringing back to Off silences it and puts the screen brightness back; a finished alarm turns itself off. Stops by itself after 10 minutes. Per-room device entities are in the `rooms` variable. Kitchen (the kitchen tablet, 2026-11-10) added: no brightness automation or sleep switch there, so those steps skip.",
  "triggers": [
   {
    "trigger": "event",
@@ -56,6 +55,59 @@
    "variables": {
     "area": "bedroom"
    }
+  },
+  {
+   "trigger": "event",
+   "event_type": "timer.finished",
+   "event_data": {
+    "entity_id": "timer.kitchen_timer"
+   },
+   "id": "timer",
+   "variables": {
+    "area": "kitchen"
+   }
+  },
+  {
+   "trigger": "time",
+   "at": "input_datetime.kitchen_alarm_time",
+   "id": "alarm",
+   "variables": {
+    "area": "kitchen"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "input_select.kitchen_ringing",
+   "to": "Off",
+   "id": "silence",
+   "variables": {
+    "area": "kitchen"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "input_select.kitchen_ringing",
+   "to": [
+    "Timer",
+    "Alarm"
+   ],
+   "for": {
+    "minutes": 10
+   },
+   "id": "timeout",
+   "variables": {
+    "area": "kitchen"
+   }
+  },
+  {
+   "trigger": "state",
+   "entity_id": "switch.kitchen_tablet_va_alarm",
+   "from": "on",
+   "to": "off",
+   "id": "device",
+   "variables": {
+    "area": "kitchen"
+   }
   }
  ],
  "conditions": [],
@@ -70,6 +122,14 @@
       "brightness": "number.bedroom_echo_va_screen_brightness",
       "after": "automation.master_bedroom_echo_brightness",
       "sleep": "input_boolean.bedroom_night_mode"
+     },
+     "kitchen": {
+      "alarm_switch": "switch.kitchen_tablet_va_alarm",
+      "screen": "switch.kitchen_tablet_va_screen",
+      "auto": "switch.kitchen_tablet_va_auto_brightness",
+      "brightness": "number.kitchen_tablet_va_screen_brightness",
+      "after": "",
+      "sleep": ""
      }
     },
     "r": "{{ rooms[area] }}",
@@ -188,14 +248,24 @@
        ]
       },
       {
-       "action": "automation.trigger",
-       "target": {
-        "entity_id": "{{ r.after }}"
-       },
-       "data": {
-        "skip_condition": true
-       },
-       "continue_on_error": true
+       "if": [
+        {
+         "condition": "template",
+         "value_template": "{{ r.after != '' }}"
+        }
+       ],
+       "then": [
+        {
+         "action": "automation.trigger",
+         "target": {
+          "entity_id": "{{ r.after }}"
+         },
+         "data": {
+          "skip_condition": true
+         },
+         "continue_on_error": true
+        }
+       ]
       }
      ]
     },
@@ -227,5 +297,6 @@
     }
    ]
   }
- ]
+ ],
+ "mode": "queued"
 }

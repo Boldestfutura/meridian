@@ -71,6 +71,12 @@ deploy them.
 - **Never use a card that loads images by relative URL here.** The cast receiver runs at
   cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
 
+**Kitchen Tablet Show** `kitchen-tablet-show` (ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS): a copy of Hub Show with the dock's `clock: kitchen`, `voice: kitchen` and `voice_satellite`. Set up 2026-11-10.
+- Runs in VACA 0.14.1 (the Android home app), device "Kitchen Tablet VA" in area Kitchen, entities `*.kitchen_tablet_va_*`. Pipeline Claude, wake word Alexa (microWakeWord, 6.5). Camera permission denied and its entity disabled.
+- VACA's start page is the integration option `default_dashboard` (`kitchen-tablet-show/controls`), not a user's default panel.
+- Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`, `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`; `voice_clock_ring` has a `kitchen` room.
+- ADB is Wireless debugging (paired with luna), so the port changes on every boot: `adb mdns services` finds it. No HA ADB watchdog like the Echo's.
+
 **Master Bedroom Echo Show** `master-bedroom-echo-show` (Echo Show 5 2nd gen, 788x394): Meridian screen cards (`meridian-dock`, large button, large sensor, calendar, media, playlists), edited in HA. Replaced Bedroom Show (`ha-show-bedroom`) on 2026-11-10; the `bedside` options below now live on its `meridian-dock`
 - Runs in the View Assist Companion app (VACA), which is also the voice satellite. Device
   setup: `docs/tasks/echo-show-bedroom.md`. A card change reaches it only after VACA restarts.
