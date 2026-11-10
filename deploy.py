@@ -2,8 +2,8 @@
 """Build and deploy the Overlook dashboards to Home Assistant.
 
     ./deploy.py --list                      what is on the box
-    ./deploy.py show showhub                rebuild those two from the generators
-    ./deploy.py --dry-run showhub           build and diff, write nothing
+    ./deploy.py show                        ship the card, rebuild Kitchen Show
+    ./deploy.py --dry-run show              build and diff, write nothing
 
 Every Show dashboard first ships the card (www/overlook-show.js) and its artwork, then
 saves its config. ha-show-native is the exception: once it has been edited in HA's own
@@ -20,7 +20,6 @@ TOKEN_FILE = os.environ.get("HA_TOKEN_FILE", "~/.config/ha/token")
 TARGETS = {           # name -> (url_path, title, icon)
     "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
     "shownative": ("ha-show-native", "Phone Show", "mdi:cellphone-cog"),
-    "showhub": ("ha-show-hub", "Hub Show", "mdi:monitor-speaker"),
 }
 # edited in HA's own editor: deploy writes their layout only until that happens
 NATIVE = ("shownative",)
