@@ -82,14 +82,29 @@ releases as the marketplace; the steps are the same:
 3. On a sections dashboard, **+ Add card** → search "Meridian": tile, room heading, scenes,
    favourites, status and edit button. Every setting, pop-ups included, is in HA's card editor.
 
+The big screen cards are the Show's pieces as cards of their own, so any sections dashboard
+can use them, and a dashboard built from them is a Show screen without `deploy.py`:
+
+| card | what it is |
+|---|---|
+| `meridian-large-button` | a big square that switches its entity; hold opens the light sheet or a pop-up |
+| `meridian-large-sensor` | a big reading with its verdict word, tinted Auto or from a swatch row |
+| `meridian-calendar` | views: date, date with weather, what's on, or the full month |
+| `meridian-media` | what's playing, the speaker picker and volume, over the speakers you list |
+| `meridian-playlists` | playlist tiles that play on the media card's speaker |
+| `meridian-dock` | the Show's dock: one button per dashboard view, plus photos, night clock, voice timers and alarms, and full-screen now playing |
+
+Put one `meridian-dock` on each view (a bare one copies the first configured one). The weather
+icons in "date with weather" are served from `/local/weather/`, which `deploy.py` ships.
+
 **Meridian favourites** needs no setup: it shows the controls each person uses most at this
 time of day, as Home Assistant learns them (the `usage_prediction` integration, HA 2025.10 or
 later, the same list as HA's own "Common controls"). Whatever is on goes first. Tap is the
 quick control; hold opens the light sheet or the thing's pop-up. "Always show" and "Never show"
 correct it.
 
-HACS ships `dist/meridian.js` (Lit bundled in): the phone cards only. The full-screen Show
-card for wall screens and the Echo is not in it; `deploy.py` builds and ships that one.
+HACS ships `dist/meridian.js` (Lit bundled in): the phone cards and the screen cards above.
+The single full-screen `overlook-show` card is not in it; `deploy.py` builds and ships that one.
 Cards first added as `custom:overlook-tile` (and the other `overlook-*` names) still work.
 Amazon Ember is not included; without it the cards fall back to the system font.
 

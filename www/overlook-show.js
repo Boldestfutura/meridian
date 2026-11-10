@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.27.0";
+const VERSION = "0.27.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -616,15 +616,17 @@ class OverlookShow extends LitElement {
         if (ts === "active") this._call("timer", "pause", { entity_id: `timer.${c.a}_timer` });
         else if (ts === "paused") this._call("timer", "start", { entity_id: `timer.${c.a}_timer` });
       };
+      // the time left fills the screen from the left as a panel that shrinks as it runs
+      // (StandBy-style), under the usual label, digits and Reset / Stop
       return html`
-        <div class=${cls}>
+        <div class="${cls} ck-fillmode">
+          <div class="ck-fill" style="width:${pct}%"></div>
           <div class="ck-top">
             <div class="ck-label"><ha-icon icon=${c.ring === "Timer" ? "mdi:bell-ring" : "mdi:timer-outline"}></ha-icon>${label}
               ${total && c.ring !== "Timer" ? html`<span class="ck-of">of ${this._ckDur(total)}</span>` : nothing}</div>
             <div class="ck-digits ${c.ring === "Timer" ? "ring" : ""} ${ts === "paused" ? "paused" : ""}"
                  style=${this._ckFit(txt)} @click=${toggle}>${txt}</div>
           </div>
-          <div class="ck-track"><div style="width:${pct}%"></div></div>
           <div class="ck-btns">
             ${btn("Reset", "mdi:restore", reset)}
             ${btn("Stop", "mdi:stop", stop, true)}
@@ -3670,6 +3672,19 @@ class OverlookShow extends LitElement {
     .ck-btn ha-icon { --mdc-icon-size: 8.5vh; }
     .ck-btn.main { background: var(--ck-hot); color: var(--ck-on-hot); }
     .ck-btn:active { transform: scale(0.97); }
+    /* timer: the time left as a panel filling the screen from the left; the content sits over it */
+    .ck-fillmode { grid-template-rows: 1fr auto; }
+    .ck-fillmode > :not(.ck-fill) { position: relative; z-index: 1; }
+    .ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ck-hot); transition: width 1s linear; }
+    .ck-fillmode .ck-label { color: var(--ck-ink); }
+    .ck-fillmode .ck-of { color: inherit; opacity: 0.7; }
+    /* smoked glass: dark, blurred, readable over the orange and over the black */
+    .ck-fillmode .ck-btn { background: rgba(0, 0, 0, 0.42); color: var(--ck-ink);
+                           backdrop-filter: blur(18px) brightness(0.75); -webkit-backdrop-filter: blur(18px) brightness(0.75); }
+    .ck-fillmode .ck-btn.main { background: rgba(0, 0, 0, 0.62); color: var(--ck-hot); }
+    .ck-night.ck-fillmode { --ck-hot: #2b0705; }
+    .ck-night.ck-fillmode .ck-btn { background: rgba(168, 35, 27, 0.16); }
+    .ck-night.ck-fillmode .ck-btn.main { background: rgba(0, 0, 0, 0.62); color: #a8231b; }
     .ck-when { display: flex; align-items: baseline; gap: 2vw; font-family: var(--display); font-weight: 700;
                font-size: 9vh; grid-row: 3; }
     .ck-when span { font-family: var(--body); font-weight: 600; font-size: 6vh; color: var(--ck-dim); }
@@ -3974,7 +3989,7 @@ class OverlookShow extends LitElement {
 
 // a typed --ov-at can transition; an untyped custom property would jump
 try { CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" }); } catch (e) {}
-if (BUILD !== "phone") define("overlook-show", OverlookShow);
+if (BUILD === "show" || BUILD === "all") define("overlook-show", OverlookShow);
 
 // --- native cards: the phone home as ordinary HA cards --------------------------------
 // Each card draws one piece of the phone home with the same markup and CSS as the
@@ -4891,8 +4906,567 @@ definePhone("status-editor", OverlookStatusEditor);
 OverlookTile.getConfigElement = () => document.createElement("meridian-tile-editor");
 OverlookStatus.getConfigElement = () => document.createElement("meridian-status-editor");
 
+// --- Echo cards: the bedside Show split into native cards ---------------------------
+// The same pieces the Bedroom Show draws (control squares, air tiles, the date, What's on,
+// Active Media, Playlists), each as its own card in an HA sections view, one view per page.
+// meridian-dock starts one shell on <body>: the Show's dock down the left edge (its buttons
+// are the dashboard's views), the Echo-style pop-ups, and the full-screen layers (photos when
+// idle, the red night clock, timers and alarms, now playing, the voice weather page).
+const defineEcho = (name, cls) => { if (BUILD !== "show") define(`meridian-${name}`, cls); };
+
+function lovelaceConfig() { const r = findHuiRoot(); return r && r.lovelace && r.lovelace.config; }
+function allCards(cfg) {
+  const out = [];
+  for (const v of (cfg && cfg.views) || []) {
+    for (const c of v.cards || []) out.push(c);
+    for (const s of v.sections || []) for (const c of s.cards || []) out.push(c);
+  }
+  return out;
+}
+// the keys that are a card's own settings, not HA's (type, layout, visibility)
+const ownKeys = (c) => Object.keys(c || {}).filter((k) => !["type", "grid_options", "visibility", "layout_options"].includes(k));
+
+// the large sensor's colours: the swatches the editor offers
+const SWATCH = { amber: "#e0a63c", blue: "#5a7ea8", green: "#3f8f63", teal: "#3f8f8a", red: "#c8553d", purple: "#7c6bb0", grey: "#7a8394" };
+
+// the HA view on the Echo: no header, the dock's column kept clear, and a grid whose rows
+// put two squares (3 rows each) or one tall card (6 rows) exactly in the screen's height:
+// 14px above, between and below, as the Show lays out its pages
+const ECHO_VIEW = (bg) => `
+  :host {
+    --ha-section-grid-row-height: calc((100vh - 98px) / 6);
+    --ha-section-grid-row-gap: 14px;
+    --ha-section-grid-column-gap: 14px;
+    --ha-view-sections-row-gap: 14px;
+    --ha-view-sections-column-gap: 14px;
+    --ha-view-sections-column-min-width: 200px;
+    --ha-view-sections-column-max-width: 2000px;
+    --lovelace-background: ${bg};
+  }
+  .header { display: none !important; }
+  hui-view-container { padding-top: 0 !important; padding-left: 76px !important; }`;
+const ECHO_BG = { light: "linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%)", dark: "linear-gradient(165deg, #0b0f18 0%, #121827 100%)" };
+
+let ECHO_SHELL = null, ECHO_DOCKS = 0, ECHO_DROP = null;
+const echoShell = () => {
+  if (!ECHO_SHELL) {
+    ECHO_SHELL = document.createElement("meridian-echo-shell");
+    document.body.appendChild(ECHO_SHELL);
+  }
+  return ECHO_SHELL;
+};
+
+class MeridianEchoShell extends OverlookShow {
+  static properties = { _editing: { state: true } };
+
+  // config from a dock card; applied only when it changes
+  useConfig(c) {
+    const j = JSON.stringify(c);
+    if (j === this._cj) return;
+    this._cj = j;
+    this.setConfig(Object.assign({}, c, { bedside: true, phone: false, windowed: false }));
+    this._page = this._viewNow() || (this._views()[0] || [])[0] || "photos";
+    this._poke();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._loc = () => { const v = this._viewNow(); if (v && this._page !== "photos") this._page = v; };
+    window.addEventListener("location-changed", this._loc);
+    window.addEventListener("popstate", this._loc);
+    this._tick = setInterval(() => this._sync(), 400);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("location-changed", this._loc);
+    window.removeEventListener("popstate", this._loc);
+    clearInterval(this._tick);
+    styleHuiRoot(this._root, "");
+    stylePage("");
+  }
+
+  // HA's view: header hidden and the Echo grid while showing; HA's own while editing
+  _sync() {
+    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    if (r !== this._root) { styleHuiRoot(this._root, ""); this._root = r; }
+    const edit = !!(r && r.lovelace && r.lovelace.editMode);
+    if (edit !== this._editing) this._editing = edit;
+    const dark = this.getAttribute("scheme") ? this.getAttribute("scheme") === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const bg = ECHO_BG[dark ? "dark" : "light"];
+    styleHuiRoot(r, edit ? "" : ECHO_VIEW(bg));
+    // the Echo never scrolls: the dock's empty cell sits one gap below the screen
+    stylePage(edit ? "" : `html, body { background: ${dark ? "#121827" : "#e4ecf9"} !important; overflow: hidden !important; }`);
+  }
+
+  // [path, title, icon] of the views the dock shows, in the dashboard's order
+  _views() {
+    const cfg = lovelaceConfig(), want = this._config && this._config.views;
+    return ((cfg && cfg.views) || []).map((v, i) => [v.path || String(i), v.title || v.path || `View ${i + 1}`,
+      v.icon || "mdi:view-dashboard-outline"]).filter(([p]) => !want || !want.length || want.includes(p));
+  }
+
+  _viewNow() {
+    const seg = location.pathname.split("/").filter(Boolean);
+    if (seg.length < 2) return null;
+    const cfg = lovelaceConfig(), views = (cfg && cfg.views) || [];
+    const v = views.find((x) => x.path === seg[1]) || views[Number(seg[1])];
+    return v ? (v.path || String(views.indexOf(v))) : null;
+  }
+
+  // pages are views: "photos" is the full-screen layer, anything else navigates HA
+  _go(page) {
+    const views = this._views();
+    if (page !== "photos" && !views.some(([p]) => p === page)) page = (views[0] || [])[0] || "photos";
+    super._go(page);
+    if (page === "photos") return;
+    const url = `/${location.pathname.split("/").filter(Boolean)[0]}/${page}`;
+    if (location.pathname !== url) {
+      history.pushState(null, "", url);
+      window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    }
+  }
+
+  // a card's own pop-up, handed over whole
+  openPopup(p) {
+    if (!p || !(p.sections || []).length) return;
+    fireHaptic("light");
+    this._config = Object.assign({}, this._config, { popups: { card: p } });
+    this._light = null;
+    this._pop = "card";
+    this._loadHistory(p);
+  }
+
+  openPicker(speakers) {
+    this._config = Object.assign({}, this._config, { speakers });
+    this._picker = true;
+  }
+
+  async _pickSpeaker(target, active) {
+    const r = super._pickSpeaker(target, active);
+    window.dispatchEvent(new CustomEvent("meridian-echo-speaker", { detail: target.name }));
+    return r;
+  }
+
+  // HA listens for more-info on its own root, which this layer sits outside of
+  _moreInfo(entityId) {
+    const ha = document.querySelector("home-assistant");
+    if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  _dock() {
+    return html`
+      <nav class="dock">
+        <div class="dock-pill">
+          ${this._views().map(([id, name, icon]) => html`
+            <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name} @click=${() => this._go(id)}>
+              <ha-icon icon=${icon}></ha-icon>
+            </button>`)}
+        </div>
+        ${this._config.photos ? html`
+          <button class="dock-btn photo-btn" title="Photos" @click=${() => this._go("photos")}>
+            <ha-icon icon="mdi:image-multiple-outline"></ha-icon>
+          </button>` : nothing}
+      </nav>`;
+  }
+
+  // the Show's screen, minus its pages: the HA view under it is the page
+  _screen() {
+    if (!this.hass || !this._config) return nothing;
+    if (this._wx) return this._wxPage();
+    const photos = this._page === "photos";
+    if (photos && this._night()) return this._nightClock();
+    return html`
+      <div class="screen bedside echo-shell ${photos ? "on-photo" : "shell-only"}">
+        ${photos ? this._photos() : nothing}
+        ${this._dock()}
+        ${photos ? this._topRight(true) : nothing}
+        ${this._picker ? this._speakerSheet() : nothing}
+        ${this._pop ? this._popSheet() : nothing}
+        ${this._light ? this._lightSheet() : nothing}
+      </div>`;
+  }
+
+  render() {
+    if (this._editing || !this._config) return nothing;
+    return super.render();
+  }
+
+  static styles = [OverlookShow.styles, css`
+    .echo-shell.shell-only { background: none; pointer-events: none; }
+    .echo-shell.shell-only > * { pointer-events: auto; }
+  `];
+}
+defineEcho("echo-shell", MeridianEchoShell);
+
+// the dock: nothing in the grid (put it last), the shell on <body>. A dock with no settings
+// of its own uses the first set-up dock on the dashboard, so each view only needs a bare one.
+class MeridianDock extends LitElement {
+  static properties = { hass: { attribute: false }, editMode: { type: Boolean }, preview: { type: Boolean } };
+  static getStubConfig() { return {}; }
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "photos", selector: { entity: { domain: "camera" } } },
+        { name: "idle", selector: { number: { min: 30, max: 3600, step: 30, unit_of_measurement: "s", mode: "box" } } },
+        { name: "night", selector: { entity: { domain: ["binary_sensor", "input_boolean"] } } },
+        { name: "clock", selector: { area: {} } },
+        { name: "nowplaying", selector: { entity: { domain: "media_player" } } },
+        { name: "voice", selector: { area: {} } },
+        { name: "weather", selector: { entity: { domain: "weather" } } },
+      ],
+      computeLabel: (s) => ({ photos: "Photos when idle (slideshow camera)", idle: "Go to photos after", night: "Red night clock when this is on",
+        clock: "Timers and alarms for this area", nowplaying: "Now playing: this screen's speaker",
+        voice: "Weather and pages by voice in this area", weather: "Weather" })[s.name],
+      computeHelper: (s) => (s.name === "photos" ? "Leave this dock empty on every other view: it copies the first one that is set up." : undefined),
+    };
+  }
+  setConfig(c) { this._config = c || {}; }
+  getCardSize() { return 1; }
+  getGridOptions() { return { columns: "full", rows: "auto" }; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    ECHO_DOCKS++;
+    clearTimeout(ECHO_DROP);
+    this._push();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    ECHO_DOCKS--;
+    // a view change swaps one dock for the next; only leaving the dashboard drops the shell
+    if (!ECHO_DOCKS) ECHO_DROP = setTimeout(() => {
+      if (ECHO_DOCKS || !ECHO_SHELL) return;
+      ECHO_SHELL.remove();
+      ECHO_SHELL = null;
+    }, 1500);
+  }
+
+  updated() { this._push(); }
+
+  _resolved() {
+    if (ownKeys(this._config).length) return this._config;
+    return allCards(lovelaceConfig()).find((c) => c.type === "custom:meridian-dock" && ownKeys(c).length) || this._config;
+  }
+
+  _push() {
+    if (!this.hass || this.preview || !this.isConnected) return;
+    const s = echoShell();
+    s.hass = this.hass;
+    s.useConfig(this._resolved());
+  }
+
+  render() {
+    if (!this.editMode && !this.preview) return nothing;
+    return html`<div class="note"><ha-icon icon="mdi:dock-left"></ha-icon>
+      <span><b>Meridian dock</b><br>${ownKeys(this._config).length ? "Set up here" : "Copies the first dock on this dashboard"}</span></div>`;
+  }
+
+  static styles = css`
+    :host { display: block; }
+    .note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.3;
+            border-radius: var(--ha-card-border-radius, 12px); background: var(--ha-card-background, var(--card-background-color));
+            color: var(--secondary-text-color); }
+    .note b { color: var(--primary-text-color); }
+  `;
+}
+defineEcho("dock", MeridianDock);
+
+// one piece of the bedside screen as a card: Show markup and CSS, pop-ups in the shell
+class EchoPiece extends OverlookShow {
+  setConfig(c) {
+    if (!c) throw new Error("No configuration");
+    super.setConfig(Object.assign({ weather: null }, this._defaults(c), c,
+      { bedside: true, phone: false, photos: null, windowed: false, idle: 300 }));
+    if (this._page !== "calendar") this._page = "piece";
+  }
+  _defaults() { return {}; }
+  getCardSize() { return 3; }
+  getGridOptions() { return { columns: 12, rows: 3, min_rows: 2 }; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._spSync = (e) => { this._speaker = e.detail; };
+    window.addEventListener("meridian-echo-speaker", this._spSync);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("meridian-echo-speaker", this._spSync);
+  }
+
+  updated(changed) {
+    super.updated(changed);
+    const s = ECHO_SHELL, sch = s && s.getAttribute("scheme");
+    if (sch) { if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch); } else this.removeAttribute("scheme");
+    if (this._picker) {
+      this._picker = false;
+      if (s) { s.hass = this.hass; s.openPicker(this._speakers().map(({ shown, playing, ...x }) => x)); }
+    }
+  }
+
+  // a pop-up set on the card opens in the shell; without one, HA's details
+  _open(id) {
+    const p = this._config.popup, s = ECHO_SHELL;
+    if (s && p && (p.sections || []).length) { s.hass = this.hass; s.openPopup(p); return; }
+    this._moreInfo(id);
+  }
+  _openLight(id) {
+    const s = ECHO_SHELL;
+    if (s) { s.hass = this.hass; s._openLight(id); } else this._moreInfo(id);
+  }
+
+  _missing(what) {
+    return html`<div class="card air-tile control-tile"><span class="air-name">${what}<span class="air-q">Not found</span></span></div>`;
+  }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    return html`<div class="echo-cell screen bedside">${this._body()}</div>`;
+  }
+
+  static styles = [OverlookShow.styles, css`
+    :host { display: block; height: 100%; }
+    /* .screen so every big-screen rule (.screen:not(.phone) ...) applies, without its full-screen box */
+    .echo-cell.screen { position: static; inset: auto; z-index: auto; display: block; height: 100%; padding: 0;
+                        overflow: visible; background: none; }
+    .echo-cell { height: 100%; font-family: var(--body); color: var(--ink); user-select: none; -webkit-user-select: none; }
+    .echo-cell > * { height: 100%; width: 100%; }
+    .echo-cell .air-tile { text-align: left; }
+    .echo-one { display: grid; }
+    .echo-one > * { min-height: 0; }
+  `];
+}
+
+// Controls: a square you tap to switch; hold for the light sheet or the card's pop-up
+class MeridianLargeButton extends EchoPiece {
+  static getStubConfig() { return { entity: "" }; }
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: {} } },
+        { type: "grid", name: "", schema: [
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
+        ] },
+        { name: "popup_on_hold", selector: { boolean: {} } },
+      ],
+      computeLabel: (s) => ({ entity: "Entity", name: "Name", icon: "Icon", popup_on_hold: "Pop-up on hold" })[s.name],
+      computeHelper: (s) => (s.name === "popup_on_hold" ? "Lights open the light sheet. Anything else opens its pop-up, or HA's details." : undefined),
+    };
+  }
+  _body() {
+    const c = this._config, id = c.entity, e = id && this._st(id);
+    if (!e) return this._missing(c.name || id || "Pick an entity");
+    const dom = id.split(".")[0], on = e.state === "on";
+    const name = c.name || e.attributes.friendly_name || id;
+    const icon = c.icon || e.attributes.icon || DOMAIN_ICON[dom] || "mdi:toggle-switch-outline";
+    const colour = dom === "light" ? "var(--warm)" : "#3f86f2";
+    const tap = () => {
+      if (dom === "light") this._call("light", on ? "turn_off" : "turn_on", { entity_id: id });
+      else if (dom === "script" || dom === "scene") this._call(dom, "turn_on", { entity_id: id });
+      else this._call("homeassistant", "toggle", { entity_id: id });
+    };
+    const hold = () => {
+      if (c.popup_on_hold === false) return;
+      if (dom === "light") this._openLight(id); else this._open(id);
+    };
+    const h = this._tapHold(id, tap, hold);
+    return html`
+      <button class="card air-tile control-tile ${on ? "on" : ""}" style="--c:${colour}"
+              @pointerdown=${h.down} @pointermove=${h.move} @pointerup=${h.up} @pointercancel=${h.up} @click=${h.click}
+              @contextmenu=${(ev) => ev.preventDefault()}>
+        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+        <span class="air-name">${name}<span class="air-q">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+      </button>`;
+  }
+}
+defineEcho("large-button", MeridianLargeButton);
+
+// Climate: a reading, its verdict, tinted in its colour (auto from the sensor type, or a swatch)
+class MeridianLargeSensor extends EchoPiece {
+  static getStubConfig() { return { entity: "" }; }
+  static getConfigElement() { return document.createElement("meridian-large-sensor-editor"); }
+  _body() {
+    const x = this._config, e = x.entity && this._st(x.entity);
+    if (!e) return this._missing(x.name || x.entity || "Pick a sensor");
+    const k = Object.keys(AIR).find((n) => x.entity.includes(n)), air = AIR[k];
+    const label = x.name || (air && air[0]) || e.attributes.friendly_name || x.entity;
+    const colour = x.color && x.color !== "auto" ? (SWATCH[x.color] || x.color) : air ? air[1] : SWATCH.grey;
+    const verdict = air ? air[2] : () => "";
+    const icon = x.icon || e.attributes.icon || CLASS_ICON[e.attributes.device_class] || "mdi:gauge";
+    const raw = e.attributes.unit_of_measurement || "";
+    const unit = x.unit != null ? x.unit : /^°[CF]$/.test(raw) ? "°" : raw;
+    const v = Number(e.state), ok = !isNaN(v) && e.state !== "";
+    return html`
+      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x.entity)}>
+        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+        <span class="air-val">${ok ? Math.round(v) : "–"}<small>${unit}</small></span>
+        <span class="air-name">${label}<span class="air-q">${ok ? verdict(v) : "No reading"}</span></span>
+      </button>`;
+  }
+}
+defineEcho("large-sensor", MeridianLargeSensor);
+
+class MeridianLargeSensorEditor extends LitElement {
+  static properties = { hass: { attribute: false }, _c: { state: true } };
+  setConfig(c) { this._c = c; }
+  _put(c) {
+    this._c = c;
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: c }, bubbles: true, composed: true }));
+  }
+  _colour(k) {
+    const c = Object.assign({}, this._c);
+    if (k === "auto") delete c.color; else c.color = k;
+    this._put(c);
+  }
+  render() {
+    if (!this._c) return nothing;
+    const schema = [
+      { name: "entity", required: true, selector: { entity: { domain: "sensor" } } },
+      { type: "grid", name: "", schema: [
+        { name: "name", selector: { text: {} } },
+        { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } },
+      ] },
+    ];
+    const now = this._c.color || "auto";
+    const auto = `conic-gradient(${SWATCH.amber} 0 25%, ${SWATCH.blue} 0 50%, ${SWATCH.green} 0 75%, ${SWATCH.teal} 0)`;
+    return html`
+      <ha-form .hass=${this.hass} .data=${this._c} .schema=${schema}
+        .computeLabel=${(s) => ({ entity: "Entity", name: "Name", icon: "Icon" })[s.name]}
+        @value-changed=${(ev) => this._put(ev.detail.value)}></ha-form>
+      <div class="lbl">Colour</div>
+      <div class="sws">
+        ${[["auto", "Auto", auto], ...Object.entries(SWATCH).map(([k, v]) => [k, k[0].toUpperCase() + k.slice(1), v])].map(([k, l, bg]) => html`
+          <button class="swc ${now === k ? "on" : ""}" @click=${() => this._colour(k)}>
+            <i style="background:${bg}"></i>${l}</button>`)}
+      </div>
+      <div class="help">Auto picks the colour from the sensor type: amber for temperature, blue for humidity, green for PM2.5, teal for VOC, grey for anything else.</div>`;
+  }
+  static styles = css`
+    .lbl { margin: 16px 0 8px; }
+    .sws { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swc { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 48px; padding: 0; border: 0;
+           background: none; font: inherit; font-size: 12px; color: var(--secondary-text-color); cursor: pointer; }
+    .swc i { width: 34px; height: 34px; border-radius: 50%; display: block;
+             box-shadow: 0 0 0 2px var(--card-background-color), 0 0 0 3px var(--divider-color); }
+    .swc.on { color: var(--primary-text-color); font-weight: 600; }
+    .swc.on i { box-shadow: 0 0 0 2px var(--card-background-color), 0 0 0 4px var(--primary-color); }
+    .help { margin-top: 10px; font-size: 13px; color: var(--secondary-text-color); }
+  `;
+}
+defineEcho("large-sensor-editor", MeridianLargeSensorEditor);
+
+const CAL_VIEWS = [["date", "Date"], ["date_weather", "Date with weather"], ["whats_on", "What's on"], ["month", "Full calendar"]];
+
+// Calendar: one card, four views
+class MeridianCalendar extends EchoPiece {
+  static getStubConfig() { return { view: "date", calendars: [] }; }
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "view", selector: { select: { mode: "box", options: CAL_VIEWS.map(([value, label]) => ({ value, label })) } } },
+        { name: "calendars", selector: { entity: { domain: "calendar", multiple: true } } },
+        { name: "weather", selector: { entity: { domain: "weather" } } },
+      ],
+      computeLabel: (s) => ({ view: "View", calendars: "Calendars", weather: "Weather (Date with weather)" })[s.name],
+    };
+  }
+  getGridOptions() { return { columns: 12, rows: 6, min_rows: 3 }; }
+  _defaults(c) {
+    return { page: "calendar", weather: c.view === "date_weather" ? "weather.forecast_home" : null };
+  }
+  setConfig(c) {
+    super.setConfig(c);
+    if (this._config.view !== "date_weather") this._config.weather = null;
+    // the bedside setting starts the Show on photos; this card is the calendar page
+    this._page = null;
+    this._go("calendar");
+  }
+  _body() {
+    const v = this._config.view || "date";
+    if (v === "date") return html`<div class="bed-cal echo-one">${this._dateCard(false)}</div>`;
+    if (v === "date_weather") return html`<div class="echo-one">${this._dateCard(true)}</div>`;
+    if (v === "whats_on") return html`<div class="echo-one">${this._whatsOn(this._byDay(this._cal || []), this._ymd(new Date()))}</div>`;
+    this._config.bedside = false;
+    const r = this._calendar();
+    this._config.bedside = true;
+    return r;
+  }
+}
+defineEcho("calendar", MeridianCalendar);
+
+// speakers as the Show takes them ({name, icon, entities, ma}), or plain media_player ids
+function echoSpeakers(list, hass) {
+  return (list || []).map((s, i) => {
+    if (typeof s !== "string") return s;
+    const e = hass && hass.states[s];
+    return { name: (e && e.attributes.friendly_name) || s, icon: (e && e.attributes.icon) || "mdi:speaker",
+             entities: [s], ma: s, auto: i === 0 };
+  });
+}
+
+// Active Media: what's playing, the speaker pill (its list opens in the shell), - and +
+class MeridianMedia extends EchoPiece {
+  static getStubConfig() { return { speakers: [] }; }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "speakers", selector: { entity: { domain: "media_player", multiple: true } } }],
+      computeLabel: () => "Speakers to choose from",
+      computeHelper: () => "The first one is where it starts. Volume steps 3%.",
+    };
+  }
+  getGridOptions() { return { columns: 12, rows: 6, min_rows: 4 }; }
+  setConfig(c) { super.setConfig(c); this._raw = c.speakers; }
+  updated(changed) {
+    if (changed.has("hass") && this.hass) this._config.speakers = echoSpeakers(this._raw, this.hass);
+    super.updated(changed);
+  }
+  _body() {
+    this._config.speakers = echoSpeakers(this._raw, this.hass);
+    const m = this._mediaCard();
+    return m === nothing ? this._missing("Pick speakers") : m;
+  }
+}
+defineEcho("media", MeridianMedia);
+
+// Playlists: plays on the speaker the media card has picked
+class MeridianPlaylists extends EchoPiece {
+  static getStubConfig() { return { playlists: "sensor.tablet_playlists" }; }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "playlists", selector: { entity: { domain: "sensor" } } }],
+      computeLabel: () => "Playlists sensor",
+      computeHelper: () => "Plays on the speaker picked in the Meridian media card on this dashboard.",
+    };
+  }
+  getGridOptions() { return { columns: 12, rows: 6, min_rows: 3 }; }
+  _body() {
+    if (!(this._config.speakers || []).length) {
+      const m = allCards(lovelaceConfig()).find((c) => c.type === "custom:meridian-media");
+      this._config.speakers = echoSpeakers(m && m.speakers, this.hass);
+    }
+    const pl = this._playlists();
+    return pl === nothing ? this._missing("Playlists") : html`<div class="card bed-card bed-pl">${pl}</div>`;
+  }
+}
+defineEcho("playlists", MeridianPlaylists);
+
+if (BUILD !== "show") {
+  window.customCards = window.customCards || [];
+  window.customCards.push(
+    { type: "meridian-dock", name: "Meridian dock", description: "The Show's dock down the left, one button per view, plus photos, night clock, timers and now playing" },
+    { type: "meridian-large-button", name: "Meridian large button", description: "A big square you tap to switch, with an optional pop-up", preview: true },
+    { type: "meridian-large-sensor", name: "Meridian large sensor", description: "A big reading with its verdict, tinted in its colour", preview: true },
+    { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
+    { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
+    { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" },
+  );
+}
+
 window.customCards = window.customCards || [];
-if (BUILD !== "show") window.customCards.push(
+if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
   { type: "meridian-heading", name: "Meridian room heading", description: "A room name with an all-lights button", preview: true },
   { type: "meridian-scenes", name: "Meridian scenes", description: "A row of scene buttons" },
@@ -4900,7 +5474,7 @@ if (BUILD !== "show") window.customCards.push(
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
 );
-if (BUILD !== "phone") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
+if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 // the Echo's top button (its mute button) reaches the page as an unknown "Power" key, and the
 // browser then draws a keyboard focus ring on whatever was last tapped; drop focus instead
 window.addEventListener("keydown", (e) => {
