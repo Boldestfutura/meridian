@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.28.1";
+var VERSION = "0.28.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6689,6 +6689,7 @@ var LARGE_KINDS = [
   ["weather", "Weather"],
   ["climate", "Heat pump"],
   ["media", "Speaker / TV"],
+  ["media_small", "Speaker / TV (one tile high)"],
   ["light", "Light (tall slider)"],
   ["room", "Room lights (a light group)"]
 ];
@@ -6725,7 +6726,7 @@ var MeridianLargeTile = class extends EchoPiece {
   }
   // on the tile grid: weather one 2x tile high, a room three (its sliders need it), the rest two
   getCardSize() {
-    return { weather: 2, room: 6 }[this._kindOf()] || 4;
+    return { weather: 2, media_small: 2, room: 6 }[this._kindOf()] || 4;
   }
   getGridOptions() {
     const rows = this.getCardSize();
@@ -6736,7 +6737,7 @@ var MeridianLargeTile = class extends EchoPiece {
     super.connectedCallback();
     this._lgTick = setInterval(() => {
       const c2 = this._config, e2 = c2 && this.hass && this._st(c2.entity);
-      if (e2 && e2.state === "playing" && this._kindOf() === "media") {
+      if (e2 && e2.state === "playing" && this._kindOf().startsWith("media")) {
         this._npNow = Date.now();
         this.requestUpdate();
       }
@@ -6786,6 +6787,8 @@ var MeridianLargeTile = class extends EchoPiece {
         return Z`<div class="card ph-hp lg-hp">${this._thermostat(c2.entity)}</div>`;
       case "media":
         return Z`<div class="lg-player">${this._popPlayer(c2.entity, true)}</div>`;
+      case "media_small":
+        return this._miniPlayer(c2.entity);
       case "room": {
         const ids = e2.attributes.entity_id || [];
         const lights = ids.filter((id) => this._st(id)).map((id) => ({
@@ -6799,7 +6802,66 @@ var MeridianLargeTile = class extends EchoPiece {
         return Z`<div class="lg-light">${this._pill({ entity: c2.entity, name, icon: c2.icon || e2.attributes.icon || "mdi:lightbulb" })}</div>`;
     }
   }
+  // the speaker card one tile high: what's on and the volume level, then the transport and volume
+  _miniPlayer(id) {
+    const e2 = this._st(id), a2 = e2.attributes, playing = e2.state === "playing", off = ["off", "standby"].includes(e2.state);
+    const vol = a2.volume_level, muted = a2.is_volume_muted;
+    const mp = (svc, data = {}) => this._call("media_player", svc, Object.assign({ entity_id: id }, data));
+    const step = (d2) => () => mp("volume_set", { volume_level: clamp(Math.round((vol + d2) * 100) / 100, 0, 1) });
+    const dur = a2.media_duration || 0;
+    let pos = a2.media_position || 0;
+    if (playing && a2.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a2.media_position_updated_at).getTime()) / 1e3;
+    pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+    return Z`
+      <div class="pplayer lg-mini ${muted ? "muted-vol" : ""}">
+        <div class="pp-top">
+          ${this._art(a2)}
+          <div class="media-text">
+            <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
+            ${this._artist(a2) || this._src(a2) ? Z`<div class="media-artist">${this._artist(a2) || this._src(a2)}</div>` : J}
+          </div>
+          ${vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J}
+        </div>
+        <div class="mini-track">${dur ? Z`<div style="width:${pos / dur * 100}%"></div>` : J}</div>
+        <div class="mini-row">
+          <div class="pp-ctrl">
+            <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+            <button class="round play" @click=${() => mp("media_play_pause")}>
+              <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+            <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button>
+          </div>
+          ${vol != null ? Z`
+            <div class="mini-vol">
+              <button class="round small" title="Volume down" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
+              <button class="round small" title="Volume up" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
+              <button class="round small ${muted ? "is-muted" : ""}" title="Mute" @click=${() => mp("volume_mute", { is_volume_muted: !muted })}>
+                <ha-icon icon=${muted ? "mdi:volume-off" : "mdi:volume-high"}></ha-icon></button>
+            </div>` : J}
+        </div>
+      </div>`;
+  }
   static styles = [EchoPiece.styles, o`
+    /* the speaker one tile high */
+    .echo-cell.screen .lg-mini { box-sizing: border-box; height: 100%; justify-content: space-between; gap: 6px; padding: 10px 14px 12px;
+                                 border-radius: 22px; background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
+    .echo-cell.screen .lg-mini.muted-vol { background: color-mix(in srgb, #e5484d 8%, var(--card)); }
+    .echo-cell.screen .lg-mini .round.small { background: var(--inset); width: 36px; height: 36px; }
+    .echo-cell.screen .lg-mini .round.small ha-icon { --mdc-icon-size: 20px; }
+    .echo-cell.screen .lg-mini .pp-top { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; }
+    .echo-cell.screen .lg-mini .pp-top .art { width: 40px; height: 40px; border-radius: 11px; background-color: var(--inset); }
+    .echo-cell.screen .lg-mini .media-title { font-size: 15px; }
+    .echo-cell.screen .lg-mini .media-artist { font-size: 12px; }
+    .echo-cell.screen .lg-mini .where-vol { height: 30px; min-width: 0; padding: 0 10px; font-size: 14px; }
+    .echo-cell.screen .lg-mini .mini-track { height: 3px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .echo-cell.screen .lg-mini .mini-track:empty { visibility: hidden; }
+    .echo-cell.screen .lg-mini .mini-track div { height: 100%; border-radius: 999px; background: var(--accent); transition: width 1s linear; }
+    .echo-cell.screen .lg-mini .mini-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .echo-cell.screen .lg-mini .pp-ctrl { gap: 8px; }
+    .echo-cell.screen .lg-mini .pp-ctrl .round.play { width: 40px; height: 40px; }
+    .echo-cell.screen .lg-mini .pp-ctrl .round.play ha-icon { --mdc-icon-size: 22px; }
+    .echo-cell.screen .lg-mini .mini-vol { display: flex; gap: 6px; }
+    .echo-cell.screen .lg-mini .mini-vol .round.small { width: 44px; border-radius: 12px; }
+
     /* sized on the tile grid: weather is one 2x tile high (2 rows), the rest two (4 rows);
        the pieces spread out when a cell is taller (the Echo's rows are) */
     /* weather: the Hub Show's Outside card */
@@ -6808,7 +6870,7 @@ var MeridianLargeTile = class extends EchoPiece {
     .echo-cell.screen .lg-wx .hub-out-row { gap: 12px; }
     .echo-cell.screen .lg-wx .hub-out-row > :first-child { width: 44px; height: 44px; flex: none; --mdc-icon-size: 40px; }
     .echo-cell.screen .lg-wx .hub-out-temp { font-size: 44px; letter-spacing: -0.03em; }
-    .echo-cell.screen .lg-wx .wx-side { margin-left: auto; text-align: right; }
+    .echo-cell.screen .lg-wx .wx-side { margin-left: auto; text-align: right; display: block; }   /* not the Show's vh gap */
     .echo-cell.screen .lg-wx .wx-cond { font-weight: 700; font-size: 15px; }
     .echo-cell.screen .lg-wx .wx-hl { color: var(--muted); margin-top: 4px; font-size: 12px; }
 

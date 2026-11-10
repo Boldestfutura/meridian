@@ -91,7 +91,7 @@ can use them, and a dashboard built from them is a Show screen without `deploy.p
 |---|---|
 | `meridian-large-button` | a big square that switches its entity; hold opens the light sheet or a pop-up |
 | `meridian-large-sensor` | a big reading with its verdict word, tinted Auto or from a swatch row |
-| `meridian-large-tile` | **Show as**, sized on the 2x tile grid: Outside weather (one 2x tile high); the heat pump, a speaker (the phone's speaker sheet, volume level top right) or one light's tall slider (two high); a light group as its room (three high) |
+| `meridian-large-tile` | **Show as**, sized on the 2x tile grid: Outside weather (one 2x tile high); the heat pump, a speaker (the phone's speaker sheet, volume level top right) or one light's tall slider (two high); a speaker one high (what's on and the volume level over the transport and volume buttons); a light group as its room (three high) |
 | `meridian-calendar` | views: date, date with weather, what's on, or the full month |
 | `meridian-media` | what's playing, the speaker picker and volume, over the speakers you list |
 | `meridian-playlists` | playlist tiles that play on the media card's speaker |
