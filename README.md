@@ -81,6 +81,8 @@ releases as the marketplace; the steps are the same:
 2. Install **Meridian cards**, then reload the browser.
 3. On a sections dashboard, **+ Add card** → search "Meridian": tile, room heading, scenes,
    favourites, status and edit button. Every setting, pop-ups included, is in HA's card editor.
+   A tile's **Size** is 1x (one row) or 2x (the same width, two rows high: icon up top, name
+   at the foot, a plant's or reading's value in the corner).
 
 The big screen cards are the Show's pieces as cards of their own, so any sections dashboard
 can use them, and a dashboard built from them is a Show screen without `deploy.py`:
@@ -89,6 +91,7 @@ can use them, and a dashboard built from them is a Show screen without `deploy.p
 |---|---|
 | `meridian-large-button` | a big square that switches its entity; hold opens the light sheet or a pop-up |
 | `meridian-large-sensor` | a big reading with its verdict word, tinted Auto or from a swatch row |
+| `meridian-large-tile` | **Show as**: Outside weather (one square), or two squares high: the heat pump, a speaker (the phone's speaker sheet, volume level top right), one light's tall slider, or a light group as its room |
 | `meridian-calendar` | views: date, date with weather, what's on, or the full month |
 | `meridian-media` | what's playing, the speaker picker and volume, over the speakers you list |
 | `meridian-playlists` | playlist tiles that play on the media card's speaker |

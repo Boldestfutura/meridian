@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.27.1";
+var VERSION = "0.28.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -2497,7 +2497,7 @@ var OverlookShow = class extends dt {
             <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
       </div>`;
   }
-  _popPlayer(id) {
+  _popPlayer(id, card = false) {
     const e2 = this._st(id);
     if (!e2) return J;
     const a2 = e2.attributes, playing = e2.state === "playing", off = ["off", "standby"].includes(e2.state);
@@ -2528,7 +2528,7 @@ var OverlookShow = class extends dt {
             <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a2) ? Z`<div class="media-artist">${this._artist(a2)}</div>` : J}
           </div>
-          ${e2.attributes.supported_features & 128 ? Z`
+          ${card ? vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J : e2.attributes.supported_features & 128 ? Z`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
               <ha-icon icon="mdi:power"></ha-icon></button>` : J}
         </div>
@@ -3062,9 +3062,21 @@ var OverlookShow = class extends dt {
       </button>`;
   }
   // any other reading: its state as HA formats it; tap for the pop-up or HA's dialog
-  _sensorTile(x2) {
+  _sensorTile(x2, big = false) {
     const e2 = this._st(x2.entity);
     if (!e2) return J;
+    const n2 = Number(e2.state);
+    if (big && e2.state !== "" && !isNaN(n2)) {
+      const dc = e2.attributes.device_class, unit = e2.attributes.unit_of_measurement || "";
+      const shown = this.hass.formatEntityState ? this.hass.formatEntityState(e2).replace(unit, "").trim() : String(Math.round(n2 * 10) / 10);
+      return Z`
+        <button class="card tile" @click=${() => this._open(x2.entity)}>
+          <span class="tile-ico"><ha-icon icon=${x2.icon || e2.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x2.name || e2.attributes.friendly_name}</span>
+            <span class="muted">${dc ? dc[0].toUpperCase() + dc.slice(1).replace(/_/g, " ") : "Reading"}</span></span>
+          <span class="tile-val">${shown}<small>${unit}</small></span>
+        </button>`;
+    }
     const val = this.hass.formatEntityState ? this.hass.formatEntityState(e2) : `${e2.state}${e2.attributes.unit_of_measurement ? " " + e2.attributes.unit_of_measurement : ""}`;
     return Z`
       <button class="card tile" @click=${() => this._open(x2.entity)}>
@@ -4499,6 +4511,7 @@ var OverlookShow = class extends dt {
             text-align: left; flex: none; }
     .tile-ico { width: 44px; height: 44px; border-radius: 50%; background: var(--inset); display: grid; place-items: center; color: var(--muted); }
     .tile.on .tile-ico { background: var(--warm); color: #fff; }
+    .tile.on:not(.light-tile) .tile-ico { background: var(--accent); }
     .plant .tile-ico { background: rgba(63, 143, 99, 0.14); color: #3f8f63; }
     .tile-text { display: flex; flex-direction: column; min-width: 0; }
     .tile-name { font-weight: 600; font-size: 15px; }
@@ -5203,6 +5216,15 @@ var OverlookShow = class extends dt {
     .piece .ph-sec { height: 100%; }
     /* a card is exactly its grid cell: text stays on one line and fades out at the edge */
     .piece .tile { min-height: 0; overflow: hidden; }
+    /* 2x: the same tile two rows high; the icon up top, name and state at the foot, a value in the corner */
+    .piece .ph-grid.x2 > .tile { grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; align-items: start;
+                                 row-gap: 0; padding: 12px 14px; }
+    .piece .ph-grid.x2 .tile-ico { grid-column: 1; grid-row: 1; width: 44px; height: 44px; }
+    .piece .ph-grid.x2 .tile-ico ha-icon { --mdc-icon-size: 23px; }
+    .piece .ph-grid.x2 .tile-text { grid-column: 1 / -1; grid-row: 2; align-self: end; }
+    .piece .ph-grid.x2 .tile-name { font-size: 15px; }
+    .piece .ph-grid.x2 .tile-val { grid-column: 2; grid-row: 1; font-size: 26px; line-height: 1; margin-top: 4px; }
+    .piece .ph-grid.x2 .plant .tile-text .muted { display: block; }
     .piece .player { overflow: hidden; }
     .piece .tile-name, .piece .tile-text .muted, .piece .media-src, .piece .player-title, .piece .media-artist {
       display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; }
@@ -5530,9 +5552,11 @@ var OverlookTile = class extends OverlookPiece {
           { name: "name", selector: { text: {} } },
           { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } }
         ] },
-        { name: "kind", selector: { select: { mode: "dropdown", options: TILE_KINDS.map(([value, label]) => ({ value, label })) } } }
+        { name: "kind", selector: { select: { mode: "dropdown", options: TILE_KINDS.map(([value, label]) => ({ value, label })) } } },
+        { name: "size", selector: { select: { mode: "dropdown", options: [{ value: "1x", label: "1x (one row)" }, { value: "2x", label: "2x (two rows high)" }] } } }
       ],
-      computeLabel: (s2) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)" })[s2.name]
+      computeLabel: (s2) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)", size: "Size" })[s2.name],
+      computeHelper: (s2) => s2.name === "size" ? "Lights, switches, plants, readings and scenes. Speakers and the heat pump keep their own size." : void 0
     };
   }
   static getStubConfig(hass) {
@@ -5562,7 +5586,7 @@ var OverlookTile = class extends OverlookPiece {
       case "media":
         return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 };
       default:
-        return { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
+        return this._config.size === "2x" ? { columns: 6, rows: 2, min_columns: 3, min_rows: 2 } : { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
     }
   }
   render() {
@@ -5587,7 +5611,7 @@ var OverlookTile = class extends OverlookPiece {
         body = this._switchTile(x2);
         break;
       case "sensor":
-        body = this._sensorTile(x2);
+        body = this._sensorTile(x2, this._config.size === "2x");
         break;
       case "scene":
         body = this._sceneBtn(x2, true);
@@ -5595,7 +5619,8 @@ var OverlookTile = class extends OverlookPiece {
       default:
         body = this._lightTile(x2);
     }
-    return Z`<div class="phone piece"><div class="ph-grid one">${body}</div></div>`;
+    const x22 = this._config.size === "2x" && !["climate", "media"].includes(this._kind());
+    return Z`<div class="phone piece"><div class="ph-grid one ${x22 ? "x2" : ""}">${body}</div></div>`;
   }
 };
 definePhone("tile", OverlookTile);
@@ -6660,6 +6685,179 @@ var MeridianLargeSensorEditor = class extends dt {
   `;
 };
 defineEcho("large-sensor-editor", MeridianLargeSensorEditor);
+var LARGE_KINDS = [
+  ["weather", "Weather"],
+  ["climate", "Heat pump"],
+  ["media", "Speaker / TV"],
+  ["light", "Light (tall slider)"],
+  ["room", "Room lights (a light group)"]
+];
+var MeridianLargeTile = class extends EchoPiece {
+  static getStubConfig(hass) {
+    const id = Object.keys(hass.states).find((e2) => e2.startsWith("climate.")) || "";
+    return { entity: id };
+  }
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: { domain: ["weather", "climate", "media_player", "light"] } } },
+        { type: "grid", name: "", schema: [
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} }, context: { icon_entity: "entity" } }
+        ] },
+        { name: "kind", selector: { select: { mode: "dropdown", options: LARGE_KINDS.map(([value, label]) => ({ value, label })) } } }
+      ],
+      computeLabel: (s2) => ({ entity: "Entity", name: "Name", icon: "Icon", kind: "Show as (blank = from the entity)" })[s2.name],
+      computeHelper: (s2) => s2.name === "kind" ? "A light group shows as its room; any other light as one tall slider." : void 0
+    };
+  }
+  _defaults(c2) {
+    return this._kindOf(c2) === "weather" ? { weather: c2.entity } : {};
+  }
+  _kindOf(c2 = this._config) {
+    if (c2.kind) return c2.kind;
+    const dom = (c2.entity || "").split(".")[0], e2 = this.hass && this._st(c2.entity);
+    if (dom === "weather") return "weather";
+    if (dom === "climate") return "climate";
+    if (dom === "media_player") return "media";
+    if (dom === "light" && e2 && Array.isArray(e2.attributes.entity_id) && e2.attributes.entity_id.length > 1) return "room";
+    return "light";
+  }
+  getCardSize() {
+    return this._kindOf() === "weather" ? 3 : 6;
+  }
+  getGridOptions() {
+    return this._kindOf() === "weather" ? { columns: 12, rows: 3, min_columns: 6, min_rows: 2 } : { columns: 12, rows: 6, min_columns: 6, min_rows: 4 };
+  }
+  // a speaker's playback bar ticks once a second while it plays
+  connectedCallback() {
+    super.connectedCallback();
+    this._lgTick = setInterval(() => {
+      const c2 = this._config, e2 = c2 && this.hass && this._st(c2.entity);
+      if (e2 && e2.state === "playing" && this._kindOf() === "media") {
+        this._npNow = Date.now();
+        this.requestUpdate();
+      }
+    }, 1e3);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._lgTick);
+  }
+  // on the Echo the shell has the light sheet and pop-ups; anywhere else, Meridian's overlay
+  _openLight(id) {
+    const s2 = ECHO_SHELL;
+    if (s2) {
+      s2.hass = this.hass;
+      s2._openLight(id);
+    } else overlay(this.hass).openLight(id, this._config.name);
+  }
+  _open(id) {
+    const p2 = this._config.popup;
+    if (ECHO_SHELL || !(p2 && (p2.sections || []).length)) {
+      super._open(id);
+      return;
+    }
+    overlay(this.hass).openPopup(p2);
+  }
+  _body() {
+    const c2 = this._config, e2 = c2.entity && this._st(c2.entity);
+    if (!e2) return this._missing(c2.name || c2.entity || "Pick an entity");
+    const name = c2.name || e2.attributes.friendly_name || c2.entity;
+    switch (this._kindOf()) {
+      case "weather": {
+        const cond = this._cond(e2), f2 = this._forecast;
+        return Z`
+          <button class="card hub-out lg-wx" @click=${() => this._open(c2.entity)}>
+            <div class="card-title">${c2.name || "Outside"}</div>
+            <div class="hub-out-row">
+              ${this._wxIcon(e2.state)}
+              <span class="hub-out-temp">${this._deg(e2.attributes.temperature)}</span>
+              <div class="wx-side">
+                <div class="wx-cond">${cond[1]}</div>
+                ${f2 && e2.state !== "unavailable" ? Z`<div class="wx-hl">H ${Math.round(f2.temperature)}°&nbsp;&nbsp;L ${Math.round(f2.templow)}°</div>` : J}
+              </div>
+            </div>
+          </button>`;
+      }
+      case "climate":
+        return Z`<div class="card ph-hp lg-hp">${this._thermostat(c2.entity)}</div>`;
+      case "media":
+        return Z`<div class="lg-player">${this._popPlayer(c2.entity, true)}</div>`;
+      case "room": {
+        const ids = e2.attributes.entity_id || [];
+        const lights = ids.filter((id) => this._st(id)).map((id) => ({
+          entity: id,
+          name: this._st(id).attributes.friendly_name,
+          icon: this._st(id).attributes.icon || "mdi:lightbulb"
+        }));
+        return Z`<div class="lg-room">${this._deskLights({ name, icon: c2.icon || "mdi:lightbulb-group", group: c2.entity, lights })}</div>`;
+      }
+      default:
+        return Z`<div class="lg-light">${this._pill({ entity: c2.entity, name, icon: c2.icon || e2.attributes.icon || "mdi:lightbulb" })}</div>`;
+    }
+  }
+  static styles = [EchoPiece.styles, o`
+    /* weather: the Hub Show's Outside card */
+    .echo-cell.screen .lg-wx { height: 100%; padding: 18px 22px; }
+    .echo-cell.screen .lg-wx .hub-out-row > :first-child { width: 60px; height: 60px; flex: none; }
+    .echo-cell.screen .lg-wx .hub-out-temp { font-size: 62px; letter-spacing: -0.03em; }
+    .echo-cell.screen .lg-wx .wx-side { margin-left: auto; text-align: right; }
+    .echo-cell.screen .lg-wx .wx-cond { font-weight: 700; font-size: 18px; }
+    .echo-cell.screen .lg-wx .wx-hl { color: var(--muted); margin-top: 6px; }
+
+    /* heat pump: the phone's, made tall; the steps and modes on the off-white */
+    .echo-cell.screen .lg-hp { height: 100%; display: flex; flex-direction: column; padding: 22px; border-radius: 22px; }
+    .echo-cell.screen .lg-hp .thermo { flex: 1; display: flex; flex-direction: column; gap: 0; background: none; padding: 0; }
+    .echo-cell.screen .lg-hp .pill-head { display: block; }
+    .echo-cell.screen .lg-hp .pill-name { font-size: 16px; }
+    .echo-cell.screen .lg-hp .hp-now { margin-top: 14px; }
+    .echo-cell.screen .lg-hp .hp-temp { font-size: 80px; }
+    .echo-cell.screen .lg-hp .hp-mode { font-size: 22px; }
+    .echo-cell.screen .lg-hp .hp-target { margin: auto 0 18px; display: grid; grid-template-columns: auto 1fr auto; }
+    .echo-cell.screen .lg-hp .hp-step { width: 70px; height: 70px; border-radius: 22px; }
+    .echo-cell.screen .lg-hp .hp-set { font-size: 36px; }
+    .echo-cell.screen .lg-hp .modes { height: 68px; gap: 10px; margin: 0; }
+    .echo-cell.screen .lg-hp .mode { border-radius: 18px; font-size: 16px; }
+    .echo-cell.screen .lg-hp .mode ha-icon { --mdc-icon-size: 24px; }
+
+    /* speaker: the phone's speaker pop-up is the card */
+    .echo-cell.screen .lg-player > .pplayer { box-sizing: border-box; height: 100%; justify-content: space-between; gap: 10px; padding: 22px;
+                            border-radius: 22px; background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
+    .echo-cell.screen .lg-player .pplayer.muted-vol { background: color-mix(in srgb, #e5484d 8%, var(--card)); }
+    .echo-cell.screen .lg-player .round.small { background: var(--inset); }
+    .echo-cell.screen .lg-player .pp-top { grid-template-columns: 88px minmax(0, 1fr) auto; gap: 16px; }
+    .echo-cell.screen .lg-player .pp-top .art { width: 88px; height: 88px; border-radius: 22px; background-color: var(--inset); }
+    .echo-cell.screen .lg-player .pp-top .media-title { font-size: 21px; }
+    .echo-cell.screen .lg-player .pp-top .media-artist { font-size: 15px; }
+    .echo-cell.screen .lg-player .pp-ctrl { gap: 32px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.play { width: 64px; height: 64px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.play ha-icon { --mdc-icon-size: 32px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.small { width: 58px; height: 58px; }
+    .echo-cell.screen .lg-player .pp-track { height: 8px; }
+    .echo-cell.screen .lg-player .pp-times { font-size: 14px; }
+    .echo-cell.screen .lg-player .pp-vol { grid-template-columns: 1fr 1fr 66px; }
+    .echo-cell.screen .lg-player .pp-vol .round.small { height: 66px; border-radius: 22px; }
+    .echo-cell.screen .lg-player .where-vol { height: 50px; min-width: 0; padding: 0 16px; font-size: 18px; }
+
+    /* one light: nothing but the tall slider */
+    .echo-cell.screen .lg-light > .pill-wrap { box-sizing: border-box; height: 100%; background: var(--card); border-radius: 22px;
+                             padding: 20px 22px 22px; border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
+    .echo-cell.screen .lg-light .pill-name { font-size: 20px; }
+    .echo-cell.screen .lg-light .pill-state { font-size: 16px; height: 22px; line-height: 22px; }
+    .echo-cell.screen .lg-light .split { --w: 124px; margin: 16px auto 0; }
+    .echo-cell.screen .lg-light .seg-ico { width: 72px; height: 72px; }
+    .echo-cell.screen .lg-light .seg-bot ha-icon { --mdc-icon-size: 38px; }
+
+    /* a room: the desk's room card, a slider per bulb on the off-white */
+    .echo-cell.screen .lg-room > .desk-card { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding: 20px; border-radius: 22px; }
+    .echo-cell.screen .lg-room .card-title { display: flex; align-items: center; gap: 10px; font-size: 19px; margin-bottom: 16px; }
+    .echo-cell.screen .lg-room .desk-ico { --mdc-icon-size: 22px; }
+    .echo-cell.screen .lg-room .desk-favs { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 12px; }
+    .echo-cell.screen .lg-room .pill-wrap { height: 100%; box-sizing: border-box; min-width: 0; overflow: hidden; }
+  `];
+};
+defineEcho("large-tile", MeridianLargeTile);
 var CAL_VIEWS = [["date", "Date"], ["date_weather", "Date with weather"], ["whats_on", "What's on"], ["month", "Full calendar"]];
 var MeridianCalendar = class extends EchoPiece {
   static getStubConfig() {
@@ -6771,6 +6969,7 @@ if (BUILD !== "show") {
     { type: "meridian-dock", name: "Meridian dock", description: "The Show's dock down the left, one button per view, plus photos, night clock, timers and now playing" },
     { type: "meridian-large-button", name: "Meridian large button", description: "A big square you tap to switch, with an optional pop-up", preview: true },
     { type: "meridian-large-sensor", name: "Meridian large sensor", description: "A big reading with its verdict, tinted in its colour", preview: true },
+    { type: "meridian-large-tile", name: "Meridian large tile", description: "Weather, heat pump, speaker, a light's tall slider or a room's lights, at large size", preview: true },
     { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
     { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
     { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" }
