@@ -64,9 +64,8 @@ deploy them.
 
 **Hub Show** `ha-show-hub` (Nest Hub 1st gen, 1024x600, cast): Meridian screen cards, edited in HA. Since 2026-11-10 it is the Echo dashboard's layout with kitchen entities (Controls, Media, Climate, Calendar); the old `showhub.py` layout is backed up at `~/.config/ha/ha-show-hub.before-kitchen-2026-11-10.json`
 - `automation.kitchen_display_keep_the_cast_alive` (`ha_config/kitchen_cast_keepalive.json`)
-  casts `ha-show-hub/controls` every 2 minutes while the Hub is idle or showing something
-  other than a `Hub Show:` page. While the Hub shows any dashboard its state is `playing`, so
-  it will not pull the Hub off another HA dashboard; only a dropped cast is fixed.
+  casts `ha-show-hub/controls` every 2 minutes when the Hub is off or idle, or showing an HA
+  dashboard other than a `Hub Show:` page. It never interrupts music or video playing on it.
 - To reload it after a card change: `media_player.turn_off` the Hub, wait, then
   `cast.show_lovelace_view`. Casting the same view again does not reload the page.
 - **Never use a card that loads images by relative URL here.** The cast receiver runs at

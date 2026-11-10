@@ -1,7 +1,7 @@
 {
  "id": "kitchen_cast_keepalive",
  "alias": "Kitchen display - keep the cast alive",
- "description": "The slideshow and wake automations both require the Hub to ALREADY be showing Home Assistant (app_name == 'Home Assistant Lovelace'). The moment the cast drops - reboot, timeout, HA restart, someone casting something else - that condition goes false and neither of them can ever fire again. Nothing was watching for 'not casting at all', so the Hub stayed blank until re-cast by hand. This fills that gap. It only acts when the Hub is genuinely idle, so it will not interrupt music or video playing on it. Since 2026-11-06 it casts Hub Show (ha-show-hub, built for the Hub's 1024x600 screen; ha-show stays for the tablet), which does its own idle-to-photos, so the slideshow/wake automations are turned off. Since 2026-11-06 it also recasts when the Hub shows any other dashboard than Hub Show. Since 2026-11-10 Hub Show is the Echo-style four-page layout (Controls, Media, Climate, Calendar); it casts Controls and accepts any 'Hub Show:' page so swiping between pages is never undone.",
+ "description": "The slideshow and wake automations both require the Hub to ALREADY be showing Home Assistant (app_name == 'Home Assistant Lovelace'). The moment the cast drops - reboot, timeout, HA restart, someone casting something else - that condition goes false and neither of them can ever fire again. Nothing was watching for 'not casting at all', so the Hub stayed blank until re-cast by hand. This fills that gap. It only acts when the Hub is genuinely idle, so it will not interrupt music or video playing on it. Since 2026-11-06 it casts Hub Show (ha-show-hub, built for the Hub's 1024x600 screen; ha-show stays for the tablet), which does its own idle-to-photos, so the slideshow/wake automations are turned off. Since 2026-11-06 it also recasts when the Hub shows any other dashboard than Hub Show. Since 2026-11-10 Hub Show is the Echo-style four-page layout (Controls, Media, Climate, Calendar); it casts Controls and accepts any 'Hub Show:' page so swiping between pages is never undone. Since 2026-11-10 (later) it also recasts while the Hub shows any other HA dashboard, even though the Hub reports that as 'playing'; anything else that is playing (music, video) is still left alone.",
  "triggers": [
   {
    "trigger": "time_pattern",
@@ -11,16 +11,7 @@
  "conditions": [
   {
    "condition": "template",
-   "value_template": "{{ state_attr('media_player.kitchen_display','app_name') != 'Home Assistant Lovelace' or not (state_attr('media_player.kitchen_display','media_title') or '').startswith('Hub Show:') }}"
-  },
-  {
-   "condition": "state",
-   "entity_id": "media_player.kitchen_display",
-   "state": [
-    "off",
-    "idle",
-    "standby"
-   ]
+   "value_template": "{% set e = 'media_player.kitchen_display' %}{% set app = state_attr(e, 'app_name') %}{% set title = state_attr(e, 'media_title') or '' %}{% set st = states(e) %}{{ (app == 'Home Assistant Lovelace' and not title.startswith('Hub Show:')) or (app != 'Home Assistant Lovelace' and st in ['off', 'idle', 'standby']) }}"
   }
  ],
  "actions": [
