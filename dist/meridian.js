@@ -1888,10 +1888,40 @@ var TABLET_CSS = o`
   .tablet .pk-img { height:100px; border-radius:12px; background-size:cover; background-position:center; }
   .tablet .pk-card b { font-size:13px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .tablet .pk-card small { color:var(--muted); font-size:12px; }
+
+  /* the Nest Hub (1024x600, cast): the same pages, tighter */
+  @media (max-height: 680px) {
+    .tablet .m-home2, .tablet .m-cl2 { gap:12px; } .tablet .m-col, .tablet .h2-right, .tablet .h2-top, .tablet .rooms2 { gap:12px; }
+    .tablet .m-home2 { grid-template-columns:300px minmax(0,1fr); }
+    .tablet .dinner { padding:18px 16px 14px; } .tablet .dn-hello { font-size:22px; } .tablet .dn-rule { margin:12px 6px; }
+    .tablet .dn-stack { gap:8px; } .tablet .dn-card { padding:10px 12px; grid-template-columns:1fr 96px; border-radius:18px; }
+    .tablet .dn-t b { font-size:15px; } .tablet .dn-plan { height:40px; }
+    .tablet .h2-right { grid-template-rows:minmax(0,1fr) auto minmax(0,1fr); }
+    .tablet .nowtile { padding:10px 12px 12px; gap:6px; } .tablet .now-cap b, .tablet .now-text b { font-size:22px; }
+    .tablet .shop2 { padding:12px 14px; } .tablet .sh2-i { font-size:15px; padding:4px 0; }
+    .tablet .h2-qa { gap:8px; } .tablet .qa2 { height:76px; font-size:11px; gap:5px; border-radius:16px; } .tablet .qa2-ico { width:34px; height:34px; }
+    .tablet .today2 { grid-template-columns:110px minmax(0,1fr); padding:12px 16px; align-items:start; }
+    .tablet .td-dm { font-size:14px; } .tablet .td-n { font-size:56px; }
+    .tablet .cl-list { align-content:start; row-gap:4px; column-gap:16px; } .tablet .cl-day { font-size:11px; margin-top:0; }
+    .tablet .td-ev small { font-size:11px; } .tablet .td-ev b { font-size:14px; }
+    .tablet .m-rooms { gap:10px; } .tablet .rm-body { grid-template-columns:minmax(0,1fr) 300px; gap:12px; }
+    .tablet .rm-grid { grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
+    .tablet .out2 { padding:14px 16px; gap:8px; } .tablet .out2-ico { width:52px; height:52px; } .tablet .out2-t { font-size:40px; }
+    .tablet .out2-chips span { padding:4px 8px; font-size:12px; } .tablet .fc-ico { width:26px; height:26px; margin:3px auto; }
+    .tablet .out2-fc b { font-size:14px; } .tablet .out2-in { padding-top:8px; font-size:13px; }
+    .tablet .hp2 { padding:12px 14px; gap:10px; } .tablet .hp2-sub { font-size:15px; } .tablet .hp2-now { font-size:32px; }
+    .tablet .hp2-set .sq { height:48px; } .tablet .chip { height:40px; }
+    .tablet .rc2 { padding:12px; gap:8px; } .tablet .rc2-head { font-size:16px; }
+    .tablet .rc2 .air-tile, .tablet .rm-air .air-tile { padding:8px 10px; border-radius:14px; }
+    .tablet .rc2 .air-ico, .tablet .rm-air .air-ico, .tablet .rc2-grid.n2 .air-ico { width:26px; height:26px; }
+    .tablet .rc2 .air-val, .tablet .rm-air .air-val { font-size:24px; } .tablet .rc2-grid.n2 .air-val { font-size:30px; }
+    .tablet .rc2 .air-name, .tablet .rm-air .air-name, .tablet .rc2-grid.n2 .air-name { font-size:12px; }
+    .tablet .rc2 .air-q, .tablet .rm-air .air-q, .tablet .rc2-grid.n2 .air-q { font-size:11px; }
+  }
 `;
 
 // www/overlook-show.js
-var VERSION = "0.29.1";
+var VERSION = "0.29.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

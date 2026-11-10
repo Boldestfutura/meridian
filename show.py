@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.29.1"
+VERSION = "0.29.2"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
