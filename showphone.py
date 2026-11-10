@@ -1,6 +1,6 @@
 """The phone's data: rooms, scenes, reading pills and pop-ups. No dashboard of its own.
 
-shownative.py (Phone Show) and showcomputer.py (Computer Show) read it. The rooms and
+shownative.py (Phone Show) reads it. The rooms and
 scenes were copied tile for tile from the old ha-phone dashboard (retired 2026-11-08), so
 comments here still say "ha-phone's order"; that order is now simply the phone's.
 """

@@ -87,10 +87,14 @@ deploy them.
   - MA fetches local files from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`).
     Keep a plain space in the URL: `%20` shows up in the title. Sol can't reach the VM's LAN IP.
 
-**Computer Show** `ha-show-computer` (`showcomputer.py`) and **Phone Show** `ha-show-native`
-(`shownative.py`)
-- Both use the phone's rooms, scenes and pop-ups from `showphone.py`. If a room changes, edit
+**Phone Show** `ha-show-native` (`shownative.py`)
+- Uses the phone's rooms, scenes and pop-ups from `showphone.py`. If a room changes, edit
   `ROOMS`/`SCENES` there.
+
+**Computer Show** `ha-show-computer`
+- Meridian cards edited in HA's own editor since 2026-11-10; deploy.py no longer writes it. Its
+  heat pump and plant pop-ups were copied from the Phone Show, so a new room or light is added in
+  HA by hand. The old full-screen Show config is in `~/.config/ha/ha-show-computer.before-native-2026-11-10.json`.
 
 **Photos.** Each screen has its own `album_slideshow` camera of the Immich Family album
 (`camera.album_slideshow_family` for the kitchen and Hub, `camera.album_slideshow_family_bedroom`
