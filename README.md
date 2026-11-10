@@ -159,8 +159,9 @@ HA's static files already allow `cast.home-assistant.io`, so nothing else is nee
 
 `HA_HOST` and `HA_TOKEN_FILE` override the defaults. Bump `VERSION` in both `show.py` and
 `www/overlook-show.js` with every card change, or browsers keep the old one. `deploy.py` also
-rebuilds `dist/meridian.js`; phone-card changes reach HA once that is pushed to GitHub and
-updated in HACS.
+rebuilds `dist/meridian.js`. Pushing a new `VERSION` to `main` publishes a GitHub release
+(`.github/workflows/release.yml`), and HACS offers that release as an update; pushes that leave
+`VERSION` alone release nothing.
 
 ## Layout
 

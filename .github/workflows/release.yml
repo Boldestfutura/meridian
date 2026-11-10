@@ -1,0 +1,49 @@
+# Publish a GitHub release whenever VERSION in www/overlook-show.js changes on main.
+# HACS offers each release as an update, so a VERSION bump is all it takes to ship the
+# Meridian cards; pushes that leave VERSION alone publish nothing.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: ["www/overlook-show.js", "dist/meridian.js", ".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read VERSION
+        id: v
+        run: |
+          v=$(sed -n 's/^const VERSION = "\([0-9.]*\)";.*/\1/p' www/overlook-show.js)
+          [ -n "$v" ] || { echo "no VERSION in www/overlook-show.js"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+            echo "v$v is already released"; echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check dist/meridian.js was rebuilt
+        if: steps.v.outputs.new == 'true'
+        run: |
+          grep -q "VERSION = \"${{ steps.v.outputs.version }}\"" dist/meridian.js || {
+            echo "dist/meridian.js is not built from ${{ steps.v.outputs.version }}; run deploy.py (or esbuild) and commit it"
+            exit 1
+          }
+
+      - name: Publish release
+        if: steps.v.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.v.outputs.version }}" dist/meridian.js \
+            --target "$GITHUB_SHA" --title "v${{ steps.v.outputs.version }}" --generate-notes
