@@ -11,8 +11,9 @@
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
+import { TABLET_PAGES, tabletPage, TABLET_CSS } from "./tablet.js";
 
-const VERSION = "0.28.4";
+const VERSION = "0.29.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -203,7 +204,7 @@ class OverlookShow extends LitElement {
     }, config);
     if (this._config.phone) this._config.photos = null;
     this._page = this._config.desk ? "desk" : this._config.bedside ? "photos"
-      : this._config.page || (this._config.photos ? "photos" : "kitchen");
+      : this._config.page || (this._config.photos ? "photos" : this._config.tablet ? "home" : "kitchen");
     if (this._page === "calendar") { this._page = null; this._go("calendar"); }
     this._drag = null;
     this._picker = false;
@@ -382,7 +383,7 @@ class OverlookShow extends LitElement {
   async _loadEvents() {
     if (!(this._config.calendars || []).length) { this._events = null; return; }
     const start = new Date(); start.setHours(0, 0, 0, 0);
-    const end = new Date(start); end.setDate(end.getDate() + 2);
+    const end = new Date(start); end.setDate(end.getDate() + (this._config.tablet ? 8 : 2));
     this._events = await this._fetchEvents(start, end);
     if (this._page === "calendar") this._loadMonth();
   }
@@ -805,7 +806,7 @@ class OverlookShow extends LitElement {
     if (bed && photos && this._night()) return this._nightClock();
     return html`
       <div class="screen ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
-                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${photos ? "on-photo" : ""}">
+                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${this._config.tablet ? "tablet" : ""} ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : nothing}
         ${this._config.desk ? nothing : this._dock()}
         ${photos ? nothing : html`<main class="page">${this._pageBody()}</main>`}
@@ -1491,7 +1492,7 @@ class OverlookShow extends LitElement {
     return html`
       <nav class="dock">
         <div class="dock-pill">
-          ${(this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => html`
+          ${(this._config.tablet ? TABLET_PAGES : this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => html`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
               <ha-icon icon=${icon}></ha-icon>
@@ -1505,6 +1506,7 @@ class OverlookShow extends LitElement {
   }
 
   _pageBody() {
+    if (this._config.tablet) return tabletPage(this);
     switch (this._page) {
       case "kitchen": return this._config.phone ? this._phoneHome() : this._kitchen();
       case "recipes": return this._recipes();
@@ -2858,7 +2860,7 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
-  static styles = css`
+  static styles = [css`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
@@ -4008,7 +4010,7 @@ class OverlookShow extends LitElement {
     .screen.overlay { background: none; pointer-events: none; z-index: 20; }
     .screen.overlay::after { display: none; }
     .screen.overlay > * { pointer-events: auto; }
-  `;
+  `, TABLET_CSS];
 }
 
 // a typed --ov-at can transition; an untyped custom property would jump

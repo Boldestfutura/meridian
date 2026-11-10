@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.28.4"
+VERSION = "0.29.1"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -145,6 +145,30 @@ FAV_SCENES = [("script.goodnight", "Goodnight"), ("script.heatpump_cool_30min", 
               ("input_boolean.guest_mode", "Guest Mode"), ("script.living_room_dimmed", "Living Room Dim"),
               ("script.kitchen_dimmed", "Kitchen Dim"), ("input_boolean.bedroom_night_mode", "Sleep Sounds")]
 CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
+
+# the kitchen tablet's own pages (www/tablet.js): Home, Rooms, Climate, Media, Recipes
+CARD.update({
+    "tablet": True,
+    "clock": "kitchen",                       # timer.kitchen_timer behind the Timer button
+    "tablet_tv": "media_player.living_room",  # its Plex art comes from /local/nowplaying
+    "tablet_players": [
+        {"entity": "media_player.living_room", "name": "Apple TV", "icon": "mdi:apple",
+         "volume": "media_player.living_room_amp_2"},
+        {"entity": "media_player.living_room_amp_2", "name": "Living Room Amp", "icon": "mdi:speaker",
+         "follows": "media_player.living_room"},
+        {"entity": "media_player.homepod_mini_kitchen_2", "name": "Kitchen HomePod", "icon": "mdi:speaker-wireless"},
+        {"entity": "media_player.bedroom_echo", "name": "Bedroom Echo", "icon": "mdi:speaker-wireless"},
+        {"entity": "media_player.guest_bedroom_homepod_mini_2", "name": "Guest HomePod", "icon": "mdi:speaker-wireless"},
+    ],
+    "tablet_quick": [
+        {"entity": "light.kitchen_lights", "name": "Kitchen", "icon": "mdi:lightbulb-group"},
+        {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:lamp"},
+        {"entity": "light.living_room", "name": "Living Room", "icon": "mdi:sofa"},
+        {"entity": "script.kitchen_dimmed", "name": "Kitchen Dim", "icon": "mdi:lightbulb-on-30"},
+        {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:weather-night"},
+        {"entity": "input_boolean.guest_mode", "name": "Guest Mode", "icon": "mdi:account-group"},
+    ],
+})
 
 
 def build():

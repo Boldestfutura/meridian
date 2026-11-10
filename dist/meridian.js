@@ -1047,8 +1047,851 @@ var Ms = As(Z);
 var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
+// www/tablet.js
+var TABLET_PAGES = [
+  ["home", "Home", "mdi:home-variant-outline"],
+  ["rooms", "Rooms", "mdi:sofa-outline"],
+  ["climate", "Climate", "mdi:thermometer"],
+  ["media", "Media", "mdi:music"],
+  ["recipes", "Recipes", "mdi:silverware-fork-knife"]
+];
+var AIRC = {
+  temperature: ["Temperature", "#e0a63c", "mdi:thermometer", "\xB0", (v2) => v2 < 17 ? "Cool" : v2 > 25 ? "Warm" : "Comfortable"],
+  humidity: ["Humidity", "#5a7ea8", "mdi:water-percent", "%", (v2) => v2 < 35 ? "Dry" : v2 > 60 ? "Humid" : "Comfortable"],
+  pm2_5: ["PM2.5", "#3f8f63", "mdi:blur", "", (v2) => v2 <= 12 ? "Good" : v2 <= 35 ? "Moderate" : "Poor"],
+  voc: ["VOC", "#3f8f8a", "mdi:air-filter", "", (v2) => v2 <= 150 ? "Good" : v2 <= 250 ? "Moderate" : "Poor"]
+};
+var EV_COLOURS = ["#9bd54a", "#2bb5e8", "#f08a3c", "#8e6cf0", "#e5484d"];
+var TIMER_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
+var cap = (s2) => s2 ? s2[0].toUpperCase() + s2.slice(1) : "";
+var ymd = (d2) => `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
+var norm = (s2) => (s2 || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+var redraw = (c2, patch) => {
+  Object.assign(c2, patch);
+  c2.requestUpdate();
+};
+var num = (c2, id, attr) => {
+  const e2 = c2._st(id);
+  if (!e2) return null;
+  const v2 = Number(attr ? e2.attributes[attr] : e2.state);
+  return isNaN(v2) || !attr && e2.state === "" ? null : v2;
+};
+function ensureFeeds(c2) {
+  if (c2._tFeeds) return;
+  c2._tFeeds = true;
+  c2._tPlan = {};
+  c2._tArt = {};
+  const get = (path, key) => fetch(`${path}?t=${Date.now()}`).then((r2) => r2.ok ? r2.json() : null).then((j2) => {
+    if (j2) redraw(c2, { [key]: j2 });
+  }).catch(() => {
+  });
+  c2._tLoadPlan = () => get("/local/norish/plan.json", "_tPlan");
+  const all = () => {
+    c2._tLoadPlan();
+    get("/local/nowplaying/index.json", "_tArt");
+  };
+  all();
+  setInterval(all, 60 * 1e3);
+}
+function setDinner(c2, day, id) {
+  const p2 = Object.assign({}, c2._tPlan);
+  if (id) p2[day] = id;
+  else delete p2[day];
+  redraw(c2, { _tPlan: p2 });
+  c2.hass.callService("shell_command", "norish_plan", { date: day, recipe: id || "clear" }).then(c2._tLoadPlan, c2._tLoadPlan);
+}
+function airTile(c2, x3) {
+  const key = Object.keys(AIRC).find((k2) => (x3.attr || x3.entity).includes(k2)) || "temperature";
+  const [name, colour, icon, unit, verdict] = AIRC[key];
+  const v2 = num(c2, x3.entity, x3.attr);
+  return Z`
+    <button class="card air-tile" style="--c:${colour}" @click=${() => c2._open(x3.entity)}>
+      <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+      <span class="air-val">${v2 == null ? "\u2013" : key === "temperature" ? Math.round(v2 * 10) / 10 : Math.round(v2)}<small>${unit}</small></span>
+      <span class="air-name">${name}<span class="air-q">${v2 == null ? "No reading" : verdict(v2)}</span></span>
+    </button>`;
+}
+function roomAir(r2) {
+  if (r2.sensors && r2.sensors.length) return r2.sensors.map((s2) => ({ entity: s2.entity }));
+  if (r2.climate) return [{ entity: r2.climate, attr: "current_temperature" }, { entity: r2.climate, attr: "current_humidity" }];
+  return [];
+}
+var realRooms = (c2) => (c2._config.rooms || []).filter((r2) => !r2.music);
+function players(c2) {
+  return (c2._config.tablet_players || []).filter((p2) => c2._st(p2.entity));
+}
+var volEntity = (c2, id) => (players(c2).find((p2) => p2.entity === id) || {}).volume || id;
+function live(c2, id) {
+  const e2 = c2._st(id);
+  if (!e2 || e2.state !== "playing") return false;
+  const p2 = players(c2).find((x3) => x3.entity === id) || {};
+  if (p2.follows && /tv/i.test(e2.attributes.source || e2.attributes.media_title || "")) return live(c2, p2.follows);
+  return !!(e2.attributes.media_title || e2.attributes.media_artist);
+}
+var bars = () => Z`<span class="eqb"><i></i><i></i><i></i></span>`;
+function video(c2, a2) {
+  const t3 = a2.media_title || "";
+  const m2 = t3.match(/^(.+?)\s+-\s+S(\d+)\s*\W\s*E(\d+)\s+-\s+(.+)$/);
+  const hit = (c2._tArt || {})[norm(m2 ? m2[1] : a2.media_series_title || t3)];
+  return hit ? Object.assign({ ep: m2 ? { s: +m2[2], e: +m2[3], t: m2[4] } : null }, hit) : null;
+}
+function popPlayer(c2) {
+  if (!c2._tPop) return J;
+  return Z`
+    <div class="scrim" @click=${() => redraw(c2, { _tPop: null })}>
+      <div class="sheet card t-pop" @click=${(ev) => ev.stopPropagation()}>${c2._popPlayer(c2._tPop)}</div>
+    </div>`;
+}
+function dinnerCard(c2) {
+  c2._loadLib();
+  const L2 = c2._lib, now = /* @__PURE__ */ new Date(), h2 = now.getHours(), key = ymd(now);
+  const greet = h2 < 5 ? "Good night" : h2 < 12 ? "Good morning" : h2 < 17 ? "Good afternoon" : "Good evening";
+  const seed = (salt) => {
+    let x3 = 2166136261;
+    for (const ch of key + salt) x3 = Math.imul(x3 ^ ch.charCodeAt(0), 16777619);
+    return x3 >>> 0;
+  };
+  const sug = [];
+  if (L2 && L2.recipes) {
+    const planned = (c2._tPlan || {})[key];
+    const others = Object.keys(L2.recipes).filter((id) => !L2.favorites.includes(id) && L2.recipes[id].img).sort();
+    const favs = L2.favorites.filter((id) => L2.recipes[id]);
+    if (planned && L2.recipes[planned]) sug.push([planned, "Tonight"]);
+    else if (others.length) sug.push([others[seed("try") % others.length], "Nothing planned \xB7 try"]);
+    if (favs.length) sug.push([favs[seed("fav") % favs.length], "Favourite"]);
+  }
+  const open = (id) => {
+    c2._go("recipes");
+    c2._openRecipe(id);
+  };
+  return Z`
+    <div class="card dinner">
+      <div class="dn-hello">${greet},<br>what's for<br><b>dinner tonight?</b></div>
+      <div class="dn-rule"></div>
+      <div class="dn-stack">
+        ${sug.map(([id, label], i2) => {
+    const r2 = L2.recipes[id];
+    return Z`<button class="dn-card d${i2}" @click=${() => open(id)}>
+            <span class="dn-t"><small>${label}</small><b>${r2.n}</b>${r2.t ? Z`<small>${r2.t} min</small>` : J}</span>
+            <span class="dn-img" style="background-image:url('${c2._img(id)}')"></span></button>`;
+  })}
+        <button class="dn-plan" @click=${() => c2._go("recipes")}><ha-icon icon="mdi:calendar-plus"></ha-icon>Plan the week</button>
+      </div>
+    </div>`;
+}
+function nowTile(c2) {
+  const tvId = c2._config.tablet_tv, tv = tvId && c2._st(tvId);
+  const ta = tv ? tv.attributes : {};
+  const open = (id) => () => redraw(c2, { _tPop: id });
+  if (tv && ta.media_title && !["off", "standby"].includes(tv.state)) {
+    const v2 = video(c2, ta);
+    return Z`
+      <button class="card nowtile" @click=${open(tvId)}>
+        <span class="now-lbl">TV &amp; Video${ta.app_name ? Z` · ${ta.app_name}` : J}</span>
+        <span class="now-art" style="background-image:url('${v2 && v2.bg || ta.entity_picture}')">
+          ${v2 && v2.logo ? Z`<img class="now-logo" src=${v2.logo}>` : Z`<span class="now-cap"><b>${v2 ? v2.name : ta.media_title}</b></span>`}
+        </span>
+      </button>`;
+  }
+  const m2 = players(c2).find((p2) => p2.entity !== tvId && live(c2, p2.entity));
+  if (m2) {
+    const a2 = c2._st(m2.entity).attributes;
+    return Z`
+      <button class="card nowtile mus" @click=${open(m2.entity)}>
+        <span class="now-lbl">Music · ${m2.name}</span>
+        <span class="now-music">${a2.entity_picture ? Z`<span class="now-cover" style="background-image:url('${a2.entity_picture}')"></span>` : Z`<span class="now-cover none"><ha-icon icon=${m2.icon}></ha-icon></span>`}
+          <span class="now-text"><b>${a2.media_title}</b><span>${a2.media_artist || ""}</span></span></span>
+      </button>`;
+  }
+  return Z`
+    <button class="card nowtile idle" @click=${() => c2._go("media")}>
+      <span class="now-lbl">TV &amp; Video</span>
+      <span class="now-empty"><ha-icon icon="mdi:television-play"></ha-icon>Nothing playing</span>
+    </button>`;
+}
+function shoppingTile(c2) {
+  const items = c2._todo || [];
+  return Z`
+    <div class="card shop2"><div class="card-title">Shopping list</div>
+      ${items.length ? Z`<div class="sh2-list">${items.map((i2) => Z`
+          <button class="sh2-i" @click=${() => c2._call("todo", "update_item", { entity_id: c2._config.todo, item: i2.uid, status: "completed" })}>
+            <span class="box"></span>${i2.summary}</button>`)}</div>` : Z`<div class="sh2-empty"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All done</div>`}
+      ${c2._adding ? Z`
+        <form class="sh2-form" @submit=${(ev) => c2._addItem(ev)}>
+          <input id="add-item" placeholder="Add an item" autocomplete="off" enterkeyhint="done"
+                 @blur=${(ev) => {
+    if (!ev.target.value.trim()) c2._adding = false;
+  }}>
+          <button class="add-go" type="submit">Add</button></form>` : Z`<button class="sh2-add" @click=${() => c2._startAdd()}><ha-icon icon="mdi:plus"></ha-icon>Add</button>`}
+    </div>`;
+}
+function quickRow(c2) {
+  const go = (id) => {
+    const d2 = id.split(".")[0];
+    c2._call(d2, ["script", "scene"].includes(d2) ? "turn_on" : "toggle", { entity_id: id });
+  };
+  const timer = c2._config.clock && c2._st(`timer.${c2._config.clock}_timer`);
+  return Z`
+    <div class="h2-qa">
+      ${(c2._config.tablet_quick || []).map((q2) => {
+    const e2 = c2._st(q2.entity), on = e2 && e2.state === "on";
+    return Z`<button class="qa2 ${on ? "on" : ""}" @click=${() => go(q2.entity)}>
+          <span class="qa2-ico"><ha-icon icon=${q2.icon}></ha-icon></span><span>${q2.name}</span></button>`;
+  })}
+      ${timer ? Z`<button class="qa2 ${timer.state !== "idle" ? "on" : ""}" @click=${() => redraw(c2, { _tTimer: true })}>
+          <span class="qa2-ico"><ha-icon icon="mdi:timer-outline"></ha-icon></span><span>Timer</span></button>` : J}
+    </div>`;
+}
+function timerSheet(c2) {
+  if (!c2._tTimer) return J;
+  const id = `timer.${c2._config.clock}_timer`;
+  const start = (m2) => {
+    c2._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m2 / 60)).padStart(2, "0")}:${String(m2 % 60).padStart(2, "0")}:00` });
+    redraw(c2, { _tTimer: false });
+  };
+  return Z`
+    <div class="scrim" @click=${() => redraw(c2, { _tTimer: false })}>
+      <div class="sheet card t-timer" @click=${(ev) => ev.stopPropagation()}>
+        <div class="card-title">Kitchen timer</div>
+        <div class="tm-grid">${TIMER_MINUTES.map((m2) => Z`
+          <button class="tm-btn" @click=${() => start(m2)}><b>${m2 < 60 ? m2 : 1}</b><span>${m2 < 60 ? "min" : "hour"}</span></button>`)}</div>
+      </div>
+    </div>`;
+}
+function calendar(c2) {
+  const n2 = /* @__PURE__ */ new Date(), DAYS2 = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const tom = new Date(n2);
+  tom.setDate(n2.getDate() + 1);
+  const dayName = (d2) => d2.toDateString() === n2.toDateString() ? "Today" : d2.toDateString() === tom.toDateString() ? "Tomorrow" : d2.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" });
+  const out = [];
+  let last = null, k2 = 0;
+  for (const e2 of (c2._events || []).filter((x3) => c2._d(x3.end) > n2).slice(0, 9)) {
+    const s2 = c2._d(e2.start), dn = dayName(s2 < n2 ? n2 : s2);
+    if (dn !== last) {
+      out.push(Z`<div class="cl-day">${dn}</div>`);
+      last = dn;
+    }
+    const time = e2.start.dateTime ? `${c2._ampm(s2)} \u2013 ${c2._ampm(c2._d(e2.end))}` : "All day";
+    out.push(Z`<div class="td-ev" style="--c:${e2.colour || EV_COLOURS[k2++ % EV_COLOURS.length]}"><small>${time}</small><b>${e2.summary}</b></div>`);
+  }
+  return Z`
+    <div class="card today2">
+      <div class="td-date"><div class="td-dm">${DAYS2[n2.getDay()]} <span>${MON[n2.getMonth()]}</span></div><div class="td-n">${n2.getDate()}</div></div>
+      <div class="cl-list">${out.length ? out : Z`<div class="muted">Nothing in the next week.</div>`}</div>
+    </div>`;
+}
+function homePage(c2) {
+  return Z`
+    <div class="m-home2">
+      ${dinnerCard(c2)}
+      <div class="h2-right">
+        <div class="h2-top">${nowTile(c2)}${shoppingTile(c2)}</div>
+        ${quickRow(c2)}
+        ${calendar(c2)}
+      </div>
+    </div>
+    ${popPlayer(c2)}${timerSheet(c2)}`;
+}
+var x2 = (t3) => Z`<div class="piece rt"><div class="ph-grid one x2">${t3}</div></div>`;
+function roomHeatPump(c2, id) {
+  const e2 = c2._st(id);
+  if (!e2) return J;
+  const a2 = e2.attributes;
+  const setT = (d2) => c2._call("climate", "set_temperature", {
+    entity_id: id,
+    temperature: Math.min(a2.max_temp || 30, Math.max(a2.min_temp || 16, (Number(a2.temperature) || 21) + d2))
+  });
+  return Z`
+    <div class="rm-hp"><div><b>Heat pump</b><span>${cap(e2.state)} · ${a2.current_temperature}° now</span></div>
+      <button class="round small" @click=${() => setT(-0.5)}><ha-icon icon="mdi:minus"></ha-icon></button>
+      <b class="rm-hp-t">${a2.temperature}°</b>
+      <button class="round small" @click=${() => setT(0.5)}><ha-icon icon="mdi:plus"></ha-icon></button></div>`;
+}
+function roomMedia(c2, m2) {
+  const e2 = c2._st(m2.entity);
+  if (!e2) return J;
+  const a2 = e2.attributes, pic = a2.entity_picture;
+  return Z`
+    <div class="rm-pl ${e2.state === "playing" ? "on" : ""}">
+      ${pic ? Z`<span class="spk-art" style="background-image:url('${pic}')"></span>` : Z`<span class="spk-ico"><ha-icon icon=${m2.icon || "mdi:speaker"}></ha-icon></span>`}
+      <span class="spk-t"><b>${m2.name}</b><span>${c2._title(a2) || cap(e2.state)}</span></span>
+      <button class="round small" @click=${() => c2._call("media_player", "media_play_pause", { entity_id: m2.entity })}>
+        <ha-icon icon=${e2.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+    </div>`;
+}
+function roomsPage(c2) {
+  const rooms = realRooms(c2);
+  const r2 = rooms.find((x3) => x3.name === c2._tRoom) || rooms[0];
+  if (!r2) return J;
+  const lights = (r2.group ? [{ entity: r2.group, name: `All ${r2.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r2.lights || []);
+  const on = (r2.lights || []).filter((l2) => (c2._st(l2.entity) || {}).state === "on").length;
+  const sec = (title, extra, tiles) => tiles.length ? Z`
+    <div class="rm-sec"><div class="rm-h">${title}${extra}</div><div class="rm-grid">${tiles}</div></div>` : J;
+  const air = roomAir(r2);
+  return Z`
+    <div class="m-rooms">
+      <div class="rm-chips">${rooms.map((x3) => Z`
+        <button class="tab ${x3 === r2 ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: x3.name })}>
+          <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}</div>
+      <div class="rm-body">
+        <div class="rm-main">
+          ${sec(
+    "Lights",
+    Z`<span class="rm-count">${on} on</span>
+              <button class="rm-off" @click=${() => c2._call("light", "turn_off", { entity_id: lights.map((l2) => l2.entity) })}>All off</button>`,
+    lights.map((l2) => x2(c2._lightTile(l2)))
+  )}
+          ${sec("Scenes", J, (r2.scenes || []).map((s2) => x2(c2._sceneBtn(s2, true))))}
+          ${sec("Plugs & plants", J, [
+    ...(r2.switches || []).map((s2) => x2(c2._switchTile(s2))),
+    ...(r2.plants || []).map((p2) => x2(c2._plantTile(p2)))
+  ])}
+        </div>
+        <div class="rm-side">
+          ${r2.climate || air.length ? Z`<div class="card rm-card"><div class="card-title">Climate</div>
+            ${r2.climate ? roomHeatPump(c2, r2.climate) : J}
+            <div class="rm-air n${air.length}">${air.map((x3) => airTile(c2, x3))}</div></div>` : J}
+          ${(r2.media || []).length ? Z`<div class="card rm-card"><div class="card-title">Media</div>
+            ${r2.media.map((m2) => roomMedia(c2, m2))}</div>` : J}
+        </div>
+      </div>
+    </div>`;
+}
+function outside(c2) {
+  const w2 = c2._st(c2._config.weather);
+  if (!w2) return J;
+  const a2 = w2.attributes, cond = c2._cond(w2), f2 = c2._forecast;
+  const inside = (attr) => {
+    const vals = realRooms(c2).flatMap((r2) => roomAir(r2)).filter((x3) => (x3.attr || x3.entity).includes(attr)).map((x3) => num(c2, x3.entity, x3.attr)).filter((v2) => v2 != null);
+    return vals.length ? `${Math.round(Math.min(...vals))}\u2013${Math.round(Math.max(...vals))}` : "\u2013";
+  };
+  return Z`
+    <div class="card out2" @click=${() => c2._open(c2._config.weather)}>
+      <div class="out2-top"><div class="out2-ico">${c2._wxIcon(w2.state)}</div>
+        <div><div class="out2-t">${c2._deg(a2.temperature)}</div><div class="out2-c">${cond[1]}</div></div></div>
+      <div class="out2-chips">
+        ${f2 ? Z`<span><ha-icon icon="mdi:arrow-up"></ha-icon>${Math.round(f2.temperature)}°</span>
+          <span><ha-icon icon="mdi:arrow-down"></ha-icon>${Math.round(f2.templow)}°</span>` : J}
+        ${a2.humidity != null ? Z`<span><ha-icon icon="mdi:water-percent"></ha-icon>${a2.humidity}%</span>` : J}
+        ${a2.wind_speed != null ? Z`<span><ha-icon icon="mdi:weather-windy"></ha-icon>${Math.round(a2.wind_speed)} km/h</span>` : J}
+      </div>
+      <div class="out2-fc">${(c2._daily || []).slice(1, 6).map((d2) => Z`
+        <div><span>${new Date(d2.datetime).toLocaleDateString("en-AU", { weekday: "short" })}</span>
+          <div class="fc-ico">${c2._wxIcon(d2.condition)}</div><b>${Math.round(d2.temperature)}°</b><small>${Math.round(d2.templow)}°</small></div>`)}</div>
+      <div class="out2-in"><span>Inside</span><b>${inside("temperature")}°</b><span>Humidity</span><b>${inside("humidity")}%</b></div>
+    </div>`;
+}
+function heatPump(c2) {
+  const id = c2._config.climate, e2 = id && c2._st(id);
+  if (!e2) return J;
+  const a2 = e2.attributes;
+  const setT = (d2) => c2._call("climate", "set_temperature", {
+    entity_id: id,
+    temperature: Math.min(a2.max_temp || 30, Math.max(a2.min_temp || 16, (Number(a2.temperature) || 21) + d2))
+  });
+  const room = (realRooms(c2).find((r2) => r2.climate === id) || {}).name || "";
+  const modes = [["heat", "mdi:fire", "Heat"], ["cool", "mdi:snowflake", "Cool"], ["off", "mdi:power", "Off"]];
+  return Z`
+    <div class="card hp2">
+      <div class="hp2-top"><div><div class="hp2-lbl">Heat pump</div>
+          <div class="hp2-sub">${room ? `${room} \xB7 ` : ""}Target <b class="hp2-tgt">${a2.temperature}°</b></div></div>
+        <span class="hp2-now">${a2.current_temperature}°</span></div>
+      <div class="hp2-set">
+        <button class="sq" @click=${() => setT(-0.5)}><ha-icon icon="mdi:minus"></ha-icon></button>
+        <button class="sq" @click=${() => setT(0.5)}><ha-icon icon="mdi:plus"></ha-icon></button></div>
+      <div class="hp2-modes">${modes.map(([m2, i2, n2]) => Z`
+        <button class="chip ${e2.state === m2 ? "on" : ""}" @click=${() => c2._call("climate", "set_hvac_mode", { entity_id: id, hvac_mode: m2 })}>
+          <ha-icon icon=${i2}></ha-icon>${n2}</button>`)}</div>
+    </div>`;
+}
+function climatePage(c2) {
+  return Z`
+    <div class="m-cl2">
+      <div class="m-col">${outside(c2)}${heatPump(c2)}</div>
+      <div class="rooms2">${realRooms(c2).slice(0, 4).map((r2) => {
+    const air = roomAir(r2);
+    return Z`<div class="card rc2"><div class="rc2-head"><ha-icon icon=${r2.icon}></ha-icon><span>${r2.name}</span></div>
+          <div class="rc2-grid n${air.length}">${air.map((x3) => airTile(c2, x3))}</div></div>`;
+  })}</div>
+    </div>`;
+}
+function hero(c2, p2) {
+  const e2 = c2._st(p2.entity), a2 = e2.attributes, pic = a2.entity_picture;
+  const v2 = p2.entity === c2._config.tablet_tv ? video(c2, a2) : null;
+  const app = a2.app_name || a2.source || "";
+  const top = Z`
+    <div class="hero-top"><span class="hero-tag"><ha-icon icon=${p2.icon}></ha-icon>${p2.name}${app ? ` \xB7 ${app}` : ""}</span>
+      <span class="hero-state">${e2.state === "playing" ? Z`<ha-icon icon="mdi:equalizer"></ha-icon>Playing` : cap(e2.state)}</span></div>`;
+  if (v2) {
+    return Z`
+      <div class="card hero vid"><div class="hero-bg" style="background-image:url('${v2.bg || pic}')"></div>${top}
+        <div class="hero-text">
+          ${v2.logo ? Z`<img class="hero-logo" src=${v2.logo}>` : J}
+          ${v2.ep || !v2.logo ? Z`<div class="hero-title">${v2.ep ? v2.ep.t : v2.name}</div>` : J}
+          ${v2.ep ? Z`<div class="hero-sub">${v2.name} · Season ${v2.ep.s}, Episode ${v2.ep.e}</div>` : J}
+        </div></div>`;
+  }
+  if (pic && (a2.media_artist || a2.media_album_name)) {
+    return Z`
+      <div class="card hero mus"><div class="hero-bg" style="background-image:url('${pic}')"></div>${top}
+        <div class="mus-row"><span class="mus-cover" style="background-image:url('${pic}')"></span>
+          <div class="hero-text"><div class="hero-title">${a2.media_title}</div><div class="hero-sub">${a2.media_artist || ""}</div></div></div></div>`;
+  }
+  return Z`
+    <div class="card hero ${pic ? "" : "noart"}"><div class="hero-bg" style=${pic ? `background-image:url('${pic}')` : ""}></div>${top}
+      <div class="hero-text"><div class="hero-title">${c2._title(a2) || (["off", "standby"].includes(e2.state) ? "Off" : "Nothing playing")}</div>
+        ${c2._artist(a2) ? Z`<div class="hero-sub">${c2._artist(a2)}</div>` : J}</div></div>`;
+}
+function controls(c2, p2) {
+  const e2 = c2._st(p2.entity), a2 = e2.attributes, vid = volEntity(c2, p2.entity), va = (c2._st(vid) || e2).attributes;
+  const mp = (svc) => c2._call("media_player", svc, { entity_id: p2.entity });
+  const step = (d2) => c2._call("media_player", "volume_set", {
+    entity_id: vid,
+    volume_level: Math.min(1, Math.max(0, Math.round(((va.volume_level || 0) + d2) * 100) / 100))
+  });
+  const dur = a2.media_duration || 0;
+  let pos = a2.media_position || 0;
+  if (e2.state === "playing" && a2.media_position_updated_at) pos += (Date.now() - new Date(a2.media_position_updated_at).getTime()) / 1e3;
+  pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+  const t3 = (s2) => `${Math.floor(s2 / 60)}:${String(Math.floor(s2 % 60)).padStart(2, "0")}`;
+  return Z`
+    <div class="card ctl2">
+      ${dur ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span><div class="ctl2-track"><div style="width:${pos / dur * 100}%"></div></div><span>${t3(dur)}</span></div>` : J}
+      <div class="ctl2-row">
+        <button class="sp-pill" @click=${() => redraw(c2, { _tPick: true })}><ha-icon icon=${p2.icon}></ha-icon><span>${p2.name}</span><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+        <div class="pp-ctrl ctl2-mid">
+          <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+          <button class="round play" @click=${() => mp("media_play_pause")}><ha-icon icon=${e2.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+          <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
+        ${va.volume_level != null ? Z`<div class="ctl2-vol">
+          <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
+          <b>${Math.round(va.volume_level * 100)}%</b>
+          <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : Z`<span></span>`}
+      </div>
+    </div>`;
+}
+function mediaPage(c2) {
+  const ps2 = players(c2);
+  if (!ps2.length) return J;
+  const act = ps2.find((p2) => p2.entity === c2._tAct) || ps2.find((p2) => live(c2, p2.entity)) || ps2[0];
+  const pick = (id) => redraw(c2, { _tAct: id, _tPick: false });
+  const what = (e2) => {
+    const v2 = e2.entity_id === c2._config.tablet_tv && video(c2, e2.attributes);
+    return v2 && v2.ep ? `${v2.ep.t} \xB7 ${v2.name}` : v2 ? v2.name : what0(e2);
+  };
+  const what0 = (e2) => c2._title(e2.attributes) ? c2._title(e2.attributes) + (c2._artist(e2.attributes) ? ` \xB7 ${c2._artist(e2.attributes)}` : "") : cap(e2.state);
+  const pl = c2._playlists();
+  return Z`
+    <div class="m-media2">
+      <div class="m-col">${hero(c2, act)}${controls(c2, act)}</div>
+      <div class="m-col">
+        <div class="card spk-card"><div class="card-title">Playing around the house</div>
+          ${ps2.map((p2) => {
+    const e2 = c2._st(p2.entity), a2 = e2.attributes, vol = (c2._st(volEntity(c2, p2.entity)) || e2).attributes.volume_level;
+    return Z`<button class="spk ${p2 === act ? "on" : ""}" @click=${() => pick(p2.entity)}>
+              ${a2.entity_picture ? Z`<span class="spk-art" style="background-image:url('${a2.entity_picture}')"></span>` : Z`<span class="spk-ico"><ha-icon icon=${p2.icon}></ha-icon></span>`}
+              <span class="spk-t"><b>${p2.name}</b><span>${what(e2)}</span></span>
+              <span class="spk-v">${vol != null ? `${Math.round(vol * 100)}%` : ""}</span>
+              <span class="spk-eqc">${live(c2, p2.entity) ? bars() : J}</span></button>`;
+  })}
+        </div>
+        ${pl === J ? J : Z`<div class="card bed-card bed-pl m-pl">${pl}</div>`}
+      </div>
+    </div>
+    ${c2._tPick ? Z`
+      <div class="scrim" @click=${() => redraw(c2, { _tPick: false })}>
+        <div class="sheet card" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">Control</div>
+          ${ps2.map((p2) => {
+    const e2 = c2._st(p2.entity);
+    return Z`<button class="sheet-row ${p2 === act ? "on" : ""}" @click=${() => pick(p2.entity)}><ha-icon icon=${p2.icon}></ha-icon>
+              <div class="sheet-text"><div class="sheet-name">${p2.name}</div><div class="muted">${what(e2)}</div></div>
+              ${p2 === act ? Z`<ha-icon class="tick" icon="mdi:check"></ha-icon>` : J}</button>`;
+  })}
+        </div>
+      </div>` : J}`;
+}
+var cleanStep = (s2) => {
+  const m2 = String(s2).match(/^\*\*(.+?):?\*\*\s*(.*)$/s);
+  if (!m2) return s2;
+  const head = m2[1].replace(/[:.]+$/, "").trim(), rest = m2[2].trim();
+  return rest.toLowerCase().startsWith(head.toLowerCase()) ? rest : `${head}. ${rest}`;
+};
+function recipeSheet(c2) {
+  const d2 = c2._recipe, L2 = c2._lib, id = d2.id, plan = c2._tPlan || {}, r2 = L2.recipes[id] || {};
+  const meta = [];
+  if (d2.total || d2.prep || d2.cook) meta.push(`${d2.total || (d2.prep || 0) + (d2.cook || 0)} min`);
+  if (d2.servings) meta.push(`Serves ${d2.servings}`);
+  const today = ymd(/* @__PURE__ */ new Date());
+  const planned = Object.keys(plan).filter((k2) => plan[k2] === id && k2 >= today).sort();
+  const t0 = /* @__PURE__ */ new Date();
+  t0.setHours(12, 0, 0, 0);
+  const days = [];
+  for (let i2 = 0; i2 < 14; i2++) {
+    const x3 = new Date(t0);
+    x3.setDate(t0.getDate() + i2);
+    days.push(x3);
+  }
+  const sunday = (7 - t0.getDay()) % 7;
+  const row = (x3, i2) => {
+    const k2 = ymd(x3), cur = plan[k2] && L2.recipes[plan[k2]], mine = plan[k2] === id;
+    return Z`<button class="sheet-row ${mine ? "on" : ""}" @click=${() => {
+      setDinner(c2, k2, mine ? null : id);
+      redraw(c2, { _tAddDay: false });
+    }}>
+      <ha-icon icon=${mine ? "mdi:check-circle" : cur ? "mdi:swap-horizontal" : "mdi:plus-circle-outline"}></ha-icon>
+      <div class="sheet-text"><div class="sheet-name">${i2 === 0 ? "Tonight" : i2 === 1 ? "Tomorrow" : x3.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}</div>
+        <div class="muted">${mine ? "Planned \xB7 tap to remove" : cur ? `Replaces ${cur.n}` : "Nothing planned"}</div></div></button>`;
+  };
+  return Z`
+    <div class="recipe">
+      <div class="recipe-side">
+        <button class="back" @click=${() => redraw(c2, { _recipe: null, _tAddDay: false })}><ha-icon icon="mdi:close"></ha-icon></button>
+        <button class="heart plan-btn ${planned.length ? "on" : ""}" title="Add to a day" @click=${() => redraw(c2, { _tAddDay: true })}>
+          <ha-icon icon=${planned.length ? "mdi:calendar-check" : "mdi:plus"}></ha-icon></button>
+        <button class="heart ${c2._isFav(id) ? "on" : ""}" title="Favourite" @click=${() => c2._toggleFav(id)}>
+          <ha-icon icon=${c2._isFav(id) ? "mdi:heart" : "mdi:heart-outline"}></ha-icon></button>
+        <div class="recipe-photo" style=${r2.img ? `background-image:url('${c2._img(id)}')` : ""}></div>
+        <h2>${d2.name || r2.n}</h2>
+        ${meta.length || planned.length ? Z`<div class="muted">${[...meta, ...planned.map((k2) => `Planned ${(/* @__PURE__ */ new Date(`${k2}T12:00`)).toLocaleDateString("en-AU", { weekday: "short" })}`)].join(" \xB7 ")}</div>` : J}
+        ${d2.ingredients ? Z`<div class="card-title">Ingredients</div><ul class="ings">${d2.ingredients.map((i2) => Z`<li>${i2}</li>`)}</ul>` : J}
+      </div>
+      <div class="recipe-main">
+        ${d2.loading ? Z`<div class="muted">Loading…</div>` : d2.error ? Z`<div class="muted">Couldn't load this recipe.</div>` : Z`
+          <div class="card-title">Method</div><ol class="steps">${d2.steps.map((s2) => Z`<li><span>${cleanStep(s2)}</span></li>`)}</ol>`}
+      </div>
+    </div>
+    ${c2._tAddDay ? Z`
+      <div class="scrim" @click=${() => redraw(c2, { _tAddDay: false })}>
+        <div class="sheet card addday" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">Add to dinner</div>
+          <div class="addday-body"><div class="pk-h">This week</div>${days.slice(0, sunday + 1).map((x3, i2) => row(x3, i2))}
+            <div class="pk-h">Next week</div>${days.slice(sunday + 1, sunday + 8).map((x3, i2) => row(x3, i2 + sunday + 1))}</div>
+        </div>
+      </div>` : J}`;
+}
+function dayPicker(c2, L2) {
+  const k2 = c2._tDay, d2 = /* @__PURE__ */ new Date(`${k2}T12:00`), q2 = (c2._tQ || "").toLowerCase(), plan = c2._tPlan || {};
+  const close = () => redraw(c2, { _tDay: null, _tQ: "" });
+  const choose = (id) => {
+    setDinner(c2, k2, id);
+    close();
+  };
+  const all = Object.keys(L2.recipes).filter((id) => !L2.favorites.includes(id)).sort((a2, b2) => L2.recipes[a2].n.localeCompare(L2.recipes[b2].n));
+  const card = (id) => {
+    const r2 = L2.recipes[id];
+    return r2 && (!q2 || r2.n.toLowerCase().includes(q2)) ? Z`<button class="pk-card ${plan[k2] === id ? "on" : ""}" @click=${() => choose(id)}>
+      <span class="pk-img" style="background-image:url('${c2._img(id)}')"></span><b>${r2.n}</b><small>${r2.t ? `${r2.t} min` : ""}</small></button>` : J;
+  };
+  return Z`
+    <div class="scrim" @click=${close}>
+      <div class="sheet card pk" @click=${(ev) => ev.stopPropagation()}>
+        <div class="pk-head"><div class="card-title">Dinner · ${d2.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <input class="pk-q" placeholder="Search recipes" .value=${c2._tQ || ""} @input=${(ev) => redraw(c2, { _tQ: ev.target.value })}>
+          ${plan[k2] ? Z`<button class="pk-clear" @click=${() => {
+    setDinner(c2, k2, null);
+    close();
+  }}>Clear</button>` : J}</div>
+        <div class="pk-body">${q2 ? J : Z`<div class="pk-h">Favourites</div>`}<div class="pk-grid">${L2.favorites.map(card)}</div>
+          ${q2 ? J : Z`<div class="pk-h">All recipes</div>`}<div class="pk-grid">${all.map(card)}</div></div>
+      </div>
+    </div>`;
+}
+function recipesPage(c2) {
+  c2._loadLib();
+  const L2 = c2._lib;
+  if (!L2) return Z`<div class="soon card"><div class="muted">Loading recipes…</div></div>`;
+  if (L2.error) return Z`<div class="soon card"><ha-icon icon="mdi:cloud-off-outline"></ha-icon><div class="muted">Recipes haven't synced to Home Assistant yet.</div></div>`;
+  if (c2._recipe) return recipeSheet(c2);
+  const book = c2._book && L2.cookbooks.find((b2) => b2.id === c2._book);
+  if (book) {
+    return Z`<div class="m-rec"><div class="lib-head">
+        <button class="back" @click=${() => {
+      c2._book = null;
+    }}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+        <h1>${book.title}</h1><span class="muted">${book.members.length} recipes</span></div>
+      <div class="book-grid">${book.members.map((id) => c2._recipeCard(id))}</div></div>`;
+  }
+  const plan = c2._tPlan || {}, t0 = /* @__PURE__ */ new Date(), today = ymd(t0);
+  const mon = new Date(t0);
+  mon.setDate(t0.getDate() - (t0.getDay() + 6) % 7);
+  const days = [];
+  for (let i2 = 0; i2 < 7; i2++) {
+    const d2 = new Date(mon);
+    d2.setDate(mon.getDate() + i2);
+    days.push(d2);
+  }
+  const day = (d2) => {
+    const k2 = ymd(d2), id = plan[k2], r2 = id && L2.recipes[id], isT = k2 === today;
+    return Z`<button class="mp-day ${isT ? "today" : ""} ${c2._tDay === k2 ? "sel" : ""} ${k2 < today ? "past" : ""}" @click=${() => redraw(c2, { _tDay: k2 })}>
+      <span class="mp-d">${isT ? "Tonight" : d2.toLocaleDateString("en-AU", { weekday: "short" })}<small>${d2.getDate()}</small></span>
+      ${r2 ? Z`<span class="mp-img" style="background-image:url('${c2._img(id)}')"></span><span class="mp-n">${r2.n}</span><span class="mp-m">Dinner${r2.t ? ` \xB7 ${r2.t} min` : ""}</span>` : Z`<span class="mp-empty"><ha-icon icon="mdi:plus"></ha-icon><span>${isT ? "Pick dinner" : "Nothing planned"}</span></span>`}
+    </button>`;
+  };
+  const tab = c2._tShelf || "fav";
+  const tabs = [
+    ["fav", "Favourites", "mdi:heart-outline", L2.favorites.length],
+    ["new", "Recently added", "mdi:clock-outline", L2.recent.length],
+    ["books", "Cookbooks", "mdi:book-open-variant", L2.cookbooks.length]
+  ];
+  const items = tab === "books" ? L2.cookbooks.map((b2) => c2._bookCard(b2)) : (tab === "new" ? L2.recent : L2.favorites).map((id) => c2._recipeCard(id));
+  const setTab = (id) => {
+    redraw(c2, { _tShelf: id });
+    const row = c2.shadowRoot.querySelector(".rec-tabs .shelf-row");
+    if (row) row.scrollLeft = 0;
+  };
+  return Z`
+    <div class="m-rec">
+      <div class="lib-head"><h1>Recipes</h1></div>
+      <section class="shelf"><div class="card-title">This week's dinners <span class="muted mp-src">synced with Norish</span></div>
+        <div class="mp-row">${days.map(day)}</div></section>
+      <section class="shelf rec-tabs">
+        <div class="rt-chips">${tabs.map(([id, name, icon, n2]) => Z`
+          <button class="tab ${tab === id ? "on" : ""}" @click=${() => setTab(id)}><ha-icon icon=${icon}></ha-icon><span>${name}</span><small>${n2}</small></button>`)}</div>
+        <div class="shelf-row">${items}</div>
+      </section>
+      ${c2._tDay ? dayPicker(c2, L2) : J}
+    </div>`;
+}
+function tabletPage(c2) {
+  ensureFeeds(c2);
+  switch (c2._page) {
+    case "rooms":
+      return roomsPage(c2);
+    case "climate":
+      return climatePage(c2);
+    case "media":
+      return mediaPage(c2);
+    case "recipes":
+      return recipesPage(c2);
+    default:
+      return homePage(c2);
+  }
+}
+var TABLET_CSS = o`
+  /* home */
+  .tablet .m-home2 { display:grid; grid-template-columns:360px minmax(0,1fr); gap:18px; height:100%; min-height:0; }
+  .tablet .m-col { display:flex; flex-direction:column; gap:18px; min-height:0; min-width:0; }
+  .tablet .dinner { padding:30px 26px 22px; display:flex; flex-direction:column; min-height:0; }
+  .tablet .dn-hello { font-size:30px; line-height:1.2; letter-spacing:-0.01em; } .tablet .dn-hello b { color:var(--accent); font-weight:700; }
+  .tablet .dn-rule { height:1px; background:var(--track); margin:22px 10px; }
+  .tablet .dn-stack { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .tablet .dn-card { border:0; font:inherit; text-align:left; color:#fff; border-radius:24px; padding:16px; display:grid; grid-template-columns:1fr 120px;
+    gap:12px; align-items:center; overflow:hidden; min-height:0; }
+  .tablet .dn-card.d0 { background:#1f6b5c; flex:1.3; } .tablet .dn-card.d1 { background:#284a7a; flex:1; }
+  .tablet .dn-img { align-self:stretch; border-radius:18px; background-size:cover; background-position:center; min-height:90px; }
+  .tablet .dn-t small { display:block; font-size:12px; opacity:0.8; }
+  .tablet .dn-t b { font-size:19px; line-height:1.15; margin:4px 0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .tablet .dn-plan { border:0; font:inherit; font-weight:700; color:var(--accent); background:var(--inset); border-radius:16px; height:48px;
+    display:flex; align-items:center; justify-content:center; gap:8px; flex:none; }
+  .tablet .h2-right { display:grid; grid-template-rows:1fr auto 1fr; gap:18px; min-height:0; min-width:0; }
+  .tablet .h2-top { display:grid; grid-template-columns:1.7fr 1fr; gap:18px; min-height:0; }
+  /* what's on: label over the art, the logo sitting bottom left on it (as the Echo Hub's TV & Video) */
+  .tablet .nowtile { border:0; font:inherit; color:var(--ink); text-align:left; padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; min-height:0; overflow:hidden; }
+  .tablet .now-lbl { font-size:13px; color:var(--muted); font-weight:700; }
+  .tablet .now-art { position:relative; flex:1; min-height:0; border-radius:18px; overflow:hidden; background-size:cover; background-position:center top; display:flex; align-items:flex-end; }
+  .tablet .now-art::after { content:""; position:absolute; inset:0; background:linear-gradient(200deg, transparent 45%, rgba(0,0,0,0.55)); }
+  .tablet .now-logo { position:relative; z-index:1; max-width:52%; max-height:46%; object-fit:contain; object-position:left bottom; margin:0 0 16px 18px;
+    filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
+  .tablet .now-cap { position:relative; z-index:1; margin:0 0 16px 18px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.6); }
+  .tablet .now-cap b { font-family:var(--display); font-size:30px; letter-spacing:-0.02em; line-height:1.1; }
+  .tablet .now-music { flex:1; min-height:0; display:flex; align-items:center; gap:18px; }
+  .tablet .now-cover { height:100%; max-height:200px; aspect-ratio:1; border-radius:16px; background-size:cover; background-position:center; flex:none; box-shadow:var(--shadow); }
+  .tablet .now-cover.none { display:grid; place-items:center; background:var(--inset); color:var(--muted); box-shadow:none; } .tablet .now-cover.none ha-icon { --mdc-icon-size:64px; }
+  .tablet .now-text { min-width:0; } .tablet .now-text b { display:block; font-family:var(--display); font-size:28px; line-height:1.1; letter-spacing:-0.02em; }
+  .tablet .now-text span { display:block; color:var(--muted); font-size:17px; margin-top:6px; }
+  .tablet .now-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--muted); font-weight:700; }
+  .tablet .now-empty ha-icon { --mdc-icon-size:40px; }
+  .tablet .shop2 { padding:16px 18px; display:flex; flex-direction:column; gap:6px; min-height:0; overflow:hidden; }
+  .tablet .sh2-list { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; }
+  .tablet .sh2-i { border:0; background:none; font:inherit; color:var(--ink); text-align:left; display:flex; align-items:center; gap:10px; padding:6px 0; font-size:18px; }
+  .tablet .sh2-i .box { width:20px; height:20px; border-radius:6px; border:2px solid var(--muted); flex:none; }
+  .tablet .sh2-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-weight:700; }
+  .tablet .sh2-empty ha-icon { --mdc-icon-size:34px; color:#3f8f63; }
+  .tablet .sh2-add { border:0; font:inherit; font-weight:700; color:var(--accent); background:var(--inset); border-radius:14px; height:40px;
+    display:flex; align-items:center; justify-content:center; gap:6px; flex:none; }
+  .tablet .sh2-form { display:flex; gap:8px; flex:none; }
+  .tablet .sh2-form input { flex:1; min-width:0; height:40px; border-radius:12px; border:0; background:var(--inset); color:var(--ink); font:inherit; padding:0 12px; }
+  .tablet .sh2-form .add-go { border:0; border-radius:12px; padding:0 14px; font:inherit; font-weight:700; color:#fff; background:var(--accent); }
+  .tablet .h2-qa { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:12px; }
+  .tablet .qa2 { border:0; font:inherit; font-weight:700; font-size:13px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); border-radius:20px;
+    height:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+  .tablet .qa2-ico { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--inset); color:var(--muted); }
+  .tablet .qa2.on .qa2-ico { background:#f39a43; color:#fff; } .tablet .qa2.on { color:#f39a43; }
+  .tablet .today2 { display:grid; grid-template-columns:180px minmax(0,1fr); gap:10px; padding:18px 24px; min-height:0; overflow:hidden; align-items:center; }
+  .tablet .td-date { text-align:center; } .tablet .td-dm { font-weight:800; font-size:20px; letter-spacing:0.04em; } .tablet .td-dm span { color:var(--accent); }
+  .tablet .td-n { font-family:var(--display); font-weight:800; font-size:96px; line-height:0.95; letter-spacing:-0.04em; }
+  .tablet .cl-list { display:grid; grid-template-columns:1fr 1fr; column-gap:28px; row-gap:8px; align-content:center; min-width:0; }
+  .tablet .cl-day { grid-column:1 / -1; font-size:13px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
+  .tablet .td-ev { border-left:4px solid var(--c); padding-left:12px; min-width:0; }
+  .tablet .td-ev small { display:block; font-size:12px; color:var(--c); font-weight:700; }
+  .tablet .td-ev b { display:block; font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .sheet.t-pop { width:min(560px, 90vw); }
+  .tablet .sheet.t-timer { width:min(520px, 90vw); }
+  .tablet .tm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:12px; }
+  .tablet .tm-btn { border:0; font:inherit; color:var(--ink); background:var(--inset); border-radius:20px; height:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .tablet .tm-btn b { font-family:var(--display); font-size:30px; line-height:1; } .tablet .tm-btn span { color:var(--muted); font-size:13px; font-weight:700; }
+
+  /* rooms: the chips sit up beside the clock */
+  .tablet .m-rooms { height:100%; display:flex; flex-direction:column; gap:16px; min-height:0; margin-top:-58px; }
+  .tablet .rm-chips { display:flex; gap:10px; }
+  .tablet .rm-body { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 350px; gap:18px; }
+  .tablet .rm-main { min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; gap:14px; }
+  .tablet .rm-h { display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; margin:0 2px 8px; }
+  .tablet .rm-count { background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent); font-size:13px; padding:3px 9px; border-radius:999px; }
+  .tablet .rm-off { margin-left:auto; border:0; font:inherit; font-weight:700; font-size:14px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); padding:8px 16px; border-radius:999px; }
+  .tablet .rm-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
+  .tablet .rt { aspect-ratio:1; min-width:0; } .tablet .rt .ph-grid { height:100%; } .tablet .rt .ph-grid > .tile { height:100%; box-sizing:border-box; }
+  .tablet .rm-side { display:flex; flex-direction:column; gap:18px; min-height:0; }
+  .tablet .rm-card { padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+  .tablet .rm-card:first-child { flex:1; min-height:0; }
+  .tablet .rm-air { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
+  .tablet .rm-air.n4 { grid-template-rows:1fr 1fr; }
+  .tablet .rm-air .air-tile { padding:12px 14px; border-radius:18px; box-shadow:none; }
+  .tablet .rm-air .air-ico { width:34px; height:34px; } .tablet .rm-air .air-ico ha-icon { --mdc-icon-size:18px; }
+  .tablet .rm-air .air-val { font-size:32px; } .tablet .rm-air .air-name { font-size:14px; } .tablet .rm-air .air-q { font-size:13px; }
+  .tablet .rm-hp { display:grid; grid-template-columns:1fr auto auto auto; align-items:center; gap:10px; background:var(--inset); border-radius:18px; padding:10px 12px; }
+  .tablet .rm-hp div b { display:block; } .tablet .rm-hp div span { font-size:13px; color:var(--muted); }
+  .tablet .rm-hp-t { font-size:22px; min-width:40px; text-align:center; }
+  .tablet .rm-pl { display:flex; align-items:center; gap:12px; padding:6px 0; } .tablet .rm-pl .round.small { width:44px; height:44px; flex:none; }
+
+  /* climate */
+  .tablet .m-cl2 { display:grid; grid-template-columns:340px minmax(0,1fr); gap:18px; height:100%; min-height:0; }
+  .tablet .rooms2 { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:18px; min-height:0; }
+  .tablet .rc2 { padding:16px; display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .tablet .rc2-head { display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; } .tablet .rc2-head ha-icon { color:var(--muted); --mdc-icon-size:22px; }
+  .tablet .rc2-grid { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
+  .tablet .rc2-grid.n4 { grid-template-rows:1fr 1fr; } .tablet .rc2-grid.n2 { grid-template-rows:1fr; }
+  .tablet .rc2 .air-tile { padding:12px 14px; border-radius:18px; box-shadow:none; }
+  .tablet .rc2 .air-ico { width:34px; height:34px; } .tablet .rc2 .air-ico ha-icon { --mdc-icon-size:18px; }
+  .tablet .rc2 .air-val { font-size:34px; } .tablet .rc2 .air-val small { font-size:13px; }
+  .tablet .rc2 .air-name { font-size:14px; } .tablet .rc2 .air-q { font-size:13px; }
+  .tablet .rc2-grid.n2 .air-val { font-size:40px; align-self:start; } .tablet .rc2-grid.n2 .air-ico { width:44px; height:44px; }
+  .tablet .rc2-grid.n2 .air-name { font-size:17px; } .tablet .rc2-grid.n2 .air-q { font-size:15px; }
+  .tablet .out2 { padding:20px 22px; display:flex; flex-direction:column; gap:14px; flex:1; min-height:0; }
+  .tablet .out2-top { display:flex; align-items:center; gap:16px; } .tablet .out2-ico { width:72px; height:72px; }
+  .tablet .out2-ico *, .tablet .fc-ico * { width:100% !important; height:100% !important; }
+  .tablet .out2-t { font-family:var(--display); font-weight:700; font-size:56px; line-height:1; letter-spacing:-0.03em; }
+  .tablet .out2-c { font-weight:700; color:var(--muted); margin-top:4px; }
+  .tablet .out2-chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .tablet .out2-chips span { display:flex; align-items:center; gap:4px; background:var(--inset); border-radius:12px; padding:6px 10px; font-weight:700; font-size:14px; }
+  .tablet .out2-chips ha-icon { --mdc-icon-size:16px; color:var(--muted); }
+  .tablet .out2-fc { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; text-align:center; font-size:13px; }
+  .tablet .out2-fc span { color:var(--muted); font-weight:700; } .tablet .fc-ico { width:36px; height:36px; margin:6px auto; }
+  .tablet .out2-fc b { display:block; font-size:16px; } .tablet .out2-fc small { color:var(--muted); }
+  .tablet .out2-in { margin-top:auto; display:grid; grid-template-columns:auto 1fr; gap:4px 12px; padding-top:12px; border-top:1px solid var(--track); font-size:15px; }
+  .tablet .out2-in span { color:var(--muted); } .tablet .out2-in b { text-align:right; }
+  .tablet .hp2 { padding:18px 20px; display:flex; flex-direction:column; gap:14px; }
+  .tablet .hp2-top { display:flex; align-items:flex-start; justify-content:space-between; } .tablet .hp2-lbl { font-weight:700; font-size:17px; }
+  .tablet .hp2-sub { color:var(--muted); font-size:17px; margin-top:4px; } .tablet .hp2-tgt { color:var(--ink); }
+  .tablet .hp2-now { font-family:var(--display); font-weight:700; font-size:40px; line-height:1; letter-spacing:-0.02em; }
+  .tablet .hp2-set { display:flex; gap:12px; }
+  .tablet .hp2-set .sq { flex:1; height:60px; border:0; border-radius:20px; background:var(--inset); color:var(--ink); display:grid; place-items:center; font:inherit; }
+  .tablet .hp2-set .sq ha-icon { --mdc-icon-size:28px; } .tablet .hp2-set .sq:active { background:var(--track); }
+  .tablet .hp2-modes { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .tablet .chip { border:0; font:inherit; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 6px; height:48px;
+    border-radius:14px; background:var(--inset); color:var(--ink); } .tablet .chip ha-icon { --mdc-icon-size:18px; }
+  .tablet .chip.on { background:var(--accent); color:#fff; }
+  /* pop-ups open in the middle of the screen, not as a bottom sheet */
+  .tablet .pop-scrim { display:grid !important; place-items:center !important; }
+  .tablet .pop-scrim .sheet.pop { position:relative !important; inset:auto !important; transform:none !important; width:760px !important; max-width:none !important;
+    max-height:620px; border-radius:30px !important; margin:0 !important; }
+  .tablet .pop-scrim .grabber { display:none; }
+
+  /* media */
+  .tablet .m-media2 { display:grid; grid-template-columns:1.45fr 1fr; gap:18px; height:100%; min-height:0; }
+  .tablet .hero { position:relative; overflow:hidden; flex:1; min-height:0; padding:22px 24px; display:flex; flex-direction:column; justify-content:space-between; color:#fff; border:0; background:#111; }
+  .tablet .hero-bg { position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat; }
+  .tablet .hero-bg::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%); }
+  .tablet .hero.noart .hero-bg { background:linear-gradient(140deg, #1f5eff, #8e5cf0); }
+  .tablet .hero.vid .hero-bg { background-position:center top; }
+  .tablet .hero.vid .hero-bg::after { background:linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%),
+    linear-gradient(90deg, rgba(0,0,0,0.45), rgba(0,0,0,0) 60%); }
+  .tablet .hero.mus .hero-bg { filter:blur(48px) saturate(1.4) brightness(0.65); transform:scale(1.3); }
+  .tablet .hero.mus .hero-bg::after { background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)); }
+  .tablet .hero-top, .tablet .hero-text, .tablet .mus-row { position:relative; z-index:1; }
+  .tablet .hero-top { display:flex; justify-content:space-between; align-items:center; }
+  .tablet .hero-tag, .tablet .hero-state { display:flex; align-items:center; gap:6px; font-weight:700; font-size:14px; background:rgba(0,0,0,0.35);
+    backdrop-filter:blur(12px); padding:7px 12px; border-radius:999px; }
+  .tablet .hero-tag ha-icon, .tablet .hero-state ha-icon { --mdc-icon-size:16px; }
+  .tablet .hero-title { font-family:var(--display); font-weight:700; font-size:44px; line-height:1.05; letter-spacing:-0.02em; text-shadow:0 2px 18px rgba(0,0,0,0.4); }
+  .tablet .hero-sub { font-size:18px; opacity:0.85; margin-top:6px; }
+  .tablet .hero-logo { display:block; max-width:55%; max-height:150px; object-fit:contain; object-position:left bottom; margin-bottom:14px;
+    filter:drop-shadow(0 2px 12px rgba(0,0,0,0.55)); }
+  .tablet .mus-row { flex:1; display:flex; align-items:center; gap:32px; min-height:0; padding-top:16px; }
+  .tablet .mus-cover { flex:none; height:min(100%, 420px); aspect-ratio:1; border-radius:20px; background-size:cover; background-position:center; box-shadow:0 18px 48px rgba(0,0,0,0.45); }
+  .tablet .mus-row .hero-text { min-width:0; }
+  .tablet .ctl2 { padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
+  .tablet .ctl2-prog { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .tablet .ctl2-track { flex:1; height:6px; border-radius:3px; background:var(--track); overflow:hidden; } .tablet .ctl2-track > div { height:100%; background:var(--accent); }
+  .tablet .ctl2-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; }
+  .tablet .sp-pill { justify-self:start; border:0; font:inherit; font-weight:700; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent);
+    height:52px; padding:0 14px; border-radius:999px; display:flex; align-items:center; gap:6px; max-width:100%; white-space:nowrap; }
+  .tablet .sp-pill span { overflow:hidden; text-overflow:ellipsis; }
+  .tablet .ctl2-mid { gap:18px !important; } .tablet .ctl2-mid .round.play { width:72px; height:72px; }
+  .tablet .ctl2-mid .round.play ha-icon { --mdc-icon-size:34px; } .tablet .ctl2-mid .round.small { width:52px; height:52px; }
+  .tablet .ctl2-vol { justify-self:end; display:flex; align-items:center; gap:10px; }
+  .tablet .ctl2-vol b { min-width:44px; text-align:center; color:var(--accent); } .tablet .ctl2-vol .round.small { width:52px; height:52px; }
+  .tablet .spk-card { padding:18px 18px 10px; }
+  .tablet .spk { width:100%; border:0; font:inherit; color:var(--ink); background:transparent; display:grid; grid-template-columns:40px minmax(0,1fr) 48px 26px;
+    align-items:center; gap:12px; padding:9px 8px; border-radius:16px; text-align:left; }
+  .tablet .spk.on { background:color-mix(in srgb, var(--accent) 12%, transparent); }
+  .tablet .spk-ico { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--inset); color:var(--muted); flex:none; }
+  .tablet .spk.on .spk-ico { background:var(--accent); color:#fff; }
+  .tablet .spk-art { width:40px; height:40px; border-radius:10px; background-size:cover; background-position:center; flex:none; }
+  .tablet .spk-t { min-width:0; flex:1; } .tablet .spk-t b { display:block; font-size:15px; }
+  .tablet .spk-t span { display:block; color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .spk-v { font-weight:700; color:var(--accent); text-align:right; font-variant-numeric:tabular-nums; }
+  .tablet .spk-eqc { display:flex; justify-content:center; }
+  .tablet .eqb { display:flex; align-items:flex-end; gap:3px; height:18px; }
+  .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:40%; animation:eqb 1.6s ease-in-out infinite alternate; }
+  .tablet .eqb i:nth-child(1) { animation-duration:1.5s; } .tablet .eqb i:nth-child(2) { animation-duration:1.15s; animation-delay:-0.6s; }
+  .tablet .eqb i:nth-child(3) { animation-duration:1.8s; animation-delay:-1.1s; }
+  @keyframes eqb { 0% { height:20%; } 35% { height:90%; } 60% { height:45%; } 100% { height:75%; } }
+  .tablet .m-pl { flex:1; min-height:0; overflow:hidden; }
+
+  /* recipes: one screen, no page scroll; the shelf below the planner swipes sideways */
+  .tablet .m-rec { width:calc(100vw - 134px); min-width:0; height:100%; overflow:hidden; display:flex; flex-direction:column; gap:6px; padding-right:4px; }
+  .tablet .m-rec > .shelf, .tablet .m-rec > .lib-head { flex:none; min-width:0; }
+  .tablet .m-rec .lib-head h1 { margin:0 0 6px; }
+  .tablet .mp-src { font-weight:400; font-size:13px; margin-left:8px; }
+  .tablet .mp-row { width:100%; display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:12px; margin-top:10px; }
+  .tablet .mp-day { border:0; font:inherit; color:var(--ink); background:var(--card); box-shadow:var(--shadow); border-radius:20px; padding:10px; text-align:left;
+    display:flex; flex-direction:column; gap:6px; height:200px; min-width:0; cursor:pointer; }
+  .tablet .mp-day.past { opacity:0.55; } .tablet .mp-day:focus { outline:none; } .tablet .mp-day.sel, .tablet .mp-day.sel:focus { outline:3px solid var(--accent); }
+  .tablet .mp-d { font-weight:700; font-size:14px; display:flex; justify-content:space-between; padding:2px 4px 0; } .tablet .mp-d small { color:var(--muted); font-size:13px; }
+  .tablet .mp-day.today .mp-d { color:var(--accent); }
+  .tablet .mp-img { height:80px; border-radius:14px; background-size:cover; background-position:center; flex:none; }
+  .tablet .mp-n { font-weight:700; font-size:13px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; padding:0 4px; }
+  .tablet .mp-m { color:var(--muted); font-size:12px; padding:0 4px; }
+  .tablet .mp-empty { flex:1; border:2px dashed var(--track); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    color:var(--muted); font-size:13px; text-align:center; }
+  .tablet .mp-day.today .mp-empty { border-color:var(--accent); color:var(--accent); font-weight:700; }
+  .tablet .m-rec > .shelf.rec-tabs { flex:1; min-height:0; display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+  .tablet .rec-tabs .shelf-row { flex:1; height:auto; min-height:0; padding-bottom:4px; }
+  .tablet .rt-chips { display:flex; gap:10px; } .tablet .rt-chips .tab small { color:var(--muted); font-weight:700; margin-left:2px; }
+  .tablet .rt-chips .tab.on small { color:inherit; opacity:0.7; }
+  .tablet .heart.plan-btn { right:84px; } .tablet .heart.plan-btn.on { color:var(--accent); }
+  .tablet .sheet.addday { width:min(560px, 90vw); max-height:86vh; display:flex; flex-direction:column; }
+  .tablet .addday-body { min-height:0; overflow-y:auto; scrollbar-width:none; overscroll-behavior:contain; }
+  .tablet .addday .sheet-row.on ha-icon { color:var(--accent); }
+  .tablet .sheet.pk { width:min(1000px, 92vw); height:min(680px, 86vh); display:flex; flex-direction:column; gap:12px; }
+  .tablet .pk-head { display:flex; align-items:center; gap:12px; } .tablet .pk-head .card-title { margin:0; flex:1; }
+  .tablet .pk-q { width:280px; height:44px; border:0; border-radius:14px; background:var(--inset); color:var(--ink); font:inherit; padding:0 14px; }
+  .tablet .pk-clear { border:0; height:44px; border-radius:14px; padding:0 16px; font:inherit; font-weight:700; color:var(--accent); background:var(--inset); }
+  .tablet .pk-body { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; overscroll-behavior:contain; }
+  .tablet .pk-h { font-size:13px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin:8px 0; }
+  .tablet .pk-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
+  .tablet .pk-card { border:0; font:inherit; color:var(--ink); background:var(--inset); border-radius:18px; padding:8px; text-align:left; display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .tablet .pk-card.on { outline:3px solid var(--accent); }
+  .tablet .pk-img { height:100px; border-radius:12px; background-size:cover; background-position:center; }
+  .tablet .pk-card b { font-size:13px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .tablet .pk-card small { color:var(--muted); font-size:12px; }
+`;
+
 // www/overlook-show.js
-var VERSION = "0.28.4";
+var VERSION = "0.29.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -1285,7 +2128,7 @@ var OverlookShow = class extends dt {
       links: {}
     }, config);
     if (this._config.phone) this._config.photos = null;
-    this._page = this._config.desk ? "desk" : this._config.bedside ? "photos" : this._config.page || (this._config.photos ? "photos" : "kitchen");
+    this._page = this._config.desk ? "desk" : this._config.bedside ? "photos" : this._config.page || (this._config.photos ? "photos" : this._config.tablet ? "home" : "kitchen");
     if (this._page === "calendar") {
       this._page = null;
       this._go("calendar");
@@ -1511,7 +2354,7 @@ var OverlookShow = class extends dt {
     const start = /* @__PURE__ */ new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
-    end.setDate(end.getDate() + 2);
+    end.setDate(end.getDate() + (this._config.tablet ? 8 : 2));
     this._events = await this._fetchEvents(start, end);
     if (this._page === "calendar") this._loadMonth();
   }
@@ -1627,12 +2470,12 @@ var OverlookShow = class extends dt {
     this._page = page;
   }
   // an event's start/end -> Date; all-day dates are local midnight, not UTC
-  _d(x2) {
-    if (x2.dateTime) return new Date(x2.dateTime);
-    return this._day(x2.date);
+  _d(x3) {
+    if (x3.dateTime) return new Date(x3.dateTime);
+    return this._day(x3.date);
   }
-  _day(ymd) {
-    const [y2, m2, d2] = ymd.split("-").map(Number);
+  _day(ymd2) {
+    const [y2, m2, d2] = ymd2.split("-").map(Number);
     return new Date(y2, m2 - 1, d2);
   }
   _ymd(d2) {
@@ -1675,14 +2518,14 @@ var OverlookShow = class extends dt {
     const c2 = this._ck();
     if (!c2) return;
     const t3 = c2.timer && c2.timer.state;
-    const live = t3 === "active" || c2.ring !== "Off";
-    if (live && !this._ckTick) {
+    const live2 = t3 === "active" || c2.ring !== "Off";
+    if (live2 && !this._ckTick) {
       this._ckNow = Date.now();
       this._ckTick = setInterval(() => {
         this._ckNow = Date.now();
       }, 1e3);
     }
-    if (!live && this._ckTick) {
+    if (!live2 && this._ckTick) {
       clearInterval(this._ckTick);
       this._ckTick = null;
     }
@@ -1704,8 +2547,8 @@ var OverlookShow = class extends dt {
   }
   _ckDur(s2) {
     s2 = Math.max(0, Math.round(s2));
-    const h2 = Math.floor(s2 / 3600), m2 = Math.floor(s2 % 3600 / 60), x2 = s2 % 60;
-    return h2 ? `${h2}:${String(m2).padStart(2, "0")}:${String(x2).padStart(2, "0")}` : `${m2}:${String(x2).padStart(2, "0")}`;
+    const h2 = Math.floor(s2 / 3600), m2 = Math.floor(s2 % 3600 / 60), x3 = s2 % 60;
+    return h2 ? `${h2}:${String(m2).padStart(2, "0")}:${String(x3).padStart(2, "0")}` : `${m2}:${String(x3).padStart(2, "0")}`;
   }
   // digits as big as the screen allows: Amazon Ember Display 800 digits are 0.6em wide, colons 0.31em
   _ckFit(text, extra = 0) {
@@ -1825,19 +2668,19 @@ var OverlookShow = class extends dt {
     if (st2 === "paused" && this._npWas === "playing") {
       clearTimeout(this._npPause);
       this._npPause = setTimeout(() => {
-        const x2 = this._npEnt();
-        if (!x2 || x2.state !== "playing") this._npHidden = true;
+        const x3 = this._npEnt();
+        if (!x3 || x3.state !== "playing") this._npHidden = true;
       }, this._config.idle * 1e3);
     }
     this._npWas = st2;
-    const live = st2 === "playing" && !this._npHidden;
-    if (live && !this._npTick) {
+    const live2 = st2 === "playing" && !this._npHidden;
+    if (live2 && !this._npTick) {
       this._npNow = Date.now();
       this._npTick = setInterval(() => {
         this._npNow = Date.now();
       }, 1e3);
     }
-    if (!live && this._npTick) {
+    if (!live2 && this._npTick) {
       clearInterval(this._npTick);
       this._npTick = null;
     }
@@ -1885,7 +2728,7 @@ var OverlookShow = class extends dt {
           b2.y += Math.sin(rad) * w2;
           b2.s += sat2 * w2;
         }
-        const best = Object.values(bins).sort((x2, y2) => y2.w - x2.w)[0];
+        const best = Object.values(bins).sort((x3, y2) => y2.w - x3.w)[0];
         if (!best || best.w < n2 * n2 * 0.01) return;
         const h2 = (Math.atan2(best.y, best.x) * 180 / Math.PI + 360) % 360, sat = Math.max(0.55, best.s / best.w);
         this._npCol = { hot: `hsl(${h2.toFixed(0)} ${(sat * 100).toFixed(0)}% 64%)`, on: "#120d08" };
@@ -1973,7 +2816,7 @@ var OverlookShow = class extends dt {
     if (bed && photos && this._night()) return this._nightClock();
     return Z`
       <div class="screen ${this._config.windowed ? "windowed" : ""} ${this._config.desk ? "desk-screen" : ""}
-                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${photos ? "on-photo" : ""}">
+                  ${bed ? "bedside" : ""} ${this._config.hub ? "hub" : ""} ${this._config.tablet ? "tablet" : ""} ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : J}
         ${this._config.desk ? J : this._dock()}
         ${photos ? J : Z`<main class="page">${this._pageBody()}</main>`}
@@ -2003,13 +2846,13 @@ var OverlookShow = class extends dt {
   // the full-screen forecast a voice question opens: one day (with its hours when the
   // hourly forecast reaches it) or the days asked for side by side. A tap closes it.
   _wxPage() {
-    const ymd = (x2) => this._ymd(new Date(x2.datetime));
+    const ymd2 = (x3) => this._ymd(new Date(x3.datetime));
     const today = this._ymd(/* @__PURE__ */ new Date()), tmrw = this._ymd(new Date(Date.now() + 864e5));
     const daily = this._daily || [];
     const want = this._wx.dates.length ? this._wx.dates : [today];
-    const days = daily.filter((f2) => want.includes(ymd(f2)));
+    const days = daily.filter((f2) => want.includes(ymd2(f2)));
     const label = (f2, short) => {
-      const k2 = ymd(f2), d2 = new Date(f2.datetime);
+      const k2 = ymd2(f2), d2 = new Date(f2.datetime);
       if (k2 === today) return "Today";
       if (k2 === tmrw && !short) return "Tomorrow";
       return d2.toLocaleDateString("en-AU", short ? { weekday: "short" } : { weekday: "long", day: "numeric", month: "short" });
@@ -2025,9 +2868,9 @@ var OverlookShow = class extends dt {
     if (!days.length) {
       body = Z`<div class="wx-none">No forecast</div>`;
     } else if (!this._wx.week || days.length === 1) {
-      const f2 = days[0], k2 = ymd(f2), [ic, name, col] = icon(f2.condition);
+      const f2 = days[0], k2 = ymd2(f2), [ic, name, col] = icon(f2.condition);
       const now = Date.now() - 36e5;
-      const hours = (this._hourly || []).filter((h2) => ymd(h2) === k2 && new Date(h2.datetime) >= now).filter((h2, i2) => i2 % 3 === 0).slice(0, 6);
+      const hours = (this._hourly || []).filter((h2) => ymd2(h2) === k2 && new Date(h2.datetime) >= now).filter((h2, i2) => i2 % 3 === 0).slice(0, 6);
       const ch = this._chance, pct = ch && ch.daily[k2];
       const hpct = (h2) => {
         const d2 = new Date(h2.datetime);
@@ -2139,36 +2982,36 @@ var OverlookShow = class extends dt {
   // --- status pills: who's home, then anything that needs a look ---------------
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
-    const pills = (this._config.status || []).map((x2) => {
-      const e2 = this._st(x2.entity);
+    const pills = (this._config.status || []).map((x3) => {
+      const e2 = this._st(x3.entity);
       if (!e2) return J;
-      if (x2.person) {
+      if (x3.person) {
         const home = e2.state === "home";
         return Z`
-          <button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => this._open(x2.entity)}>
+          <button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => this._open(x3.entity)}>
             <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
-            <span>${home ? x2.name : `${x2.name} away`}</span></button>`;
+            <span>${home ? x3.name : `${x3.name} away`}</span></button>`;
       }
-      if (e2.state !== (x2.when || "on")) return J;
-      const tap = x2.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x2.entity }) : () => this._open(x2.entity);
+      if (e2.state !== (x3.when || "on")) return J;
+      const tap = x3.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : () => this._open(x3.entity);
       return Z`
-        <button class="tab st ${x2.tone || "warn"}" @click=${tap}>
-          <ha-icon icon=${x2.icon}></ha-icon><span>${x2.name}</span></button>`;
+        <button class="tab st ${x3.tone || "warn"}" @click=${tap}>
+          <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`;
     });
-    const air = (this._config.status_air || []).map((x2) => {
-      const e2 = this._st(x2.entity);
+    const air = (this._config.status_air || []).map((x3) => {
+      const e2 = this._st(x3.entity);
       if (!e2) return J;
-      const vals = (x2.sources || [{ entity: x2.entity }]).map((src) => {
+      const vals = (x3.sources || [{ entity: x3.entity }]).map((src) => {
         const s2 = this._st(src.entity);
         return s2 ? Number(src.attr ? s2.attributes[src.attr] : s2.state) : NaN;
       }).filter((v2) => isFinite(v2)).map((v2) => Math.round(v2));
       if (!vals.length) return J;
       const lo = Math.min(...vals), hi = Math.max(...vals);
       return Z`
-        <button class="tab st reading" @click=${() => this._open(x2.entity)}>
-          <ha-icon icon=${x2.icon} style="color:${x2.color || "var(--accent)"}"></ha-icon>
-          <span>${lo === hi ? lo : `${lo}\u2013${hi}`}${x2.unit != null ? x2.unit : e2.attributes.unit_of_measurement || ""}</span>
-          <small>${x2.name}</small></button>`;
+        <button class="tab st reading" @click=${() => this._open(x3.entity)}>
+          <ha-icon icon=${x3.icon} style="color:${x3.color || "var(--accent)"}"></ha-icon>
+          <span>${lo === hi ? lo : `${lo}\u2013${hi}`}${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</span>
+          <small>${x3.name}</small></button>`;
     });
     return Z`<div class="status">${pills}${air}</div>`;
   }
@@ -2180,7 +3023,7 @@ var OverlookShow = class extends dt {
         ${this._config.scenes.length ? Z`
           <section>
             <div class="ph-sec"><ha-icon icon="mdi:creation"></ha-icon><span>Scenes</span></div>
-            <div class="fav-scenes">${this._config.scenes.map((x2) => this._miniScene(x2))}</div>
+            <div class="fav-scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div>
           </section>` : J}
         ${this._config.phone_rooms.map((r2) => this._phoneRoom(r2))}
       </div>`;
@@ -2196,20 +3039,20 @@ var OverlookShow = class extends dt {
               <ha-icon icon="mdi:lightbulb-group"></ha-icon></button>` : J}
         </div>
         <div class="ph-grid">
-          ${r2.items.map((x2) => {
-      const e2 = this._st(x2.entity);
+          ${r2.items.map((x3) => {
+      const e2 = this._st(x3.entity);
       if (!e2) return J;
-      switch (x2.type) {
+      switch (x3.type) {
         case "climate":
-          return Z`<div class="card ph-hp">${this._thermostat(x2.entity)}</div>`;
+          return Z`<div class="card ph-hp">${this._thermostat(x3.entity)}</div>`;
         case "media":
-          return e2.state === "unavailable" ? J : this._player(x2);
+          return e2.state === "unavailable" ? J : this._player(x3);
         case "plant":
-          return this._plantTile(x2);
+          return this._plantTile(x3);
         case "switch":
-          return this._switchTile(x2);
+          return this._switchTile(x3);
         default:
-          return this._lightTile(x2);
+          return this._lightTile(x3);
       }
     })}
         </div>
@@ -2289,8 +3132,8 @@ var OverlookShow = class extends dt {
     const graphs = p2.sections.filter((s2) => s2.type === "graph" || s2.type === "multigraph");
     if (!graphs.length) return;
     const series = graphs.flatMap((s2) => s2.series || [{ entity: s2.entity }]);
-    const plain = [...new Set(series.filter((x2) => !x2.attr).map((x2) => x2.entity))];
-    const withAttr = [...new Set(series.filter((x2) => x2.attr).map((x2) => x2.entity))];
+    const plain = [...new Set(series.filter((x3) => !x3.attr).map((x3) => x3.entity))];
+    const withAttr = [...new Set(series.filter((x3) => x3.attr).map((x3) => x3.entity))];
     const hours = Math.max(...graphs.map((s2) => s2.hours || 168));
     const start = new Date(Date.now() - hours * 3600 * 1e3).toISOString();
     const q2 = (ids, extra) => this.hass.callApi("GET", `history/period/${start}?filter_entity_id=${ids.join(",")}&end_time=${(/* @__PURE__ */ new Date()).toISOString()}${extra}`);
@@ -2302,15 +3145,15 @@ var OverlookShow = class extends dt {
       const hist = Object.assign({}, this._hist);
       r1.forEach((list) => {
         if (!list.length) return;
-        hist[list[0].entity_id] = list.map((x2) => [new Date(x2.last_changed).getTime(), Number(x2.state)]).filter((x2) => !isNaN(x2[1]));
+        hist[list[0].entity_id] = list.map((x3) => [new Date(x3.last_changed).getTime(), Number(x3.state)]).filter((x3) => !isNaN(x3[1]));
       });
       r2.forEach((list) => {
         if (!list.length) return;
         const id = list[0].entity_id;
-        series.filter((x2) => x2.entity === id && x2.attr).forEach((x2) => {
-          hist[`${id}|${x2.attr}`] = list.map((h2) => [
+        series.filter((x3) => x3.entity === id && x3.attr).forEach((x3) => {
+          hist[`${id}|${x3.attr}`] = list.map((h2) => [
             new Date(h2.last_updated || h2.last_changed).getTime(),
-            Number((h2.attributes || {})[x2.attr])
+            Number((h2.attributes || {})[x3.attr])
           ]).filter((h2) => !isNaN(h2[1]));
         });
       });
@@ -2408,16 +3251,16 @@ var OverlookShow = class extends dt {
       case "choices":
         return Z`${head}${this._popChoices(s2)}`;
       default:
-        return Z`${head}<div class="pop-grid">${(s2.items || []).map((x2) => this._popTile(x2))}</div>`;
+        return Z`${head}<div class="pop-grid">${(s2.items || []).map((x3) => this._popTile(x3))}</div>`;
     }
   }
   // a value the way ha-phone words it: Open/Closed, Home/Away, Low/OK, 90%, 4:30pm
-  _fmt(e2, x2 = {}) {
+  _fmt(e2, x3 = {}) {
     if (!e2) return "\u2013";
     const a2 = e2.attributes, dc = a2.device_class || "", dom = e2.entity_id.split(".")[0];
-    if (x2.attr) {
-      const v2 = a2[x2.attr];
-      return v2 == null ? "\u2013" : `${typeof v2 === "number" ? Math.round(v2 * 10) / 10 : v2}${x2.unit || ""}`;
+    if (x3.attr) {
+      const v2 = a2[x3.attr];
+      return v2 == null ? "\u2013" : `${typeof v2 === "number" ? Math.round(v2 * 10) / 10 : v2}${x3.unit || ""}`;
     }
     const s2 = e2.state;
     if (s2 === "unavailable") return "Unavailable";
@@ -2447,40 +3290,40 @@ var OverlookShow = class extends dt {
     return s2[0].toUpperCase() + s2.slice(1);
   }
   // one tile in a sheet: switches toggle, buttons press, numbers step, the rest open more-info
-  _popTile(x2) {
-    if (!x2.name) {
-      const e0 = this._st(x2.entity);
-      x2 = { ...x2, name: e0 && e0.attributes.friendly_name || x2.entity };
+  _popTile(x3) {
+    if (!x3.name) {
+      const e0 = this._st(x3.entity);
+      x3 = { ...x3, name: e0 && e0.attributes.friendly_name || x3.entity };
     }
-    if (x2.when) {
-      const w2 = this._st(x2.when.entity);
-      if (!w2 || w2.state !== x2.when.state) return J;
+    if (x3.when) {
+      const w2 = this._st(x3.when.entity);
+      if (!w2 || w2.state !== x3.when.state) return J;
     }
-    const e2 = this._st(x2.entity);
+    const e2 = this._st(x3.entity);
     if (!e2) return J;
-    const dom = x2.entity.split(".")[0];
-    const val = this._fmt(e2, x2);
-    if (dom === "number" && !x2.attr) {
+    const dom = x3.entity.split(".")[0];
+    const val = this._fmt(e2, x3);
+    if (dom === "number" && !x3.attr) {
       const a2 = e2.attributes, v2 = Number(e2.state), step = a2.step || 1;
-      const set = (d2) => this._call("number", "set_value", { entity_id: x2.entity, value: clamp(v2 + d2, a2.min, a2.max) });
+      const set = (d2) => this._call("number", "set_value", { entity_id: x3.entity, value: clamp(v2 + d2, a2.min, a2.max) });
       return Z`
         <div class="ptile stepper">
-          <span class="tile-ico"><ha-icon icon=${x2.icon}></ha-icon></span>
-          <span class="tile-text"><span class="tile-name">${x2.name}</span><span class="muted">${val}</span></span>
+          <span class="tile-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x3.name}</span><span class="muted">${val}</span></span>
           <span class="steps-btns">
             <button class="round small" @click=${() => set(-step)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <button class="round small" @click=${() => set(step)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </span>
         </div>`;
     }
-    const toggles = ["switch", "automation", "input_boolean", "light", "fan"].includes(dom) && !x2.attr;
+    const toggles = ["switch", "automation", "input_boolean", "light", "fan"].includes(dom) && !x3.attr;
     const on = toggles && e2.state === "on";
-    const alert = dom === "binary_sensor" && e2.state === "on" && !x2.attr || dom === "update" && e2.state === "on" || e2.attributes.device_class === "battery" && Number(e2.state) <= 20;
-    const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x2.entity }) : dom === "button" ? () => this._call("button", "press", { entity_id: x2.entity }) : () => this._moreInfo(x2.entity);
+    const alert = dom === "binary_sensor" && e2.state === "on" && !x3.attr || dom === "update" && e2.state === "on" || e2.attributes.device_class === "battery" && Number(e2.state) <= 20;
+    const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : dom === "button" ? () => this._call("button", "press", { entity_id: x3.entity }) : () => this._moreInfo(x3.entity);
     return Z`
-      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x2.wide ? "wide" : ""}" @click=${tap}>
-        <span class="tile-ico"><ha-icon icon=${x2.icon || e2.attributes.icon || "mdi:information-outline"}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x2.name}</span><span class="muted">${val}</span></span>
+      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x3.wide ? "wide" : ""}" @click=${tap}>
+        <span class="tile-ico"><ha-icon icon=${x3.icon || e2.attributes.icon || "mdi:information-outline"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x3.name}</span><span class="muted">${val}</span></span>
       </button>`;
   }
   // a row of options for one attribute: fan speed, swing, a source, an Apple TV app
@@ -2591,18 +3434,18 @@ var OverlookShow = class extends dt {
   // one reading per room, each its own colour (or, with average: true, one line for their mean)
   _popMultiGraph(s2) {
     const hours = s2.hours || 24, t1 = Date.now(), t0 = t1 - hours * 3600 * 1e3;
-    const cur = (x2) => {
-      const e2 = this._st(x2.entity);
-      const v2 = e2 ? Number(x2.attr ? e2.attributes[x2.attr] : e2.state) : NaN;
+    const cur = (x3) => {
+      const e2 = this._st(x3.entity);
+      const v2 = e2 ? Number(x3.attr ? e2.attributes[x3.attr] : e2.state) : NaN;
       return isNaN(v2) ? null : v2;
     };
-    const lines = s2.series.map((x2) => {
+    const lines = s2.series.map((x3) => {
       const ok = (v2) => !s2.valid || v2 >= s2.valid[0] && v2 <= s2.valid[1];
-      let pts = ((this._hist || {})[x2.attr ? `${x2.entity}|${x2.attr}` : x2.entity] || []).filter((p2) => ok(p2[1]));
-      let c2 = cur(x2);
+      let pts = ((this._hist || {})[x3.attr ? `${x3.entity}|${x3.attr}` : x3.entity] || []).filter((p2) => ok(p2[1]));
+      let c2 = cur(x3);
       if (c2 !== null && !ok(c2)) c2 = null;
       if (c2 !== null) pts.push([t1, c2]);
-      return { ...x2, pts, now: c2 };
+      return { ...x3, pts, now: c2 };
     });
     const unit = s2.unit != null ? s2.unit : "\xB0";
     const fmtv = (v2) => v2 === null || v2 === void 0 ? "\u2013" : unit === "%" ? `${Math.round(v2)}%` : unit === "\xB0" ? `${v2.toFixed(1)}\xB0` : `${Math.round(v2)}${unit}`;
@@ -2618,7 +3461,7 @@ var OverlookShow = class extends dt {
     for (let i2 = 0; i2 <= N2; i2++) grid.push(t0 + (t1 - t0) * i2 / N2);
     const smooth = (vals) => vals.map((v2, i2) => {
       if (v2 === null) return null;
-      const w2 = vals.slice(Math.max(0, i2 - 2), i2 + 3).filter((x2) => x2 !== null);
+      const w2 = vals.slice(Math.max(0, i2 - 2), i2 + 3).filter((x3) => x3 !== null);
       return w2.reduce((a2, b2) => a2 + b2, 0) / w2.length;
     });
     const onGrid = (vals) => smooth(vals).map((v2, i2) => [grid[i2], v2]).filter((p2) => p2[1] !== null);
@@ -2682,7 +3525,7 @@ var OverlookShow = class extends dt {
     return Z`
       <nav class="dock">
         <div class="dock-pill">
-          ${(this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => Z`
+          ${(this._config.tablet ? TABLET_PAGES : this._config.hub ? HUB_PAGES : this._config.bedside ? BEDSIDE_PAGES : PAGES).map(([id, name, icon]) => Z`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
               <ha-icon icon=${icon}></ha-icon>
@@ -2695,6 +3538,7 @@ var OverlookShow = class extends dt {
       </nav>`;
   }
   _pageBody() {
+    if (this._config.tablet) return tabletPage(this);
     switch (this._page) {
       case "kitchen":
         return this._config.phone ? this._phoneHome() : this._kitchen();
@@ -2713,7 +3557,7 @@ var OverlookShow = class extends dt {
       case "climate":
         return this._config.hub ? this._hubClimate() : this._bedClimate();
       default: {
-        const p2 = PAGES.find((x2) => x2[0] === this._page);
+        const p2 = PAGES.find((x3) => x3[0] === this._page);
         return Z`<div class="soon card">
           <ha-icon icon=${p2[2]}></ha-icon>
           <div class="soon-title">${p2[1]}</div>
@@ -2726,15 +3570,15 @@ var OverlookShow = class extends dt {
   _home() {
     const rooms = this._config.rooms || [];
     if (!rooms.length) return J;
-    const r2 = rooms.find((x2) => x2.name === this._room) || rooms[0];
+    const r2 = rooms.find((x3) => x3.name === this._room) || rooms[0];
     return Z`
       <div class="home">
         <div class="tabs">
-          ${rooms.map((x2) => Z`
-            <button class="tab ${x2 === r2 ? "on" : ""}" @click=${() => {
-      this._room = x2.name;
+          ${rooms.map((x3) => Z`
+            <button class="tab ${x3 === r2 ? "on" : ""}" @click=${() => {
+      this._room = x3.name;
     }}>
-              <ha-icon icon=${x2.icon}></ha-icon><span>${x2.name}</span></button>`)}
+              <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}
         </div>
         ${r2.music ? this._musicRoom() : this._room_(r2)}
       </div>`;
@@ -2754,14 +3598,14 @@ var OverlookShow = class extends dt {
       group,
       () => this._call("light", groupOn ? "turn_off" : "turn_on", { entity_id: r2.group })
     ) : J}
-        ${(r2.switches || []).map((x2) => {
-      const e2 = this._st(x2.entity);
+        ${(r2.switches || []).map((x3) => {
+      const e2 = this._st(x3.entity);
       return e2 ? this._controlTile(
-        x2.name,
-        x2.icon,
+        x3.name,
+        x3.icon,
         "#3f86f2",
         e2,
-        () => this._call("homeassistant", "toggle", { entity_id: x2.entity })
+        () => this._call("homeassistant", "toggle", { entity_id: x3.entity })
       ) : J;
     })}
       </div>`;
@@ -2784,16 +3628,16 @@ var OverlookShow = class extends dt {
       </div>`;
   }
   // a big reading: its number, its name and a one-word verdict, tinted in its colour
-  _airTile(x2) {
-    const e2 = this._st(x2.entity);
+  _airTile(x3) {
+    const e2 = this._st(x3.entity);
     if (!e2) return J;
-    const k2 = Object.keys(AIR).find((n2) => x2.entity.includes(n2));
-    const [label, colour, verdict] = AIR[k2] || [x2.name, x2.color || "var(--accent)", () => ""];
+    const k2 = Object.keys(AIR).find((n2) => x3.entity.includes(n2));
+    const [label, colour, verdict] = AIR[k2] || [x3.name, x3.color || "var(--accent)", () => ""];
     const v2 = Number(e2.state), ok = !isNaN(v2) && e2.state !== "";
     return Z`
-      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x2.entity)}>
-        <span class="air-ico"><ha-icon icon=${x2.icon}></ha-icon></span>
-        <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${x2.unit != null ? x2.unit : e2.attributes.unit_of_measurement || ""}</small></span>
+      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x3.entity)}>
+        <span class="air-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
+        <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</small></span>
         <span class="air-name">${label}<span class="air-q">${ok ? verdict(v2) : "No reading"}</span></span>
       </button>`;
   }
@@ -2801,7 +3645,7 @@ var OverlookShow = class extends dt {
     const r2 = this._config.room || {};
     return Z`
       <div class="bed-air">
-        ${(r2.sensors || []).map((x2) => this._airTile(x2))}
+        ${(r2.sensors || []).map((x3) => this._airTile(x3))}
       </div>`;
   }
   // --- hub (the Nest Hub in the kitchen) ------------------------------------------
@@ -2847,14 +3691,14 @@ var OverlookShow = class extends dt {
       <div class="scrim" @click=${close}>
         <div class="sheet card scenes-sheet" @click=${(ev) => ev.stopPropagation()}>
           <div class="card-title">Scenes</div>
-          <div class="hub-scenes">${(this._config.hub_scenes || []).map((x2) => this._miniScene(x2))}</div>
+          <div class="hub-scenes">${(this._config.hub_scenes || []).map((x3) => this._miniScene(x3))}</div>
         </div>
       </div>`;
   }
   // everything playing or paused anywhere, then the playlists
   _hubMedia() {
     const all = (this._config.rooms || []).flatMap((r2) => r2.media || []);
-    const live = all.filter((m2) => {
+    const live2 = all.filter((m2) => {
       const e2 = this._st(m2.entity);
       return e2 && ["playing", "paused"].includes(e2.state);
     });
@@ -2862,7 +3706,7 @@ var OverlookShow = class extends dt {
     return Z`
       <div class="bed-two">
         <div class="hub-players">
-          ${live.length ? live.map((m2) => this._player(m2)) : Z`
+          ${live2.length ? live2.map((m2) => this._player(m2)) : Z`
             <div class="card soon"><ha-icon icon="mdi:music-off"></ha-icon><div class="muted">Nothing playing</div></div>`}
         </div>
         ${pl === J ? J : Z`<div class="card bed-card bed-pl">${pl}</div>`}
@@ -2890,7 +3734,7 @@ var OverlookShow = class extends dt {
             </button>` : J}
           ${this._config.climate ? Z`<div class="card desk-hp hub-hp">${this._thermostat()}</div>` : J}
         </div>
-        <div class="bed-air">${(r2.sensors || []).map((x2) => this._airTile(x2))}</div>
+        <div class="bed-air">${(r2.sensors || []).map((x3) => this._airTile(x3))}</div>
       </div>`;
   }
   // --- desk (the computer): the whole house on one page, laid out like ha-computer:
@@ -2903,10 +3747,10 @@ var OverlookShow = class extends dt {
     const head = (name) => Z`<div class="desk-title" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${name}</div>`;
     const byRoom = (key, tile) => rooms.filter((r2) => (r2[key] || []).length).map((r2) => Z`
       <div class="desk-sub"><ha-icon class="desk-ico" icon=${r2.icon}></ha-icon>${r2.name}</div>
-      ${r2[key].map((x2) => tile(x2))}`);
+      ${r2[key].map((x3) => tile(x3))}`);
     const lit = rooms.filter((r2) => (r2.lights || []).length);
-    const plugs = byRoom("switches", (x2) => this._switchTile(x2));
-    const plants = byRoom("plants", (x2) => this._plantTile(x2));
+    const plugs = byRoom("switches", (x3) => this._switchTile(x3));
+    const plants = byRoom("plants", (x3) => this._plantTile(x3));
     return Z`
       <div class="desk">
         <div class="desk-col">
@@ -2927,7 +3771,7 @@ var OverlookShow = class extends dt {
             <div class="card desk-card desk-hp">${this._thermostat()}</div>` : J}
           ${this._config.scenes.length ? Z`${head("Scenes")}
             <div class="card desk-card">
-              <div class="fav-scenes desk-scenes">${this._config.scenes.map((x2) => this._miniScene(x2))}</div></div>` : J}
+              <div class="fav-scenes desk-scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div></div>` : J}
         </div>
         <div class="desk-col desk-mid">
           ${lit.length ? Z`${head("Lights")}<div class="desk-pair">${lit.map((r2) => this._deskLights(r2))}</div>` : J}
@@ -2966,12 +3810,12 @@ var OverlookShow = class extends dt {
     }).length;
     let side = [
       ...(r2.media || []).map((m2) => this._player(m2)),
-      ...(r2.switches || []).map((x2) => this._switchTile(x2)),
-      ...(r2.plants || []).map((x2) => this._plantTile(x2)),
+      ...(r2.switches || []).map((x3) => this._switchTile(x3)),
+      ...(r2.plants || []).map((x3) => this._plantTile(x3)),
       ...(r2.sensors || []).length ? [Z`<div class="room-env">${this._sensors(r2.sensors)}</div>`] : []
     ];
     const scenesAside = !side.length;
-    if (scenesAside) side = (r2.scenes || []).map((x2) => this._sceneBtn(x2, true));
+    if (scenesAside) side = (r2.scenes || []).map((x3) => this._sceneBtn(x3, true));
     return Z`
       <div class="room ${r2.climate ? "has-hp" : ""}">
         <div class="card room-lights">
@@ -2988,7 +3832,7 @@ var OverlookShow = class extends dt {
         ${side.length ? Z`<div class="room-side">${side}</div>` : J}
         ${!scenesAside && (r2.scenes || []).length ? Z`
           <div class="scenes">
-            ${r2.scenes.map((x2) => this._sceneBtn(x2))}
+            ${r2.scenes.map((x3) => this._sceneBtn(x3))}
           </div>` : J}
       </div>`;
   }
@@ -3050,79 +3894,79 @@ var OverlookShow = class extends dt {
           </div>` : J}
       </div>`;
   }
-  _switchTile(x2) {
-    const e2 = this._st(x2.entity);
+  _switchTile(x3) {
+    const e2 = this._st(x3.entity);
     if (!e2) return J;
     const on = e2.state === "on";
     return Z`
-      <button class="card tile ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x2.entity })}>
-        <span class="tile-ico"><ha-icon icon=${x2.icon}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x2.name}</span>
+      <button class="card tile ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x3.entity })}>
+        <span class="tile-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x3.name}</span>
           <span class="muted">${on ? "On" : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
       </button>`;
   }
   // any other reading: its state as HA formats it; tap for the pop-up or HA's dialog
-  _sensorTile(x2, big = false) {
-    const e2 = this._st(x2.entity);
+  _sensorTile(x3, big = false) {
+    const e2 = this._st(x3.entity);
     if (!e2) return J;
     const n2 = Number(e2.state);
     if (big && e2.state !== "" && !isNaN(n2)) {
       const dc = e2.attributes.device_class, unit = e2.attributes.unit_of_measurement || "";
       const shown = this.hass.formatEntityState ? this.hass.formatEntityState(e2).replace(unit, "").trim() : String(Math.round(n2 * 10) / 10);
       return Z`
-        <button class="card tile" @click=${() => this._open(x2.entity)}>
-          <span class="tile-ico"><ha-icon icon=${x2.icon || e2.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
-          <span class="tile-text"><span class="tile-name">${x2.name || e2.attributes.friendly_name}</span>
+        <button class="card tile" @click=${() => this._open(x3.entity)}>
+          <span class="tile-ico"><ha-icon icon=${x3.icon || e2.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x3.name || e2.attributes.friendly_name}</span>
             <span class="muted">${dc ? dc[0].toUpperCase() + dc.slice(1).replace(/_/g, " ") : "Reading"}</span></span>
           <span class="tile-val">${shown}<small>${unit}</small></span>
         </button>`;
     }
     const val = this.hass.formatEntityState ? this.hass.formatEntityState(e2) : `${e2.state}${e2.attributes.unit_of_measurement ? " " + e2.attributes.unit_of_measurement : ""}`;
     return Z`
-      <button class="card tile" @click=${() => this._open(x2.entity)}>
-        <span class="tile-ico"><ha-icon icon=${x2.icon || e2.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x2.name || e2.attributes.friendly_name}</span>
+      <button class="card tile" @click=${() => this._open(x3.entity)}>
+        <span class="tile-ico"><ha-icon icon=${x3.icon || e2.attributes.icon || "mdi:eye-outline"}></ha-icon></span>
+        <span class="tile-text"><span class="tile-name">${x3.name || e2.attributes.friendly_name}</span>
           <span class="muted">${val}</span></span>
       </button>`;
   }
-  _plantTile(x2) {
-    const e2 = this._st(x2.entity);
+  _plantTile(x3) {
+    const e2 = this._st(x3.entity);
     if (!e2) return J;
     const v2 = Number(e2.state);
     return Z`
-      <button class="card tile plant" @click=${() => this._open(x2.entity)}>
+      <button class="card tile plant" @click=${() => this._open(x3.entity)}>
         <span class="tile-ico"><ha-icon icon="mdi:sprout"></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x2.name}</span>
+        <span class="tile-text"><span class="tile-name">${x3.name}</span>
           <span class="muted">Soil moisture</span></span>
         <span class="tile-val">${isNaN(v2) ? "\u2013" : Math.round(v2)}<small>%</small></span>
       </button>`;
   }
-  _sceneBtn(x2, tile = false) {
-    const [domain] = x2.entity.split(".");
-    const e2 = this._st(x2.entity);
+  _sceneBtn(x3, tile = false) {
+    const [domain] = x3.entity.split(".");
+    const e2 = this._st(x3.entity);
     const on = domain === "input_boolean" && e2 && e2.state === "on";
-    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x2.entity }) : this._call(domain, "turn_on", { entity_id: x2.entity });
+    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x3.entity }) : this._call(domain, "turn_on", { entity_id: x3.entity });
     if (tile) {
       return Z`
         <button class="card tile ${on ? "on" : ""}" @click=${go}>
-          <span class="tile-ico"><ha-icon icon=${x2.icon}></ha-icon></span>
-          <span class="tile-text"><span class="tile-name">${x2.name}</span>
+          <span class="tile-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
+          <span class="tile-text"><span class="tile-name">${x3.name}</span>
             <span class="muted">${domain === "input_boolean" ? on ? "On" : "Off" : "Tap to run"}</span></span>
         </button>`;
     }
     return Z`
       <button class="card scene ${on ? "on" : ""}" @click=${go}>
-        <ha-icon icon=${x2.icon}></ha-icon><span>${x2.name}</span></button>`;
+        <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`;
   }
-  _miniScene(x2) {
-    const [domain] = x2.entity.split(".");
-    const e2 = this._st(x2.entity);
+  _miniScene(x3) {
+    const [domain] = x3.entity.split(".");
+    const e2 = this._st(x3.entity);
     const on = domain === "input_boolean" && e2 && e2.state === "on";
-    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x2.entity }) : this._call(domain, "turn_on", { entity_id: x2.entity });
+    const go = () => domain === "input_boolean" ? this._call("input_boolean", "toggle", { entity_id: x3.entity }) : this._call(domain, "turn_on", { entity_id: x3.entity });
     return Z`
       <button class="mini-scene ${on ? "on" : ""}" @click=${go}>
-        <ha-icon icon=${x2.icon}></ha-icon>
-        <span class="ms-name">${x2.name}</span></button>`;
+        <ha-icon icon=${x3.icon}></ha-icon>
+        <span class="ms-name">${x3.name}</span></button>`;
   }
   _musicRoom() {
     return Z`
@@ -3149,10 +3993,10 @@ var OverlookShow = class extends dt {
     this._sel = this._ymd(m2.getMonth() === (/* @__PURE__ */ new Date()).getMonth() && m2.getFullYear() === (/* @__PURE__ */ new Date()).getFullYear() ? /* @__PURE__ */ new Date() : m2);
     this._loadMonth();
   }
-  _pick(ymd) {
-    this._sel = ymd;
-    if (!this._config.phone) this._dayOpen = ymd;
-    const d2 = this._day(ymd);
+  _pick(ymd2) {
+    this._sel = ymd2;
+    if (!this._config.phone) this._dayOpen = ymd2;
+    const d2 = this._day(ymd2);
     if (d2.getMonth() !== this._month.getMonth()) this._month = new Date(d2.getFullYear(), d2.getMonth(), 1);
     this._loadMonth();
   }
@@ -3424,7 +4268,7 @@ var OverlookShow = class extends dt {
     const want = !this._isFav(id);
     const before = this._lib.favorites;
     this._lib = Object.assign({}, this._lib, {
-      favorites: want ? [id, ...before] : before.filter((x2) => x2 !== id)
+      favorites: want ? [id, ...before] : before.filter((x3) => x3 !== id)
     });
     try {
       await this._call("shell_command", "norish_favourite", { recipe: id, favourite: want ? "true" : "false" });
@@ -3506,7 +4350,7 @@ var OverlookShow = class extends dt {
             ${this._config.climate ? this._thermostat() : J}
           </div>
           ${this._config.scenes.length ? Z`
-            <div class="fav-scenes" title="Scenes">${this._config.scenes.map((x2) => this._miniScene(x2))}</div>` : J}
+            <div class="fav-scenes" title="Scenes">${this._config.scenes.map((x3) => this._miniScene(x3))}</div>` : J}
           ${this._playlists()}
         </div>
         <div class="col col-c">
@@ -3764,7 +4608,7 @@ var OverlookShow = class extends dt {
       </div>`;
   }
   _lightName(id) {
-    const l2 = [...this._config.lights || [], ...(this._config.phone_rooms || []).flatMap((r2) => r2.items || [])].find((x2) => x2.entity === id && x2.name) || { name: (this._names || {})[id] };
+    const l2 = [...this._config.lights || [], ...(this._config.phone_rooms || []).flatMap((r2) => r2.items || [])].find((x3) => x3.entity === id && x3.name) || { name: (this._names || {})[id] };
     const e2 = this._st(id);
     return l2 && l2.name || e2 && e2.attributes.friendly_name || id;
   }
@@ -4071,21 +4915,21 @@ var OverlookShow = class extends dt {
     if (!s2.length) return J;
     return Z`
       <div class="sensors">
-        ${s2.map((x2) => {
-      const e2 = this._st(x2.entity);
+        ${s2.map((x3) => {
+      const e2 = this._st(x3.entity);
       if (!e2) return J;
       const v2 = Number(e2.state);
-      const shown = isNaN(v2) ? e2.state : x2.decimals != null ? v2.toFixed(x2.decimals) : Math.round(v2);
+      const shown = isNaN(v2) ? e2.state : x3.decimals != null ? v2.toFixed(x3.decimals) : Math.round(v2);
       return Z`
             <div class="sensor card">
-              <ha-icon icon=${x2.icon} style="color:${x2.color || "var(--accent)"}"></ha-icon>
-              <div class="s-val">${shown}<span>${x2.unit != null ? x2.unit : e2.attributes.unit_of_measurement || ""}</span></div>
-              <div class="s-name muted">${x2.name}</div>
+              <ha-icon icon=${x3.icon} style="color:${x3.color || "var(--accent)"}"></ha-icon>
+              <div class="s-val">${shown}<span>${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</span></div>
+              <div class="s-name muted">${x3.name}</div>
             </div>`;
     })}
       </div>`;
   }
-  static styles = o`
+  static styles = [o`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
@@ -5235,7 +6079,7 @@ var OverlookShow = class extends dt {
     .screen.overlay { background: none; pointer-events: none; z-index: 20; }
     .screen.overlay::after { display: none; }
     .screen.overlay > * { pointer-events: auto; }
-  `;
+  `, TABLET_CSS];
 };
 try {
   CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" });
@@ -5343,7 +6187,7 @@ var OverlookPiece = class extends OverlookShow {
     const c2 = this._config, m2 = {};
     const ok = (p2) => p2 && Array.isArray(p2.sections) && p2.sections.length;
     if (ok(c2.popup) && c2.entity) m2[c2.entity] = c2.popup;
-    for (const x2 of [...c2.status || [], ...c2.status_air || []]) if (ok(x2.popup) && x2.entity) m2[x2.entity] = x2.popup;
+    for (const x3 of [...c2.status || [], ...c2.status_air || []]) if (ok(x3.popup) && x3.entity) m2[x3.entity] = x3.popup;
     return m2;
   }
   _links() {
@@ -5595,33 +6439,33 @@ var OverlookTile = class extends OverlookPiece {
   }
   render() {
     if (!this.hass || !this._config) return J;
-    const x2 = this._item();
-    if (!this._st(x2.entity)) {
+    const x3 = this._item();
+    if (!this._st(x3.entity)) {
       return Z`<div class="phone piece"><div class="card missing"><ha-icon icon="mdi:help-circle-outline"></ha-icon>
-        ${x2.entity || "Pick an entity"} isn't there</div></div>`;
+        ${x3.entity || "Pick an entity"} isn't there</div></div>`;
     }
     let body;
     switch (this._kind()) {
       case "climate":
-        body = Z`<div class="card ph-hp">${this._thermostat(x2.entity)}</div>`;
+        body = Z`<div class="card ph-hp">${this._thermostat(x3.entity)}</div>`;
         break;
       case "media":
-        body = this._player(x2);
+        body = this._player(x3);
         break;
       case "plant":
-        body = this._plantTile(x2);
+        body = this._plantTile(x3);
         break;
       case "switch":
-        body = this._switchTile(x2);
+        body = this._switchTile(x3);
         break;
       case "sensor":
-        body = this._sensorTile(x2, this._config.size === "2x");
+        body = this._sensorTile(x3, this._config.size === "2x");
         break;
       case "scene":
-        body = this._sceneBtn(x2, true);
+        body = this._sceneBtn(x3, true);
         break;
       default:
-        body = this._lightTile(x2);
+        body = this._lightTile(x3);
     }
     const x22 = this._config.size === "2x" && !["climate", "media"].includes(this._kind());
     return Z`<div class="phone piece"><div class="ph-grid one ${x22 ? "x2" : ""}">${body}</div></div>`;
@@ -5685,15 +6529,15 @@ var OverlookScenes = class extends OverlookPiece {
   }
   render() {
     if (!this.hass || !this._config) return J;
-    const items = (this._config.scenes || []).map((x2) => {
-      const c2 = typeof x2 === "string" ? { entity: x2 } : x2, e2 = this._st(c2.entity);
+    const items = (this._config.scenes || []).map((x3) => {
+      const c2 = typeof x3 === "string" ? { entity: x3 } : x3, e2 = this._st(c2.entity);
       return {
         ...c2,
         name: c2.name || e2 && e2.attributes.friendly_name || c2.entity,
         icon: c2.icon || e2 && e2.attributes.icon || DOMAIN_ICON[(c2.entity || "").split(".")[0]] || "mdi:palette"
       };
     });
-    return Z`<div class="phone piece"><div class="fav-scenes">${items.map((x2) => this._miniScene(x2))}</div></div>`;
+    return Z`<div class="phone piece"><div class="fav-scenes">${items.map((x3) => this._miniScene(x3))}</div></div>`;
   }
 };
 definePhone("scenes", OverlookScenes);
@@ -5865,7 +6709,7 @@ var toRgb = (h2) => {
   return [n2 >> 16, n2 >> 8 & 255, n2 & 255];
 };
 var toHex = (a2) => Array.isArray(a2) ? "#" + a2.map((v2) => Number(v2).toString(16).padStart(2, "0")).join("") : a2;
-var recolour = (v2, f2) => Array.isArray(v2) ? v2.map((x2) => recolour(x2, f2)) : v2 && typeof v2 === "object" ? Object.fromEntries(Object.entries(v2).map(([k2, x2]) => [k2, k2 === "color" ? f2(x2) : recolour(x2, f2)])) : v2;
+var recolour = (v2, f2) => Array.isArray(v2) ? v2.map((x3) => recolour(x3, f2)) : v2 && typeof v2 === "object" ? Object.fromEntries(Object.entries(v2).map(([k2, x3]) => [k2, k2 === "color" ? f2(x3) : recolour(x3, f2)])) : v2;
 var tidy = (o2) => Object.fromEntries(Object.entries(o2).filter(([, v2]) => v2 !== void 0 && v2 !== "" && v2 !== null && !(Array.isArray(v2) && !v2.length)));
 var ED_LABELS = {
   entity: "Entity",
@@ -6025,8 +6869,8 @@ var edList = (get, head, body, onChange) => {
     ev.preventDefault();
     f2();
   };
-  return Z`<div class="ed-list">${items.map((x2, i2) => {
-    const h2 = head(x2);
+  return Z`<div class="ed-list">${items.map((x3, i2) => {
+    const h2 = head(x3);
     return Z`
       <ha-expansion-panel outlined .header=${h2.label} .secondary=${h2.what || ""}>
         <ha-icon slot="leading-icon" icon=${h2.icon}></ha-icon>
@@ -6035,7 +6879,7 @@ var edList = (get, head, body, onChange) => {
           <button class="ed-ib" title="Move down" ?disabled=${i2 === items.length - 1} @click=${stop(() => move(i2, 1))}><ha-icon icon="mdi:arrow-down"></ha-icon></button>
           <button class="ed-ib" title="Remove" @click=${stop(() => onChange(get().filter((_2, k2) => k2 !== i2)))}><ha-icon icon="mdi:delete-outline"></ha-icon></button>
         </div>
-        <div class="ed-body">${body(x2, (y2) => onChange(get().map((z2, k2) => k2 === i2 ? y2 : z2)))}</div>
+        <div class="ed-body">${body(x3, (y2) => onChange(get().map((z2, k2) => k2 === i2 ? y2 : z2)))}</div>
       </ha-expansion-panel>`;
   })}</div>`;
 };
@@ -6182,34 +7026,34 @@ var OverlookStatusEditor = class extends OverlookEditorBase {
   _items(key, schema, blank, toForm, fromForm, help) {
     return edList(
       () => this._config[key] || [],
-      (x2) => {
-        const e2 = this.hass.states[x2.entity];
+      (x3) => {
+        const e2 = this.hass.states[x3.entity];
         return {
-          label: x2.name || e2 && e2.attributes.friendly_name || x2.entity || "New",
-          what: x2.entity,
-          icon: x2.icon || (x2.person ? "mdi:account" : key === "status_air" ? "mdi:thermometer" : "mdi:alert-circle-outline")
+          label: x3.name || e2 && e2.attributes.friendly_name || x3.entity || "New",
+          what: x3.entity,
+          icon: x3.icon || (x3.person ? "mdi:account" : key === "status_air" ? "mdi:thermometer" : "mdi:alert-circle-outline")
         };
       },
-      (x2, put) => Z`
-      <ha-form .hass=${this.hass} .data=${toForm(x2)} .schema=${schema} .computeLabel=${edLabel}
-        @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x2.popup }))}></ha-form>
-      <meridian-popup-editor .hass=${this.hass} .value=${x2.popup} .label=${help}
-        @popup-changed=${(ev) => put(tidy({ ...x2, popup: ev.detail.value }))}></meridian-popup-editor>`,
+      (x3, put) => Z`
+      <ha-form .hass=${this.hass} .data=${toForm(x3)} .schema=${schema} .computeLabel=${edLabel}
+        @value-changed=${(ev) => put(tidy({ ...fromForm(ev.detail.value), popup: x3.popup }))}></ha-form>
+      <meridian-popup-editor .hass=${this.hass} .value=${x3.popup} .label=${help}
+        @popup-changed=${(ev) => put(tidy({ ...x3, popup: ev.detail.value }))}></meridian-popup-editor>`,
       (a2) => this._patch({ [key]: a2.length ? a2 : void 0 })
     );
   }
   render() {
     if (!this._ready || !this.hass || !this._config) return J;
-    const pillTo = (x2) => {
-      const { popup, when, ...d2 } = x2;
+    const pillTo = (x3) => {
+      const { popup, when, ...d2 } = x3;
       return { ...d2, show_when: when };
     };
     const pillFrom = (d2) => {
-      const { show_when, ...x2 } = d2;
-      return tidy({ ...x2, when: show_when });
+      const { show_when, ...x3 } = d2;
+      return tidy({ ...x3, when: show_when });
     };
-    const readTo = (x2) => {
-      const { popup, ...d2 } = x2;
+    const readTo = (x3) => {
+      const { popup, ...d2 } = x3;
       return recolour(d2, toRgb);
     };
     const readFrom = (d2) => tidy(recolour(d2, toHex));
@@ -6348,7 +7192,7 @@ var MeridianEchoShell = class extends OverlookShow {
     const seg = location.pathname.split("/").filter(Boolean);
     if (seg.length < 2) return null;
     const cfg = lovelaceConfig(), views = cfg && cfg.views || [];
-    const v2 = views.find((x2) => x2.path === seg[1]) || views[Number(seg[1])];
+    const v2 = views.find((x3) => x3.path === seg[1]) || views[Number(seg[1])];
     return v2 ? v2.path || String(views.indexOf(v2)) : null;
   }
   // pages are views: "photos" is the full-screen layer, anything else navigates HA
@@ -6547,7 +7391,7 @@ var EchoPiece = class extends OverlookShow {
       this._picker = false;
       if (s2) {
         s2.hass = this.hass;
-        s2.openPicker(this._speakers().map(({ shown, playing, ...x2 }) => x2));
+        s2.openPicker(this._speakers().map(({ shown, playing, ...x3 }) => x3));
       }
     }
   }
@@ -6643,18 +7487,18 @@ var MeridianLargeSensor = class extends EchoPiece {
     return document.createElement("meridian-large-sensor-editor");
   }
   _body() {
-    const x2 = this._config, e2 = x2.entity && this._st(x2.entity);
-    if (!e2) return this._missing(x2.name || x2.entity || "Pick a sensor");
-    const k2 = Object.keys(AIR).find((n2) => x2.entity.includes(n2)), air = AIR[k2];
-    const label = x2.name || air && air[0] || e2.attributes.friendly_name || x2.entity;
-    const colour = x2.color && x2.color !== "auto" ? SWATCH[x2.color] || x2.color : air ? air[1] : SWATCH.grey;
+    const x3 = this._config, e2 = x3.entity && this._st(x3.entity);
+    if (!e2) return this._missing(x3.name || x3.entity || "Pick a sensor");
+    const k2 = Object.keys(AIR).find((n2) => x3.entity.includes(n2)), air = AIR[k2];
+    const label = x3.name || air && air[0] || e2.attributes.friendly_name || x3.entity;
+    const colour = x3.color && x3.color !== "auto" ? SWATCH[x3.color] || x3.color : air ? air[1] : SWATCH.grey;
     const verdict = air ? air[2] : () => "";
-    const icon = x2.icon || e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || "mdi:gauge";
+    const icon = x3.icon || e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || "mdi:gauge";
     const raw = e2.attributes.unit_of_measurement || "";
-    const unit = x2.unit != null ? x2.unit : /^°[CF]$/.test(raw) ? "\xB0" : raw;
+    const unit = x3.unit != null ? x3.unit : /^°[CF]$/.test(raw) ? "\xB0" : raw;
     const v2 = Number(e2.state), ok = !isNaN(v2) && e2.state !== "";
     return Z`
-      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x2.entity)}>
+      <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x3.entity)}>
         <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
         <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${unit}</small></span>
         <span class="air-name">${label}<span class="air-q">${ok ? verdict(v2) : "No reading"}</span></span>
