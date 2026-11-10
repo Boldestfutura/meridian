@@ -1,7 +1,7 @@
 # Echo Show 5 (2nd gen) as the Master Bedroom screen
 
 Status (2026-11-08): live. Rooted, LineageOS 18.1, at 192.168.1.133 (ADB on :5555).
-It shows **Bedroom Show** (`/ha-show-bedroom/show`, `showbedroom.py`) and is the bedroom's
+It shows **Master Bedroom Echo Show** (`/master-bedroom-echo-show`, Meridian screen cards, edited in HA) and is the bedroom's
 voice satellite and speaker.
 
 ## How it runs

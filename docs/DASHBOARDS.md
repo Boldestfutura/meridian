@@ -23,7 +23,6 @@ More screenshots in the [README](../README.md).
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
 | `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`, the shared config: rooms, scenes, status pills, calendars, recipes. The other dashboards start from `show.CARD` |
 | `showhub.py` | Hub Show (`ha-show-hub`) for the Nest Hub (1024x600, cast): `hub` mode. Photos are home; the dock opens Controls, Media, Climate, Calendar and Recipes. Kept alive by `ha_config/kitchen_cast_keepalive.json` |
-| `showbedroom.py` | Bedroom Show (`ha-show-bedroom`) for the Echo Show 5 (960x480): `bedside` mode. Photos with the clock are home; Controls, Media, Climate, Calendar. Red night clock, voice timers and alarms (`clock`), full-screen now playing (`nowplaying`, `nowplaying_return`). Everything comes from the Bedroom room in `show.CARD` |
 | `showcomputer.py` | Computer Show (`ha-show-computer`): `desk` mode, the whole house on one page grouped by kind, the phone's pop-ups as centred dialogs, beside HA's sidebar (`windowed`) |
 | `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` and `showcomputer.py` read it |
 | `shownative.py` | Phone Show (`ha-show-native`): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
@@ -45,11 +44,11 @@ kitchen tablet.
    Skip this and browsers keep the old JS cached, so the change looks like it didn't work.
 3. Deploy:
    ```sh
-   ./deploy.py show showhub showbedroom showcomputer shownative
+   ./deploy.py show showhub showcomputer shownative
    ```
    This builds the Show card (and `dist/meridian.js` for HACS), copies the card and
    artwork to `/config/www` over SSH, points the resource at the new
-   version and rewrites the dashboards. ha-show, ha-show-hub, ha-show-bedroom and
+   version and rewrites the dashboards. ha-show, ha-show-hub and
    ha-show-computer hold no UI edits, so their config lives in the Python; ha-show-native is
    only rewritten while nobody has edited it in HA.
 4. **Reload the devices that keep the page open.** The Echo needs its View Assist Companion
@@ -59,7 +58,7 @@ kitchen tablet.
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800
    - Hub Show `/ha-show-hub/show` at 1024x600, every dock page
-   - Bedroom Show `/ha-show-bedroom/show` at 960x480, every dock page
+   - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every dock page (Meridian screen cards, edited in HA, not by deploy.py)
    - Computer Show `/ha-show-computer/show` at 1920x950 and 1440x820, sidebar open
    - Phone Show `/ha-show-native/home` at 390 wide
 

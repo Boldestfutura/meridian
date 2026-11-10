@@ -19,7 +19,7 @@ build the dashboard in HA's own editor. Nothing below is needed for that.
 |---|---|---|
 | `show.py` | Yes: `CARD` holds every entity, room, scene, pill, calendar | Yes, heavily |
 | `showphone.py` | Yes: the phone's rooms, scenes, pop-ups and links | Yes |
-| `showhub.py` `showbedroom.py` `showcomputer.py` `shownative.py` | Yes, lightly: which room, which page | Yes |
+| `showhub.py` `showcomputer.py` `shownative.py` | Yes, lightly: which room, which page | Yes |
 | `www/overlook-show.js` | Mostly no: layouts and behaviour | Only for a new *kind* of thing |
 | `deploy.py` `ha_ws.py` | No | `HOST` and the SSH key path |
 

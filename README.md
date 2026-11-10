@@ -16,7 +16,7 @@ Python files say which entities go where on each screen.
 |---|---|---|
 | **Kitchen Show** `ha-show` | 8" kitchen tablet, 1280x800 | dock on the left, date, favourites, calendar and shopping list; idles to photos |
 | **Hub Show** `ha-show-hub` | Nest Hub, 1024x600, cast | photos are home; Controls, Media, Climate, Calendar and Recipes behind the dock |
-| **Bedroom Show** `ha-show-bedroom` | Echo Show 5, 960x480 | photos and a big clock, bedroom controls, red night clock, voice timers and alarms |
+| **Master Bedroom Echo Show** `master-bedroom-echo-show` | Echo Show 5, 788x394 | built from the Meridian screen cards in HA's editor: photos and a clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1440x820 to 1920x950, beside HA's sidebar | the whole house on one page |
 | **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |
 
@@ -49,7 +49,7 @@ Norish, synced into HA every 30 minutes.
   <img src="docs/images/hub-climate.png" width="49%" alt="Hub Show, Climate">
 </p>
 
-## Bedroom Show
+## Master Bedroom Echo Show
 ![Bedroom Show, photos](docs/images/bedroom-photos.png)
 <p>
   <img src="docs/images/bedroom-controls.png" width="49%" alt="Bedroom Show, Controls">
@@ -153,7 +153,7 @@ HA's static files already allow `cast.home-assistant.io`, so nothing else is nee
 
 ```sh
 ./deploy.py --list                       # what is on the box
-./deploy.py show showhub showbedroom     # ship the card, save those dashboards
+./deploy.py show showhub showcomputer    # ship the card, save those dashboards
 ./deploy.py --dry-run showcomputer       # build and diff, write nothing
 ```
 
@@ -173,7 +173,6 @@ www/weather/           weather icons (drawn by tools/weather_icons.py)
 www/fonts/ember.css    @font-face rules for Amazon Ember (the font files are not in the repo)
 show.py                Kitchen Show and the shared CARD config, VERSION
 showhub.py             Hub Show
-showbedroom.py         Bedroom Show
 showcomputer.py        Computer Show
 showphone.py           the phone's rooms, scenes and pop-ups (data only)
 shownative.py          Phone Show, as native HA sections

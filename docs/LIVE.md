@@ -70,7 +70,7 @@ deploy them.
 - **Never use a card that loads images by relative URL here.** The cast receiver runs at
   cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
 
-**Bedroom Show** `ha-show-bedroom` (`showbedroom.py`, Echo Show 5 2nd gen, 960x480)
+**Master Bedroom Echo Show** `master-bedroom-echo-show` (Echo Show 5 2nd gen, 788x394): Meridian screen cards (`meridian-dock`, large button, large sensor, calendar, media, playlists), edited in HA. Replaced Bedroom Show (`ha-show-bedroom`) on 2026-11-10; the `bedside` options below now live on its `meridian-dock`
 - Runs in the View Assist Companion app (VACA), which is also the voice satellite. Device
   setup: `docs/tasks/echo-show-bedroom.md`. A card change reaches it only after VACA restarts.
 - **Night mode (2026-11-05):** `automation.master_bedroom_sleep_sounds_overnight` (repo copy
