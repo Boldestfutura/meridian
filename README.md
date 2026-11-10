@@ -94,6 +94,7 @@ can use them, and a dashboard built from them is a Show screen without `deploy.p
 | `meridian-calendar` | views: date, date with weather, what's on, or the full month |
 | `meridian-media` | what's playing, the speaker picker and volume, over the speakers you list |
 | `meridian-playlists` | playlist tiles that play on the media card's speaker |
+| `meridian-shopping-list` | a to-do list's open items: tap one to tick it off, + to add; six rows high by default |
 | `meridian-dock` | the Show's dock: one button per dashboard view, plus photos, night clock, voice timers and alarms, and full-screen now playing |
 
 Put one `meridian-dock` on each view (a bare one copies the first configured one). The weather

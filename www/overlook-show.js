@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.28.2";
+const VERSION = "0.28.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5708,6 +5708,27 @@ class MeridianPlaylists extends EchoPiece {
 }
 defineEcho("playlists", MeridianPlaylists);
 
+// Shopping list: a to-do list's open items; tap one to tick it off, + to add
+class MeridianShoppingList extends EchoPiece {
+  static getStubConfig(hass) {
+    const t = hass && Object.keys(hass.states).find((id) => id.startsWith("todo."));
+    return { todo: t || "todo.shopping_list" };
+  }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "todo", selector: { entity: { domain: "todo" } } }],
+      computeLabel: () => "To-do list",
+      computeHelper: () => "Tap an item to tick it off. + adds one.",
+    };
+  }
+  getGridOptions() { return { columns: 12, rows: 6, min_rows: 3 }; }
+  _body() {
+    if (!this._config.todo || !this._st(this._config.todo)) return this._missing("Pick a to-do list");
+    return html`<div class="echo-one">${this._shopping()}</div>`;
+  }
+}
+defineEcho("shopping-list", MeridianShoppingList);
+
 if (BUILD !== "show") {
   window.customCards = window.customCards || [];
   window.customCards.push(
@@ -5718,6 +5739,7 @@ if (BUILD !== "show") {
     { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
     { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
     { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" },
+    { type: "meridian-shopping-list", name: "Meridian shopping list", description: "A to-do list's open items: tap to tick off, + to add", preview: true },
   );
 }
 

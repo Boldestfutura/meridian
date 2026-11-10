@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.28.2";
+var VERSION = "0.28.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7035,6 +7035,27 @@ var MeridianPlaylists = class extends EchoPiece {
   }
 };
 defineEcho("playlists", MeridianPlaylists);
+var MeridianShoppingList = class extends EchoPiece {
+  static getStubConfig(hass) {
+    const t3 = hass && Object.keys(hass.states).find((id) => id.startsWith("todo."));
+    return { todo: t3 || "todo.shopping_list" };
+  }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "todo", selector: { entity: { domain: "todo" } } }],
+      computeLabel: () => "To-do list",
+      computeHelper: () => "Tap an item to tick it off. + adds one."
+    };
+  }
+  getGridOptions() {
+    return { columns: 12, rows: 6, min_rows: 3 };
+  }
+  _body() {
+    if (!this._config.todo || !this._st(this._config.todo)) return this._missing("Pick a to-do list");
+    return Z`<div class="echo-one">${this._shopping()}</div>`;
+  }
+};
+defineEcho("shopping-list", MeridianShoppingList);
 if (BUILD !== "show") {
   window.customCards = window.customCards || [];
   window.customCards.push(
@@ -7044,7 +7065,8 @@ if (BUILD !== "show") {
     { type: "meridian-large-tile", name: "Meridian large tile", description: "Weather, heat pump, speaker, a light's tall slider or a room's lights, at large size", preview: true },
     { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
     { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
-    { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" }
+    { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" },
+    { type: "meridian-shopping-list", name: "Meridian shopping list", description: "A to-do list's open items: tap to tick off, + to add", preview: true }
   );
 }
 window.customCards = window.customCards || [];
