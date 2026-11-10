@@ -13,6 +13,13 @@
 // (tools/ha/plex_art.py: Plex's background and logo for what the Apple TV is playing).
 import { html, css, nothing } from "./lit-all.min.js";
 
+// The playback bar: what has played is a sine wave that drifts while the track plays and
+// lies flat when paused; what is left is a plain line. CSS for .wv is in overlook-show.js.
+export function wave(frac, playing, cls = "") {
+  const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
+  return html`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><b></b></div>`;
+}
+
 export const TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -464,7 +471,7 @@ function controls(c, p) {
   const t = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   return html`
     <div class="card ctl2">
-      ${dur ? html`<div class="ctl2-prog"><span>${t(pos)}</span><div class="ctl2-track"><div style="width:${(pos / dur) * 100}%"></div></div><span>${t(dur)}</span></div>` : nothing}
+      ${dur ? html`<div class="ctl2-prog"><span>${t(pos)}</span>${wave(pos / dur, e.state === "playing", "ctl2-track")}<span>${t(dur)}</span></div>` : nothing}
       <div class="ctl2-row">
         <button class="sp-pill" @click=${() => redraw(c, { _tPick: true })}><ha-icon icon=${p.icon}></ha-icon><span>${p.name}</span><ha-icon icon="mdi:chevron-down"></ha-icon></button>
         <div class="pp-ctrl ctl2-mid">
@@ -811,7 +818,7 @@ export const TABLET_CSS = css`
   .tablet .mus-row .hero-text { min-width:0; }
   .tablet .ctl2 { padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
   .tablet .ctl2-prog { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
-  .tablet .ctl2-track { flex:1; height:6px; border-radius:3px; background:var(--track); overflow:hidden; } .tablet .ctl2-track > div { height:100%; background:var(--accent); }
+  .tablet .ctl2-track { flex:1; }
   .tablet .ctl2-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; }
   .tablet .sp-pill { justify-self:start; border:0; font:inherit; font-weight:700; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent);
     height:52px; padding:0 14px; border-radius:999px; display:flex; align-items:center; gap:6px; max-width:100%; white-space:nowrap; }

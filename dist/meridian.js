@@ -1048,6 +1048,10 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/tablet.js
+function wave(frac, playing, cls = "") {
+  const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
+  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><b></b></div>`;
+}
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -1488,7 +1492,7 @@ function controls(c2, p2) {
   const t3 = (s2) => `${Math.floor(s2 / 60)}:${String(Math.floor(s2 % 60)).padStart(2, "0")}`;
   return Z`
     <div class="card ctl2">
-      ${dur ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span><div class="ctl2-track"><div style="width:${pos / dur * 100}%"></div></div><span>${t3(dur)}</span></div>` : J}
+      ${dur ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span>${wave(pos / dur, e2.state === "playing", "ctl2-track")}<span>${t3(dur)}</span></div>` : J}
       <div class="ctl2-row">
         <button class="sp-pill" @click=${() => redraw(c2, { _tPick: true })}><ha-icon icon=${p2.icon}></ha-icon><span>${p2.name}</span><ha-icon icon="mdi:chevron-down"></ha-icon></button>
         <div class="pp-ctrl ctl2-mid">
@@ -1864,7 +1868,7 @@ var TABLET_CSS = o`
   .tablet .mus-row .hero-text { min-width:0; }
   .tablet .ctl2 { padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
   .tablet .ctl2-prog { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
-  .tablet .ctl2-track { flex:1; height:6px; border-radius:3px; background:var(--track); overflow:hidden; } .tablet .ctl2-track > div { height:100%; background:var(--accent); }
+  .tablet .ctl2-track { flex:1; }
   .tablet .ctl2-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; }
   .tablet .sp-pill { justify-self:start; border:0; font:inherit; font-weight:700; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent);
     height:52px; padding:0 14px; border-radius:999px; display:flex; align-items:center; gap:6px; max-width:100%; white-space:nowrap; }
@@ -1961,7 +1965,7 @@ var TABLET_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.30.0";
+var VERSION = "0.30.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -2802,7 +2806,7 @@ var OverlookShow = class extends dt {
           <div class="np-title mq"><span>${a2.media_title}</span></div>
           <div class="np-artist mq"><span>${a2.media_artist || ""}</span></div>
           ${dur ? Z`
-            <div class="np-track"><div style="width:${pos / dur * 100}%"></div></div>
+            ${wave(pos / dur, playing, "np-track")}
             <div class="np-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>` : J}
           <div class="np-ctl">
             ${b2("mdi:skip-previous", call("media_previous_track"))}
@@ -3331,7 +3335,7 @@ var OverlookShow = class extends dt {
         </div>
         ${dur ? Z`
           <div class="pp-prog">
-            <div class="pp-track"><div style="width:${pos / dur * 100}%"></div></div>
+            ${wave(pos / dur, playing, "pp-track")}
             <div class="pp-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>
           </div>` : J}
         ${vol != null ? Z`
@@ -5209,8 +5213,7 @@ var OverlookShow = class extends dt {
     .np-src ha-icon { --mdc-icon-size: 6vh; flex: none; }
     .np-title { margin-top: auto; font-family: var(--display); font-weight: 700; font-size: 11vh; line-height: 1.2; }
     .np-artist { margin-top: 1.5vh; font-family: var(--body); font-weight: 600; font-size: 7.5vh; color: #b4bdd0; }
-    .np-track { margin-top: 3.5vh; height: 1.6vh; min-height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; flex: none; }
-    .np-track div { height: 100%; border-radius: 999px; background: var(--np-hot); transition: width 1s linear, background 0.6s; }
+    .wv.np-track { margin-top: 3.5vh; flex: none; --wv-h: 3.2vh; --wv-line: max(6px, 1.6vh); --wv-c: var(--np-hot); --wv-t: rgba(255, 255, 255, 0.14); }
     .np-times { display: flex; justify-content: space-between; margin-top: 1.4vh; font-family: var(--body); font-weight: 600;
                 font-size: 5.5vh; color: #8e99b0; font-variant-numeric: tabular-nums; }
     /* the timer's squircle buttons: three across, play/pause in the warm accent */
@@ -5505,8 +5508,17 @@ var OverlookShow = class extends dt {
     .pp-vol .round.small { width: 100%; height: 52px; border-radius: 16px; background: var(--card); }
     .pp-vol .round.small ha-icon { --mdc-icon-size: 24px; }
     .pp-prog { display: flex; flex-direction: column; gap: 6px; }
-    .pp-track { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
-    .pp-track div { height: 100%; border-radius: 999px; background: var(--accent); transition: width 1s linear; }
+    /* the wavy playback bar (wave() in tablet.js) */
+    .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); display: flex; align-items: center; gap: 5px; height: var(--wv-h); }
+    .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
+            transition: width 1s linear, height 0.3s; }
+    .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
+    .wv.on i { height: 100%; border-radius: 0;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
+              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
+      animation: wv-drift 2s linear infinite; }
+    @keyframes wv-drift { to { -webkit-mask-position: var(--wv-len) 50%; mask-position: var(--wv-len) 50%; } }
+    @media (prefers-reduced-motion: reduce) { .wv.on i { animation: none; } }
     .pp-times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
                 font-variant-numeric: tabular-nums; color: var(--muted); }
     .round.small.power-on { color: var(--accent); }
@@ -7167,7 +7179,7 @@ var MeridianLargeTile = class extends EchoPiece {
           </div>
           ${vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J}
         </div>
-        <div class="mini-track">${dur ? Z`<div style="width:${pos / dur * 100}%"></div>` : J}</div>
+        ${dur ? wave(pos / dur, playing, "mini-track") : Z`<div class="mini-track"></div>`}
         <div class="mini-row">
           <div class="pp-ctrl">
             <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
@@ -7197,9 +7209,8 @@ var MeridianLargeTile = class extends EchoPiece {
     .echo-cell.screen .lg-mini .media-title { font-size: 15px; }
     .echo-cell.screen .lg-mini .media-artist { font-size: 12px; }
     .echo-cell.screen .lg-mini .where-vol { height: 30px; min-width: 0; padding: 0 10px; font-size: 14px; }
-    .echo-cell.screen .lg-mini .mini-track { height: 3px; border-radius: 999px; background: var(--track); overflow: hidden; }
-    .echo-cell.screen .lg-mini .mini-track:empty { visibility: hidden; }
-    .echo-cell.screen .lg-mini .mini-track div { height: 100%; border-radius: 999px; background: var(--accent); transition: width 1s linear; }
+    .echo-cell.screen .lg-mini .mini-track { --wv-h: 9px; --wv-line: 3px; }
+    .echo-cell.screen .lg-mini .mini-track:empty { visibility: hidden; height: 9px; }
     .echo-cell.screen .lg-mini .mini-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .echo-cell.screen .lg-mini .pp-ctrl { gap: 8px; }
     .echo-cell.screen .lg-mini .pp-ctrl .round.play { width: 40px; height: 40px; }
@@ -7250,7 +7261,7 @@ var MeridianLargeTile = class extends EchoPiece {
     .echo-cell.screen .lg-player .pp-ctrl .round.play ha-icon { --mdc-icon-size: 26px; }
     .echo-cell.screen .lg-player .pp-ctrl .round.small { width: 42px; height: 42px; }
     .echo-cell.screen .lg-player .pp-prog { gap: 3px; }
-    .echo-cell.screen .lg-player .pp-track { height: 6px; }
+    .echo-cell.screen .lg-player .pp-track { --wv-h: 12px; --wv-line: 4px; }
     .echo-cell.screen .lg-player .pp-times { font-size: 11px; }
     .echo-cell.screen .lg-player .pp-vol { grid-template-columns: 1fr 1fr 52px; gap: 8px; }
     .echo-cell.screen .lg-player .pp-vol .round.small { height: 42px; border-radius: 14px; }
