@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.28.3";
+var VERSION = "0.28.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5315,6 +5315,10 @@ var OverlookPiece = class extends OverlookShow {
   }
   updated(changed) {
     this._markCut();
+    const sh = ECHO_SHELL, sch = sh && sh.isConnected && sh.getAttribute("scheme");
+    if (sch) {
+      if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch);
+    } else if (this.hasAttribute("scheme")) this.removeAttribute("scheme");
     if (!changed.has("hass") || !this.hass) return;
     if (this._drag) this._settle();
     overlay(this.hass);
@@ -6242,9 +6246,9 @@ function allCards(cfg) {
 }
 var ownKeys = (c2) => Object.keys(c2 || {}).filter((k2) => !["type", "grid_options", "visibility", "layout_options"].includes(k2));
 var SWATCH = { amber: "#e0a63c", blue: "#5a7ea8", green: "#3f8f63", teal: "#3f8f8a", red: "#c8553d", purple: "#7c6bb0", grey: "#7a8394" };
-var ECHO_VIEW = (bg) => `
+var ECHO_VIEW = (bg, n2 = 6) => `
   :host {
-    --ha-section-grid-row-height: calc((100vh - 98px) / 6);
+    --ha-section-grid-row-height: calc((100vh - ${28 + (n2 - 1) * 14}px) / ${n2});
     --ha-section-grid-row-gap: 14px;
     --ha-section-grid-column-gap: 14px;
     --ha-view-sections-row-gap: 14px;
@@ -6306,8 +6310,30 @@ var MeridianEchoShell = class extends OverlookShow {
     if (edit !== this._editing) this._editing = edit;
     const dark = this.getAttribute("scheme") ? this.getAttribute("scheme") === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
     const bg = ECHO_BG[dark ? "dark" : "light"];
-    styleHuiRoot(r2, edit ? "" : ECHO_VIEW(bg));
+    if (!edit) this._rows = Math.max(6, this._rowsUsed(r2, this._rows || 6));
+    styleHuiRoot(r2, edit ? "" : ECHO_VIEW(bg, this._rows));
     stylePage(edit ? "" : `html, body { background: ${dark ? "#121827" : "#e4ecf9"} !important; overflow: hidden !important; }`);
+  }
+  // rows in the view's tallest column, measured at the current row height (n rows per screen),
+  // so a bigger screen with more rows per column still fits without scrolling
+  _rowsUsed(r2, n2) {
+    const secs = [];
+    const walk = (root, depth) => {
+      if (!root || depth > 8) return;
+      for (const el of root.querySelectorAll("*")) {
+        if (el.tagName === "HUI-GRID-SECTION") secs.push(el);
+        else if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
+      }
+    };
+    walk(r2 && r2.shadowRoot, 0);
+    const row = (window.innerHeight - 28 - (n2 - 1) * 14) / n2;
+    let most = 0;
+    for (const sec of secs) {
+      const c2 = sec.shadowRoot && sec.shadowRoot.querySelector(".container") || sec;
+      const h2 = c2.getBoundingClientRect().height;
+      if (h2 > 0) most = Math.max(most, Math.round((h2 + 14) / (row + 14)));
+    }
+    return most || n2;
   }
   // [path, title, icon] of the views the dock shows, in the dashboard's order
   _views() {
@@ -6558,6 +6584,8 @@ var EchoPiece = class extends OverlookShow {
     .echo-cell > * { height: 100%; width: 100%; }
     .echo-cell .air-tile { text-align: left; }
     .echo-one { display: grid; }
+    .echo-recipes { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .echo-recipes > * { flex: 1; min-height: 0; }
     .echo-one > * { min-height: 0; }
   `];
 };
@@ -7056,6 +7084,28 @@ var MeridianShoppingList = class extends EchoPiece {
   }
 };
 defineEcho("shopping-list", MeridianShoppingList);
+var MeridianRecipes = class extends EchoPiece {
+  static getStubConfig() {
+    return { recipes: "/local/norish" };
+  }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "recipes", selector: { text: {} } }],
+      computeLabel: () => "Recipe library folder",
+      computeHelper: () => "Where tools/norish_sync.py writes the library. Best on a view of its own."
+    };
+  }
+  _defaults() {
+    return { recipes: "/local/norish" };
+  }
+  getGridOptions() {
+    return { columns: 12, rows: 10, min_rows: 6 };
+  }
+  _body() {
+    return Z`<div class="echo-recipes">${this._recipes()}</div>`;
+  }
+};
+defineEcho("recipes", MeridianRecipes);
 if (BUILD !== "show") {
   window.customCards = window.customCards || [];
   window.customCards.push(
@@ -7066,6 +7116,7 @@ if (BUILD !== "show") {
     { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
     { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
     { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" },
+    { type: "meridian-recipes", name: "Meridian recipes", description: "Your Norish recipes: favourites, recently added and cookbooks", preview: false },
     { type: "meridian-shopping-list", name: "Meridian shopping list", description: "A to-do list's open items: tap to tick off, + to add", preview: true }
   );
 }

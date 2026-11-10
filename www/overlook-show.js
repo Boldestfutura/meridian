@@ -12,7 +12,7 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
-const VERSION = "0.28.3";
+const VERSION = "0.28.4";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -4085,6 +4085,10 @@ class OverlookPiece extends OverlookShow {
 
   updated(changed) {
     this._markCut();
+    // on a dock dashboard, follow the dock's light/dark (its `scheme` option) like the screen cards
+    const sh = ECHO_SHELL, sch = sh && sh.isConnected && sh.getAttribute("scheme");
+    if (sch) { if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch); }
+    else if (this.hasAttribute("scheme")) this.removeAttribute("scheme");
     if (!changed.has("hass") || !this.hass) return;
     if (this._drag) this._settle();
     overlay(this.hass);
@@ -4960,9 +4964,10 @@ const SWATCH = { amber: "#e0a63c", blue: "#5a7ea8", green: "#3f8f63", teal: "#3f
 // the HA view on the Echo: no header, the dock's column kept clear, and a grid whose rows
 // put two squares (3 rows each) or one tall card (6 rows) exactly in the screen's height:
 // 14px above, between and below, as the Show lays out its pages
-const ECHO_VIEW = (bg) => `
+// n rows fill the screen: 14px padding top and bottom, 14px between rows
+const ECHO_VIEW = (bg, n = 6) => `
   :host {
-    --ha-section-grid-row-height: calc((100vh - 98px) / 6);
+    --ha-section-grid-row-height: calc((100vh - ${28 + (n - 1) * 14}px) / ${n});
     --ha-section-grid-row-gap: 14px;
     --ha-section-grid-column-gap: 14px;
     --ha-view-sections-row-gap: 14px;
@@ -5023,9 +5028,32 @@ class MeridianEchoShell extends OverlookShow {
     const dark = this.getAttribute("scheme") ? this.getAttribute("scheme") === "dark"
       : window.matchMedia("(prefers-color-scheme: dark)").matches;
     const bg = ECHO_BG[dark ? "dark" : "light"];
-    styleHuiRoot(r, edit ? "" : ECHO_VIEW(bg));
+    if (!edit) this._rows = Math.max(6, this._rowsUsed(r, this._rows || 6));
+    styleHuiRoot(r, edit ? "" : ECHO_VIEW(bg, this._rows));
     // the Echo never scrolls: the dock's empty cell sits one gap below the screen
     stylePage(edit ? "" : `html, body { background: ${dark ? "#121827" : "#e4ecf9"} !important; overflow: hidden !important; }`);
+  }
+
+  // rows in the view's tallest column, measured at the current row height (n rows per screen),
+  // so a bigger screen with more rows per column still fits without scrolling
+  _rowsUsed(r, n) {
+    const secs = [];
+    const walk = (root, depth) => {
+      if (!root || depth > 8) return;
+      for (const el of root.querySelectorAll("*")) {
+        if (el.tagName === "HUI-GRID-SECTION") secs.push(el);
+        else if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
+      }
+    };
+    walk(r && r.shadowRoot, 0);
+    const row = (window.innerHeight - 28 - (n - 1) * 14) / n;
+    let most = 0;
+    for (const sec of secs) {
+      const c = (sec.shadowRoot && sec.shadowRoot.querySelector(".container")) || sec;
+      const h = c.getBoundingClientRect().height;
+      if (h > 0) most = Math.max(most, Math.round((h + 14) / (row + 14)));
+    }
+    return most || n;
   }
 
   // [path, title, icon] of the views the dock shows, in the dashboard's order
@@ -5263,6 +5291,8 @@ class EchoPiece extends OverlookShow {
     .echo-cell > * { height: 100%; width: 100%; }
     .echo-cell .air-tile { text-align: left; }
     .echo-one { display: grid; }
+    .echo-recipes { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .echo-recipes > * { flex: 1; min-height: 0; }
     .echo-one > * { min-height: 0; }
   `];
 }
@@ -5729,6 +5759,23 @@ class MeridianShoppingList extends EchoPiece {
 }
 defineEcho("shopping-list", MeridianShoppingList);
 
+// Recipes: the Show's recipe library (Norish, synced to /local/norish by tools/norish_sync.py).
+// Give it a whole view: favourites, recently added and cookbooks; a tap opens the recipe.
+class MeridianRecipes extends EchoPiece {
+  static getStubConfig() { return { recipes: "/local/norish" }; }
+  static getConfigForm() {
+    return {
+      schema: [{ name: "recipes", selector: { text: {} } }],
+      computeLabel: () => "Recipe library folder",
+      computeHelper: () => "Where tools/norish_sync.py writes the library. Best on a view of its own.",
+    };
+  }
+  _defaults() { return { recipes: "/local/norish" }; }
+  getGridOptions() { return { columns: 12, rows: 10, min_rows: 6 }; }
+  _body() { return html`<div class="echo-recipes">${this._recipes()}</div>`; }
+}
+defineEcho("recipes", MeridianRecipes);
+
 if (BUILD !== "show") {
   window.customCards = window.customCards || [];
   window.customCards.push(
@@ -5739,6 +5786,7 @@ if (BUILD !== "show") {
     { type: "meridian-calendar", name: "Meridian calendar", description: "Date, date with weather, what's on, or the full month", preview: true },
     { type: "meridian-media", name: "Meridian media", description: "What's playing, the speaker it's on, and volume" },
     { type: "meridian-playlists", name: "Meridian playlists", description: "Your playlists, played on the media card's speaker" },
+    { type: "meridian-recipes", name: "Meridian recipes", description: "Your Norish recipes: favourites, recently added and cookbooks", preview: false },
     { type: "meridian-shopping-list", name: "Meridian shopping list", description: "A to-do list's open items: tap to tick off, + to add", preview: true },
   );
 }
