@@ -1048,7 +1048,7 @@ var ks = As(q);
 window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project.");
 
 // www/overlook-show.js
-var VERSION = "0.28.0";
+var VERSION = "0.28.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6723,11 +6723,13 @@ var MeridianLargeTile = class extends EchoPiece {
     if (dom === "light" && e2 && Array.isArray(e2.attributes.entity_id) && e2.attributes.entity_id.length > 1) return "room";
     return "light";
   }
+  // on the tile grid: weather one 2x tile high, a room three (its sliders need it), the rest two
   getCardSize() {
-    return this._kindOf() === "weather" ? 3 : 6;
+    return { weather: 2, room: 6 }[this._kindOf()] || 4;
   }
   getGridOptions() {
-    return this._kindOf() === "weather" ? { columns: 12, rows: 3, min_columns: 6, min_rows: 2 } : { columns: 12, rows: 6, min_columns: 6, min_rows: 4 };
+    const rows = this.getCardSize();
+    return { columns: 12, rows, min_columns: 6, min_rows: Math.min(rows, 4) };
   }
   // a speaker's playback bar ticks once a second while it plays
   connectedCallback() {
@@ -6798,60 +6800,68 @@ var MeridianLargeTile = class extends EchoPiece {
     }
   }
   static styles = [EchoPiece.styles, o`
+    /* sized on the tile grid: weather is one 2x tile high (2 rows), the rest two (4 rows);
+       the pieces spread out when a cell is taller (the Echo's rows are) */
     /* weather: the Hub Show's Outside card */
-    .echo-cell.screen .lg-wx { height: 100%; padding: 18px 22px; }
-    .echo-cell.screen .lg-wx .hub-out-row > :first-child { width: 60px; height: 60px; flex: none; }
-    .echo-cell.screen .lg-wx .hub-out-temp { font-size: 62px; letter-spacing: -0.03em; }
+    .echo-cell.screen .lg-wx { height: 100%; padding: 14px 18px; gap: 6px; }
+    .echo-cell.screen .lg-wx .card-title { font-size: 15px; margin: 0; }
+    .echo-cell.screen .lg-wx .hub-out-row { gap: 12px; }
+    .echo-cell.screen .lg-wx .hub-out-row > :first-child { width: 44px; height: 44px; flex: none; --mdc-icon-size: 40px; }
+    .echo-cell.screen .lg-wx .hub-out-temp { font-size: 44px; letter-spacing: -0.03em; }
     .echo-cell.screen .lg-wx .wx-side { margin-left: auto; text-align: right; }
-    .echo-cell.screen .lg-wx .wx-cond { font-weight: 700; font-size: 18px; }
-    .echo-cell.screen .lg-wx .wx-hl { color: var(--muted); margin-top: 6px; }
+    .echo-cell.screen .lg-wx .wx-cond { font-weight: 700; font-size: 15px; }
+    .echo-cell.screen .lg-wx .wx-hl { color: var(--muted); margin-top: 4px; font-size: 12px; }
 
     /* heat pump: the phone's, made tall; the steps and modes on the off-white */
-    .echo-cell.screen .lg-hp { height: 100%; display: flex; flex-direction: column; padding: 22px; border-radius: 22px; }
+    .echo-cell.screen .lg-hp { height: 100%; display: flex; flex-direction: column; padding: 16px 18px; border-radius: 22px; }
     .echo-cell.screen .lg-hp .thermo { flex: 1; display: flex; flex-direction: column; gap: 0; background: none; padding: 0; }
     .echo-cell.screen .lg-hp .pill-head { display: block; }
-    .echo-cell.screen .lg-hp .pill-name { font-size: 16px; }
-    .echo-cell.screen .lg-hp .hp-now { margin-top: 14px; }
-    .echo-cell.screen .lg-hp .hp-temp { font-size: 80px; }
-    .echo-cell.screen .lg-hp .hp-mode { font-size: 22px; }
-    .echo-cell.screen .lg-hp .hp-target { margin: auto 0 18px; display: grid; grid-template-columns: auto 1fr auto; }
-    .echo-cell.screen .lg-hp .hp-step { width: 70px; height: 70px; border-radius: 22px; }
-    .echo-cell.screen .lg-hp .hp-set { font-size: 36px; }
-    .echo-cell.screen .lg-hp .modes { height: 68px; gap: 10px; margin: 0; }
-    .echo-cell.screen .lg-hp .mode { border-radius: 18px; font-size: 16px; }
-    .echo-cell.screen .lg-hp .mode ha-icon { --mdc-icon-size: 24px; }
+    .echo-cell.screen .lg-hp .pill-name { font-size: 14px; }
+    .echo-cell.screen .lg-hp .hp-now { margin-top: 4px; }
+    .echo-cell.screen .lg-hp .hp-temp { font-size: 48px; }
+    .echo-cell.screen .lg-hp .hp-mode { font-size: 16px; }
+    .echo-cell.screen .lg-hp .hp-target { margin: auto 0 10px; display: grid; grid-template-columns: auto 1fr auto; }
+    .echo-cell.screen .lg-hp .hp-step { width: 46px; height: 46px; border-radius: 15px; }
+    .echo-cell.screen .lg-hp .hp-step ha-icon { --mdc-icon-size: 22px; }
+    .echo-cell.screen .lg-hp .hp-set { font-size: 26px; }
+    .echo-cell.screen .lg-hp .modes { height: 44px; gap: 8px; margin: 0; }
+    .echo-cell.screen .lg-hp .mode { border-radius: 14px; font-size: 14px; }
+    .echo-cell.screen .lg-hp .mode ha-icon { --mdc-icon-size: 20px; }
 
     /* speaker: the phone's speaker pop-up is the card */
-    .echo-cell.screen .lg-player > .pplayer { box-sizing: border-box; height: 100%; justify-content: space-between; gap: 10px; padding: 22px;
+    .echo-cell.screen .lg-player > .pplayer { box-sizing: border-box; height: 100%; justify-content: space-between; gap: 6px; padding: 14px 16px;
                             border-radius: 22px; background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
     .echo-cell.screen .lg-player .pplayer.muted-vol { background: color-mix(in srgb, #e5484d 8%, var(--card)); }
     .echo-cell.screen .lg-player .round.small { background: var(--inset); }
-    .echo-cell.screen .lg-player .pp-top { grid-template-columns: 88px minmax(0, 1fr) auto; gap: 16px; }
-    .echo-cell.screen .lg-player .pp-top .art { width: 88px; height: 88px; border-radius: 22px; background-color: var(--inset); }
-    .echo-cell.screen .lg-player .pp-top .media-title { font-size: 21px; }
-    .echo-cell.screen .lg-player .pp-top .media-artist { font-size: 15px; }
-    .echo-cell.screen .lg-player .pp-ctrl { gap: 32px; }
-    .echo-cell.screen .lg-player .pp-ctrl .round.play { width: 64px; height: 64px; }
-    .echo-cell.screen .lg-player .pp-ctrl .round.play ha-icon { --mdc-icon-size: 32px; }
-    .echo-cell.screen .lg-player .pp-ctrl .round.small { width: 58px; height: 58px; }
-    .echo-cell.screen .lg-player .pp-track { height: 8px; }
-    .echo-cell.screen .lg-player .pp-times { font-size: 14px; }
-    .echo-cell.screen .lg-player .pp-vol { grid-template-columns: 1fr 1fr 66px; }
-    .echo-cell.screen .lg-player .pp-vol .round.small { height: 66px; border-radius: 22px; }
-    .echo-cell.screen .lg-player .where-vol { height: 50px; min-width: 0; padding: 0 16px; font-size: 18px; }
+    .echo-cell.screen .lg-player .pp-top { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; }
+    .echo-cell.screen .lg-player .pp-top .art { width: 52px; height: 52px; border-radius: 14px; background-color: var(--inset); }
+    .echo-cell.screen .lg-player .pp-top .media-src { font-size: 10px; }
+    .echo-cell.screen .lg-player .pp-top .media-title { font-size: 16px; }
+    .echo-cell.screen .lg-player .pp-top .media-artist { font-size: 13px; }
+    .echo-cell.screen .lg-player .pp-ctrl { gap: 22px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.play { width: 50px; height: 50px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.play ha-icon { --mdc-icon-size: 26px; }
+    .echo-cell.screen .lg-player .pp-ctrl .round.small { width: 42px; height: 42px; }
+    .echo-cell.screen .lg-player .pp-prog { gap: 3px; }
+    .echo-cell.screen .lg-player .pp-track { height: 6px; }
+    .echo-cell.screen .lg-player .pp-times { font-size: 11px; }
+    .echo-cell.screen .lg-player .pp-vol { grid-template-columns: 1fr 1fr 52px; gap: 8px; }
+    .echo-cell.screen .lg-player .pp-vol .round.small { height: 42px; border-radius: 14px; }
+    .echo-cell.screen .lg-player .pp-vol .round.small ha-icon { --mdc-icon-size: 22px; }
+    .echo-cell.screen .lg-player .where-vol { height: 34px; min-width: 0; padding: 0 12px; font-size: 15px; }
 
     /* one light: nothing but the tall slider */
     .echo-cell.screen .lg-light > .pill-wrap { box-sizing: border-box; height: 100%; background: var(--card); border-radius: 22px;
-                             padding: 20px 22px 22px; border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
-    .echo-cell.screen .lg-light .pill-name { font-size: 20px; }
-    .echo-cell.screen .lg-light .pill-state { font-size: 16px; height: 22px; line-height: 22px; }
-    .echo-cell.screen .lg-light .split { --w: 124px; margin: 16px auto 0; }
-    .echo-cell.screen .lg-light .seg-ico { width: 72px; height: 72px; }
-    .echo-cell.screen .lg-light .seg-bot ha-icon { --mdc-icon-size: 38px; }
+                             padding: 14px 16px 16px; border: 1px solid var(--card-edge); box-shadow: var(--shadow, none); }
+    .echo-cell.screen .lg-light .pill-name { font-size: 16px; }
+    .echo-cell.screen .lg-light .pill-state { font-size: 14px; }
+    .echo-cell.screen .lg-light .split { --w: 92px; margin: 10px auto 0; }
+    .echo-cell.screen .lg-light .seg-ico { width: 56px; height: 56px; }
+    .echo-cell.screen .lg-light .seg-bot ha-icon { --mdc-icon-size: 30px; }
 
     /* a room: the desk's room card, a slider per bulb on the off-white */
-    .echo-cell.screen .lg-room > .desk-card { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding: 20px; border-radius: 22px; }
-    .echo-cell.screen .lg-room .card-title { display: flex; align-items: center; gap: 10px; font-size: 19px; margin-bottom: 16px; }
+    .echo-cell.screen .lg-room > .desk-card { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding: 14px 16px; border-radius: 22px; }
+    .echo-cell.screen .lg-room .card-title { display: flex; align-items: center; gap: 10px; font-size: 16px; margin-bottom: 10px; }
     .echo-cell.screen .lg-room .desk-ico { --mdc-icon-size: 22px; }
     .echo-cell.screen .lg-room .desk-favs { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 12px; }
     .echo-cell.screen .lg-room .pill-wrap { height: 100%; box-sizing: border-box; min-width: 0; overflow: hidden; }
