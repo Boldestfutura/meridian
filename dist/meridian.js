@@ -1213,9 +1213,10 @@ function shoppingTile(c2) {
   const items = c2._todo || [];
   return Z`
     <div class="card shop2"><div class="card-title">Shopping list</div>
-      ${items.length ? Z`<div class="sh2-list">${items.map((i2) => Z`
-          <button class="sh2-i" @click=${() => c2._call("todo", "update_item", { entity_id: c2._config.todo, item: i2.uid, status: "completed" })}>
-            <span class="box"></span>${i2.summary}</button>`)}</div>` : Z`<div class="sh2-empty"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All done</div>`}
+      ${items.length ? Z`<div class="sh2-list">${items.map((i2) => c2._tEdit === i2.uid ? editRow(c2, i2) : Z`
+          <div class="sh2-i">
+            <button class="box" title="Tick off" @click=${() => c2._call("todo", "update_item", { entity_id: c2._config.todo, item: i2.uid, status: "completed" })}></button>
+            <button class="sh2-name" @click=${() => editItem(c2, i2)}>${i2.summary}</button></div>`)}</div>` : Z`<div class="sh2-empty"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All done</div>`}
       ${c2._adding ? Z`
         <form class="sh2-form" @submit=${(ev) => c2._addItem(ev)}>
           <input id="add-item" placeholder="Add an item" autocomplete="off" enterkeyhint="done"
@@ -1224,6 +1225,36 @@ function shoppingTile(c2) {
   }}>
           <button class="add-go" type="submit">Add</button></form>` : Z`<button class="sh2-add" @click=${() => c2._startAdd()}><ha-icon icon="mdi:plus"></ha-icon>Add</button>`}
     </div>`;
+}
+async function editItem(c2, i2) {
+  redraw(c2, { _tEdit: i2.uid, _adding: false });
+  await c2.updateComplete;
+  const f2 = c2.shadowRoot.getElementById("edit-item");
+  if (f2) {
+    f2.focus();
+    f2.select();
+  }
+}
+function editRow(c2, i2) {
+  const todo = c2._config.todo, done = () => redraw(c2, { _tEdit: null });
+  const save = (ev) => {
+    ev.preventDefault();
+    const v2 = c2.shadowRoot.getElementById("edit-item").value.trim();
+    if (!v2) c2._call("todo", "remove_item", { entity_id: todo, item: i2.uid });
+    else if (v2 !== i2.summary) c2._call("todo", "update_item", { entity_id: todo, item: i2.uid, rename: v2 });
+    done();
+  };
+  return Z`
+    <form class="sh2-edit" @submit=${save}>
+      <input id="edit-item" .value=${i2.summary} autocomplete="off" enterkeyhint="done">
+      <button type="submit" class="add-go" title="Save"><ha-icon icon="mdi:check"></ha-icon></button>
+      <button type="button" class="sh2-del" title="Delete" @click=${() => {
+    c2._call("todo", "remove_item", { entity_id: todo, item: i2.uid });
+    done();
+  }}>
+        <ha-icon icon="mdi:trash-can-outline"></ha-icon></button>
+      <button type="button" class="sh2-x" title="Cancel" @click=${done}><ha-icon icon="mdi:close"></ha-icon></button>
+    </form>`;
 }
 function quickRow(c2) {
   const go = (id) => {
@@ -1234,12 +1265,12 @@ function quickRow(c2) {
   return Z`
     <div class="h2-qa">
       ${(c2._config.tablet_quick || []).map((q2) => {
+    if (q2.timer) return timer ? Z`<button class="qa2 ${timer.state !== "idle" ? "on" : ""}" @click=${() => redraw(c2, { _tTimer: true })}>
+          <span class="qa2-ico"><ha-icon icon="mdi:timer-outline"></ha-icon></span><span>Timer</span></button>` : J;
     const e2 = c2._st(q2.entity), on = e2 && e2.state === "on";
-    return Z`<button class="qa2 ${on ? "on" : ""}" @click=${() => go(q2.entity)}>
-          <span class="qa2-ico"><ha-icon icon=${q2.icon}></ha-icon></span><span>${q2.name}</span></button>`;
+    return e2 ? Z`<button class="qa2 ${on ? "on" : ""}" @click=${() => go(q2.entity)}>
+          <span class="qa2-ico"><ha-icon icon=${q2.icon}></ha-icon></span><span>${q2.name}</span></button>` : J;
   })}
-      ${timer ? Z`<button class="qa2 ${timer.state !== "idle" ? "on" : ""}" @click=${() => redraw(c2, { _tTimer: true })}>
-          <span class="qa2-ico"><ha-icon icon="mdi:timer-outline"></ha-icon></span><span>Timer</span></button>` : J}
     </div>`;
 }
 function timerSheet(c2) {
@@ -1705,8 +1736,15 @@ var TABLET_CSS = o`
   .tablet .now-empty ha-icon { --mdc-icon-size:40px; }
   .tablet .shop2 { padding:16px 18px; display:flex; flex-direction:column; gap:6px; min-height:0; overflow:hidden; }
   .tablet .sh2-list { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; }
-  .tablet .sh2-i { border:0; background:none; font:inherit; color:var(--ink); text-align:left; display:flex; align-items:center; gap:10px; padding:6px 0; font-size:18px; }
-  .tablet .sh2-i .box { width:20px; height:20px; border-radius:6px; border:2px solid var(--muted); flex:none; }
+  .tablet .sh2-i { display:flex; align-items:center; gap:4px; font-size:18px; }
+  .tablet .sh2-i .box { width:22px; height:22px; border-radius:7px; border:2px solid var(--muted); background:none; flex:none; padding:0; margin:5px 8px 5px 0; }
+  .tablet .sh2-name { flex:1; min-width:0; border:0; background:none; font:inherit; color:var(--ink); text-align:left; padding:4px 0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .sh2-edit { display:flex; gap:6px; padding:3px 0; }
+  .tablet .sh2-edit input { flex:1; min-width:0; height:40px; border-radius:12px; border:2px solid var(--accent); background:var(--inset); color:var(--ink); font:inherit; padding:0 10px; }
+  .tablet .sh2-edit button { border:0; border-radius:12px; width:40px; height:40px; display:grid; place-items:center; flex:none; padding:0; }
+  .tablet .sh2-edit .add-go { color:#fff; background:var(--accent); } .tablet .sh2-del { color:#e5484d; background:var(--inset); }
+  .tablet .sh2-x { color:var(--muted); background:var(--inset); }
   .tablet .sh2-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-weight:700; }
   .tablet .sh2-empty ha-icon { --mdc-icon-size:34px; color:#3f8f63; }
   .tablet .sh2-add { border:0; font:inherit; font-weight:700; color:var(--accent); background:var(--inset); border-radius:14px; height:40px;
@@ -1714,7 +1752,9 @@ var TABLET_CSS = o`
   .tablet .sh2-form { display:flex; gap:8px; flex:none; }
   .tablet .sh2-form input { flex:1; min-width:0; height:40px; border-radius:12px; border:0; background:var(--inset); color:var(--ink); font:inherit; padding:0 12px; }
   .tablet .sh2-form .add-go { border:0; border-radius:12px; padding:0 14px; font:inherit; font-weight:700; color:#fff; background:var(--accent); }
-  .tablet .h2-qa { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:12px; }
+  .tablet .h2-qa { display:grid; grid-auto-flow:column; grid-auto-columns:calc((100% - 72px) / 7); gap:12px; overflow-x:auto; scrollbar-width:none;
+    overscroll-behavior-x:contain; scroll-snap-type:x mandatory; padding:14px 6px; margin:-14px -6px; }
+  .tablet .h2-qa::-webkit-scrollbar { display:none; } .tablet .qa2 { scroll-snap-align:start; }
   .tablet .qa2 { border:0; font:inherit; font-weight:700; font-size:13px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); border-radius:20px;
     height:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
   .tablet .qa2-ico { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--inset); color:var(--muted); }
@@ -1899,7 +1939,7 @@ var TABLET_CSS = o`
     .tablet .h2-right { grid-template-rows:minmax(0,1fr) auto minmax(0,1fr); }
     .tablet .nowtile { padding:10px 12px 12px; gap:6px; } .tablet .now-cap b, .tablet .now-text b { font-size:22px; }
     .tablet .shop2 { padding:12px 14px; } .tablet .sh2-i { font-size:15px; padding:4px 0; }
-    .tablet .h2-qa { gap:8px; } .tablet .qa2 { height:76px; font-size:11px; gap:5px; border-radius:16px; } .tablet .qa2-ico { width:34px; height:34px; }
+    .tablet .h2-qa { gap:8px; grid-auto-columns:calc((100% - 48px) / 7); } .tablet .qa2 { height:76px; font-size:11px; gap:5px; border-radius:16px; } .tablet .qa2-ico { width:34px; height:34px; }
     .tablet .today2 { grid-template-columns:110px minmax(0,1fr); padding:12px 16px; align-items:start; }
     .tablet .td-dm { font-size:14px; } .tablet .td-n { font-size:56px; }
     .tablet .cl-list { align-content:start; row-gap:4px; column-gap:16px; } .tablet .cl-day { font-size:11px; margin-top:0; }
@@ -1921,7 +1961,7 @@ var TABLET_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.29.2";
+var VERSION = "0.29.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

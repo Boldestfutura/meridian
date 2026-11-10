@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.29.2"
+VERSION = "0.29.4"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -167,7 +167,17 @@ CARD.update({
         {"entity": "script.kitchen_dimmed", "name": "Kitchen Dim", "icon": "mdi:lightbulb-on-30"},
         {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:weather-night"},
         {"entity": "input_boolean.guest_mode", "name": "Guest Mode", "icon": "mdi:account-group"},
+        {"timer": True},
+        # past the first seven: the row scrolls sideways
+        {"entity": "scene.new_scene", "name": "Movie Time", "icon": "mdi:movie-open-outline"},
+        {"entity": "script.living_room_dimmed", "name": "Living Room Dim", "icon": "mdi:lightbulb-on-30"},
+        {"entity": "script.heatpump_cool_30min", "name": "Heat/Cool 30 min", "icon": "mdi:hvac"},
+        {"entity": "light.master_bedroom_lights", "name": "Bedroom", "icon": "mdi:bed-outline"},
+        {"entity": "light.guest_bedroom_lamp", "name": "Guest Lamp", "icon": "mdi:lamp-outline"},
+        {"entity": "input_boolean.bedroom_night_mode", "name": "Sleep Sounds", "icon": "mdi:waves"},
+        {"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier", "icon": "mdi:air-humidifier"},
     ],
+    "scheme": "sun.sun",                      # light by day, dark after sunset, whatever the device says
 })
 
 
