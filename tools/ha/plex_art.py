@@ -4,7 +4,8 @@
     plex_art.py <base64 of media_title>
 
 The title arrives base64-encoded so quotes and odd characters in it can't break the command line.
-Infuse reports TV as "Show - S8 ∙ E2 - Episode"; anything else is looked up as a film.
+Infuse reports TV as "Show - S8 ∙ E2 - Episode", or "Show - E7 - Episode" for a one-season show;
+anything else is looked up as a film.
 Reads /config/.plex.json ({"url", "token"}, mode 600) and writes into /config/www/nowplaying:
 <ratingKey>-bg.jpg, <ratingKey>-logo.png and index.json ({normalised name: {name, kind, bg, logo}}),
 which the kitchen tablet's media card reads. A title already in the index is not fetched again.
@@ -17,7 +18,7 @@ INDEX = OUT + "/index.json"
 title = base64.b64decode(sys.argv[1]).decode().strip()
 if not title:
     sys.exit()
-m = re.match(r"(.+?)\s+-\s+S(\d+)\s*\W\s*E(\d+)\s+-\s+(.+)", title)
+m = re.match(r"(.+?)\s+-\s+(?:S(\d+)\s*\W\s*)?E(\d+)\s+-\s+(.+)", title)
 kind, name = ("show", m.group(1)) if m else ("movie", title)
 
 

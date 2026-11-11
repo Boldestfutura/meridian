@@ -108,12 +108,13 @@ function live(c, id) {
 }
 const bars = () => html`<span class="eqb"><i></i><i></i><i></i></span>`;
 
-// Plex art for what the Apple TV reports. Infuse names TV "Show - S8 ∙ E2 - Episode".
+// Plex art for what the Apple TV reports. Infuse names TV "Show - S8 ∙ E2 - Episode", or "Show - E7 - Episode"
+// for a one-season show (a miniseries), with no season at all.
 function video(c, a) {
   const t = a.media_title || "";
-  const m = t.match(/^(.+?)\s+-\s+S(\d+)\s*\W\s*E(\d+)\s+-\s+(.+)$/);
+  const m = t.match(/^(.+?)\s+-\s+(?:S(\d+)\s*\W\s*)?E(\d+)\s+-\s+(.+)$/);
   const hit = (c._tArt || {})[norm(m ? m[1] : a.media_series_title || t)];
-  return hit ? Object.assign({ ep: m ? { s: +m[2], e: +m[3], t: m[4] } : null }, hit) : null;
+  return hit ? Object.assign({ ep: m ? { s: m[2] ? +m[2] : null, e: +m[3], t: m[4] } : null }, hit) : null;
 }
 
 function popPlayer(c) {
@@ -443,7 +444,7 @@ function hero(c, p) {
         <div class="hero-text">
           ${v.logo ? html`<img class="hero-logo" src=${v.logo}>` : nothing}
           ${v.ep || !v.logo ? html`<div class="hero-title">${v.ep ? v.ep.t : v.name}</div>` : nothing}
-          ${v.ep ? html`<div class="hero-sub">${v.name} · Season ${v.ep.s}, Episode ${v.ep.e}</div>` : nothing}
+          ${v.ep ? html`<div class="hero-sub">${v.name} · ${v.ep.s ? `Season ${v.ep.s}, ` : ""}Episode ${v.ep.e}</div>` : nothing}
         </div></div>`;
   }
   // music: the album cover beside the song and artist, over a blur of the cover

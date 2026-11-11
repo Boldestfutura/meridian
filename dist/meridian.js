@@ -1135,9 +1135,9 @@ function live(c2, id) {
 var bars = () => Z`<span class="eqb"><i></i><i></i><i></i></span>`;
 function video(c2, a2) {
   const t3 = a2.media_title || "";
-  const m2 = t3.match(/^(.+?)\s+-\s+S(\d+)\s*\W\s*E(\d+)\s+-\s+(.+)$/);
+  const m2 = t3.match(/^(.+?)\s+-\s+(?:S(\d+)\s*\W\s*)?E(\d+)\s+-\s+(.+)$/);
   const hit = (c2._tArt || {})[norm(m2 ? m2[1] : a2.media_series_title || t3)];
-  return hit ? Object.assign({ ep: m2 ? { s: +m2[2], e: +m2[3], t: m2[4] } : null }, hit) : null;
+  return hit ? Object.assign({ ep: m2 ? { s: m2[2] ? +m2[2] : null, e: +m2[3], t: m2[4] } : null }, hit) : null;
 }
 function popPlayer(c2) {
   if (!c2._tPop) return J;
@@ -1464,7 +1464,7 @@ function hero(c2, p2) {
         <div class="hero-text">
           ${v2.logo ? Z`<img class="hero-logo" src=${v2.logo}>` : J}
           ${v2.ep || !v2.logo ? Z`<div class="hero-title">${v2.ep ? v2.ep.t : v2.name}</div>` : J}
-          ${v2.ep ? Z`<div class="hero-sub">${v2.name} · Season ${v2.ep.s}, Episode ${v2.ep.e}</div>` : J}
+          ${v2.ep ? Z`<div class="hero-sub">${v2.name} · ${v2.ep.s ? `Season ${v2.ep.s}, ` : ""}Episode ${v2.ep.e}</div>` : J}
         </div></div>`;
   }
   if (pic && (a2.media_artist || a2.media_album_name)) {
@@ -1965,7 +1965,7 @@ var TABLET_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.30.2";
+var VERSION = "0.30.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
