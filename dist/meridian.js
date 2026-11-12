@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.7";
+var VERSION = "0.32.8";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6927,9 +6927,9 @@ var OverlookShow = class extends dt {
     .pc-time { font-family: var(--display); font-weight: 700; font-size: min(14vh, 108px); line-height: 0.95; margin-left: 10px;
                letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
     .pc-date { font-weight: 700; font-size: min(4.6vh, 34px); }
-    .pc-ev { display: flex; align-items: center; gap: 8px; max-width: 100%; font-size: min(3.2vh, 24px); font-weight: 600;
-             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.92); }
-    .pc-ev ha-icon { --mdc-icon-size: min(3.4vh, 26px); flex: none; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5)); }
+    .pc-ev { display: flex; align-items: center; gap: 8px; max-width: 100%; font-size: min(3.8vh, 28px); font-weight: 700;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .pc-ev ha-icon { --mdc-icon-size: min(4vh, 30px); flex: none; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5)); }
     .pc-face .np-line { position: static; max-width: 100%; margin-top: 6px; }
   `];
 };
