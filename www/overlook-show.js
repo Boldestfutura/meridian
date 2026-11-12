@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.3";
+const VERSION = "0.32.4";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -225,7 +225,8 @@ class OverlookShow extends LitElement {
     const e = this._npEnt(), npBack = this._npHidden && e && e.state === "playing";
     const wait = this._night() ? 30 : (npBack && this._config.nowplaying_return) || this._config.idle;
     this._idleTimer = setTimeout(() => {
-      if (this._recipe) { this._poke(); return; }    // never leave a recipe mid-cook
+      // never leave a recipe mid-cook; swiping, idle brings its page back
+      if (this._recipe) { if (this._swipePages() && this._page !== "recipes") this._page = "recipes"; this._poke(); return; }
       this._picker = false;
       this._scenes = false;
       this._pop = null;
@@ -241,7 +242,7 @@ class OverlookShow extends LitElement {
     // night mode switching on sends the screen home, where it shows the red clock
     if (changed.has("hass") && this._config.night) {
       const n = this._night();
-      if (n && this._wasNight === false) { this._go("photos"); this._poke(); }
+      if (n && this._wasNight === false && !this._recipe) { this._go("photos"); this._poke(); }
       this._wasNight = n;
     }
     // voice: the Assist weather automations write {area, action, range, dates} to
@@ -447,7 +448,8 @@ class OverlookShow extends LitElement {
     this._scenes = false;
     this._pop = null;
     this._light = null;
-    this._recipe = null;
+    // swiping keeps an open recipe on the Recipes page; only its close button shuts it
+    if (!sw) this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
     this._page = page;

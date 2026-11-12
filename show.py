@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.32.3"
+VERSION = "0.32.4"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -43,7 +43,7 @@ CARD = {
     "type": "custom:overlook-show",
     "photos": "camera.album_slideshow_family",
     "weather": "weather.forecast_home",
-    "idle": 300,
+    "idle": 90,
     "lights": [
         {"entity": "light.kitchen_lights", "name": "Kitchen Lights", "icon": "mdi:lightbulb-group"},
     ],

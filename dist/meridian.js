@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.3";
+var VERSION = "0.32.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -3261,6 +3261,7 @@ var OverlookShow = class extends dt {
     const wait = this._night() ? 30 : npBack && this._config.nowplaying_return || this._config.idle;
     this._idleTimer = setTimeout(() => {
       if (this._recipe) {
+        if (this._swipePages() && this._page !== "recipes") this._page = "recipes";
         this._poke();
         return;
       }
@@ -3277,7 +3278,7 @@ var OverlookShow = class extends dt {
     if (changed.has("hass") && this._drag) this._settle();
     if (changed.has("hass") && this._config.night) {
       const n2 = this._night();
-      if (n2 && this._wasNight === false) {
+      if (n2 && this._wasNight === false && !this._recipe) {
         this._go("photos");
         this._poke();
       }
@@ -3520,7 +3521,7 @@ var OverlookShow = class extends dt {
     this._scenes = false;
     this._pop = null;
     this._light = null;
-    this._recipe = null;
+    if (!sw) this._recipe = null;
     if (page !== this._page) this._book = null;
     if (page === "calendar" && page !== this._page) this._toToday();
     this._page = page;

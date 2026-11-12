@@ -135,7 +135,7 @@ off on 2026-11-04.
   bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the corner opens
   HA's standard dialog.
 - **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet.
-- **Idle:** after 5 minutes the tablet, Hub and Echo go to photos (not while a recipe is open).
+- **Idle:** the tablet and Hub go to photos after 90 seconds (`idle` in show.py; the Echo has its own). Not while a recipe is open: with swiping, idle brings the open recipe back instead, and swiping away keeps it open.
   A tap on the photos goes back to Home.
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.
