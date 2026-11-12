@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.0";
+const VERSION = "0.32.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -493,10 +493,26 @@ class OverlookShow extends LitElement {
   }
   _pgMove(e) {
     const s = this._pg;
-    if (!s || s.dead) return;
+    if (!s) return;
     const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (s.dead) {
+      // A vertical drag. The browser should be scrolling the column and cancel this pointer; if
+      // moves keep arriving it isn't (the kitchen tablet's WebView only scrolled from the gaps
+      // between tiles), so scroll the column by hand and fling it on release
+      if (!s.col) return;
+      const t = performance.now();
+      s.vy = (e.clientY - s.ly) / Math.max(1, t - s.lt); s.ly = e.clientY; s.lt = t;
+      s.col.scrollTop = s.top - dy; s.moved = true;
+      return;
+    }
     if (!s.on) {
-      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { s.dead = true; return; }
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        s.dead = true;
+        s.col = e.composedPath().find((n) => n instanceof HTMLElement && n.scrollHeight > n.clientHeight + 1
+          && /(auto|scroll)/.test(getComputedStyle(n).overflowY));
+        if (s.col) { s.top = s.col.scrollTop + dy; s.ly = e.clientY; s.lt = performance.now(); s.vy = 0; }
+        return;
+      }
       if (Math.abs(dx) < 10) return;
       s.on = true;
       s.track.classList.add("dragging");
@@ -507,15 +523,24 @@ class OverlookShow extends LitElement {
     const edge = (i === 0 && dx > 0) || (i === pages.length - 1 && dx < 0);
     s.track.style.transform = this._pgPos(edge ? dx / 3 : dx);       // rubber band at the ends
   }
-  _pgUp() {
+  _pgUp(cancel) {
     const s = this._pg;
     this._pg = null;
-    if (!s || !s.on) return;
-    s.track.classList.remove("dragging");
+    if (!s) return;
+    const scrolled = s.moved;
+    if (!s.on && !scrolled) return;
     // the drag ends with a click on whatever is under the finger; it shouldn't press it
     const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
     this.shadowRoot.addEventListener("click", swallow, { capture: true, once: true });
     setTimeout(() => this.shadowRoot.removeEventListener("click", swallow, true), 60);
+    if (scrolled) {
+      if (cancel || performance.now() - s.lt > 80) return;
+      let v = -s.vy * 16, col = s.col;                                 // px per frame
+      const step = () => { if (Math.abs(v) < 0.5 || this._pg) return; col.scrollTop += v; v *= 0.95; requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+      return;
+    }
+    s.track.classList.remove("dragging");
     if (s.row) return;
     const pages = this._swipePages(), i = pages.indexOf(this._page);
     const to = s.dx < -Math.min(70, s.w / 8) ? i + 1 : s.dx > Math.min(70, s.w / 8) ? i - 1 : i;
@@ -527,7 +552,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="sw-track" style="width:${pages.length * 100}%;transform:${this._pgPos()}"
            @pointerdown=${(e) => this._pgDown(e)} @pointermove=${(e) => this._pgMove(e)}
-           @pointerup=${() => this._pgUp()} @pointercancel=${() => { if (this._pg && this._pg.on) this._pg.dx = 0; this._pgUp(); }}
+           @pointerup=${() => this._pgUp()} @pointercancel=${() => { if (this._pg && this._pg.on) this._pg.dx = 0; this._pgUp(true); }}
            @dragstart=${(e) => e.preventDefault()}>
         ${pages.map((p) => html`<main class="page sw-page" style="width:${(100 / pages.length).toFixed(4)}%"
           aria-hidden=${p === this._page ? "false" : "true"}>${tabletPage(this, p)}</main>`)}

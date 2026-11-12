@@ -320,17 +320,26 @@ function roomHeatPump(c, id) {
       <button class="round small" @click=${() => setT(0.5)}><ha-icon icon="mdi:plus"></ha-icon></button></div>`;
 }
 
-function roomMedia(c, m) {
-  const e = c._st(m.entity);
-  if (!e) return nothing;
-  const a = e.attributes, pic = a.entity_picture;
+// one squircle "now playing" tile for the room: whichever of its speakers is playing, else the
+// first with something queued, else the first
+function roomNow(c, media) {
+  // the Nest Hub "plays" this dashboard while it shows it; that isn't music
+  const cast = (e) => e.attributes.app_name === "Home Assistant Lovelace" || /^Kitchen Show/.test(e.attributes.media_title || "");
+  const ps = media.map((m) => ({ m, e: c._st(m.entity) })).filter((x) => x.e)
+    .map((x) => cast(x.e) ? { m: x.m, e: { ...x.e, state: "idle", attributes: { ...x.e.attributes, media_title: null, entity_picture: null } } } : x);
+  const p = ps.find((x) => x.e.state === "playing") || ps.find((x) => c._title(x.e.attributes)) || ps[0];
+  if (!p) return nothing;
+  const { m, e } = p, a = e.attributes, pic = a.entity_picture, playing = e.state === "playing";
+  // Infuse sends "Show - S5 - E3 - Episode": show the show, with the episode underneath
+  const ep = (a.media_title || "").match(/^(.+?)\s+-\s+(?:S\d+\s*\W\s*)?E\d+\s+-\s+(.+)$/);
+  const title = ep ? ep[1] : c._title(a), sub = ep ? ep[2] : "";
   return html`
-    <div class="rm-pl ${e.state === "playing" ? "on" : ""}">
-      ${pic ? html`<span class="spk-art" style="background-image:url('${pic}')"></span>`
-        : html`<span class="spk-ico"><ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon></span>`}
-      <span class="spk-t"><b>${m.name}</b><span>${c._title(a) || cap(e.state)}</span></span>
+    <div class="rm-np ${playing ? "on" : ""}">
+      ${pic ? html`<span class="rm-np-art" style="background-image:url('${pic}')"></span>`
+        : html`<span class="rm-np-art ico"><ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon></span>`}
+      <span class="rm-np-t"><b>${title || "Nothing playing"}</b><span>${[m.name, sub, title && !playing ? "Paused" : ""].filter(Boolean).join(" · ")}</span></span>
       <button class="round small" @click=${() => c._call("media_player", "media_play_pause", { entity_id: m.entity })}>
-        <ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+        <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
     </div>`;
 }
 
@@ -343,6 +352,8 @@ function roomsPage(c) {
   const sec = (title, extra, tiles) => tiles.length ? html`
     <div class="rm-sec"><div class="rm-h">${title}${extra}</div><div class="rm-grid">${tiles}</div></div>` : nothing;
   const air = roomAir(r);
+  const row = (t) => html`<div class="piece rw"><div class="ph-grid one">${t}</div></div>`;
+  const plugs = [...(r.switches || []).map((s) => row(c._switchTile(s))), ...(r.plants || []).map((p) => row(c._plantTile(p)))];
   return html`
     <div class="m-rooms">
       <div class="rm-chips">${rooms.map((x) => html`
@@ -354,15 +365,14 @@ function roomsPage(c) {
               <button class="rm-off" @click=${() => c._call("light", "turn_off", { entity_id: lights.map((l) => l.entity) })}>All off</button>`,
             lights.map((l) => x2(c._lightTile(l))))}
           ${sec("Scenes", nothing, (r.scenes || []).map((s) => x2(c._sceneBtn(s, true))))}
-          ${sec("Plugs & plants", nothing, [...(r.switches || []).map((s) => x2(c._switchTile(s))),
-            ...(r.plants || []).map((p) => x2(c._plantTile(p)))])}
         </div>
         <div class="rm-side">
-          ${r.climate || air.length ? html`<div class="card rm-card"><div class="card-title">Climate</div>
+          ${(r.media || []).length ? roomNow(c, r.media) : nothing}
+          ${r.climate || air.length ? html`<div class="card rm-card rm-clim"><div class="card-title">Climate</div>
             ${r.climate ? roomHeatPump(c, r.climate) : nothing}
             <div class="rm-air n${air.length}">${air.map((x) => airTile(c, x))}</div></div>` : nothing}
-          ${(r.media || []).length ? html`<div class="card rm-card"><div class="card-title">Media</div>
-            ${r.media.map((m) => roomMedia(c, m))}</div>` : nothing}
+          ${plugs.length ? html`<div class="card rm-card"><div class="card-title">Plugs & plants</div>
+            <div class="rm-plugs">${plugs}</div></div>` : nothing}
         </div>
       </div>
     </div>`;
@@ -745,9 +755,22 @@ export const TABLET_CSS = css`
   .tablet .rm-off { margin-left:auto; border:0; font:inherit; font-weight:700; font-size:14px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); padding:8px 16px; border-radius:999px; }
   .tablet .rm-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
   .tablet .rt { aspect-ratio:1; min-width:0; } .tablet .rt .ph-grid { height:100%; } .tablet .rt .ph-grid > .tile { height:100%; box-sizing:border-box; }
-  .tablet .rm-side { display:flex; flex-direction:column; gap:18px; min-height:0; }
-  .tablet .rm-card { padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
-  .tablet .rm-card:first-child { flex:1; min-height:0; }
+  .tablet .rm-side { display:flex; flex-direction:column; gap:14px; min-height:0; overflow-y:auto; scrollbar-width:none; }
+  .tablet .rm-card { padding:16px 18px; display:flex; flex-direction:column; gap:10px; flex:none; }
+  .tablet .rm-clim { flex:1 0 auto; }
+  .tablet .rm-plugs { display:flex; flex-direction:column; gap:8px; } .tablet .rm-plugs .rw { height:58px; }
+  .tablet .rm-plugs .tile { box-shadow:none; background:var(--inset); border-radius:16px; }
+  /* the room chips' look (card, shadow, accent when playing), with squircle corners */
+  .tablet .rm-np { flex:none; display:flex; align-items:center; gap:12px; padding:10px 12px 10px 10px; border-radius:22px;
+    background:var(--card); box-shadow:var(--shadow); color:var(--ink); }
+  .tablet .rm-np.on { background:color-mix(in srgb, var(--accent) 14%, var(--card)); }
+  .tablet .rm-np-art { width:52px; height:52px; flex:none; border-radius:14px; background:var(--inset) center/cover; display:grid; place-items:center; color:var(--muted); }
+  .tablet .rm-np-art.ico ha-icon { --mdc-icon-size:24px; }
+  .tablet .rm-np.on .rm-np-art.ico { color:var(--accent); }
+  .tablet .rm-np-t { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .tablet .rm-np-t b, .tablet .rm-np-t span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .rm-np-t b { font-size:16px; } .tablet .rm-np-t span { font-size:13px; color:var(--muted); font-weight:600; }
+  .tablet .rm-np .round.small { width:44px; height:44px; flex:none; }
   .tablet .rm-air { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
   .tablet .rm-air.n4 { grid-template-rows:1fr 1fr; }
   .tablet .rm-air .air-tile { padding:12px 14px; border-radius:18px; box-shadow:none; }
@@ -756,7 +779,6 @@ export const TABLET_CSS = css`
   .tablet .rm-hp { display:grid; grid-template-columns:1fr auto auto auto; align-items:center; gap:10px; background:var(--inset); border-radius:18px; padding:10px 12px; }
   .tablet .rm-hp div b { display:block; } .tablet .rm-hp div span { font-size:13px; color:var(--muted); }
   .tablet .rm-hp-t { font-size:22px; min-width:40px; text-align:center; }
-  .tablet .rm-pl { display:flex; align-items:center; gap:12px; padding:6px 0; } .tablet .rm-pl .round.small { width:44px; height:44px; flex:none; }
 
   /* climate */
   .tablet .m-cl2 { display:grid; grid-template-columns:340px minmax(0,1fr); gap:18px; height:100%; min-height:0; }

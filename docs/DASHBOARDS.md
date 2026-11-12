@@ -45,6 +45,11 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
   A drag that starts on a row that scrolls sideways (the quick actions, the recipe shelf) scrolls
   that row. A page that isn't in the list (a voice "show me the climate") opens the one that
   holds it: climate and controls go to Rooms, music to Media, anything else to Home.
+  An up-and-down drag the browser doesn't scroll by itself (the tablet's WebView only did so
+  from the gaps between tiles) is scrolled, and flung, by the card.
+- Rooms with `swipe`: lights and scenes on the left; on the right, one now-playing tile (the
+  room's playing speaker, else one with something queued; the Nest Hub showing this dashboard
+  doesn't count), then Climate, then Plugs & plants as rows.
 - `photo_clock`: when idle, a big clock with the date, weather, who's home and the next event
   over the slideshow, darkened. A new photo fades in over the last. A tap goes back to Home.
 

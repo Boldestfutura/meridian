@@ -1343,16 +1343,20 @@ function roomHeatPump(c2, id) {
       <b class="rm-hp-t">${a2.temperature}°</b>
       <button class="round small" @click=${() => setT(0.5)}><ha-icon icon="mdi:plus"></ha-icon></button></div>`;
 }
-function roomMedia(c2, m2) {
-  const e2 = c2._st(m2.entity);
-  if (!e2) return J;
-  const a2 = e2.attributes, pic = a2.entity_picture;
+function roomNow(c2, media) {
+  const cast = (e3) => e3.attributes.app_name === "Home Assistant Lovelace" || /^Kitchen Show/.test(e3.attributes.media_title || "");
+  const ps2 = media.map((m3) => ({ m: m3, e: c2._st(m3.entity) })).filter((x3) => x3.e).map((x3) => cast(x3.e) ? { m: x3.m, e: { ...x3.e, state: "idle", attributes: { ...x3.e.attributes, media_title: null, entity_picture: null } } } : x3);
+  const p2 = ps2.find((x3) => x3.e.state === "playing") || ps2.find((x3) => c2._title(x3.e.attributes)) || ps2[0];
+  if (!p2) return J;
+  const { m: m2, e: e2 } = p2, a2 = e2.attributes, pic = a2.entity_picture, playing = e2.state === "playing";
+  const ep = (a2.media_title || "").match(/^(.+?)\s+-\s+(?:S\d+\s*\W\s*)?E\d+\s+-\s+(.+)$/);
+  const title = ep ? ep[1] : c2._title(a2), sub = ep ? ep[2] : "";
   return Z`
-    <div class="rm-pl ${e2.state === "playing" ? "on" : ""}">
-      ${pic ? Z`<span class="spk-art" style="background-image:url('${pic}')"></span>` : Z`<span class="spk-ico"><ha-icon icon=${m2.icon || "mdi:speaker"}></ha-icon></span>`}
-      <span class="spk-t"><b>${m2.name}</b><span>${c2._title(a2) || cap(e2.state)}</span></span>
+    <div class="rm-np ${playing ? "on" : ""}">
+      ${pic ? Z`<span class="rm-np-art" style="background-image:url('${pic}')"></span>` : Z`<span class="rm-np-art ico"><ha-icon icon=${m2.icon || "mdi:speaker"}></ha-icon></span>`}
+      <span class="rm-np-t"><b>${title || "Nothing playing"}</b><span>${[m2.name, sub, title && !playing ? "Paused" : ""].filter(Boolean).join(" \xB7 ")}</span></span>
       <button class="round small" @click=${() => c2._call("media_player", "media_play_pause", { entity_id: m2.entity })}>
-        <ha-icon icon=${e2.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+        <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
     </div>`;
 }
 function roomsPage(c2) {
@@ -1364,6 +1368,8 @@ function roomsPage(c2) {
   const sec = (title, extra, tiles) => tiles.length ? Z`
     <div class="rm-sec"><div class="rm-h">${title}${extra}</div><div class="rm-grid">${tiles}</div></div>` : J;
   const air = roomAir(r2);
+  const row = (t3) => Z`<div class="piece rw"><div class="ph-grid one">${t3}</div></div>`;
+  const plugs = [...(r2.switches || []).map((s2) => row(c2._switchTile(s2))), ...(r2.plants || []).map((p2) => row(c2._plantTile(p2)))];
   return Z`
     <div class="m-rooms">
       <div class="rm-chips">${rooms.map((x3) => Z`
@@ -1378,17 +1384,14 @@ function roomsPage(c2) {
     lights.map((l2) => x2(c2._lightTile(l2)))
   )}
           ${sec("Scenes", J, (r2.scenes || []).map((s2) => x2(c2._sceneBtn(s2, true))))}
-          ${sec("Plugs & plants", J, [
-    ...(r2.switches || []).map((s2) => x2(c2._switchTile(s2))),
-    ...(r2.plants || []).map((p2) => x2(c2._plantTile(p2)))
-  ])}
         </div>
         <div class="rm-side">
-          ${r2.climate || air.length ? Z`<div class="card rm-card"><div class="card-title">Climate</div>
+          ${(r2.media || []).length ? roomNow(c2, r2.media) : J}
+          ${r2.climate || air.length ? Z`<div class="card rm-card rm-clim"><div class="card-title">Climate</div>
             ${r2.climate ? roomHeatPump(c2, r2.climate) : J}
             <div class="rm-air n${air.length}">${air.map((x3) => airTile(c2, x3))}</div></div>` : J}
-          ${(r2.media || []).length ? Z`<div class="card rm-card"><div class="card-title">Media</div>
-            ${r2.media.map((m2) => roomMedia(c2, m2))}</div>` : J}
+          ${plugs.length ? Z`<div class="card rm-card"><div class="card-title">Plugs & plants</div>
+            <div class="rm-plugs">${plugs}</div></div>` : J}
         </div>
       </div>
     </div>`;
@@ -1790,9 +1793,22 @@ var TABLET_CSS = o`
   .tablet .rm-off { margin-left:auto; border:0; font:inherit; font-weight:700; font-size:14px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); padding:8px 16px; border-radius:999px; }
   .tablet .rm-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
   .tablet .rt { aspect-ratio:1; min-width:0; } .tablet .rt .ph-grid { height:100%; } .tablet .rt .ph-grid > .tile { height:100%; box-sizing:border-box; }
-  .tablet .rm-side { display:flex; flex-direction:column; gap:18px; min-height:0; }
-  .tablet .rm-card { padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
-  .tablet .rm-card:first-child { flex:1; min-height:0; }
+  .tablet .rm-side { display:flex; flex-direction:column; gap:14px; min-height:0; overflow-y:auto; scrollbar-width:none; }
+  .tablet .rm-card { padding:16px 18px; display:flex; flex-direction:column; gap:10px; flex:none; }
+  .tablet .rm-clim { flex:1 0 auto; }
+  .tablet .rm-plugs { display:flex; flex-direction:column; gap:8px; } .tablet .rm-plugs .rw { height:58px; }
+  .tablet .rm-plugs .tile { box-shadow:none; background:var(--inset); border-radius:16px; }
+  /* the room chips' look (card, shadow, accent when playing), with squircle corners */
+  .tablet .rm-np { flex:none; display:flex; align-items:center; gap:12px; padding:10px 12px 10px 10px; border-radius:22px;
+    background:var(--card); box-shadow:var(--shadow); color:var(--ink); }
+  .tablet .rm-np.on { background:color-mix(in srgb, var(--accent) 14%, var(--card)); }
+  .tablet .rm-np-art { width:52px; height:52px; flex:none; border-radius:14px; background:var(--inset) center/cover; display:grid; place-items:center; color:var(--muted); }
+  .tablet .rm-np-art.ico ha-icon { --mdc-icon-size:24px; }
+  .tablet .rm-np.on .rm-np-art.ico { color:var(--accent); }
+  .tablet .rm-np-t { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .tablet .rm-np-t b, .tablet .rm-np-t span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .rm-np-t b { font-size:16px; } .tablet .rm-np-t span { font-size:13px; color:var(--muted); font-weight:600; }
+  .tablet .rm-np .round.small { width:44px; height:44px; flex:none; }
   .tablet .rm-air { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
   .tablet .rm-air.n4 { grid-template-rows:1fr 1fr; }
   .tablet .rm-air .air-tile { padding:12px 14px; border-radius:18px; box-shadow:none; }
@@ -1801,7 +1817,6 @@ var TABLET_CSS = o`
   .tablet .rm-hp { display:grid; grid-template-columns:1fr auto auto auto; align-items:center; gap:10px; background:var(--inset); border-radius:18px; padding:10px 12px; }
   .tablet .rm-hp div b { display:block; } .tablet .rm-hp div span { font-size:13px; color:var(--muted); }
   .tablet .rm-hp-t { font-size:22px; min-width:40px; text-align:center; }
-  .tablet .rm-pl { display:flex; align-items:center; gap:12px; padding:6px 0; } .tablet .rm-pl .round.small { width:44px; height:44px; flex:none; }
 
   /* climate */
   .tablet .m-cl2 { display:grid; grid-template-columns:340px minmax(0,1fr); gap:18px; height:100%; min-height:0; }
@@ -2967,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.0";
+var VERSION = "0.32.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -3561,11 +3576,28 @@ var OverlookShow = class extends dt {
   }
   _pgMove(e2) {
     const s2 = this._pg;
-    if (!s2 || s2.dead) return;
+    if (!s2) return;
     const dx = e2.clientX - s2.x, dy = e2.clientY - s2.y;
+    if (s2.dead) {
+      if (!s2.col) return;
+      const t3 = performance.now();
+      s2.vy = (e2.clientY - s2.ly) / Math.max(1, t3 - s2.lt);
+      s2.ly = e2.clientY;
+      s2.lt = t3;
+      s2.col.scrollTop = s2.top - dy;
+      s2.moved = true;
+      return;
+    }
     if (!s2.on) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
         s2.dead = true;
+        s2.col = e2.composedPath().find((n2) => n2 instanceof HTMLElement && n2.scrollHeight > n2.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(n2).overflowY));
+        if (s2.col) {
+          s2.top = s2.col.scrollTop + dy;
+          s2.ly = e2.clientY;
+          s2.lt = performance.now();
+          s2.vy = 0;
+        }
         return;
       }
       if (Math.abs(dx) < 10) return;
@@ -3581,17 +3613,31 @@ var OverlookShow = class extends dt {
     const edge = i2 === 0 && dx > 0 || i2 === pages.length - 1 && dx < 0;
     s2.track.style.transform = this._pgPos(edge ? dx / 3 : dx);
   }
-  _pgUp() {
+  _pgUp(cancel) {
     const s2 = this._pg;
     this._pg = null;
-    if (!s2 || !s2.on) return;
-    s2.track.classList.remove("dragging");
+    if (!s2) return;
+    const scrolled = s2.moved;
+    if (!s2.on && !scrolled) return;
     const swallow = (ev) => {
       ev.stopPropagation();
       ev.preventDefault();
     };
     this.shadowRoot.addEventListener("click", swallow, { capture: true, once: true });
     setTimeout(() => this.shadowRoot.removeEventListener("click", swallow, true), 60);
+    if (scrolled) {
+      if (cancel || performance.now() - s2.lt > 80) return;
+      let v2 = -s2.vy * 16, col = s2.col;
+      const step = () => {
+        if (Math.abs(v2) < 0.5 || this._pg) return;
+        col.scrollTop += v2;
+        v2 *= 0.95;
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+      return;
+    }
+    s2.track.classList.remove("dragging");
     if (s2.row) return;
     const pages = this._swipePages(), i2 = pages.indexOf(this._page);
     const to = s2.dx < -Math.min(70, s2.w / 8) ? i2 + 1 : s2.dx > Math.min(70, s2.w / 8) ? i2 - 1 : i2;
@@ -3608,7 +3654,7 @@ var OverlookShow = class extends dt {
            @pointerdown=${(e2) => this._pgDown(e2)} @pointermove=${(e2) => this._pgMove(e2)}
            @pointerup=${() => this._pgUp()} @pointercancel=${() => {
       if (this._pg && this._pg.on) this._pg.dx = 0;
-      this._pgUp();
+      this._pgUp(true);
     }}
            @dragstart=${(e2) => e2.preventDefault()}>
         ${pages.map((p2) => Z`<main class="page sw-page" style="width:${(100 / pages.length).toFixed(4)}%"
