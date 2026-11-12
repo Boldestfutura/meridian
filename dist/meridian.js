@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.4";
+var VERSION = "0.32.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -3670,7 +3670,7 @@ var OverlookShow = class extends dt {
   }
   // --- the photo clock ------------------------------------------------------
   // `photo_clock: true`: when the screen goes idle it shows the time big, with the date, the
-  // weather, who's home and what's next, over the slideshow darkened so the clock reads first.
+  // weather above and what's next below, centred over the slideshow, darkened so the clock reads first.
   // Each new photo fades in over the last and drifts slowly. A tap goes back to the pages.
   _photoClock() {
     const cam = this._st(this._config.photos);
@@ -3683,10 +3683,6 @@ var OverlookShow = class extends dt {
     this._pcPic = pic;
     const n2 = this._now, [h2, mm] = this._time(n2).split(":");
     const w2 = this._st(this._config.weather), cond = w2 ? this._cond(w2) : null, f2 = this._forecast;
-    const people = (this._config.status || []).filter((x3) => x3.person).filter((x3) => {
-      const e2 = this._st(x3.entity);
-      return e2 && e2.state === "home";
-    }).map((x3) => x3.name || this._st(x3.entity).attributes.friendly_name);
     const next = (this._events || []).find((e2) => this._d(e2.end) > n2);
     let when = "";
     if (next) {
@@ -3704,18 +3700,15 @@ var OverlookShow = class extends dt {
         </div>
         <div class="pc-scrim"></div>
         <div class="pc-face">
-          <div class="pc-clock" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
-            <div class="pc-time">${h2}:${mm}</div>
-            <div class="pc-date">${DAYS_LONG[n2.getDay()]} ${n2.getDate()} ${LONG_MONTHS[n2.getMonth()]}</div>
+          ${cond ? Z`<div class="pc-wx">${this._wxIcon(w2.state, "pc-ico")}<b>${this._deg(w2.attributes.temperature)}</b>
+            <span>${cond[1]}${f2 && w2.state !== "unavailable" ? ` \xB7 H ${Math.round(f2.temperature)}\xB0 L ${Math.round(f2.templow)}\xB0` : ""}</span></div>` : J}
+          <div class="pc-time" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${h2}:${mm}</div>
+          <div class="pc-under">
+            <span class="pc-date">${DAYS_LONG[n2.getDay()]} ${n2.getDate()} ${LONG_MONTHS[n2.getMonth()]}</span>
+            ${next ? Z`<span class="pc-ev"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</span>` : J}
           </div>
-          <div class="pc-day">
-            ${cond ? Z`<div class="pc-wx">${this._wxIcon(w2.state, "pc-ico")}<b>${this._deg(w2.attributes.temperature)}</b>
-              <span>${cond[1]}${f2 && w2.state !== "unavailable" ? ` \xB7 H ${Math.round(f2.temperature)}\xB0 L ${Math.round(f2.templow)}\xB0` : ""}</span></div>` : J}
-            <div class="pc-line"><ha-icon icon="mdi:account"></ha-icon>${people.length ? `${people.join(" and ")} ${people.length > 1 ? "are" : "is"} home` : "Nobody home"}</div>
-            ${next ? Z`<div class="pc-line"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</div>` : J}
-            ${this._washer()}
-            ${this._npLine()}
-          </div>
+          ${this._washer()}
+          ${this._npLine()}
         </div>
       </div>`;
   }
@@ -6923,22 +6916,24 @@ var OverlookShow = class extends dt {
     @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
-    .pc-scrim { background: radial-gradient(90% 75% at 45% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
-    .pc-face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 4vw; padding: 0 4vw; }
-    .pc-time { font-family: var(--display); font-weight: 800; font-size: min(29vh, 18vw); line-height: 0.85;
+    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
+    /* one centred column: weather, the time, then the date and what's next */
+    .pc-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+               gap: 3vh; padding: 0 5vw; text-align: center; }
+    .pc-time { font-family: var(--display); font-weight: 800; font-size: min(30vh, 20vw); line-height: 0.85;
                letter-spacing: -0.04em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45); }
-    .pc-date { margin-top: 14px; font-weight: 700; font-size: 18px; letter-spacing: 0.16em; text-transform: uppercase;
-               color: rgba(255, 255, 255, 0.78); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
-    .pc-day { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; min-width: 0; max-width: 42vw;
-              padding-left: 3.2vw; border-left: 1px solid rgba(255, 255, 255, 0.22); }
-    .pc-wx { display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 12px; border-radius: 999px;
+    .pc-under { display: flex; flex-direction: column; align-items: center; gap: 1.6vh; max-width: 100%; }
+    .pc-date { font-weight: 700; font-size: min(5vh, 32px); letter-spacing: 0.12em; text-transform: uppercase;
+               color: rgba(255, 255, 255, 0.86); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
+    .pc-ev { display: flex; align-items: center; gap: 10px; max-width: 100%; font-size: min(3.6vh, 24px); font-weight: 700;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
+    .pc-ev ha-icon { --mdc-icon-size: min(3.8vh, 26px); color: rgba(255, 255, 255, 0.8); flex: none; }
+    .pc-wx { display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 16px; border-radius: 999px;
              background: rgba(10, 14, 22, 0.45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-    .pc-wx .pc-ico { --mdc-icon-size: 32px; }
-    .pc-wx b { font-family: var(--display); font-weight: 800; font-size: 26px; }
-    .pc-wx span { font-size: 15px; color: rgba(255, 255, 255, 0.8); }
-    .pc-line { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
-    .pc-line ha-icon { --mdc-icon-size: 24px; color: rgba(255, 255, 255, 0.8); flex: none; }
-    .pc-day .np-line { position: static; max-width: 100%; }
+    .pc-wx .pc-ico { --mdc-icon-size: min(7vh, 48px); }
+    .pc-wx b { font-family: var(--display); font-weight: 800; font-size: min(6vh, 40px); }
+    .pc-wx span { font-size: min(3.4vh, 22px); font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+    .pc-face .np-line { position: static; max-width: 100%; }
   `];
 };
 try {
