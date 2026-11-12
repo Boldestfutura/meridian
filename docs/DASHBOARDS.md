@@ -47,6 +47,9 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
   holds it: climate and controls go to Rooms, music to Media, anything else to Home.
   An up-and-down drag the browser doesn't scroll by itself (the tablet's WebView only did so
   from the gaps between tiles) is scrolled, and flung, by the card.
+  Everything on a page is `touch-action: pan-y` except the sideways rows: touch-action only
+  reaches down to the nearest scroll container, so without it a swipe starting on a column that
+  scrolls (Rooms' lights) went to the browser, which cancelled it.
 - Rooms with `swipe`: lights and scenes on the left; on the right, one now-playing tile (the
   room's playing speaker, else one with something queued; the Nest Hub showing this dashboard
   doesn't count), then Climate, then Plugs & plants as rows.

@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.1";
+const VERSION = "0.32.2";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -3730,6 +3730,13 @@ class OverlookShow extends LitElement {
   `, TABLET_CSS, css`
     /* swipe: no dock, the pages side by side on a strip, dots along the bottom */
     .screen.swipe { grid-template-columns: minmax(0, 1fr); }
+    /* touch-action only reaches down to the nearest scroll container. Rooms' lights column scrolls,
+       so a sideways drag that starts on it went to the browser, which cancelled the swipe: only the
+       chips and the corners turned the page. pan-y all the way down, except in the rows that scroll
+       sideways by themselves. :where() keeps it below any element's own touch-action */
+    :where(.sw-page, .sw-page *) { touch-action: pan-y; }
+    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status),
+    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status) * { touch-action: auto; }
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
                 transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .sw-track.dragging { transition: none; }

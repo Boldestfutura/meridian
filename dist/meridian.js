@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.1";
+var VERSION = "0.32.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6892,6 +6892,13 @@ var OverlookShow = class extends dt {
   `, TABLET_CSS, o`
     /* swipe: no dock, the pages side by side on a strip, dots along the bottom */
     .screen.swipe { grid-template-columns: minmax(0, 1fr); }
+    /* touch-action only reaches down to the nearest scroll container. Rooms' lights column scrolls,
+       so a sideways drag that starts on it went to the browser, which cancelled the swipe: only the
+       chips and the corners turned the page. pan-y all the way down, except in the rows that scroll
+       sideways by themselves. :where() keeps it below any element's own touch-action */
+    :where(.sw-page, .sw-page *) { touch-action: pan-y; }
+    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status),
+    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status) * { touch-action: auto; }
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
                 transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .sw-track.dragging { transition: none; }
