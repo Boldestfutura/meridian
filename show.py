@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.30.3"
+VERSION = "0.30.6"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -149,6 +149,9 @@ CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
 # the kitchen tablet's own pages (www/tablet.js): Home, Rooms, Climate, Media, Recipes
 CARD.update({
     "tablet": True,
+    # the washing machine bubble beside the clock (input_select kept by automation washing_machine)
+    "washer": {"entity": "input_select.washing_machine", "started": "input_datetime.washing_machine_started",
+               "alert": "input_boolean.washing_machine_alert"},
     "clock": "kitchen",                       # timer.kitchen_timer behind the Timer button
     "tablet_tv": "media_player.living_room",  # its Plex art comes from /local/nowplaying
     "tablet_players": [

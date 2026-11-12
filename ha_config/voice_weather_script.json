@@ -1,0 +1,82 @@
+{
+ "alias": "Weather forecast",
+ "description": "Daily weather forecast for home (Melbourne), up to about 6 days ahead, and shows it on the screen of the device being spoken to. Use it for any question about the weather, temperature, rain or what to wear, for today, tomorrow, a weekday, the weekend or the week. Answer from the result in one or two short spoken sentences.",
+ "icon": "mdi:weather-partly-cloudy",
+ "mode": "queued",
+ "fields": {
+  "day": {
+   "name": "Day",
+   "description": "Which day(s): today, tomorrow, a weekday name like saturday, weekend, or week. Default today.",
+   "required": false,
+   "selector": {
+    "text": {}
+   },
+   "example": "tomorrow"
+  }
+ },
+ "sequence": [
+  {
+   "action": "weather.get_forecasts",
+   "target": {
+    "entity_id": "weather.forecast_home"
+   },
+   "data": {
+    "type": "daily"
+   },
+   "response_variable": "fc"
+  },
+  {
+   "variables": {
+    "names": {
+     "sunny": "sunny",
+     "clear-night": "clear",
+     "partlycloudy": "partly cloudy",
+     "cloudy": "cloudy",
+     "fog": "foggy",
+     "rainy": "rain",
+     "pouring": "heavy rain",
+     "lightning": "storms",
+     "lightning-rainy": "storms",
+     "windy": "windy",
+     "windy-variant": "windy",
+     "snowy": "snow",
+     "snowy-rainy": "sleet",
+     "hail": "hail",
+     "exceptional": "wild weather"
+    },
+    "days": "{% set ns = namespace(o=[]) %}{% for d in fc['weather.forecast_home'].forecast %}{% set t = as_local(as_datetime(d.datetime)) %}{% set ns.o = ns.o + [{'date': t.date() | string, 'dow': t.strftime('%A'), 'dom': t.day, 'cond': d.condition, 'hi': d.temperature | round(0) | int, 'lo': (d.templow if d.templow is defined else d.temperature) | round(0) | int, 'rain': d.precipitation | float(0)}] %}{% endfor %}{{ ns.o }}",
+    "when": "{% set ns = namespace(w=(day | default('', true)) | lower) %}{% for junk in ['gonna', 'going to', 'be like', '?', '.', ','] %}{% set ns.w = ns.w | replace(junk, ' ') %}{% endfor %}{{ ns.w.split() | join(' ') }}",
+    "pick": "{% set ds = days %}{% set today = now().date() | string %}{% set dows = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}{% set w = when %}{% set num = w | regex_findall('\\\\d+') %}{% set hit = dows | select('in', w) | list %}{% if 'tomorrow' in w %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=1)).date() | string) | list }}{% elif 'weekend' in w %}{{ ds | selectattr('dow', 'in', ['Saturday', 'Sunday']) | list }}{% elif 'week' in w or 'days' in w %}{{ ds }}{% elif hit | length > 0 %}{% set ahead = (dows.index(hit[0]) - now().weekday()) % 7 %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=ahead)).date() | string) | list }}{% elif num | length > 0 %}{{ ds | selectattr('dom', 'eq', num[0] | int) | list }}{% elif w in ['', 'like', 'be', 'it'] or ['today', 'tonight', 'now', 'morning', 'afternoon', 'evening', 'later', 'day'] | select('in', w) | list | length > 0 %}{{ ds | selectattr('date', 'eq', today) | list }}{% else %}{{ 'unknown' }}{% endif %}",
+    "area": "{{ states.assist_satellite | rejectattr('state', 'eq', 'idle') | map(attribute='entity_id') | map('area_id') | reject('none') | list | first | default('', true) }}"
+   }
+  },
+  {
+   "if": [
+    {
+     "condition": "template",
+     "value_template": "{{ area != '' and pick is not string and pick | length > 0 }}"
+    }
+   ],
+   "then": [
+    {
+     "action": "input_text.set_value",
+     "target": {
+      "entity_id": "input_text.overlook_voice"
+     },
+     "data": {
+      "value": "{{ {'area': area, 'action': 'weather', 'range': ('week' if pick | length > 1 else 'day'), 'dates': pick | map(attribute='date') | list, 't': now().timestamp() | int} | to_json }}"
+     }
+    }
+   ]
+  },
+  {
+   "variables": {
+    "result": "{% if pick is string %}{{ {'error': 'Could not tell which day was meant. Ask: today, tomorrow, a weekday, the weekend or the week.'} }}{% elif pick | length == 0 %}{{ {'error': 'No forecast that far ahead. Last day available: ' ~ days[-1].dow} }}{% else %}{{ {'now': ({'temperature_c': state_attr('weather.forecast_home', 'temperature'), 'condition': names.get(states('weather.forecast_home'), states('weather.forecast_home'))} if pick[0].date == (now().date() | string) else none), 'days': pick | map('combine') | list, 'conditions_key': 'cond uses Home Assistant weather states; hi/lo in C; rain in mm'} }}{% endif %}"
+   }
+  },
+  {
+   "stop": "done",
+   "response_variable": "result"
+  }
+ ]
+}

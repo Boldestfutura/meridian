@@ -1,70 +1,75 @@
 {
-  "id": "assist_weather_forecast",
-  "alias": "Assist: Weather Forecast",
-  "description": "Answers 'what's the weather (on Saturday / tomorrow / the 12th / this weekend / next week)' from met.no's daily forecast (6 days), and opens the weather on the screen that heard it (overlook_show event). Added 2026-11-06 for the bedroom Echo's voice control. Opens the weather page on the screen in the asking satellite's area (writes input_text.overlook_voice; card option voice).",
-  "mode": "parallel",
-  "triggers": [
-    {
-      "trigger": "conversation",
-      "command": [
-        "(what's|whats|what is|how's|hows|how is) the weather [going to be] [like]",
-        "(what's|whats|what is) the (forecast|weather forecast)",
-        "show [me] the weather",
-        "(what's|whats|what is|how's|hows|how is) the weather [going to be] [like] {when}",
-        "(what's|whats|what is) the [weather] forecast [for] {when}",
-        "(what's|whats|what is) it going to be like {when}",
-        "weather [for] {when}"
-      ]
-    }
-  ],
-  "conditions": [],
-  "actions": [
-    {
-      "action": "weather.get_forecasts",
-      "target": {
-        "entity_id": "weather.forecast_home"
-      },
-      "data": {
-        "type": "daily"
-      },
-      "response_variable": "fc"
+ "id": "assist_weather_forecast",
+ "alias": "Assist: Weather Forecast",
+ "description": "Answers 'what's the weather (on Saturday / tomorrow / the 12th / this weekend / next week)' from met.no's daily forecast (6 days), and opens the weather on the screen that heard it (overlook_show event). Added 2026-11-06 for the bedroom Echo's voice control. Opens the weather page on the screen in the asking satellite's area (writes input_text.overlook_voice; card option voice).",
+ "triggers": [
+  {
+   "trigger": "conversation",
+   "command": [
+    "(what's|whats|what is|how's|hows|how is) the weather [(going to|gonna) be] [like]",
+    "(what's|whats|what is|how's|hows|how is) the weather [(going to|gonna) be] [like] {when}",
+    "(what's|whats|what is) the (forecast|weather forecast)",
+    "(what's|whats|what is) the [weather] forecast [for] {when}",
+    "show [me] the weather",
+    "show [me] the weather [for] {when}",
+    "(what's|whats|what is) it (going to|gonna) be like {when}",
+    "(what's|whats|what is) the temperature [(going to|gonna) be]",
+    "(what's|whats|what is) the temperature [(going to|gonna) be] {when}",
+    "how (hot|cold|warm) (is it|will it be|is it (going to|gonna) be)",
+    "how (hot|cold|warm) (is it|will it be|is it (going to|gonna) be) {when}",
+    "weather [for] {when}"
+   ]
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "action": "weather.get_forecasts",
+   "target": {
+    "entity_id": "weather.forecast_home"
+   },
+   "data": {
+    "type": "daily"
+   },
+   "response_variable": "fc"
+  },
+  {
+   "variables": {
+    "names": {
+     "sunny": "sunny",
+     "clear-night": "clear",
+     "partlycloudy": "partly cloudy",
+     "cloudy": "cloudy",
+     "fog": "foggy",
+     "rainy": "rain",
+     "pouring": "heavy rain",
+     "lightning": "storms",
+     "lightning-rainy": "storms",
+     "windy": "windy",
+     "windy-variant": "windy",
+     "snowy": "snow",
+     "snowy-rainy": "sleet",
+     "hail": "hail",
+     "exceptional": "wild weather"
     },
-    {
-      "variables": {
-        "names": {
-          "sunny": "sunny",
-          "clear-night": "clear",
-          "partlycloudy": "partly cloudy",
-          "cloudy": "cloudy",
-          "fog": "foggy",
-          "rainy": "rain",
-          "pouring": "heavy rain",
-          "lightning": "storms",
-          "lightning-rainy": "storms",
-          "windy": "windy",
-          "windy-variant": "windy",
-          "snowy": "snow",
-          "snowy-rainy": "sleet",
-          "hail": "hail",
-          "exceptional": "wild weather"
-        },
-        "days": "{% set ns = namespace(o=[]) %}{% for d in fc['weather.forecast_home'].forecast %}{% set t = as_local(as_datetime(d.datetime)) %}{% set ns.o = ns.o + [{'date': t.date() | string, 'dow': t.strftime('%A'), 'dom': t.day, 'cond': d.condition, 'hi': d.temperature | round(0) | int, 'lo': (d.templow if d.templow is defined else d.temperature) | round(0) | int, 'rain': d.precipitation | float(0)}] %}{% endfor %}{{ ns.o }}",
-        "when": "{% set ns = namespace(w=(trigger.slots.when if trigger.slots is defined and trigger.slots.when is defined else '') | lower | trim) %}{% for junk in ['going to be like', 'going to be', 'be like', 'like', '?', '.'] %}{% set ns.w = ns.w | replace(junk, ' ') | trim %}{% endfor %}{% for lead in ['on the ', 'for the ', 'on ', 'for ', 'the ', 'this ', 'coming '] %}{% if ns.w.startswith(lead) %}{% set ns.w = ns.w[lead | length:] | trim %}{% endif %}{% endfor %}{{ ns.w }}",
-        "pick": "{% set ds = days %}{% set today = now().date() | string %}{% set dows = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}{% set w = when %}{% set num = w | regex_findall('\\d+') %}{% if w in ['', 'today', 'tonight', 'now', 'right now', 'this morning', 'this afternoon', 'this evening'] %}{{ ds | selectattr('date', 'eq', today) | list }}{% elif w in ['tomorrow', 'tomorrow morning', 'tomorrow night', 'tomorrow afternoon'] %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=1)).date() | string) | list }}{% elif 'weekend' in w %}{{ ds | selectattr('dow', 'in', ['Saturday', 'Sunday']) | list }}{% elif 'week' in w or 'few days' in w or 'days' in w %}{{ ds }}{% elif (w | replace('next ', '')) in dows %}{% set target = (w | replace('next ', '')) %}{% set ahead = (dows.index(target) - now().weekday()) % 7 %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=ahead)).date() | string) | list }}{% elif num | length > 0 %}{{ ds | selectattr('dom', 'eq', num[0] | int) | list }}{% else %}{{ 'unknown' }}{% endif %}",
-        "say": "{% macro one(d) %}{{ 'Today' if d.date == (now().date() | string) else ('Tomorrow' if d.date == ((now() + timedelta(days=1)).date() | string) else d.dow) }}: {{ names.get(d.cond, d.cond) }}, {{ d.lo }} to {{ d.hi }} degrees{% if d.rain >= 1 %}, around {{ d.rain | round(0) | int }} millimetres of rain{% elif d.rain >= 0.2 %}, a little rain{% endif %}.{% endmacro %}{% if pick == 'unknown' %}Sorry, I didn't catch which day you meant.{% elif pick | length == 0 %}I only have the forecast up to {{ days[-1].dow }} the {{ days[-1].dom }}{{ 'th' if days[-1].dom in [11,12,13] else {1:'st',2:'nd',3:'rd'}.get(days[-1].dom % 10, 'th') }}.{% else %}{% if when in ['', 'today', 'now', 'right now'] and states('weather.forecast_home') not in ['unavailable', 'unknown'] %}It's {{ state_attr('weather.forecast_home', 'temperature') | round(0) | int }} degrees and {{ names.get(states('weather.forecast_home'), states('weather.forecast_home')) }} now. {% endif %}{% for d in pick %}{{ one(d) }} {% endfor %}{% endif %}"
-      }
-    },
-    {
-      "action": "input_text.set_value",
-      "target": {
-        "entity_id": "input_text.overlook_voice"
-      },
-      "data": {
-        "value": "{{ {'area': (area_id(trigger.device_id) if trigger.device_id else ''), 'action': 'weather', 'range': ('week' if pick is not string and pick | length > 1 else 'day'), 'dates': (pick | map(attribute='date') | list if pick is not string else []), 't': now().timestamp() | int} | to_json }}"
-      }
-    },
-    {
-      "set_conversation_response": "{{ say | trim }}"
-    }
-  ]
+    "days": "{% set ns = namespace(o=[]) %}{% for d in fc['weather.forecast_home'].forecast %}{% set t = as_local(as_datetime(d.datetime)) %}{% set ns.o = ns.o + [{'date': t.date() | string, 'dow': t.strftime('%A'), 'dom': t.day, 'cond': d.condition, 'hi': d.temperature | round(0) | int, 'lo': (d.templow if d.templow is defined else d.temperature) | round(0) | int, 'rain': d.precipitation | float(0)}] %}{% endfor %}{{ ns.o }}",
+    "when": "{% set ns = namespace(w=(trigger.slots.when if trigger.slots is defined and trigger.slots.when is defined else '') | lower) %}{% for junk in ['gonna', 'going to', 'be like', '?', '.', ','] %}{% set ns.w = ns.w | replace(junk, ' ') %}{% endfor %}{{ ns.w.split() | join(' ') }}",
+    "pick": "{% set ds = days %}{% set today = now().date() | string %}{% set dows = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}{% set w = when %}{% set num = w | regex_findall('\\\\d+') %}{% set hit = dows | select('in', w) | list %}{% if 'tomorrow' in w %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=1)).date() | string) | list }}{% elif 'weekend' in w %}{{ ds | selectattr('dow', 'in', ['Saturday', 'Sunday']) | list }}{% elif 'week' in w or 'days' in w %}{{ ds }}{% elif hit | length > 0 %}{% set ahead = (dows.index(hit[0]) - now().weekday()) % 7 %}{{ ds | selectattr('date', 'eq', (now() + timedelta(days=ahead)).date() | string) | list }}{% elif num | length > 0 %}{{ ds | selectattr('dom', 'eq', num[0] | int) | list }}{% elif w in ['', 'like', 'be', 'it'] or ['today', 'tonight', 'now', 'morning', 'afternoon', 'evening', 'later', 'day'] | select('in', w) | list | length > 0 %}{{ ds | selectattr('date', 'eq', today) | list }}{% else %}{{ 'unknown' }}{% endif %}",
+    "say": "{% macro one(d) %}{{ 'Today' if d.date == (now().date() | string) else ('Tomorrow' if d.date == ((now() + timedelta(days=1)).date() | string) else d.dow) }}: {{ names.get(d.cond, d.cond) }}, {{ d.lo }} to {{ d.hi }} degrees{% if d.rain >= 1 %}, around {{ d.rain | round(0) | int }} millimetres of rain{% elif d.rain >= 0.2 %}, a little rain{% endif %}.{% endmacro %}{% if pick == 'unknown' %}Sorry, I didn't catch which day you meant.{% elif pick | length == 0 %}I only have the forecast up to {{ days[-1].dow }} the {{ days[-1].dom }}{{ 'th' if days[-1].dom in [11,12,13] else {1:'st',2:'nd',3:'rd'}.get(days[-1].dom % 10, 'th') }}.{% else %}{% if pick | length == 1 and pick[0].date == (now().date() | string) and states('weather.forecast_home') not in ['unavailable', 'unknown'] %}It's {{ state_attr('weather.forecast_home', 'temperature') | round(0) | int }} degrees and {{ names.get(states('weather.forecast_home'), states('weather.forecast_home')) }} now. {% endif %}{% for d in pick %}{{ one(d) }} {% endfor %}{% endif %}"
+   }
+  },
+  {
+   "action": "input_text.set_value",
+   "target": {
+    "entity_id": "input_text.overlook_voice"
+   },
+   "data": {
+    "value": "{{ {'area': (area_id(trigger.device_id) if trigger.device_id else ''), 'action': 'weather', 'range': ('week' if pick is not string and pick | length > 1 else 'day'), 'dates': (pick | map(attribute='date') | list if pick is not string else []), 't': now().timestamp() | int} | to_json }}"
+   }
+  },
+  {
+   "set_conversation_response": "{{ say | trim }}"
+  }
+ ],
+ "mode": "parallel"
 }

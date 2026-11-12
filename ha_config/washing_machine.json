@@ -1,0 +1,280 @@
+{
+  "id": "washing_machine",
+  "alias": "Washing machine",
+  "description": "Power plug says when a cycle starts and finishes; the door sensor says when it's been emptied. Keeps input_select.washing_machine (idle/running/done) for the dashboard bubble. Placeholders until the hardware is paired: rename the plug's power sensor to sensor.washing_machine_power and the door sensor to binary_sensor.washing_machine_door. Thresholds are first guesses; tune after a real cycle. Reminders also switch on input_boolean.washing_machine_alert, the full-screen alert on the kitchen tablet and bedroom Echo; the door, a new cycle or tapping Got it switches it off.",
+  "triggers": [
+    {
+      "trigger": "numeric_state",
+      "entity_id": "sensor.washing_machine_power",
+      "above": 10,
+      "for": "00:02:00",
+      "id": "start"
+    },
+    {
+      "trigger": "numeric_state",
+      "entity_id": "sensor.washing_machine_power",
+      "below": 4,
+      "for": "00:05:00",
+      "id": "finish"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "binary_sensor.washing_machine_door",
+      "to": "on",
+      "id": "door"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "input_select.washing_machine",
+      "to": "done",
+      "for": "00:30:00",
+      "id": "remind"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "input_select.washing_machine",
+      "to": "done",
+      "for": "01:00:00",
+      "id": "remind"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "input_select.washing_machine",
+      "to": "done",
+      "for": "01:30:00",
+      "id": "remind"
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "start"
+            },
+            {
+              "condition": "not",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity_id": "input_select.washing_machine",
+                  "state": "running"
+                }
+              ]
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.washing_machine_alert"
+              }
+            },
+            {
+              "action": "input_datetime.set_datetime",
+              "target": {
+                "entity_id": "input_datetime.washing_machine_started"
+              },
+              "data": {
+                "timestamp": "{{ (now() - timedelta(minutes=2)).timestamp() }}"
+              }
+            },
+            {
+              "action": "input_select.select_option",
+              "target": {
+                "entity_id": "input_select.washing_machine"
+              },
+              "data": {
+                "option": "running"
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "finish"
+            },
+            {
+              "condition": "state",
+              "entity_id": "input_select.washing_machine",
+              "state": "running"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_select.select_option",
+              "target": {
+                "entity_id": "input_select.washing_machine"
+              },
+              "data": {
+                "option": "done"
+              }
+            },
+            {
+              "action": "notify.mobile_app_camerons_iphone",
+              "continue_on_error": true,
+              "data": {
+                "title": "Washing's done",
+                "message": "Time to hang it out. {{ ((now().timestamp() - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
+                "data": {
+                  "tag": "washing",
+                  "group": "washing"
+                }
+              }
+            },
+            {
+              "action": "notify.mobile_app_paget_s_iphone",
+              "continue_on_error": true,
+              "data": {
+                "title": "Washing's done",
+                "message": "Time to hang it out. {{ ((now().timestamp() - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
+                "data": {
+                  "tag": "washing",
+                  "group": "washing"
+                }
+              }
+            },
+            {
+              "if": [
+                {
+                  "condition": "or",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity_id": "person.cameron",
+                      "state": "home"
+                    },
+                    {
+                      "condition": "state",
+                      "entity_id": "person.paget",
+                      "state": "home"
+                    }
+                  ]
+                },
+                {
+                  "condition": "time",
+                  "after": "07:00:00",
+                  "before": "21:30:00"
+                }
+              ],
+              "then": [
+                {
+                  "action": "assist_satellite.announce",
+                  "continue_on_error": true,
+                  "target": {
+                    "entity_id": "assist_satellite.kitchen_tablet_va"
+                  },
+                  "data": {
+                    "message": "The washing's done.",
+                    "preannounce": true
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "remind"
+            },
+            {
+              "condition": "state",
+              "entity_id": "input_select.washing_machine",
+              "state": "done"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_on",
+              "target": {
+                "entity_id": "input_boolean.washing_machine_alert"
+              }
+            },
+            {
+              "action": "notify.mobile_app_camerons_iphone",
+              "continue_on_error": true,
+              "data": {
+                "title": "Washing's still in the machine",
+                "message": "It's been sitting there for {{ {'0:30:00':'half an hour','1:00:00':'an hour','1:30:00':'an hour and a half'}.get(trigger.for | string, 'a while') }}.",
+                "data": {
+                  "tag": "washing",
+                  "group": "washing"
+                }
+              }
+            },
+            {
+              "action": "notify.mobile_app_paget_s_iphone",
+              "continue_on_error": true,
+              "data": {
+                "title": "Washing's still in the machine",
+                "message": "It's been sitting there for {{ {'0:30:00':'half an hour','1:00:00':'an hour','1:30:00':'an hour and a half'}.get(trigger.for | string, 'a while') }}.",
+                "data": {
+                  "tag": "washing",
+                  "group": "washing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "door"
+            },
+            {
+              "condition": "state",
+              "entity_id": "input_select.washing_machine",
+              "state": "done"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.washing_machine_alert"
+              }
+            },
+            {
+              "action": "input_select.select_option",
+              "target": {
+                "entity_id": "input_select.washing_machine"
+              },
+              "data": {
+                "option": "idle"
+              }
+            },
+            {
+              "action": "notify.mobile_app_camerons_iphone",
+              "continue_on_error": true,
+              "data": {
+                "message": "clear_notification",
+                "data": {
+                  "tag": "washing"
+                }
+              }
+            },
+            {
+              "action": "notify.mobile_app_paget_s_iphone",
+              "continue_on_error": true,
+              "data": {
+                "message": "clear_notification",
+                "data": {
+                  "tag": "washing"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mode": "queued"
+}

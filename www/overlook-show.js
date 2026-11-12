@@ -13,7 +13,7 @@
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, TABLET_CSS, wave } from "./tablet.js";
 
-const VERSION = "0.30.3";
+const VERSION = "0.30.6";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -464,7 +464,7 @@ class OverlookShow extends LitElement {
   // --- render -------------------------------------------------------------
   // the voice glow sits over whatever screen is showing
   render() {
-    return html`${this._screen()}${this._npLayer()}${this._clockLayer()}${this._glow()}`;
+    return html`${this._screen()}${this._npLayer()}${this._washLayer()}${this._clockLayer()}${this._glow()}`;
   }
 
   // --- voice clock: timer and alarm screens --------------------------------
@@ -854,11 +854,85 @@ class OverlookShow extends LitElement {
     return html`
       <div class="topright ${onPhoto ? "on-photo" : ""}"
            @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
+        ${this._washer()}
         ${cond ? html`${this._wxIcon(w.state, "wx")}
           <span class="temp">${this._deg(t)}</span>` : nothing}
         <span class="clock">${this._time(this._now)}</span>
       </div>
       ${onPhoto ? this._npLine() : nothing}`;
+  }
+
+  // the washing machine bubble, beside the clock: `washer: {entity, started}`. The entity is an
+  // input_select (idle/running/done) kept by the washing machine automation; the bubble shows
+  // only while it's running (drum turning, minutes since `started`) or done (pulsing until the door opens).
+  _washer() {
+    const w = this._config.washer;
+    const e = w && this._st(w.entity);
+    if (!e || !["running", "done"].includes(e.state)) return nothing;
+    const run = e.state === "running";
+    let label = "Washing done";
+    if (run) {
+      const s = w.started && this._st(w.started);
+      const t0 = s ? new Date(s.state.replace(" ", "T")) : null;
+      const min = t0 && !isNaN(t0) ? Math.max(0, Math.floor((this._now - t0) / 60000)) : null;
+      label = min == null ? "Washing" : min < 60 ? `Washing · ${min} min` : `Washing · ${Math.floor(min / 60)} h ${min % 60} min`;
+    }
+    const icon = svg`<svg class="wm-ico" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="2" width="18" height="20" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7"></rect>
+        <line x1="3" y1="7" x2="21" y2="7" stroke="currentColor" stroke-width="1.4"></line>
+        <circle cx="6.6" cy="4.6" r="0.9" fill="currentColor"></circle><circle cx="9.4" cy="4.6" r="0.9" fill="currentColor"></circle>
+        <circle cx="12" cy="14.5" r="5.4" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+        <g class="wm-drum">
+          <path d="M8.2 15.4 Q10 13.4 12 15.2 T15.8 15.1 L15.6 16.6 Q13.6 18.6 10.8 18.1 Q8.9 17.6 8.2 15.4 Z" fill="currentColor" opacity="0.55"></path>
+          <circle cx="10.4" cy="12.4" r="0.9" fill="currentColor" opacity="0.8"></circle>
+          <circle cx="14.2" cy="12.9" r="0.7" fill="currentColor" opacity="0.8"></circle>
+        </g>
+        ${run ? nothing : svg`<path d="M9.6 14.6 l1.7 1.7 l3.3 -3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>`}
+      </svg>`;
+    return html`<button class="wm ${run ? "wm-run" : "wm-done"}" @pointerdown=${(ev) => ev.stopPropagation()}
+        @click=${(ev) => { ev.stopPropagation(); this._open(w.entity); }}>${icon}<span>${label}</span></button>`;
+  }
+
+  // the forgotten-washing alert: `washer.alert` (an input_boolean the automation switches on at
+  // each reminder, and off when the door opens or a new cycle starts) takes the whole screen in a
+  // pulsing orange-to-red glow until someone taps Got it. Over music; under a timer or alarm.
+  // Never in a dark room (the night clock stays).
+  _washLayer() {
+    const w = this._config && this._config.washer;
+    const a = w && w.alert && this._st(w.alert);
+    if (!a || a.state !== "on" || !this.hass || this._night()) return nothing;
+    const e = this._st(w.entity);
+    const since = e && e.state === "done" ? new Date(e.last_changed) : null;
+    const min = since ? Math.max(0, Math.floor((this._now - since) / 60000)) : null;
+    const ago = min == null ? "" : min < 60 ? `Finished ${min} min ago`
+      : `Finished ${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""} ago`;
+    const dismiss = (ev) => {
+      ev.stopPropagation();
+      this._call("input_boolean", "turn_off", { entity_id: w.alert });
+    };
+    const icon = svg`<svg class="wa-ico" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="2" width="18" height="20" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+        <line x1="3" y1="7" x2="21" y2="7" stroke="currentColor" stroke-width="1.2"></line>
+        <circle cx="6.6" cy="4.6" r="0.85" fill="currentColor"></circle><circle cx="9.4" cy="4.6" r="0.85" fill="currentColor"></circle>
+        <circle cx="12" cy="14.5" r="5.4" fill="none" stroke="currentColor" stroke-width="1.4"></circle>
+        <g class="wa-drum">
+          <path d="M8.2 15.4 Q10 13.4 12 15.2 T15.8 15.1 L15.6 16.6 Q13.6 18.6 10.8 18.1 Q8.9 17.6 8.2 15.4 Z" fill="currentColor" opacity="0.6"></path>
+          <circle cx="10.4" cy="12.4" r="0.8" fill="currentColor" opacity="0.85"></circle>
+          <circle cx="14.2" cy="12.9" r="0.65" fill="currentColor" opacity="0.85"></circle>
+        </g>
+      </svg>`;
+    return html`
+      <div class="screen wa" @pointerdown=${(ev) => ev.stopPropagation()}>
+        <div class="wa-top">
+          <div class="wa-label"><ha-icon icon="mdi:washing-machine-alert"></ha-icon>Washing machine</div>
+          ${icon}
+        </div>
+        <div class="wa-text">
+          <div class="wa-title">The washing's still in there</div>
+          ${ago ? html`<div class="wa-sub">${ago}</div>` : nothing}
+        </div>
+        <button class="wa-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+      </div>`;
   }
 
   // under the clock on photos: what the `nowplaying` speaker is playing; a tap opens it full screen
@@ -2483,6 +2557,48 @@ class OverlookShow extends LitElement {
     .topright.on-photo .clock { font-size: 62px; }
     .topright.on-photo .temp { font-size: 40px; font-weight: 600; }
     .topright.on-photo .wx { --mdc-icon-size: 38px; }
+    /* the washing machine bubble */
+    .wm { border: 0; font: inherit; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+          padding: 7px 14px 7px 9px; margin-right: 6px; border-radius: 999px; text-shadow: none;
+          color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card)); }
+    .wm .wm-ico { width: 26px; height: 26px; flex: none; }
+    .wm-run .wm-drum { transform-box: view-box; transform-origin: 12px 14.5px; animation: wm-spin 1.6s linear infinite; }
+    .wm-done { color: #fff; background: var(--accent); animation: wm-pulse 2.4s ease-in-out infinite; }
+    .on-photo .wm { background: rgba(0, 0, 0, 0.32); color: #fff; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .on-photo .wm-done { background: var(--accent); }
+    @keyframes wm-spin { 0% { transform: rotate(0deg); } 45% { transform: rotate(200deg); } 55% { transform: rotate(160deg); } 100% { transform: rotate(360deg); } }
+    @keyframes wm-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+                          50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); } }
+    @media (prefers-reduced-motion: reduce) { .wm-run .wm-drum, .wm-done { animation: none; } }
+    /* the forgotten-washing alert: the whole screen glowing light orange to red and back */
+    .screen.wa { z-index: 880; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto auto; gap: 3.5vh;
+          padding: 6vh 5.5vw 6vh; color: #2a0a03; background: #ff8a3d; isolation: isolate; }
+    .wa::before { content: ""; position: absolute; inset: -20%; z-index: -1;
+                  background: radial-gradient(ellipse at 50% 55%, #ffc27a 0%, #ff8a3d 38%, #e8432c 72%, #b81e1e 100%);
+                  animation: wa-breathe 2.6s ease-in-out infinite; }
+    .wa::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+                 box-shadow: inset 0 0 6vh 1vh rgba(190, 20, 20, 0.85); animation: wa-edge 2.6s ease-in-out infinite; }
+    @keyframes wa-breathe { 0%, 100% { filter: hue-rotate(0deg) saturate(1); transform: scale(1); }
+                            50% { filter: hue-rotate(-18deg) saturate(1.25) brightness(0.92); transform: scale(1.08); } }
+    @keyframes wa-edge { 0%, 100% { box-shadow: inset 0 0 4vh 0.5vh rgba(200, 30, 20, 0.55); }
+                         50% { box-shadow: inset 0 0 14vh 4vh rgba(180, 10, 10, 0.95); } }
+    .wa-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 3vw; min-height: 0; }
+    .wa-label { display: flex; align-items: center; gap: 1.4vw; font-family: var(--display); font-weight: 700;
+                font-size: 6.5vh; white-space: nowrap; padding-top: 1vh; }
+    .wa-label ha-icon { --mdc-icon-size: 7.5vh; }
+    .wa-ico { height: 34vh; width: auto; flex: none; }
+    .wa-drum { transform-box: view-box; transform-origin: 12px 14.5px; animation: wa-rock 2.6s ease-in-out infinite; }
+    @keyframes wa-rock { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+    .wa-text { min-width: 0; }
+    .wa-title { font-family: var(--display); font-weight: 800; font-size: min(15vh, 8.2vw); line-height: 0.95;
+                letter-spacing: -0.02em; text-wrap: balance; }
+    .wa-sub { margin-top: 1.6vh; font-family: var(--display); font-weight: 700; font-size: 6vh; opacity: 0.75; }
+    .wa-btn { height: 20vh; border: 0; border-radius: 7vh; background: rgba(42, 10, 3, 0.86); color: #ffd9b0;
+              display: flex; align-items: center; justify-content: center; gap: 1.6vw; font-family: var(--display);
+              font-weight: 700; font-size: 7vh; transition: transform 0.12s; }
+    .wa-btn ha-icon { --mdc-icon-size: 8vh; }
+    .wa-btn:active { transform: scale(0.97); }
+    @media (prefers-reduced-motion: reduce) { .wa::before, .wa::after, .wa-drum { animation: none; } }
     .np-line { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 112px); right: 30px; z-index: 3;
                max-width: 46%; display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px;
                border-radius: 999px; background: rgba(0, 0, 0, 0.32); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
