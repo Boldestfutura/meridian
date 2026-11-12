@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.2";
+var VERSION = "0.32.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4030,6 +4030,7 @@ var OverlookShow = class extends dt {
     }
     if (this._wx) return this._wxPage();
     const photos = this._page === "photos";
+    if (photos && this._night()) return this._nightClock();
     if (photos && this._config.photo_clock && this._config.photos) {
       return Z`<div class="screen tablet on-photo">${this._photoClock()}</div>`;
     }
@@ -4060,7 +4061,7 @@ var OverlookShow = class extends dt {
     const [h2, mm] = this._time(d2).split(":");
     const date = d2.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
     return Z`
-      <div class="screen night" @click=${() => this._go("controls")}>
+      <div class="screen night" @click=${() => this._go(this._swipePages() ? "home" : "controls")}>
         <div class="night-face" style="transform:translate(${m2 * 7 % 25 - 12}px, ${m2 * 5 % 17 - 8}px)">
           <div class="night-time">${h2}<span class="night-colon">:</span>${mm}</div>
           <div class="night-date">${date}</div>

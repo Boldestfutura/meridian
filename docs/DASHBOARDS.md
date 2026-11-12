@@ -55,6 +55,9 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
   doesn't count), then Climate, then Plugs & plants as rows.
 - `photo_clock`: when idle, a big clock with the date, weather, who's home and the next event
   over the slideshow, darkened. A new photo fades in over the last. A tap goes back to Home.
+- `night` (an input_boolean; the kitchen uses `input_boolean.bedroom_night_mode`, 9pm-7:30am
+  while someone's home): while it's on, idle shows the Echo's red clock on black instead. A tap
+  goes to Home and it returns to the red clock after 30 seconds.
 
 ## Changing one
 

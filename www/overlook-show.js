@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.2";
+const VERSION = "0.32.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -900,6 +900,7 @@ class OverlookShow extends LitElement {
     }
     if (this._wx) return this._wxPage();
     const photos = this._page === "photos";
+    if (photos && this._night()) return this._nightClock();
     if (photos && this._config.photo_clock && this._config.photos) {
       return html`<div class="screen tablet on-photo">${this._photoClock()}</div>`;
     }
@@ -931,7 +932,7 @@ class OverlookShow extends LitElement {
     const [h, mm] = this._time(d).split(":");
     const date = d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
     return html`
-      <div class="screen night" @click=${() => this._go("controls")}>
+      <div class="screen night" @click=${() => this._go(this._swipePages() ? "home" : "controls")}>
         <div class="night-face" style="transform:translate(${(m * 7) % 25 - 12}px, ${(m * 5) % 17 - 8}px)">
           <div class="night-time">${h}<span class="night-colon">:</span>${mm}</div>
           <div class="night-date">${date}</div>
