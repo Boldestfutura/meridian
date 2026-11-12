@@ -2982,7 +2982,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.5";
+var VERSION = "0.32.6";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6916,7 +6916,7 @@ var OverlookShow = class extends dt {
     @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
-    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
+    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.44) 0%, rgba(5, 7, 12, 0.26) 60%, rgba(5, 7, 12, 0.36) 100%); }
     /* one centred column: weather, the time, then the date and what's next */
     .pc-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                gap: 3vh; padding: 0 5vw; text-align: center; }

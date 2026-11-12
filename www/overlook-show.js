@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.5";
+const VERSION = "0.32.6";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -3757,7 +3757,7 @@ class OverlookShow extends LitElement {
     @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
-    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
+    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.44) 0%, rgba(5, 7, 12, 0.26) 60%, rgba(5, 7, 12, 0.36) 100%); }
     /* one centred column: weather, the time, then the date and what's next */
     .pc-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                gap: 3vh; padding: 0 5vw; text-align: center; }
