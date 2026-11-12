@@ -1,0 +1,26 @@
+{
+  "alias": "Pip: pet",
+  "icon": "mdi:hand-heart",
+  "description": "Pet Pip (the Meridian Pip card calls this after three quick taps).",
+  "mode": "single",
+  "sequence": [
+    {
+      "action": "input_datetime.set_datetime",
+      "target": {
+        "entity_id": "input_datetime.pip_last_pet"
+      },
+      "data": {
+        "timestamp": "{{ now().timestamp() }}"
+      }
+    },
+    {
+      "action": "homeassistant.update_entity",
+      "target": {
+        "entity_id": [
+          "sensor.pip_mood",
+          "sensor.pip_fun"
+        ]
+      }
+    }
+  ]
+}

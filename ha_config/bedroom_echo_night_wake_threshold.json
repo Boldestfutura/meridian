@@ -1,0 +1,84 @@
+{
+  "id": "bedroom_echo_night_wake_threshold",
+  "alias": "Master Bedroom Echo - Stricter Wake Word During Sleep Sounds",
+  "description": "Sleep Sounds play from the Echo's own speaker and set off its Alexa wake word several times a night (14 empty wakes over 6 nights, checked 2026-11-12). While input_boolean.bedroom_night_mode is on, raise number.bedroom_echo_va_wake_word_threshold to 9.5; when it turns off, put back the value it had (kept in input_number.bedroom_echo_day_wake_threshold, so a hand-set daytime value survives). Added 2026-11-12.",
+  "mode": "queued",
+  "triggers": [
+    {
+      "trigger": "state",
+      "entity_id": "input_boolean.bedroom_night_mode",
+      "to": "on",
+      "id": "night"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "input_boolean.bedroom_night_mode",
+      "to": "off",
+      "id": "day"
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "night"
+            }
+          ],
+          "sequence": [
+            {
+              "if": [
+                {
+                  "condition": "template",
+                  "value_template": "{{ states('number.bedroom_echo_va_wake_word_threshold') | float(0) < 9.5 }}"
+                }
+              ],
+              "then": [
+                {
+                  "action": "input_number.set_value",
+                  "target": {
+                    "entity_id": "input_number.bedroom_echo_day_wake_threshold"
+                  },
+                  "data": {
+                    "value": "{{ states('number.bedroom_echo_va_wake_word_threshold') | float(8.8) }}"
+                  }
+                }
+              ]
+            },
+            {
+              "action": "number.set_value",
+              "target": {
+                "entity_id": "number.bedroom_echo_va_wake_word_threshold"
+              },
+              "data": {
+                "value": 9.5
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "day"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "number.set_value",
+              "target": {
+                "entity_id": "number.bedroom_echo_va_wake_word_threshold"
+              },
+              "data": {
+                "value": "{{ states('input_number.bedroom_echo_day_wake_threshold') | float(8.8) }}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

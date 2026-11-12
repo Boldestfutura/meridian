@@ -1964,8 +1964,947 @@ var TABLET_CSS = o`
   }
 `;
 
+// www/pip.js
+function createPip() {
+  const STATES = {
+    idle: { name: "Idle", group: "voice", hue: "#8fdc8a", what: "Blinks, breathes, leaves sway, pollen drifts up. Hands float beside it, bobbing out of step.", src: "Nothing else going on.", status: "" },
+    listening: { name: "Listening", group: "voice", hue: "#5aa0ff", what: "Wide eyes, leaves perk up, sound rings pulse in from both sides. One hand cupped to its ear.", src: "Wake word heard (voice assistant: listening).", status: "LISTENING" },
+    thinking: { name: "Thinking", group: "voice", hue: "#b48cff", what: "Leaves spin like a propeller, eyes glance up, three motes orbit its head. One hand taps its chin.", src: "Speech sent, Claude is working on the reply.", status: "THINKING" },
+    speaking: { name: "Speaking", group: "voice", hue: "#ffc861", what: "Mouth moves with the reply, glow pulses with it. Hands gesture as it talks.", src: "Kokoro reply playing on the speaker.", status: "" },
+    happy: { name: "Happy", group: "mood", hue: "#ff8fb8", what: "Bounces with squash and stretch, petals and sparkles fly. Both hands up, wiggling.", src: "You pet it, you got home, or every stat is above 70%.", status: "YAY" },
+    hungry: { name: "Hungry", group: "mood", hue: "#f0a35a", what: "Tummy rumbles and shakes it, mouth open, eyes fixed on a bobbing apple. Rubs its tummy.", src: "Food below 30%. Just for fun: it drains over a day. Tap the apple, or tick things off the shopping list.", status: "HUNGRY" },
+    thirsty: { name: "Thirsty", group: "mood", hue: "#52d1d9", what: "Leaves droop, heavy eyelids, a water drop bobs over its head. Hands hang limp.", src: "A real plant is dry: soil moisture sensor 1 or 2 under 25%. Water the plant and Pip perks up.", status: "THIRSTY" },
+    sleepy: { name: "Sleepy", group: "mood", hue: "#6a6ff0", what: "Eyes shut, slow breathing, Zs drift up, the screen dims. Hands hang low and cover a yawn now and then.", src: "Late evening, from 9:30 pm until you go to bed, or whenever its rest stat runs low.", status: "SLEEPY" },
+    asleep: { name: "Asleep", group: "mood", hue: "#4b4fc4", what: "Tucked up on its side: head on a pillow, a quilt over it that rises and falls with its breathing, a nightcap with a pom-pom. Zs drift up and the screen dims further.", src: "You've gone to bed: Sleep Sounds on, or the bedroom dark after 10 pm. It stays in bed until morning or the lights come on.", status: "ZZZ" },
+    sad: { name: "Sad", group: "mood", hue: "#6f9bd8", what: "Big wet eyes and worried brows, a tear rolls down, one hand rubs its eye, leaves droop. Every tap sends up a heart, and three quick taps cheer it up.", src: "Nobody has petted it for 12 hours. Three quick taps on the screen (or Pet on your phone) bring it back.", status: "SAD" },
+    angry: { name: "Angry", group: "mood", hue: "#ff4d3a", what: "Arms crossed, brows down, cheeks puffed red, steam puffs out of its head and it stamps its feet. An anger mark throbs above it.", src: "Neglected: its fun stat under 15%, or nobody has talked to it or petted it for 2 days. A pet or a chat calms it down.", status: "GRR" },
+    hot: { name: "Hot", group: "home", hue: "#ff5a3c", what: "Flushed red, panting with its tongue out, sweat drop, heat shimmer above. Fans its face.", src: "Kitchen over 28 \xB0C (Air Quality Monitor temperature).", status: "TOO HOT" },
+    cold: { name: "Cold", group: "home", hue: "#bfeaff", what: "Tinted blue, shivers in bursts, teeth chatter, wears a scarf, snow falls. Hugs itself.", src: "Kitchen under 17 \xB0C.", status: "BRRR" },
+    stuffy: { name: "Stuffy air", group: "home", hue: "#b5c26a", what: "Murky haze drifts past, squinting eyes, little coughs. Waves the air away and covers its coughs.", src: "Kitchen VOC index over 250 or PM2.5 over 35, usually cooking. Open a window.", status: "STUFFY" },
+    rain: { name: "Raining", group: "home", hue: "#7aa3c9", what: "Shelters under a tiny umbrella while rain falls round it. Holds the umbrella.", src: "The home forecast says rainy or pouring.", status: "RAINING" },
+    music: { name: "Music", group: "home", hue: "#ff6fd8", what: "Dances side to side on the beat, eyes closed, notes float up. Pumps its hands to the beat.", src: "Music Assistant is playing in the room.", status: "DANCING" },
+    guests: { name: "Guests", group: "home", hue: "#ffe680", what: "Waves a leaf, big eyes, grin, confetti. Waves a hand and a leaf.", src: "Guest mode is on.", status: "HI!" },
+    error: { name: "Can't connect", group: "home", hue: "#ff6b6b", what: "Greyed out and wilted under a little rain cloud. Hands flopped on the floor.", src: "Home Assistant or the Claude pipeline can't be reached.", status: "NO SIGNAL" }
+  };
+  const STAGES = ["Seed", "Sprout", "Sapling", "Bloom"];
+  const STATS = {
+    // water, food, fun, rest
+    idle: [0.72, 0.8, 0.7, 0.75],
+    listening: [0.72, 0.8, 0.78, 0.75],
+    thinking: [0.72, 0.8, 0.78, 0.75],
+    speaking: [0.72, 0.8, 0.82, 0.75],
+    happy: [0.9, 0.9, 1, 0.85],
+    thirsty: [0.15, 0.62, 0.45, 0.6],
+    sleepy: [0.66, 0.7, 0.64, 0.18],
+    error: [0.6, 0.6, 0.5, 0.6],
+    hungry: [0.7, 0.12, 0.5, 0.6],
+    asleep: [0.66, 0.7, 0.64, 0.4],
+    sad: [0.7, 0.75, 0.25, 0.6],
+    angry: [0.5, 0.45, 0.06, 0.5],
+    hot: [0.4, 0.7, 0.5, 0.5],
+    cold: [0.7, 0.7, 0.5, 0.6],
+    stuffy: [0.7, 0.7, 0.45, 0.6],
+    rain: [0.75, 0.8, 0.7, 0.75],
+    music: [0.72, 0.8, 1, 0.7],
+    guests: [0.72, 0.8, 0.95, 0.7]
+  };
+  const STAT_COL = ["#59b8ff", "#ffb547", "#ff7fb0", "#9a8cff"];
+  let state = "idle", stage = 2, petUntil = -1, hearts = [];
+  const I2 = {
+    BG: 0,
+    OUT: 1,
+    BD: 2,
+    BM: 3,
+    BL: 4,
+    BH: 5,
+    BEL: 6,
+    BELD: 7,
+    RIM: 8,
+    EYE: 9,
+    SHINE: 10,
+    BLUSH: 11,
+    MOUTH: 12,
+    TONGUE: 13,
+    STEM: 14,
+    LD: 15,
+    LM: 16,
+    LL: 17,
+    PET: 18,
+    PETC: 19,
+    G0: 20,
+    G1: 21,
+    G2: 22,
+    G3: 23,
+    SPK: 24,
+    SHADOW: 25,
+    DROP: 26,
+    DROPL: 27,
+    CLOUD: 28,
+    ZZ: 29,
+    SCARF: 30,
+    SCARF2: 31,
+    SNOW: 32,
+    SWEAT: 33,
+    HAZE: 34,
+    FOOD: 35,
+    FOODL: 36,
+    UMB: 37,
+    UMB2: 38,
+    CONF: 39,
+    PIL: 40,
+    PILD: 41,
+    BLK1: 42,
+    BLK2: 43,
+    BLKL: 44,
+    CAP: 45,
+    CAP2: 46,
+    POM: 47
+  };
+  const BASE = {
+    BG: "#000000",
+    OUT: "#16241a",
+    BD: "#4c7a3a",
+    BM: "#6b9c4a",
+    BL: "#90bf5e",
+    BH: "#bfe085",
+    BEL: "#eef3c9",
+    BELD: "#cfdd9c",
+    EYE: "#132018",
+    SHINE: "#ffffff",
+    BLUSH: "#f28b86",
+    MOUTH: "#3b1d1f",
+    TONGUE: "#e7686d",
+    STEM: "#58883a",
+    LD: "#2f6a33",
+    LM: "#4f9c45",
+    LL: "#86cf63",
+    PET: "#f7b9d6",
+    PETC: "#f8d462",
+    SHADOW: "#141c15",
+    DROP: "#4aa5ff",
+    DROPL: "#bfe3ff",
+    CLOUD: "#7d8590",
+    ZZ: "#b9bcff",
+    SCARF: "#d6453d",
+    SCARF2: "#f3e7cf",
+    SNOW: "#eef8ff",
+    SWEAT: "#9fd8ff",
+    HAZE: "#5d6640",
+    FOOD: "#e2453c",
+    FOODL: "#7ccf5a",
+    UMB: "#e8554e",
+    UMB2: "#f7c948",
+    CONF: "#7fe0ff",
+    PIL: "#ece8f4",
+    PILD: "#b4adc9",
+    BLK1: "#4a5fc4",
+    BLK2: "#6f86e2",
+    BLKL: "#e6eafb",
+    CAP: "#7a58d4",
+    CAP2: "#a88df2",
+    POM: "#f6f3ff"
+  };
+  const hex = (h2) => [1, 3, 5].map((i2) => parseInt(h2.slice(i2, i2 + 2), 16));
+  const mix = (a2, b2, t3) => a2.map((v2, i2) => v2 + (b2[i2] - v2) * t3);
+  function palette(st2) {
+    const hue = hex(STATES[st2].hue), black = [0, 0, 0];
+    const p2 = new Array(48);
+    for (const [k2, v2] of Object.entries(BASE)) p2[I2[k2]] = hex(v2);
+    p2[I2.RIM] = mix(hex(BASE.BL), hue, 0.7);
+    p2[I2.G0] = hue;
+    p2[I2.G1] = mix(hue, black, 0.5);
+    p2[I2.G2] = mix(hue, black, 0.72);
+    p2[I2.G3] = mix(hue, black, 0.86);
+    p2[I2.SPK] = mix(hue, [255, 255, 255], 0.45);
+    if (st2 === "error") for (const k2 of ["BD", "BM", "BL", "BH", "BEL", "BELD", "STEM", "LD", "LM", "LL", "BLUSH", "RIM"]) {
+      const c2 = p2[I2[k2]], g2 = c2[0] * 0.3 + c2[1] * 0.59 + c2[2] * 0.11;
+      p2[I2[k2]] = mix(c2, [g2, g2, g2], 0.7);
+    }
+    const tint = { cold: [[150, 205, 255], 0.3], hot: [[255, 110, 70], 0.24], angry: [[255, 80, 55], 0.2], sad: [[110, 140, 230], 0.16], stuffy: [[140, 150, 80], 0.22] }[st2];
+    if (tint) for (const k2 of ["BD", "BM", "BL", "BH", "BEL", "BELD", "STEM", "LD", "LM", "LL", "RIM"]) p2[I2[k2]] = mix(p2[I2[k2]], tint[0], tint[1]);
+    const dim = st2 === "asleep" ? 0.45 : st2 === "sleepy" ? 0.6 : 1;
+    return p2.map((c2) => c2.map((v2) => Math.round(v2 * dim)));
+  }
+  const N2 = 64, pix = new Uint8Array(N2 * N2), solid = new Uint8Array(N2 * N2);
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v2) => (v2 + 0.5) / 16);
+  const bay = (x3, y2) => BAYER[(y2 & 3) * 4 + (x3 & 3)];
+  const inb = (x3, y2) => x3 >= 0 && y2 >= 0 && x3 < N2 && y2 < N2;
+  function put(x3, y2, c2) {
+    x3 = Math.floor(x3);
+    y2 = Math.floor(y2);
+    if (inb(x3, y2)) pix[y2 * N2 + x3] = c2;
+  }
+  function putS(x3, y2, c2) {
+    x3 = Math.floor(x3);
+    y2 = Math.floor(y2);
+    if (inb(x3, y2)) {
+      pix[y2 * N2 + x3] = c2;
+      solid[y2 * N2 + x3] = 1;
+    }
+  }
+  function putBg(x3, y2, c2) {
+    x3 = Math.floor(x3);
+    y2 = Math.floor(y2);
+    if (inb(x3, y2) && !solid[y2 * N2 + x3]) pix[y2 * N2 + x3] = c2;
+  }
+  const clamp2 = (v2, a2, b2) => Math.max(a2, Math.min(b2, v2));
+  function leaf(ax, ay, dx, dy, len, wid, light) {
+    if (len < 0.6) return;
+    const px = -dy, py = dx;
+    const x0 = Math.floor(Math.min(ax, ax + dx * len) - wid - 1), x1 = Math.ceil(Math.max(ax, ax + dx * len) + wid + 1);
+    const y0 = Math.floor(Math.min(ay, ay + dy * len) - wid - 1), y1 = Math.ceil(Math.max(ay, ay + dy * len) + wid + 1);
+    for (let y2 = y0; y2 <= y1; y2++) for (let x3 = x0; x3 <= x1; x3++) {
+      const rx = x3 + 0.5 - ax, ry = y2 + 0.5 - ay;
+      const u2 = (rx * dx + ry * dy) / len, v2 = rx * px + ry * py;
+      if (u2 < 0 || u2 > 1) continue;
+      const hw = wid * Math.pow(Math.sin(Math.PI * Math.min(1, u2 * 1.08)), 0.75);
+      if (Math.abs(v2) > hw) continue;
+      let c2 = Math.abs(v2) < 0.55 && u2 < 0.85 ? I2.LD : v2 * light > 0 ? I2.LL : I2.LM;
+      putS(x3, y2, c2);
+    }
+  }
+  function zGlyph(x3, y2, s2) {
+    for (let i2 = 0; i2 < s2; i2++) {
+      put(x3 + i2, y2, I2.ZZ);
+      put(x3 + i2, y2 + s2 - 1, I2.ZZ);
+      put(x3 + s2 - 1 - i2, y2 + i2, I2.ZZ);
+    }
+  }
+  function drawSleep(t3) {
+    const breathe = Math.sin(t3 * 1.2);
+    const ground = 49, cx = 36, rx = 11.5, ry = 9.2 * (1 + breathe * 0.035), cy = ground - ry;
+    const topAt = (x3) => {
+      const u2 = (x3 + 0.5 - cx) / rx;
+      return Math.abs(u2) < 1 ? cy - ry * Math.sqrt(1 - u2 * u2) : ground;
+    };
+    const A2 = 0.3 + 0.05 * breathe;
+    for (let y2 = 0; y2 < N2; y2++) for (let x3 = 0; x3 < N2; x3++) {
+      const d2 = Math.hypot((x3 + 0.5 - (cx - 3)) / (rx + 8), (y2 + 0.5 - (cy - 1)) / (ry + 6));
+      if (d2 < 1) continue;
+      const g2 = A2 * Math.exp(-(d2 - 1) * 2.6), b2 = bay(x3, y2);
+      if (g2 > 0.34 + b2 * 0.25) put(x3, y2, I2.G2);
+      else if (g2 > 0.13 + b2 * 0.15) put(x3, y2, I2.G3);
+    }
+    for (let x3 = cx - rx - 6; x3 <= cx + rx + 2; x3++) {
+      put(x3, ground + 1, I2.SHADOW);
+      if (x3 > cx - rx - 4 && x3 < cx + rx) put(x3, ground + 2, I2.SHADOW);
+    }
+    const p0 = cx - rx - 6, p1 = cx - rx + 7, q0 = ground - 6;
+    for (let y2 = q0; y2 <= ground; y2++) for (let x3 = p0; x3 <= p1; x3++) {
+      const cxn = Math.min(x3 - p0, p1 - x3), cyn = Math.min(y2 - q0, ground - y2);
+      if (cxn + cyn < 2) continue;
+      putS(x3, y2, y2 > ground - 2 || x3 < p0 + 2 || (y2 - q0 + x3) % 7 === 0 ? I2.PILD : I2.PIL);
+    }
+    for (let y2 = Math.floor(cy - ry - 1); y2 <= ground; y2++) for (let x3 = cx - rx - 1; x3 <= cx + rx + 1; x3++) {
+      const nx0 = (x3 + 0.5 - cx) / rx, ny = (y2 + 0.5 - cy) / ry;
+      const nx = nx0 < 0 ? nx0 * 0.97 : nx0 * 1.05;
+      const d2 = nx * nx + ny * ny;
+      if (d2 > 1) continue;
+      const nz = Math.sqrt(1 - d2), L2 = clamp2(-0.42 * nx - 0.55 * ny + 0.72 * nz, 0, 1);
+      putS(x3, y2, [I2.BD, I2.BM, I2.BL, I2.BH][clamp2(Math.round(L2 * 3.2 + (bay(x3, y2) - 0.5) * 0.95), 0, 3)]);
+    }
+    const hem = cx + 2;
+    for (let y2 = Math.floor(cy - ry - 2); y2 <= ground; y2++) for (let x3 = hem - 3; x3 <= cx + rx + 4; x3++) {
+      const nx = (x3 + 0.5 - cx) / (rx + 1.6), ny = (y2 + 0.5 - cy) / (ry + 1.6);
+      const inBody = nx * nx + Math.min(0, ny) ** 2 <= 1 || y2 > cy && x3 < cx + rx + 3;
+      const edge = hem + Math.round((y2 - cy) * 0.35);
+      if (!inBody || x3 < edge) continue;
+      if (x3 > cx + rx + 1 && y2 < cy + (x3 - cx - rx) * 2.4) continue;
+      let c2;
+      if (x3 <= edge + 1) c2 = I2.BLKL;
+      else c2 = x3 + y2 >> 2 & 1 ? I2.BLK1 : I2.BLK2;
+      if (c2 !== I2.BLKL && y2 > ground - 3 && bay(x3, y2) < 0.5) c2 = I2.BLK1;
+      putS(x3, y2, c2);
+    }
+    const hx = Math.round(cx - rx + 6.5);
+    for (let x3 = hx - 6; x3 <= hx + 4; x3++) {
+      const yt2 = Math.round(topAt(x3));
+      putS(x3, yt2, I2.POM);
+      putS(x3, yt2 + 1, I2.POM);
+    }
+    const sw = Math.sin(t3 * 1.2) * 0.6;
+    let tipX = 0, tipY = 0;
+    for (let k2 = 0; k2 <= 30; k2++) {
+      const u2 = k2 / 30;
+      const x3 = hx - 1 - u2 * 7 - u2 * u2 * 3, y2 = topAt(hx - 1) - 1 - u2 * 7 + u2 * u2 * 6 + sw * u2 * u2;
+      const r2 = 3.2 * (1 - u2) + 0.6;
+      for (let dy = -r2; dy <= r2; dy += 0.5) for (let dx = -r2; dx <= r2; dx += 0.5)
+        if (dx * dx + dy * dy <= r2 * r2 && y2 + dy < topAt(x3 + dx) - 0.5) putS(x3 + dx, y2 + dy, Math.floor(u2 * 6) % 2 ? I2.CAP2 : I2.CAP);
+      tipX = x3;
+      tipY = y2;
+    }
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx * dx + dy * dy <= 2) putS(tipX + dx - 1, tipY + dy + 1, I2.POM);
+    leaf(hx + 4, topAt(hx + 4) - 0.5, 0.75, -0.66, 4.5, 1.7, 1);
+    for (let y2 = 0; y2 < N2; y2++) for (let x3 = 0; x3 < N2; x3++) {
+      if (solid[y2 * N2 + x3]) continue;
+      if (x3 > 0 && solid[y2 * N2 + x3 - 1] || x3 < N2 - 1 && solid[y2 * N2 + x3 + 1] || y2 > 0 && solid[(y2 - 1) * N2 + x3] || y2 < N2 - 1 && solid[(y2 + 1) * N2 + x3])
+        pix[y2 * N2 + x3] = I2.OUT;
+    }
+    const ey = Math.round(cy - 1);
+    for (const ex of [hx - 5, hx]) {
+      put(ex - 1, ey, I2.EYE);
+      put(ex, ey + 1, I2.EYE);
+      put(ex + 1, ey + 1, I2.EYE);
+      put(ex + 2, ey, I2.EYE);
+    }
+    for (const bx of [hx - 7, hx + 2]) {
+      put(bx, ey + 3, I2.BLUSH);
+      put(bx + 1, ey + 3, I2.BLUSH);
+    }
+    put(hx - 3, ey + 3, I2.MOUTH);
+    put(hx - 2, ey + 3, I2.MOUTH);
+    if (breathe > 0.2) {
+      put(hx - 3, ey + 4, I2.MOUTH);
+      put(hx - 2, ey + 4, I2.MOUTH);
+    }
+    for (let i2 = 0; i2 < 3; i2++) {
+      const ph = (t3 * 0.28 + i2 / 3) % 1;
+      if (ph > 0.8 && bay(i2, Math.floor(ph * 40)) > 0.5) continue;
+      zGlyph(Math.floor(hx + 6 + ph * 12), Math.floor(cy - ry - 5 - ph * 16), i2 % 2 ? 4 : 5);
+    }
+  }
+  function draw(t3) {
+    pix.fill(0);
+    solid.fill(0);
+    const pet = t3 < petUntil;
+    const st2 = pet ? "happy" : state;
+    if (st2 === "asleep") return drawSleep(t3);
+    const breathe = Math.sin(t3 * (st2 === "sleepy" ? 1.2 : 2.2));
+    const talk = st2 === "speaking" ? Math.abs(Math.sin(t3 * 9.3) * 0.6 + Math.sin(t3 * 5.1) * 0.4) : 0;
+    let cx = 32;
+    const rx0 = [12.5, 14, 14.5, 14.5][stage], ry0 = rx0 - 1.2;
+    if (st2 === "cold" && t3 % 2.4 < 1.3) cx += Math.floor(t3 * 16) & 1;
+    const rumble = st2 === "hungry" && t3 % 3.2 < 0.5;
+    if (rumble) cx += Math.floor(t3 * 14) & 1 ? 1 : -1;
+    if (st2 === "music") cx += Math.round(Math.sin(t3 * Math.PI * 1.8) * 2);
+    const stomp = st2 === "angry" ? t3 % 2.2 : 9;
+    if (stomp < 0.5) cx += Math.floor(t3 * 18) & 1 ? 1 : -1;
+    const ground = 52;
+    let rx = rx0, ry = ry0, lift = 0;
+    if (st2 === "happy") {
+      const ph = t3 * 2.2 % 1, h2 = Math.sin(ph * Math.PI);
+      lift = h2 * 5;
+      const sq = ph < 0.1 || ph > 0.92 ? 0.14 : -0.05 * h2;
+      rx *= 1 + sq;
+      ry *= 1 - sq;
+    } else if (st2 === "music") {
+      const ph = t3 * 1.8 % 1, b2 = Math.max(0, 1 - ph * 4);
+      rx *= 1 + b2 * 0.09;
+      ry *= 1 - b2 * 0.09;
+      lift = Math.sin(ph * Math.PI) * 1.5;
+    } else {
+      const s2 = breathe * (st2 === "sleepy" ? 0.035 : 0.02) + talk * 0.03;
+      rx *= 1 - s2 * 0.5;
+      ry *= 1 + s2;
+    }
+    if (st2 === "thirsty" || st2 === "error") {
+      ry *= 0.96;
+      rx *= 1.02;
+    }
+    if (stomp < 0.5) lift = Math.sin(stomp / 0.5 * Math.PI) * 2.5;
+    if (st2 === "angry") {
+      rx *= 1.04 + Math.sin(t3 * 9) * 0.01;
+      ry *= 0.97;
+    }
+    const cy = ground - ry - lift;
+    const A2 = {
+      idle: 0.5 + 0.08 * breathe,
+      listening: 0.8 + 0.15 * Math.sin(t3 * 6),
+      thinking: 0.65 + 0.1 * Math.sin(t3 * 3),
+      speaking: 0.5 + 0.45 * talk,
+      happy: 0.8,
+      thirsty: 0.45,
+      sleepy: 0.3 + 0.05 * breathe,
+      error: 0.4,
+      hungry: 0.5 + (rumble ? 0.25 : 0),
+      hot: 0.75 + 0.1 * Math.sin(t3 * 4),
+      cold: 0.55,
+      stuffy: 0.4,
+      rain: 0.45,
+      music: 0.55 + 0.4 * Math.max(0, 1 - t3 * 1.8 % 1 * 3),
+      guests: 0.75,
+      sad: 0.35,
+      angry: 0.7 + 0.2 * Math.abs(Math.sin(t3 * 4))
+    }[st2];
+    for (let y2 = 0; y2 < N2; y2++) for (let x3 = 0; x3 < N2; x3++) {
+      const dx = (x3 + 0.5 - cx) / (rx + 2), dy = (y2 + 0.5 - (cy - 3)) / (ry + 5);
+      const d2 = Math.hypot(dx, dy);
+      if (d2 < 1) continue;
+      const g2 = A2 * Math.exp(-(d2 - 1) * 2.6), b2 = bay(x3, y2);
+      if (g2 > 0.62 + b2 * 0.3) put(x3, y2, I2.G1);
+      else if (g2 > 0.34 + b2 * 0.25) put(x3, y2, I2.G2);
+      else if (g2 > 0.13 + b2 * 0.15) put(x3, y2, I2.G3);
+    }
+    const sr = rx0 * 0.85 * (1 - lift / 14);
+    for (let x3 = Math.floor(cx - sr); x3 <= Math.ceil(cx + sr); x3++) {
+      const u2 = (x3 + 0.5 - cx) / sr;
+      if (Math.abs(u2) > 1) continue;
+      put(x3, ground + 1, I2.SHADOW);
+      if (Math.abs(u2) < 0.7) put(x3, ground + 2, I2.SHADOW);
+    }
+    for (const f2 of [-1, 1]) for (let y2 = 0; y2 < 2; y2++) for (let x3 = 0; x3 < 3; x3++)
+      if (!(y2 === 1 && (x3 === 0 && f2 < 0 || x3 === 2 && f2 > 0))) putS(cx + f2 * 6 - 1.5 + x3, ground - 2 + y2 - lift, I2.BD);
+    const rimOn = !["idle", "sleepy", "rain"].includes(st2);
+    for (let y2 = Math.floor(cy - ry - 1); y2 <= Math.ceil(cy + ry + 1); y2++) for (let x3 = Math.floor(cx - rx - 1); x3 <= Math.ceil(cx + rx + 1); x3++) {
+      const nx = (x3 + 0.5 - cx) / rx, ny0 = (y2 + 0.5 - cy) / ry;
+      const ny = ny0 < 0 ? ny0 * 1.06 : ny0;
+      const d2 = nx * nx + ny * ny;
+      if (d2 > 1) continue;
+      const nz = Math.sqrt(1 - d2);
+      const L3 = clamp2(-0.42 * nx - 0.55 * ny + 0.72 * nz, 0, 1);
+      const v2 = L3 * 3.2 + (bay(x3, y2) - 0.5) * 0.95;
+      const bx = (x3 + 0.5 - cx) / (rx * 0.5), by = (y2 + 0.5 - (cy + ry * 0.62)) / (ry * 0.36);
+      let c2;
+      if (bx * bx + by * by <= 1) c2 = v2 > 1.7 ? I2.BEL : I2.BELD;
+      else c2 = [I2.BD, I2.BM, I2.BL, I2.BH][clamp2(Math.round(v2), 0, 3)];
+      if (rimOn && d2 > 0.84 && nx > 0.62 && ny > -0.45 && ny < 0.7) c2 = I2.RIM;
+      putS(x3, y2, c2);
+    }
+    const top = cy - ry + 0.8;
+    const droop = { thirsty: 0.78, error: 1, sleepy: 0.45, listening: -0.25, happy: -0.1, hot: 0.55, hungry: 0.3, cold: 0.15, stuffy: 0.3, guests: -0.15, angry: -0.2, sad: 0.6 }[st2] || 0;
+    const L2 = [1.5, 5, 8, 10][stage];
+    const sway = Math.sin(t3 * 1.4) * 0.1 + (st2 === "happy" ? Math.sin(t3 * 13.8) * 0.12 : 0) + (st2 === "music" ? Math.sin(t3 * Math.PI * 1.8) * 0.2 : 0);
+    const tipAt = (f2) => [cx + Math.sin(sway) * L2 * f2, top - Math.cos(sway) * L2 * f2];
+    for (let k2 = 0; k2 <= L2 * 2; k2++) {
+      const [sx, sy] = tipAt(k2 / (L2 * 2));
+      putS(sx - 0.5, sy, I2.STEM);
+      putS(sx + 0.5, sy, I2.STEM);
+    }
+    const pair = (f2, len, wid, ang, topPair) => {
+      const [ax, ay] = tipAt(f2);
+      if (st2 === "thinking") {
+        for (const ph of [0, Math.PI]) {
+          const c2 = Math.cos(t3 * 7 + ph);
+          leaf(ax, ay - 0.5, Math.sign(c2) || 1, -0.22, len * (0.35 + 0.65 * Math.abs(c2)), wid * (0.7 + 0.3 * Math.abs(c2)), Math.sin(t3 * 7 + ph) > 0 ? 1 : -1);
+        }
+        return;
+      }
+      for (const s2 of [-1, 1]) {
+        let a2 = clamp2(ang + droop * (1.95 - ang), 0.2, 2.3) + sway * s2 * -1;
+        if (st2 === "guests" && topPair && s2 === 1) a2 = 0.2 + (Math.sin(t3 * 7) * 0.5 + 0.5) * 0.95;
+        leaf(ax, ay, s2 * Math.sin(a2), -Math.cos(a2), len, wid, -s2);
+      }
+    };
+    if (stage === 0) {
+      putS(cx, top - 2, I2.LM);
+      putS(cx + 1, top - 3, I2.LL);
+    }
+    if (stage === 1) pair(1, 8.5, 3, 0.95, true);
+    if (stage >= 2) {
+      pair(stage === 3 ? 0.8 : 1, 10.5, 3.6, 1, true);
+      pair(0.4, 6, 2.4, 1.3);
+    }
+    if (stage === 3) {
+      const [fx, fy] = tipAt(1);
+      const wilt = st2 === "error" || st2 === "thirsty" ? 1.2 : 0;
+      for (let i2 = 0; i2 < 5; i2++) {
+        const a2 = t3 * 0.5 + i2 * Math.PI * 2 / 5;
+        const px = fx + Math.cos(a2) * 2.7, py = fy - 1 + Math.sin(a2) * 2.4 + wilt;
+        for (let y2 = -1; y2 <= 1; y2++) for (let x3 = -1; x3 <= 1; x3++) if (x3 * x3 + y2 * y2 <= 1.5) putS(px + x3, py + y2, I2.PET);
+      }
+      for (let y2 = -1; y2 <= 0; y2++) for (let x3 = -1; x3 <= 0; x3++) putS(fx + x3 + 0.5, fy - 1 + y2 + 0.5, I2.PETC);
+    }
+    const umbY = Math.round(top - L2 - 4), umbR = 12;
+    if (st2 === "rain") {
+      for (let dx = -umbR; dx <= umbR; dx++) {
+        const h2 = Math.round(Math.sqrt(umbR * umbR - dx * dx) * 0.42);
+        for (let dy = 0; dy <= h2; dy++) putS(cx + dx - 0.5, umbY - dy, Math.floor((dx + umbR) / 6) % 2 ? I2.UMB2 : I2.UMB);
+      }
+      putS(cx - 0.5, umbY - 6, I2.UMB);
+      putS(cx - 0.5, umbY + 1, I2.STEM);
+      putS(cx - 0.5, umbY + 2, I2.STEM);
+    }
+    const eyY = Math.round(cy - ry * 0.12), mY = eyY + 5, side = rx + 5;
+    const rest = (s2, ph = 0) => [cx + s2 * side, cy + 2 + Math.sin(t3 * 2.2 + ph) * 0.8, 0];
+    let H2;
+    if (st2 === "listening") H2 = [rest(-1), [cx + rx + 2, eyY - 2 + Math.sin(t3 * 6) * 0.5, 1]];
+    else if (st2 === "thinking") H2 = [rest(-1), [cx + 5, mY + 3 - (Math.floor(t3 * 2.5) & 1 ? 0.6 : 0), 1]];
+    else if (st2 === "speaking") H2 = [[cx - side, cy + 1 - talk * 3, 0], [cx + side, cy + 2 - Math.max(0, Math.sin(t3 * 3.1)) * 4, 0]];
+    else if (st2 === "happy") H2 = [-1, 1].map((s2) => [cx + s2 * (rx + 3), cy - ry + 1 + Math.sin(t3 * 14 + s2) * 1.2, 0]);
+    else if (st2 === "hungry") H2 = [-1, 1].map((s2) => [cx + s2 * 5 + Math.cos(t3 * 5) * 1.5, cy + ry * 0.55 + Math.sin(t3 * 5) * s2, 1]);
+    else if (st2 === "thirsty") H2 = [-1, 1].map((s2) => [cx + s2 * (rx + 3), cy + ry - 3 + Math.sin(t3 * 1.4 + s2) * 0.4, 0]);
+    else if (st2 === "sleepy") H2 = [[cx - side + 1, cy + ry - 3, 0], t3 % 6.5 < 1.6 ? [cx + 1, mY + 1, 1] : [cx + side - 1, cy + ry - 3, 0]];
+    else if (st2 === "hot") H2 = [rest(-1), [cx + rx + 3, eyY + 1 + Math.sin(t3 * 14) * 2.5, 0]];
+    else if (st2 === "cold") {
+      const j2 = t3 % 2.4 < 1.3 ? Math.floor(t3 * 16) & 1 : 0;
+      H2 = [-1, 1].map((s2) => [cx + s2 * (rx - 1) + j2, cy + ry * 0.3, 1]);
+    } else if (st2 === "stuffy") H2 = [[cx - side - 1 + Math.sin(t3 * 8) * 1.5, eyY, 0], t3 % 2.6 / 2.6 < 0.45 ? [cx + 1, mY + 1, 1] : rest(1)];
+    else if (st2 === "rain") H2 = [rest(-1), [cx - 0.5, Math.round(top - L2 - 4) + 3, 1]];
+    else if (st2 === "music") H2 = [-1, 1].map((s2) => [cx + s2 * side, cy - 2 - Math.max(0, Math.sin(t3 * Math.PI * 1.8 + (s2 > 0 ? Math.PI : 0))) * 4, 0]);
+    else if (st2 === "guests") H2 = [rest(-1), [cx + rx + 4 + Math.sin(t3 * 7) * 1.5, cy - ry + 1, 0]];
+    else if (st2 === "error") H2 = [-1, 1].map((s2) => [cx + s2 * (rx + 2), ground - 3, 0]);
+    else if (st2 === "sad") H2 = [[cx - side + 1, cy + ry - 3, 0], t3 % 4 < 1.8 ? [cx + 6 + Math.sin(t3 * 9) * 0.7, eyY + 1, 1] : [cx + side - 1, cy + ry - 3, 0]];
+    else if (st2 === "angry") H2 = [[cx - 3, cy + ry * 0.8, 1], [cx + 3, cy + ry * 0.8 + 1, 1]];
+    else H2 = [rest(-1), rest(1, 1.3)];
+    const HAND = [".###.", "#####", "#####", "#####", ".###."];
+    const handPx = ([hx, hy]) => {
+      const out = [];
+      HAND.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") out.push([Math.round(hx) - 2 + i2, Math.round(hy) - 2 + j2, j2 === 0 || j2 === 1 && i2 <= 1 ? I2.BH : j2 === 4 || j2 === 3 && i2 === 4 ? I2.BM : I2.BL]);
+      }));
+      return out;
+    };
+    for (const h2 of H2) if (!h2[2]) for (const [x3, y2, c2] of handPx(h2)) putS(x3, y2, c2);
+    for (let y2 = 0; y2 < N2; y2++) for (let x3 = 0; x3 < N2; x3++) {
+      if (solid[y2 * N2 + x3]) continue;
+      if (x3 > 0 && solid[y2 * N2 + x3 - 1] || x3 < N2 - 1 && solid[y2 * N2 + x3 + 1] || y2 > 0 && solid[(y2 - 1) * N2 + x3] || y2 < N2 - 1 && solid[(y2 + 1) * N2 + x3])
+        pix[y2 * N2 + x3] = I2.OUT;
+    }
+    const ey = Math.round(cy - ry * 0.12);
+    let gx = 0, gy = 0;
+    if (st2 === "thinking") {
+      gx = Math.round(Math.sin(t3 * 1.7));
+      gy = -1;
+    }
+    if (st2 === "listening") gy = -1;
+    if (st2 === "thirsty") gy = -1;
+    if (st2 === "hungry") {
+      gx = 1;
+      gy = -1;
+    }
+    const blink = t3 % 4.1 < 0.12 || t3 % 9.7 > 9.45 && t3 % 9.7 < 9.57;
+    const eyes = (fn) => {
+      fn(cx - 7 + gx, ey + gy, -1);
+      fn(cx + 5 + gx, ey + gy, 1);
+    };
+    const blush = () => {
+      for (const [x3, s2] of [[cx - 9, 0], [cx + 6, 0]]) {
+        put(x3, ey + 3, I2.BLUSH);
+        put(x3 + 1, ey + 3, I2.BLUSH);
+        put(x3 + 2, ey + 3, I2.BLUSH);
+      }
+    };
+    const my = ey + 5;
+    if (st2 === "happy" || st2 === "music") {
+      eyes((x3, y2) => {
+        put(x3 - 1, y2 + 1, I2.EYE);
+        put(x3, y2, I2.EYE);
+        put(x3 + 1, y2, I2.EYE);
+        put(x3 + 2, y2 + 1, I2.EYE);
+      });
+      blush();
+      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my, I2.MOUTH);
+      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
+      put(cx - 1, my + 2, I2.MOUTH);
+      put(cx, my + 2, I2.MOUTH);
+    } else if (st2 === "sleepy") {
+      eyes((x3, y2) => {
+        put(x3 - 1, y2 + 1, I2.EYE);
+        put(x3, y2 + 2, I2.EYE);
+        put(x3 + 1, y2 + 2, I2.EYE);
+        put(x3 + 2, y2 + 1, I2.EYE);
+      });
+      const o2 = breathe > 0 ? 1 : 0;
+      put(cx - 1, my, I2.MOUTH);
+      put(cx, my, I2.MOUTH);
+      if (o2) {
+        put(cx - 1, my + 1, I2.MOUTH);
+        put(cx, my + 1, I2.MOUTH);
+      }
+    } else if (st2 === "stuffy") {
+      eyes((x3, y2, s2) => {
+        const a2 = s2 < 0 ? 0 : 1, b2 = 1 - a2;
+        put(x3 + a2, y2, I2.EYE);
+        put(x3 + b2, y2 + 1, I2.EYE);
+        put(x3 + a2, y2 + 2, I2.EYE);
+      });
+      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + (x3 & 1), I2.MOUTH);
+    } else if (st2 === "sad") {
+      eyes((x3, y2, s2) => {
+        for (let j2 = 0; j2 < 3; j2++) for (let i2 = 0; i2 < 2; i2++) put(x3 + i2, y2 + j2, I2.EYE);
+        put(x3, y2, I2.SHINE);
+        put(x3 + 1, y2 + 2, I2.DROPL);
+        const B2 = s2 < 0 ? [[-1, -1], [0, -1], [1, -2], [2, -2]] : [[-1, -2], [0, -2], [1, -1], [2, -1]];
+        for (const [a2, b2] of B2) put(x3 + a2, y2 + b2, I2.EYE);
+      });
+      const ph = t3 % 2.6 / 2.6;
+      if (ph < 0.75) {
+        put(cx - 7, ey + 3 + ph * 7, I2.DROP);
+        put(cx - 7, ey + 2 + ph * 7, I2.DROPL);
+      }
+      const w2 = t3 % 1.3 < 0.65 ? 0 : 1;
+      put(cx - 2, my + 1, I2.MOUTH);
+      put(cx - 1, my + w2 * 0, I2.MOUTH);
+      put(cx, my, I2.MOUTH);
+      put(cx + 1, my + 1, I2.MOUTH);
+      if (w2) {
+        put(cx - 3, my + 2, I2.MOUTH);
+        put(cx + 2, my + 2, I2.MOUTH);
+      }
+    } else if (st2 === "angry") {
+      eyes((x3, y2, s2) => {
+        for (let j2 = 0; j2 < 2; j2++) for (let i2 = 0; i2 < 2; i2++) put(x3 + i2, y2 + 1 + j2, I2.EYE);
+        const B2 = s2 < 0 ? [[-1, -2], [0, -2], [1, -1], [2, 0]] : [[-1, 0], [0, -1], [1, -2], [2, -2]];
+        for (const [a2, b2] of B2) {
+          put(x3 + a2, y2 + b2, I2.EYE);
+          put(x3 + a2, y2 + b2 - 1, I2.OUT);
+        }
+      });
+      for (const x0 of [cx - 10, cx + 6]) for (let i2 = 0; i2 < 4; i2++) {
+        put(x0 + i2, ey + 3, I2.BLUSH);
+        if (i2 && i2 < 3) put(x0 + i2, ey + 4, I2.BLUSH);
+      }
+      const w2 = Math.floor(t3 * 8) & 1;
+      put(cx - 3, my + 2, I2.MOUTH);
+      put(cx - 2, my + 1, I2.MOUTH);
+      put(cx - 1, my + w2, I2.MOUTH);
+      put(cx, my + 1 - w2, I2.MOUTH);
+      put(cx + 1, my + 1, I2.MOUTH);
+      put(cx + 2, my + 2, I2.MOUTH);
+    } else if (st2 === "error") {
+      eyes((x3, y2) => {
+        put(x3 - 1, y2, I2.EYE);
+        put(x3 + 1, y2 + 2, I2.EYE);
+        put(x3, y2 + 1, I2.EYE);
+        put(x3 + 1, y2, I2.EYE);
+        put(x3 - 1, y2 + 2, I2.EYE);
+      });
+      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my + (x3 & 1), I2.MOUTH);
+    } else {
+      const big = st2 === "listening" || st2 === "guests";
+      eyes((x3, y2) => {
+        if (blink && st2 !== "listening") {
+          put(x3, y2 + 2, I2.EYE);
+          put(x3 + 1, y2 + 2, I2.EYE);
+          return;
+        }
+        const h2 = big ? 4 : 3, w2 = big ? 3 : 2, ox = big ? -1 + (x3 > cx ? 1 : 0) : 0;
+        for (let j2 = 0; j2 < h2; j2++) for (let i2 = 0; i2 < w2; i2++) put(x3 + ox + i2, y2 + j2 - (big ? 1 : 0), I2.EYE);
+        put(x3 + ox, y2 - (big ? 1 : 0), I2.SHINE);
+        if (big) put(x3 + ox + 1, y2 + 1, I2.SHINE);
+        if (st2 === "thirsty" || st2 === "hot") for (let i2 = -1; i2 <= w2; i2++) {
+          put(x3 + ox + i2, y2, I2.BD);
+          put(x3 + ox + i2, y2 + 1, I2.OUT);
+        }
+      });
+      if (st2 !== "thirsty") blush();
+      if (st2 === "cold") for (const x3 of [cx - 9, cx + 7]) put(x3, ey + 3, I2.SCARF);
+      if (st2 === "speaking") {
+        const h2 = Math.round(talk * 3);
+        if (h2 === 0) for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, I2.MOUTH);
+        else for (let j2 = 0; j2 <= h2; j2++) for (let x3 = -2; x3 <= 1; x3++) {
+          if ((j2 === 0 || j2 === h2) && (x3 === -2 || x3 === 1)) continue;
+          put(cx + x3, my + j2, j2 === h2 && h2 >= 2 && (x3 === -1 || x3 === 0) ? I2.TONGUE : I2.MOUTH);
+        }
+      } else if (st2 === "listening") {
+        put(cx - 1, my, I2.MOUTH);
+        put(cx, my, I2.MOUTH);
+        put(cx - 1, my + 1, I2.MOUTH);
+        put(cx, my + 1, I2.MOUTH);
+      } else if (st2 === "thinking") {
+        put(cx, my, I2.MOUTH);
+        put(cx + 1, my, I2.MOUTH);
+        put(cx + 2, my - 1, I2.MOUTH);
+      } else if (st2 === "hot") {
+        const pant = Math.sin(t3 * 10) > 0 ? 1 : 0;
+        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my, I2.MOUTH);
+        put(cx - 2, my + 1, I2.MOUTH);
+        put(cx + 1, my + 1, I2.MOUTH);
+        put(cx - 1, my + 1, I2.TONGUE);
+        put(cx, my + 1, I2.TONGUE);
+        put(cx - 1, my + 2, I2.TONGUE);
+        put(cx, my + 2, I2.TONGUE);
+        if (pant) {
+          put(cx - 1, my + 3, I2.TONGUE);
+          put(cx, my + 3, I2.TONGUE);
+        }
+      } else if (st2 === "cold") {
+        const ph = Math.floor(t3 * 12) & 1;
+        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my + (x3 + ph & 1), I2.MOUTH);
+      } else if (st2 === "hungry") {
+        for (let j2 = 0; j2 <= 2; j2++) for (let x3 = -1; x3 <= 0; x3++) put(cx + x3, my + j2, I2.MOUTH);
+        put(cx - 2, my + 1, I2.MOUTH);
+        put(cx + 1, my + 1, I2.MOUTH);
+        if (t3 % 2 < 1.3) put(cx + 1, my + 3, I2.DROPL);
+      } else if (st2 === "guests") {
+        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my, I2.MOUTH);
+        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
+      } else if (st2 === "thirsty") {
+        put(cx - 2, my + 1, I2.MOUTH);
+        put(cx - 1, my, I2.MOUTH);
+        put(cx, my, I2.MOUTH);
+        put(cx + 1, my + 1, I2.MOUTH);
+      } else {
+        put(cx - 2, my, I2.MOUTH);
+        put(cx - 1, my + 1, I2.MOUTH);
+        put(cx, my + 1, I2.MOUTH);
+        put(cx + 1, my, I2.MOUTH);
+      }
+    }
+    if (st2 === "cold") {
+      const y0 = Math.round(cy + ry * 0.5);
+      for (let y2 = y0; y2 <= y0 + 2; y2++) for (let x3 = 0; x3 < N2; x3++)
+        if (solid[y2 * N2 + x3]) put(x3, y2, Math.floor((x3 + (y2 - y0)) / 3) % 2 ? I2.SCARF2 : I2.SCARF);
+      for (let y2 = y0 + 3; y2 <= y0 + 7; y2++) for (let x3 = cx + 3; x3 <= cx + 5; x3++) put(x3, y2, (y2 + x3) % 3 ? I2.SCARF : I2.SCARF2);
+    }
+    for (const h2 of H2) if (h2[2]) {
+      const px = handPx(h2), key = new Set(px.map(([x3, y2]) => x3 + "," + y2));
+      for (const [x3, y2] of px) for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+        if (!key.has(x3 + ox + "," + (y2 + oy))) putS(x3 + ox, y2 + oy, I2.OUT);
+      for (const [x3, y2, c2] of px) putS(x3, y2, c2);
+    }
+    for (const h2 of hearts) {
+      const age = t3 - h2.t;
+      if (age < 0 || age > 1.3) continue;
+      const hx = cx + h2.dx + Math.sin(age * 6 + h2.dx) * 1.5, hy = cy - ry - 2 - age * 16;
+      [".#.#.", "#####", "#####", ".###.", "..#.."].forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") put(hx - 2 + i2, hy + j2, age > 1 && bay(i2, j2) > (1.3 - age) * 3 ? I2.G2 : I2.PET);
+      }));
+    }
+    const tipY = top - L2 - 3;
+    if (st2 === "idle" || st2 === "speaking") {
+      for (let i2 = 0; i2 < 4; i2++) {
+        const life = (t3 * 0.16 + i2 / 4) % 1;
+        const x3 = cx + Math.sin(i2 * 2.3 + t3 * 0.6) * (17 + i2 * 2), y2 = ground - 4 - life * 44;
+        if (life > 0.85 && bay(i2, Math.floor(t3 * 8)) > 0.5) continue;
+        putBg(x3, y2, I2.SPK);
+        if ((t3 * 2 + i2) % 2 < 0.35) {
+          putBg(x3 - 1, y2, I2.G1);
+          putBg(x3 + 1, y2, I2.G1);
+          putBg(x3, y2 - 1, I2.G1);
+          putBg(x3, y2 + 1, I2.G1);
+        }
+      }
+    }
+    if (st2 === "listening") {
+      for (let k2 = 0; k2 < 3; k2++) {
+        const r2 = 30 - (t3 * 13 + k2 * 6) % 18, fade = (30 - r2) / 18;
+        for (let a2 = -0.55; a2 <= 0.55; a2 += 0.05) for (const s2 of [-1, 1]) {
+          const x3 = cx + s2 * Math.cos(a2) * r2, y2 = cy - 2 + Math.sin(a2) * r2 * 0.9;
+          putBg(x3, y2, fade > bay(Math.floor(x3), Math.floor(y2)) ? I2.G0 : I2.G2);
+        }
+      }
+    }
+    if (st2 === "thinking") {
+      for (let i2 = 0; i2 < 3; i2++) {
+        const a2 = t3 * 2.6 + i2 * Math.PI * 2 / 3, x3 = cx + Math.cos(a2) * 13, y2 = tipY + Math.sin(a2) * 3.2;
+        if (Math.sin(a2) > 0) {
+          putBg(x3, y2, I2.SPK);
+          putBg(x3 + 1, y2, I2.SPK);
+          putBg(x3, y2 + 1, I2.SPK);
+          putBg(x3 + 1, y2 + 1, I2.SPK);
+        } else putBg(x3, y2, I2.G1);
+      }
+    }
+    if (st2 === "happy") {
+      for (let i2 = 0; i2 < 8; i2++) {
+        const ph = (t3 * 0.7 + i2 / 8) % 1, a2 = i2 * 2.4 + 1;
+        const x3 = cx + Math.cos(a2) * (12 + ph * 18), y2 = cy - 8 - ph * 22 + Math.sin(a2) * 4;
+        if (ph > 0.75 && bay(i2, i2 * 3) > (1 - ph) * 4) continue;
+        const c2 = i2 % 3 === 0 ? I2.SPK : I2.PET;
+        putBg(x3, y2, c2);
+        putBg(x3 + 1, y2, c2);
+        if (i2 % 3) {
+          putBg(x3, y2 + 1, c2);
+          putBg(x3 + 1, y2 + 1, c2);
+        }
+      }
+    }
+    if (st2 === "thirsty") {
+      const dx = cx + 13, dy = tipY - 1 + Math.round(Math.sin(t3 * 2.5) * 1.2);
+      const D2 = ["..#..", ".###.", "#####", "#####", ".###."];
+      if (t3 % 1.6 < 1.25) D2.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") putBg(dx + i2, dy + j2, I2.DROP);
+      }));
+      if (t3 % 1.6 < 1.25) putBg(dx + 1, dy + 2, I2.DROPL);
+    }
+    if (st2 === "sleepy") {
+      for (let i2 = 0; i2 < 3; i2++) {
+        const ph = (t3 * 0.28 + i2 / 3) % 1;
+        if (ph > 0.8 && bay(i2, Math.floor(ph * 40)) > 0.5) continue;
+        zGlyph(Math.floor(cx + 8 + ph * 14), Math.floor(tipY + 6 - ph * 16), i2 % 2 ? 4 : 5);
+      }
+    }
+    if (st2 === "hungry") {
+      const ax = cx + 13, ay = tipY + 1 + Math.round(Math.sin(t3 * 2.2) * 1.3);
+      const A3 = ["..g..", ".rrr.", "rrrrr", "rrrrr", ".rrr."];
+      A3.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch !== ".") putBg(ax + i2, ay + j2, ch === "g" ? I2.FOODL : I2.FOOD);
+      }));
+      putBg(ax + 1, ay + 2, I2.SNOW);
+      if (rumble) for (const s2 of [-1, 1]) {
+        putBg(cx + s2 * (rx + 3), cy + 3, I2.G0);
+        putBg(cx + s2 * (rx + 4), cy + 4, I2.G0);
+        putBg(cx + s2 * (rx + 3), cy + 5, I2.G0);
+      }
+    }
+    if (st2 === "cold") {
+      for (let i2 = 0; i2 < 9; i2++) {
+        const x3 = (i2 * 7.3 + Math.sin(t3 * 0.9 + i2) * 2.5 + 64) % 64, y2 = (t3 * 7 + i2 * 11.7) % 64;
+        putBg(x3, y2, I2.SNOW);
+        if (i2 % 3 === 0) {
+          putBg(x3 - 1, y2, I2.G1);
+          putBg(x3 + 1, y2, I2.G1);
+          putBg(x3, y2 - 1, I2.G1);
+          putBg(x3, y2 + 1, I2.G1);
+        }
+      }
+    }
+    if (st2 === "hot") {
+      const sy = Math.round(cy - 5 + t3 * 4 % 6);
+      putBg(cx - rx + 1, sy, I2.SWEAT);
+      put(cx - Math.round(rx) + 3, sy, I2.SWEAT);
+      put(cx - Math.round(rx) + 3, sy + 1, I2.SWEAT);
+      put(cx - Math.round(rx) + 2, sy + 1, I2.SWEAT);
+      for (let i2 = 0; i2 < 3; i2++) for (let k2 = 0; k2 < 9; k2++) {
+        const y2 = tipY + 2 - k2 - t3 * 6 % 3, x3 = cx - 12 + i2 * 12 + Math.sin(y2 * 0.6 + t3 * 5 + i2) * 1.2;
+        if (k2 / 9 < bay(Math.floor(x3), Math.floor(y2)) + 0.3) putBg(x3, y2, k2 < 4 ? I2.G1 : I2.G2);
+      }
+    }
+    if (st2 === "stuffy") {
+      for (let y2 = 0; y2 < N2; y2++) for (let x3 = 0; x3 < N2; x3++) {
+        const band = Math.sin(y2 * 0.55 + Math.sin(x3 * 0.12 - t3 * 0.9) * 2.2 + t3 * 0.3);
+        const gap = Math.sin(x3 * 0.09 + t3 * 1.3 + y2 * 0.3);
+        if (band > 0.86 && gap > -0.2 && bay(x3, y2) < 0.55) putBg(x3, y2, I2.HAZE);
+      }
+      const c2 = t3 % 2.6 / 2.6;
+      if (c2 < 0.4) {
+        const px = cx - 4 - c2 * 22, py = my + 1 - c2 * 6;
+        for (const [a2, b2] of [[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [-1, 1]]) putBg(px + a2, py + b2, I2.CLOUD);
+      }
+    }
+    if (st2 === "music") {
+      const NOTE = [".##", ".#.", ".#.", "##.", "##."];
+      for (let i2 = 0; i2 < 3; i2++) {
+        const ph = (t3 * 0.35 + i2 / 3) % 1;
+        if (ph > 0.8 && bay(i2, Math.floor(ph * 30)) > 0.5) continue;
+        const nx = cx + (i2 - 1) * 15 + Math.sin(t3 * 2 + i2) * 3, ny = tipY + 6 - ph * 18;
+        NOTE.forEach((row, j2) => [...row].forEach((ch, k2) => {
+          if (ch === "#") putBg(nx + k2, ny + j2, i2 === 1 ? I2.G0 : I2.SPK);
+        }));
+      }
+    }
+    if (st2 === "rain") {
+      for (let i2 = 0; i2 < 16; i2++) {
+        const x3 = (i2 * 4.1 + 2) % 64, y2 = (t3 * 34 + i2 * 17.3) % 70 - 6;
+        if (Math.abs(x3 - cx) < umbR + 1 && y2 > umbY - 7) continue;
+        putBg(x3, y2, I2.DROP);
+        putBg(x3, y2 + 1, I2.DROPL);
+      }
+    }
+    if (st2 === "guests") {
+      const cols = [I2.PET, I2.CONF, I2.UMB2, I2.FOODL, I2.SPK];
+      for (let i2 = 0; i2 < 12; i2++) {
+        const x3 = (i2 * 5.7 + Math.sin(t3 * 1.5 + i2) * 3 + 64) % 64, y2 = (t3 * 9 + i2 * 9.1) % 64;
+        putBg(x3, y2, cols[i2 % 5]);
+        if (i2 % 2) putBg(x3 + 1, y2, cols[i2 % 5]);
+      }
+    }
+    if (st2 === "angry") {
+      for (const s2 of [-1, 1]) {
+        const ph = (t3 * 0.9 + (s2 > 0 ? 0.5 : 0)) % 1;
+        if (ph < 0.7) {
+          const r2 = 1.6 + ph * 2.4, px = cx + s2 * (rx - 1 + ph * 9), py = cy - ry + 2 - ph * 9;
+          for (const [ox, oy, k2] of [[0, 0, 1], [s2 * r2 * 0.9, -r2 * 0.5, 0.7], [-s2 * r2 * 0.7, -r2 * 0.6, 0.6]]) {
+            const rr = r2 * k2;
+            for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) {
+              const q2 = (dx * dx + dy * dy) / (rr * rr), x3 = px + ox + dx, y2 = py + oy + dy;
+              if (q2 <= 1 && (ph < 0.45 || bay(Math.floor(x3), Math.floor(y2)) > (ph - 0.45) * 3)) putBg(x3, y2, q2 < 0.4 ? I2.SNOW : I2.CLOUD);
+            }
+          }
+        }
+      }
+      const big = t3 % 0.8 < 0.4;
+      const V2 = big ? ["..#.#..", "..#.#..", "###.###", ".......", "###.###", "..#.#..", "..#.#.."] : [".#.#.", "##.##", ".....", "##.##", ".#.#."];
+      const vx = cx + 9 + (big ? 0 : 1), vy = tipY - 3 + (big ? 0 : 1);
+      V2.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") putBg(vx + i2, vy + j2, I2.FOOD);
+      }));
+    }
+    if (st2 === "error") {
+      const C2 = [".####......", "######.###.", "###########", ".#########."];
+      const ox = cx - 5 + Math.round(Math.sin(t3 * 0.8) * 1.5), oy = tipY - 4;
+      C2.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") putBg(ox + i2, oy + j2, I2.CLOUD);
+      }));
+      const r2 = t3 * 1.6 % 1;
+      putBg(ox + 3, oy + 5 + r2 * 9, I2.DROP);
+      putBg(ox + 7, oy + 5 + (r2 + 0.5) % 1 * 9, I2.DROP);
+    }
+  }
+  const small = document.createElement("canvas");
+  small.width = small.height = N2;
+  const sctx = small.getContext("2d"), img = sctx.createImageData(N2, N2);
+  function frame(ctx, x3, y2, size, t3, { ring = false, stats = null } = {}) {
+    draw(t3);
+    const st2 = t3 < petUntil ? "happy" : state;
+    const pal = palette(st2);
+    for (let i2 = 0; i2 < N2 * N2; i2++) {
+      const c2 = pal[pix[i2]];
+      img.data[i2 * 4] = c2[0];
+      img.data[i2 * 4 + 1] = c2[1];
+      img.data[i2 * 4 + 2] = c2[2];
+      img.data[i2 * 4 + 3] = 255;
+    }
+    sctx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    if (!ring) {
+      ctx.drawImage(small, x3, y2, size, size);
+      return;
+    }
+    const k2 = size / 466;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(x3 + size / 2, y2 + size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.drawImage(small, x3 + 9 * k2, y2 + 9 * k2, 448 * k2, 448 * k2);
+    const dim = st2 === "asleep" ? 0.45 : st2 === "sleepy" ? 0.6 : 1, vals = stats || STATS[st2];
+    const R2 = 219 * k2, cxp = x3 + 233 * k2, cyp = y2 + 233 * k2;
+    [225, 315, 45, 135].forEach((mid, si) => {
+      for (let s2 = 0; s2 < 10; s2++) {
+        const a0 = (mid - 30 + s2 * 6 + 0.9) * Math.PI / 180, a1 = (mid - 30 + (s2 + 1) * 6 - 0.9) * Math.PI / 180;
+        const filled = mid === 45 || mid === 135 ? 9 - s2 < Math.round(vals[si] * 10) : s2 < Math.round(vals[si] * 10);
+        ctx.beginPath();
+        ctx.arc(cxp, cyp, R2, a0, a1);
+        ctx.strokeStyle = STAT_COL[si];
+        ctx.globalAlpha = (filled ? 1 : 0.16) * dim;
+        ctx.lineWidth = 7 * k2;
+        ctx.stroke();
+      }
+    });
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = "#cfe6c2";
+    ctx.textAlign = "center";
+    ctx.font = `${20 * k2}px Silkscreen, ui-monospace, monospace`;
+    const now = /* @__PURE__ */ new Date();
+    ctx.fillText(`${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`, cxp, y2 + 48 * k2);
+    const label = t3 < petUntil ? "\u2665" : STATES[state].status;
+    if (label) {
+      ctx.font = `${13 * k2}px Silkscreen, ui-monospace, monospace`;
+      ctx.fillStyle = STATES[st2].hue;
+      ctx.fillText(label, cxp, y2 + 436 * k2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  return {
+    STATES,
+    STAT_COL,
+    frame,
+    get state() {
+      return state;
+    },
+    set state(v2) {
+      if (STATES[v2] && v2 !== state) {
+        state = v2;
+        petUntil = -1;
+      }
+    },
+    set stage(v2) {
+      stage = Math.max(0, Math.min(3, v2 | 0));
+    },
+    // a tap: a heart floats up; `pet` also shows the happy face for a moment
+    heart(t3) {
+      hearts = hearts.filter((h2) => t3 - h2.t < 1.5);
+      hearts.push({ t: t3, dx: Math.round((Math.random() - 0.5) * 16) });
+    },
+    pet(t3) {
+      petUntil = t3 + 2.4;
+    }
+  };
+}
+
 // www/overlook-show.js
-var VERSION = "0.30.6";
+var VERSION = "0.31.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7564,6 +8503,202 @@ if (BUILD !== "show") {
     { type: "meridian-shopping-list", name: "Meridian shopping list", description: "A to-do list's open items: tap to tick off, + to add", preview: true }
   );
 }
+var PIP_SAY = {
+  idle: "Doing fine",
+  happy: "Happy",
+  hungry: "Hungry, feed me",
+  thirsty: "A plant needs water",
+  sleepy: "Getting sleepy",
+  asleep: "Asleep",
+  hot: "Too hot in here",
+  cold: "Brr, it's cold",
+  stuffy: "Stuffy air, open a window",
+  rain: "Raining out",
+  music: "Dancing",
+  guests: "Guests!",
+  sad: "Sad, give me a pet",
+  angry: "Cross, nobody's been around",
+  error: "Can't reach the house",
+  listening: "Listening",
+  thinking: "Thinking",
+  speaking: "Talking"
+};
+var PIP_FONT = false;
+var MeridianPip = class extends OverlookPiece {
+  static getStubConfig() {
+    return { prefix: "pip" };
+  }
+  getGridOptions() {
+    return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 };
+  }
+  getCardSize() {
+    return 2;
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    if (!PIP_FONT) {
+      PIP_FONT = true;
+      const l2 = document.createElement("link");
+      l2.rel = "stylesheet";
+      l2.href = "https://fonts.googleapis.com/css2?family=Silkscreen&display=swap";
+      document.head.appendChild(l2);
+    }
+    this._pip = this._pip || createPip();
+    this._t0 = this._t0 || performance.now();
+    this._taps = [];
+    const loop = (now) => {
+      this._raf = requestAnimationFrame(loop);
+      if (now - (this._last || 0) < (this._fullEl ? 50 : 100)) return;
+      this._last = now;
+      this._paint((now - this._t0) / 1e3);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    cancelAnimationFrame(this._raf);
+    this._closeFull();
+  }
+  _ent(k2) {
+    return this._st(`sensor.${this._config && this._config.prefix || "pip"}_${k2}`);
+  }
+  _mood() {
+    const e2 = this._ent("mood");
+    return !e2 || ["unavailable", "unknown"].includes(e2.state) || !PIP_SAY[e2.state] ? "error" : e2.state;
+  }
+  _stats() {
+    return ["water", "food", "fun", "rest"].map((k2) => {
+      const v2 = Number((this._ent(k2) || {}).state);
+      return isFinite(v2) ? Math.max(0, Math.min(1, v2 / 100)) : 0.5;
+    });
+  }
+  _paint(t3) {
+    if (!this.hass || !this._pip) return;
+    const p2 = this._pip, stage = Number((this._ent("stage") || {}).state);
+    p2.state = this._mood();
+    p2.stage = isFinite(stage) ? stage : 2;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), stats = this._stats();
+    for (const [cv, ring] of [
+      [this.renderRoot && this.renderRoot.querySelector(".pip-tile canvas"), false],
+      [this._fullEl && this._fullEl.querySelector("canvas"), true]
+    ]) {
+      if (!cv || !cv.clientWidth) continue;
+      const W2 = Math.round(cv.clientWidth * dpr);
+      if (cv.width !== W2) cv.width = cv.height = W2;
+      const ctx = cv.getContext("2d");
+      ctx.clearRect(0, 0, W2, W2);
+      p2.frame(ctx, 0, 0, W2, t3, { ring, stats });
+    }
+  }
+  _now() {
+    return (performance.now() - this._t0) / 1e3;
+  }
+  _tap() {
+    const t3 = this._now();
+    this._pip.heart(t3);
+    fireHaptic("light");
+    this._taps = this._taps.filter((x3) => t3 - x3 < 3);
+    this._taps.push(t3);
+    if (this._taps.length >= 3) {
+      this._taps = [];
+      this._pet();
+    }
+  }
+  _pet() {
+    this._pip.pet(this._now());
+    this.hass.callService("script", "turn_on", { entity_id: "script.pip_pet" });
+  }
+  _feed() {
+    fireHaptic();
+    this.hass.callService("script", "turn_on", { entity_id: "script.pip_feed" });
+  }
+  // the round screen, full size: built on <body> so no dashboard transform or overflow clips it
+  _openFull() {
+    if (this._fullEl) return;
+    fireHaptic("light");
+    const el = document.createElement("div");
+    el.className = "meridian-pip-full";
+    el.innerHTML = `<style>
+      .meridian-pip-full { position: fixed; inset: 0; z-index: 9999; background: #000; color: #cfe6c2;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+        font-family: var(--paper-font-body1_-_font-family, system-ui, sans-serif); -webkit-tap-highlight-color: transparent; }
+      .meridian-pip-full canvas { width: min(92vw, 62vh); aspect-ratio: 1; image-rendering: pixelated; touch-action: manipulation; cursor: pointer; }
+      .meridian-pip-full .hint { font-size: 13px; opacity: .6; }
+      .meridian-pip-full .acts { display: flex; gap: 12px; }
+      .meridian-pip-full button { all: unset; display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px;
+        background: #1b2219; color: #cfe6c2; font-size: 16px; font-weight: 600; cursor: pointer; }
+      .meridian-pip-full button:active { transform: scale(.97); }
+      .meridian-pip-full ha-icon { --mdc-icon-size: 20px; }
+    </style>
+    <canvas aria-label="Pip. Tap three times to pet."></canvas>
+    <div class="hint">Tap Pip three times to pet it</div>
+    <div class="acts">
+      <button data-a="pet"><ha-icon icon="mdi:hand-heart"></ha-icon>Pet</button>
+      <button data-a="feed"><ha-icon icon="mdi:food-apple"></ha-icon>Feed</button>
+      <button data-a="close"><ha-icon icon="mdi:close"></ha-icon>Close</button>
+    </div>`;
+    el.querySelector("canvas").addEventListener("click", (e2) => {
+      e2.stopPropagation();
+      this._tap();
+    });
+    el.querySelector(".acts").addEventListener("click", (e2) => {
+      const a2 = e2.target.closest("button") && e2.target.closest("button").dataset.a;
+      if (a2 === "pet") {
+        fireHaptic();
+        this._pet();
+      }
+      if (a2 === "feed") this._feed();
+      if (a2 === "close") this._closeFull();
+    });
+    this._esc = (e2) => {
+      if (e2.key === "Escape") this._closeFull();
+    };
+    window.addEventListener("keydown", this._esc);
+    document.body.appendChild(el);
+    this._fullEl = el;
+  }
+  _closeFull() {
+    if (!this._fullEl) return;
+    this._fullEl.remove();
+    this._fullEl = null;
+    window.removeEventListener("keydown", this._esc);
+  }
+  render() {
+    if (!this.hass || !this._config) return J;
+    const m2 = this._mood(), S2 = this._pip && this._pip.STATES[m2], s2 = this._stats();
+    const cols = this._pip ? this._pip.STAT_COL : [];
+    return Z`<div class="phone piece">
+      <button class="card pip-tile" @click=${() => this._openFull()}>
+        <div class="pip-face"><canvas></canvas></div>
+        <div class="pip-info">
+          <div class="pip-name">Pip</div>
+          <div class="pip-say" style="--hue:${S2 ? S2.hue : "var(--muted)"}">${PIP_SAY[m2]}</div>
+          <div class="pip-bars">${["Water", "Food", "Fun", "Rest"].map((n2, i2) => Z`
+            <div class="pip-bar" title="${n2} ${Math.round(s2[i2] * 100)}%"><i style="width:${Math.round(s2[i2] * 100)}%;background:${cols[i2]}"></i></div>`)}</div>
+        </div>
+      </button>
+    </div>`;
+  }
+  static styles = [OverlookPiece.styles, o`
+    .pip-tile { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%; height: 100%;
+                padding: 10px 16px 10px 10px; cursor: pointer; background: var(--card); border: 1px solid var(--card-edge);
+                border-radius: 30px; box-shadow: var(--shadow); color: var(--ink); -webkit-tap-highlight-color: transparent;
+                backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .pip-tile:active { transform: scale(.985); }
+    /* a fixed box: the canvas's pixel size follows its CSS size, so it must not size itself */
+    .pip-face { position: relative; width: 104px; height: 104px; flex: none; border-radius: 22px; overflow: hidden; background: #000; }
+    .pip-face canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    .pip-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pip-name { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+    .pip-say { font-size: 14px; font-weight: 600; color: color-mix(in srgb, var(--hue) 62%, var(--ink));
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pip-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 2px; }
+    .pip-bar { height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+    .pip-bar i { display: block; height: 100%; border-radius: 3px; }
+  `];
+};
+definePhone("pip", MeridianPip);
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
@@ -7571,7 +8706,8 @@ if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-scenes", name: "Meridian scenes", description: "A row of scene buttons" },
   { type: "meridian-status", name: "Meridian status", description: "People, alerts and house readings as pills, each with a pop-up" },
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
-  { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" }
+  { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
+  { type: "meridian-pip", name: "Meridian Pip", description: "Pip the sprout: a tamagotchi pet that lives on the house's sensors. Tap to open, three taps to pet" }
 );
 if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 window.addEventListener("keydown", (e2) => {

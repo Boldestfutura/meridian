@@ -12,8 +12,9 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, TABLET_CSS, wave } from "./tablet.js";
+import { createPip } from "./pip.js";
 
-const VERSION = "0.30.6";
+const VERSION = "0.31.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5345,6 +5346,179 @@ if (BUILD !== "show") {
   );
 }
 
+// --- Pip: the tamagotchi sprout, as a phone tile -------------------------------------------
+// Reads the Pip template sensors (`<prefix>_mood`, _food, _fun, _water, _rest, _stage; prefix
+// "pip"), which Home Assistant works out from the house and four input_datetimes. The tile shows
+// Pip moving with its mood and stats; a tap opens the round screen full size on <body>, where
+// every tap sends up a heart, three quick taps pet it (script.pip_pet) and Feed calls script.pip_feed.
+const PIP_SAY = {
+  idle: "Doing fine", happy: "Happy", hungry: "Hungry, feed me", thirsty: "A plant needs water",
+  sleepy: "Getting sleepy", asleep: "Asleep", hot: "Too hot in here", cold: "Brr, it's cold",
+  stuffy: "Stuffy air, open a window", rain: "Raining out", music: "Dancing", guests: "Guests!",
+  sad: "Sad, give me a pet", angry: "Cross, nobody's been around", error: "Can't reach the house",
+  listening: "Listening", thinking: "Thinking", speaking: "Talking",
+};
+let PIP_FONT = false;
+class MeridianPip extends OverlookPiece {
+  static getStubConfig() { return { prefix: "pip" }; }
+  getGridOptions() { return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 }; }
+  getCardSize() { return 2; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    if (!PIP_FONT) {
+      PIP_FONT = true;
+      const l = document.createElement("link");
+      l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=Silkscreen&display=swap";
+      document.head.appendChild(l);
+    }
+    this._pip = this._pip || createPip();
+    this._t0 = this._t0 || performance.now();
+    this._taps = [];
+    const loop = (now) => {
+      this._raf = requestAnimationFrame(loop);
+      if (now - (this._last || 0) < (this._fullEl ? 50 : 100)) return;   // 20 fps full screen, 10 on the tile
+      this._last = now;
+      this._paint((now - this._t0) / 1000);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    cancelAnimationFrame(this._raf);
+    this._closeFull();
+  }
+
+  _ent(k) { return this._st(`sensor.${(this._config && this._config.prefix) || "pip"}_${k}`); }
+  _mood() {
+    const e = this._ent("mood");
+    return !e || ["unavailable", "unknown"].includes(e.state) || !PIP_SAY[e.state] ? "error" : e.state;
+  }
+  _stats() {
+    return ["water", "food", "fun", "rest"].map((k) => {
+      const v = Number((this._ent(k) || {}).state);
+      return isFinite(v) ? Math.max(0, Math.min(1, v / 100)) : .5;
+    });
+  }
+
+  _paint(t) {
+    if (!this.hass || !this._pip) return;
+    const p = this._pip, stage = Number((this._ent("stage") || {}).state);
+    p.state = this._mood();
+    p.stage = isFinite(stage) ? stage : 2;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), stats = this._stats();
+    for (const [cv, ring] of [[this.renderRoot && this.renderRoot.querySelector(".pip-tile canvas"), false],
+                              [this._fullEl && this._fullEl.querySelector("canvas"), true]]) {
+      if (!cv || !cv.clientWidth) continue;
+      const W = Math.round(cv.clientWidth * dpr);
+      if (cv.width !== W) cv.width = cv.height = W;
+      const ctx = cv.getContext("2d");
+      ctx.clearRect(0, 0, W, W);
+      p.frame(ctx, 0, 0, W, t, { ring, stats });
+    }
+  }
+
+  _now() { return (performance.now() - this._t0) / 1000; }
+  _tap() {
+    const t = this._now();
+    this._pip.heart(t);
+    fireHaptic("light");
+    this._taps = this._taps.filter((x) => t - x < 3);
+    this._taps.push(t);
+    if (this._taps.length >= 3) { this._taps = []; this._pet(); }
+  }
+  _pet() {
+    this._pip.pet(this._now());
+    this.hass.callService("script", "turn_on", { entity_id: "script.pip_pet" });
+  }
+  _feed() {
+    fireHaptic();
+    this.hass.callService("script", "turn_on", { entity_id: "script.pip_feed" });
+  }
+
+  // the round screen, full size: built on <body> so no dashboard transform or overflow clips it
+  _openFull() {
+    if (this._fullEl) return;
+    fireHaptic("light");
+    const el = document.createElement("div");
+    el.className = "meridian-pip-full";
+    el.innerHTML = `<style>
+      .meridian-pip-full { position: fixed; inset: 0; z-index: 9999; background: #000; color: #cfe6c2;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+        font-family: var(--paper-font-body1_-_font-family, system-ui, sans-serif); -webkit-tap-highlight-color: transparent; }
+      .meridian-pip-full canvas { width: min(92vw, 62vh); aspect-ratio: 1; image-rendering: pixelated; touch-action: manipulation; cursor: pointer; }
+      .meridian-pip-full .hint { font-size: 13px; opacity: .6; }
+      .meridian-pip-full .acts { display: flex; gap: 12px; }
+      .meridian-pip-full button { all: unset; display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px;
+        background: #1b2219; color: #cfe6c2; font-size: 16px; font-weight: 600; cursor: pointer; }
+      .meridian-pip-full button:active { transform: scale(.97); }
+      .meridian-pip-full ha-icon { --mdc-icon-size: 20px; }
+    </style>
+    <canvas aria-label="Pip. Tap three times to pet."></canvas>
+    <div class="hint">Tap Pip three times to pet it</div>
+    <div class="acts">
+      <button data-a="pet"><ha-icon icon="mdi:hand-heart"></ha-icon>Pet</button>
+      <button data-a="feed"><ha-icon icon="mdi:food-apple"></ha-icon>Feed</button>
+      <button data-a="close"><ha-icon icon="mdi:close"></ha-icon>Close</button>
+    </div>`;
+    el.querySelector("canvas").addEventListener("click", (e) => { e.stopPropagation(); this._tap(); });
+    el.querySelector(".acts").addEventListener("click", (e) => {
+      const a = e.target.closest("button") && e.target.closest("button").dataset.a;
+      if (a === "pet") { fireHaptic(); this._pet(); }
+      if (a === "feed") this._feed();
+      if (a === "close") this._closeFull();
+    });
+    this._esc = (e) => { if (e.key === "Escape") this._closeFull(); };
+    window.addEventListener("keydown", this._esc);
+    document.body.appendChild(el);
+    this._fullEl = el;
+  }
+  _closeFull() {
+    if (!this._fullEl) return;
+    this._fullEl.remove();
+    this._fullEl = null;
+    window.removeEventListener("keydown", this._esc);
+  }
+
+  render() {
+    if (!this.hass || !this._config) return nothing;
+    const m = this._mood(), S = this._pip && this._pip.STATES[m], s = this._stats();
+    const cols = this._pip ? this._pip.STAT_COL : [];
+    return html`<div class="phone piece">
+      <button class="card pip-tile" @click=${() => this._openFull()}>
+        <div class="pip-face"><canvas></canvas></div>
+        <div class="pip-info">
+          <div class="pip-name">Pip</div>
+          <div class="pip-say" style="--hue:${S ? S.hue : "var(--muted)"}">${PIP_SAY[m]}</div>
+          <div class="pip-bars">${["Water", "Food", "Fun", "Rest"].map((n, i) => html`
+            <div class="pip-bar" title="${n} ${Math.round(s[i] * 100)}%"><i style="width:${Math.round(s[i] * 100)}%;background:${cols[i]}"></i></div>`)}</div>
+        </div>
+      </button>
+    </div>`;
+  }
+
+  static styles = [OverlookPiece.styles, css`
+    .pip-tile { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%; height: 100%;
+                padding: 10px 16px 10px 10px; cursor: pointer; background: var(--card); border: 1px solid var(--card-edge);
+                border-radius: 30px; box-shadow: var(--shadow); color: var(--ink); -webkit-tap-highlight-color: transparent;
+                backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .pip-tile:active { transform: scale(.985); }
+    /* a fixed box: the canvas's pixel size follows its CSS size, so it must not size itself */
+    .pip-face { position: relative; width: 104px; height: 104px; flex: none; border-radius: 22px; overflow: hidden; background: #000; }
+    .pip-face canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    .pip-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pip-name { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+    .pip-say { font-size: 14px; font-weight: 600; color: color-mix(in srgb, var(--hue) 62%, var(--ink));
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pip-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 2px; }
+    .pip-bar { height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+    .pip-bar i { display: block; height: 100%; border-radius: 3px; }
+  `];
+}
+definePhone("pip", MeridianPip);
+
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
@@ -5353,6 +5527,7 @@ if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-status", name: "Meridian status", description: "People, alerts and house readings as pills, each with a pop-up" },
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
+  { type: "meridian-pip", name: "Meridian Pip", description: "Pip the sprout: a tamagotchi pet that lives on the house's sensors. Tap to open, three taps to pet" },
 );
 if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
 // the Echo's top button (its mute button) reaches the page as an unknown "Power" key, and the
