@@ -12,9 +12,9 @@
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, TABLET_CSS, wave } from "./tablet.js";
-import { createPip } from "./pip.js";
+import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.31.0";
+const VERSION = "0.31.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5361,7 +5361,7 @@ const PIP_SAY = {
 let PIP_FONT = false;
 class MeridianPip extends OverlookPiece {
   static getStubConfig() { return { prefix: "pip" }; }
-  getGridOptions() { return { columns: 6, rows: 2, min_columns: 6, min_rows: 2 }; }
+  getGridOptions() { return { columns: 12, rows: 2, min_columns: 6, min_rows: 2 }; }
   getCardSize() { return 2; }
 
   connectedCallback() {
@@ -5457,7 +5457,7 @@ class MeridianPip extends OverlookPiece {
       .meridian-pip-full ha-icon { --mdc-icon-size: 20px; }
     </style>
     <canvas aria-label="Pip. Tap three times to pet."></canvas>
-    <div class="hint">Tap Pip three times to pet it</div>
+    <div class="hint">Tap Pip three times to pet it. Shake your phone and it gets dizzy.</div>
     <div class="acts">
       <button data-a="pet"><ha-icon icon="mdi:hand-heart"></ha-icon>Pet</button>
       <button data-a="feed"><ha-icon icon="mdi:food-apple"></ha-icon>Feed</button>
@@ -5472,6 +5472,13 @@ class MeridianPip extends OverlookPiece {
     });
     this._esc = (e) => { if (e.key === "Escape") this._closeFull(); };
     window.addEventListener("keydown", this._esc);
+    // shaking the phone makes Pip dizzy. iOS asks for motion access once; the tap that opened
+    // this screen is the user gesture it needs
+    try {
+      if (window.DeviceMotionEvent && DeviceMotionEvent.requestPermission) DeviceMotionEvent.requestPermission().catch(() => {});
+    } catch (e) { /* no motion sensor */ }
+    this._motion = shakeDetector(() => { this._pip.shake(this._now()); fireHaptic("heavy"); });
+    window.addEventListener("devicemotion", this._motion);
     document.body.appendChild(el);
     this._fullEl = el;
   }
@@ -5480,6 +5487,7 @@ class MeridianPip extends OverlookPiece {
     this._fullEl.remove();
     this._fullEl = null;
     window.removeEventListener("keydown", this._esc);
+    window.removeEventListener("devicemotion", this._motion);
   }
 
   render() {

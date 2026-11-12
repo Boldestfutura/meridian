@@ -17,6 +17,7 @@ export function createPip() {
     asleep:    { name: "Asleep", group: "mood", hue: "#4b4fc4", what: "Tucked up on its side: head on a pillow, a quilt over it that rises and falls with its breathing, a nightcap with a pom-pom. Zs drift up and the screen dims further.", src: "You've gone to bed: Sleep Sounds on, or the bedroom dark after 10 pm. It stays in bed until morning or the lights come on.", status: "ZZZ" },
     sad:       { name: "Sad", group: "mood", hue: "#6f9bd8", what: "Big wet eyes and worried brows, a tear rolls down, one hand rubs its eye, leaves droop. Every tap sends up a heart, and three quick taps cheer it up.", src: "Nobody has petted it for 12 hours. Three quick taps on the screen (or Pet on your phone) bring it back.", status: "SAD" },
     angry:     { name: "Angry", group: "mood", hue: "#ff4d3a", what: "Arms crossed, brows down, cheeks puffed red, steam puffs out of its head and it stamps its feet. An anger mark throbs above it.", src: "Neglected: its fun stat under 15%, or nobody has talked to it or petted it for 2 days. A pet or a chat calms it down.", status: "GRR" },
+    dizzy:     { name: "Dizzy", group: "mood", hue: "#d9e35a", what: "Spiral eyes spinning, wobbles round in circles, stars orbit its head, a queasy wavy mouth. Hands flail for balance. The wobble fades as it comes round.", src: "Someone shook it: the board's QMI8658 motion sensor, or your phone on Pip's full screen. Wears off about 6 seconds after the shaking stops.", status: "WOAH" },
     hot:       { name: "Hot", group: "home", hue: "#ff5a3c", what: "Flushed red, panting with its tongue out, sweat drop, heat shimmer above. Fans its face.", src: "Kitchen over 28 °C (Air Quality Monitor temperature).", status: "TOO HOT" },
     cold:      { name: "Cold", group: "home", hue: "#bfeaff", what: "Tinted blue, shivers in bursts, teeth chatter, wears a scarf, snow falls. Hugs itself.", src: "Kitchen under 17 °C.", status: "BRRR" },
     stuffy:    { name: "Stuffy air", group: "home", hue: "#b5c26a", what: "Murky haze drifts past, squinting eyes, little coughs. Waves the air away and covers its coughs.", src: "Kitchen VOC index over 250 or PM2.5 over 35, usually cooking. Open a window.", status: "STUFFY" },
@@ -29,12 +30,13 @@ export function createPip() {
   const STATS = { // water, food, fun, rest
     idle: [.72, .8, .7, .75], listening: [.72, .8, .78, .75], thinking: [.72, .8, .78, .75], speaking: [.72, .8, .82, .75],
     happy: [.9, .9, 1, .85], thirsty: [.15, .62, .45, .6], sleepy: [.66, .7, .64, .18], error: [.6, .6, .5, .6],
-    hungry: [.7, .12, .5, .6], asleep: [.66, .7, .64, .4], sad: [.7, .75, .25, .6], angry: [.5, .45, .06, .5], hot: [.4, .7, .5, .5], cold: [.7, .7, .5, .6], stuffy: [.7, .7, .45, .6],
+    hungry: [.7, .12, .5, .6], asleep: [.66, .7, .64, .4], sad: [.7, .75, .25, .6], angry: [.5, .45, .06, .5], dizzy: [.72, .8, .7, .75], hot: [.4, .7, .5, .5], cold: [.7, .7, .5, .6], stuffy: [.7, .7, .45, .6],
     rain: [.75, .8, .7, .75], music: [.72, .8, 1, .7], guests: [.72, .8, .95, .7],
   };
   const STAT_COL = ["#59b8ff", "#ffb547", "#ff7fb0", "#9a8cff"];
 
-  let state = "idle", stage = 2, petUntil = -1, hearts = [];
+  let state = "idle", stage = 2, petUntil = -1, dizzyUntil = -1, hearts = [];
+  const SPEED = 0.6;   // animation pace: 1 is the original, lower is calmer
 
   // ---- palette ---------------------------------------------------------------
   const I = { BG: 0, OUT: 1, BD: 2, BM: 3, BL: 4, BH: 5, BEL: 6, BELD: 7, RIM: 8, EYE: 9, SHINE: 10, BLUSH: 11,
@@ -63,7 +65,7 @@ export function createPip() {
     if (st === "error") for (const k of ["BD", "BM", "BL", "BH", "BEL", "BELD", "STEM", "LD", "LM", "LL", "BLUSH", "RIM"]) {
       const c = p[I[k]], g = c[0] * .3 + c[1] * .59 + c[2] * .11; p[I[k]] = mix(c, [g, g, g], .7);
     }
-    const tint = { cold: [[150, 205, 255], .3], hot: [[255, 110, 70], .24], angry: [[255, 80, 55], .2], sad: [[110, 140, 230], .16], stuffy: [[140, 150, 80], .22] }[st];
+    const tint = { cold: [[150, 205, 255], .3], hot: [[255, 110, 70], .24], angry: [[255, 80, 55], .2], sad: [[110, 140, 230], .16], dizzy: [[205, 230, 120], .14], stuffy: [[140, 150, 80], .22] }[st];
     if (tint) for (const k of ["BD", "BM", "BL", "BH", "BEL", "BELD", "STEM", "LD", "LM", "LL", "RIM"]) p[I[k]] = mix(p[I[k]], tint[0], tint[1]);
     const dim = st === "asleep" ? .45 : st === "sleepy" ? .6 : 1;
     return p.map(c => c.map(v => Math.round(v * dim)));
@@ -189,7 +191,7 @@ export function createPip() {
   function draw(t) {
     pix.fill(0); solid.fill(0);
     const pet = t < petUntil;
-    const st = pet ? "happy" : state;
+    const st = t < dizzyUntil ? "dizzy" : pet ? "happy" : state;
     if (st === "asleep") return drawSleep(t);
     const breathe = Math.sin(t * (st === "sleepy" ? 1.2 : 2.2));
     const talk = st === "speaking" ? Math.abs(Math.sin(t * 9.3) * .6 + Math.sin(t * 5.1) * .4) : 0;
@@ -202,6 +204,8 @@ export function createPip() {
     if (st === "music") cx += Math.round(Math.sin(t * Math.PI * 1.8) * 2);
     const stomp = st === "angry" ? (t % 2.2) : 9;
     if (stomp < .5) cx += (Math.floor(t * 18) & 1) ? 1 : -1;
+    const wob = t < dizzyUntil ? Math.min(1, (dizzyUntil - t) / 3) : 1;   // dizzy: the wobble fades as it comes round
+    if (st === "dizzy") cx += Math.round(Math.sin(t * 4.2) * (1 + 2.5 * wob));
     const ground = 52;
     let rx = rx0, ry = ry0, lift = 0;
     if (st === "happy") {
@@ -219,12 +223,13 @@ export function createPip() {
     if (st === "thirsty" || st === "error") { ry *= .96; rx *= 1.02; }
     if (stomp < .5) lift = Math.sin(stomp / .5 * Math.PI) * 2.5;
     if (st === "angry") { rx *= 1.04 + Math.sin(t * 9) * .01; ry *= .97; }   // puffed up
+    if (st === "dizzy") { const q = Math.sin(t * 8.4) * .05 * (.3 + .7 * wob); rx *= 1 + q; ry *= 1 - q; lift = Math.abs(Math.cos(t * 4.2)) * 1.5 * wob; }
     const cy = ground - ry - lift;
 
     // aura: dithered glow round the body, on the black
     const A = { idle: .5 + .08 * breathe, listening: .8 + .15 * Math.sin(t * 6), thinking: .65 + .1 * Math.sin(t * 3),
       speaking: .5 + .45 * talk, happy: .8, thirsty: .45, sleepy: .3 + .05 * breathe, error: .4, hungry: .5 + (rumble ? .25 : 0),
-      hot: .75 + .1 * Math.sin(t * 4), cold: .55, stuffy: .4, rain: .45, music: .55 + .4 * Math.max(0, 1 - ((t * 1.8) % 1) * 3), guests: .75, sad: .35, angry: .7 + .2 * Math.abs(Math.sin(t * 4)) }[st];
+      hot: .75 + .1 * Math.sin(t * 4), cold: .55, stuffy: .4, rain: .45, music: .55 + .4 * Math.max(0, 1 - ((t * 1.8) % 1) * 3), guests: .75, sad: .35, angry: .7 + .2 * Math.abs(Math.sin(t * 4)), dizzy: .5 + .12 * Math.sin(t * 5) }[st];
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const dx = (x + .5 - cx) / (rx + 2), dy = (y + .5 - (cy - 3)) / (ry + 5);
       const d = Math.hypot(dx, dy);
@@ -265,9 +270,9 @@ export function createPip() {
 
     // stem and leaves
     const top = cy - ry + .8;
-    const droop = { thirsty: .78, error: 1, sleepy: .45, listening: -.25, happy: -.1, hot: .55, hungry: .3, cold: .15, stuffy: .3, guests: -.15, angry: -.2, sad: .6 }[st] || 0;
+    const droop = { thirsty: .78, error: 1, sleepy: .45, listening: -.25, happy: -.1, hot: .55, hungry: .3, cold: .15, stuffy: .3, guests: -.15, angry: -.2, sad: .6, dizzy: .35 }[st] || 0;
     const L = [1.5, 5, 8, 10][stage];
-    const sway = Math.sin(t * 1.4) * .1 + (st === "happy" ? Math.sin(t * 13.8) * .12 : 0) + (st === "music" ? Math.sin(t * Math.PI * 1.8) * .2 : 0);
+    const sway = Math.sin(t * 1.4) * .1 + (st === "happy" ? Math.sin(t * 13.8) * .12 : 0) + (st === "music" ? Math.sin(t * Math.PI * 1.8) * .2 : 0) + (st === "dizzy" ? Math.sin(t * 4.2 + 1) * .35 : 0);
     const tipAt = f => [cx + Math.sin(sway) * L * f, top - Math.cos(sway) * L * f];
     for (let k = 0; k <= L * 2; k++) {
       const [sx, sy] = tipAt(k / (L * 2));
@@ -334,6 +339,7 @@ export function createPip() {
     else if (st === "error") H = [-1, 1].map(s => [cx + s * (rx + 2), ground - 3, 0]);
     else if (st === "sad") H = [[cx - side + 1, cy + ry - 3, 0], (t % 4) < 1.8 ? [cx + 6 + Math.sin(t * 9) * .7, eyY + 1, 1] : [cx + side - 1, cy + ry - 3, 0]];  // rubbing an eye
     else if (st === "angry") H = [[cx - 3, cy + ry * .8, 1], [cx + 3, cy + ry * .8 + 1, 1]];                // arms crossed                       // flopped on the floor
+    else if (st === "dizzy") H = [-1, 1].map(s => [cx + s * (side + Math.cos(t * 4.2 + s) * 1.5), cy - 1 + Math.sin(t * 4.2 + s * 1.7) * 2.5, 0]);   // flailing for balance
     else H = [rest(-1), rest(1, 1.3)];
     const HAND = [".###.", "#####", "#####", "#####", ".###."];
     const handPx = ([hx, hy]) => {
@@ -399,6 +405,16 @@ export function createPip() {
       for (const x0 of [cx - 10, cx + 6]) for (let i = 0; i < 4; i++) { put(x0 + i, ey + 3, I.BLUSH); if (i && i < 3) put(x0 + i, ey + 4, I.BLUSH); }
       const w = Math.floor(t * 8) & 1;
       put(cx - 3, my + 2, I.MOUTH); put(cx - 2, my + 1, I.MOUTH); put(cx - 1, my + w, I.MOUTH); put(cx, my + 1 - w, I.MOUTH); put(cx + 1, my + 1, I.MOUTH); put(cx + 2, my + 2, I.MOUTH);
+    } else if (st === "dizzy") {
+      // spiral eyes: a ring with a gap that turns (opposite ways in each eye) and an arm curling in
+      const R = [[2, 0], [2, 1], [1, 2], [0, 2], [-1, 2], [-2, 1], [-2, 0], [-2, -1], [-1, -2], [0, -2], [1, -2], [2, -1]];
+      eyes((x, y, s) => {
+        const turn = Math.floor(t * 7) * s, ox = x + 1, oy = y + 1;
+        R.forEach(([a, b], i) => { if ((((i - turn) % 12) + 12) % 12 < 9) put(ox + a, oy + b, I.EYE); });
+        const [a, b] = R[(((turn + 9) % 12) + 12) % 12];
+        put(ox + Math.round(a / 2), oy + Math.round(b / 2), I.EYE); put(ox, oy, I.EYE);
+      });
+      for (let x = -3; x <= 2; x++) put(cx + x, my + 1 + Math.round(Math.sin(x * 1.4 + t * 6) * .8), I.MOUTH);
     } else if (st === "error") {
       eyes((x, y) => { put(x - 1, y, I.EYE); put(x + 1, y + 2, I.EYE); put(x, y + 1, I.EYE); put(x + 1, y, I.EYE); put(x - 1, y + 2, I.EYE); });
       for (let x = -3; x <= 2; x++) put(cx + x, my + (x & 1), I.MOUTH);
@@ -591,6 +607,14 @@ export function createPip() {
       const vx = cx + 9 + (big ? 0 : 1), vy = tipY - 3 + (big ? 0 : 1);
       V.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === "#") putBg(vx + i, vy + j, I.FOOD); }));
     }
+    if (st === "dizzy") {
+      // little stars circling its head; the ones passing in front cover it
+      for (let i = 0; i < 3; i++) {
+        const a = t * 3.4 + i * Math.PI * 2 / 3, x = cx + Math.cos(a) * 13, y = cy - ry - 1 + Math.sin(a) * 2.6;
+        const front = Math.sin(a) > 0, c = i === 1 ? I.SPK : I.UMB2;
+        for (const [ox, oy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) (front ? put : putBg)(x + ox, y + oy, front ? c : I.G1);
+      }
+    }
     if (st === "error") {
       const C = [".####......", "######.###.", "###########", ".#########."];
       const ox = cx - 5 + Math.round(Math.sin(t * .8) * 1.5), oy = tipY - 4;
@@ -607,8 +631,9 @@ export function createPip() {
   // paint frame t (seconds) into ctx at (x, y, size); `ring` adds the stat ring, clock and label
   // as on the round screen. `stats` is [water, food, fun, rest], 0 to 1.
   function frame(ctx, x, y, size, t, { ring = false, stats = null } = {}) {
+    t *= SPEED;
     draw(t);
-    const st = t < petUntil ? "happy" : state;
+    const st = t < dizzyUntil ? "dizzy" : t < petUntil ? "happy" : state;
     const pal = palette(st);
     for (let i = 0; i < N * N; i++) { const c = pal[pix[i]]; img.data[i * 4] = c[0]; img.data[i * 4 + 1] = c[1]; img.data[i * 4 + 2] = c[2]; img.data[i * 4 + 3] = 255; }
     sctx.putImageData(img, 0, 0);
@@ -631,7 +656,7 @@ export function createPip() {
     ctx.fillStyle = "#cfe6c2"; ctx.textAlign = "center";
     ctx.font = `${20 * k}px Silkscreen, ui-monospace, monospace`;
     const now = new Date(); ctx.fillText(`${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`, cxp, y + 48 * k);
-    const label = t < petUntil ? "\u2665" : STATES[state].status;
+    const label = st === "dizzy" ? STATES.dizzy.status : t < petUntil ? "\u2665" : STATES[state].status;
     if (label) { ctx.font = `${13 * k}px Silkscreen, ui-monospace, monospace`; ctx.fillStyle = STATES[st].hue; ctx.fillText(label, cxp, y + 436 * k); }
     ctx.globalAlpha = 1;
   }
@@ -642,7 +667,30 @@ export function createPip() {
     set state(v) { if (STATES[v] && v !== state) { state = v; petUntil = -1; } },
     set stage(v) { stage = Math.max(0, Math.min(3, v | 0)); },
     // a tap: a heart floats up; `pet` also shows the happy face for a moment
-    heart(t) { hearts = hearts.filter((h) => t - h.t < 1.5); hearts.push({ t, dx: Math.round((Math.random() - .5) * 16) }); },
-    pet(t) { petUntil = t + 2.4; },
+    heart(t) { t *= SPEED; hearts = hearts.filter((h) => t - h.t < 1.5); hearts.push({ t, dx: Math.round((Math.random() - .5) * 16) }); },
+    pet(t) { petUntil = t * SPEED + 2.4; },
+    // shaken: dizzy for 4 engine seconds after the last shake (about 6.5 s real)
+    shake(t) { dizzyUntil = t * SPEED + 4; petUntil = -1; },
+  };
+}
+
+// a shake from a devicemotion stream: several hard jolts within a second. Used by the card
+// on a phone and by the mock-up page; the board does the same with its QMI8658 readings.
+export function shakeDetector(onShake) {
+  let hits = [];
+  return (e) => {
+    let m;
+    const a = e.acceleration;
+    if (a && a.x != null) m = Math.hypot(a.x, a.y, a.z);
+    else {
+      const g = e.accelerationIncludingGravity;
+      if (!g || g.x == null) return;
+      m = Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+    }
+    if (m < 12) return;
+    const now = performance.now();
+    hits = hits.filter((h) => now - h < 1000);
+    hits.push(now);
+    if (hits.length >= 4 && now - hits[0] > 250) { hits = []; onShake(); }
   };
 }
