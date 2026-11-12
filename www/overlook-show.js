@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.6";
+const VERSION = "0.32.7";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -568,8 +568,8 @@ class OverlookShow extends LitElement {
   }
 
   // --- the photo clock ------------------------------------------------------
-  // `photo_clock: true`: when the screen goes idle it shows the time big, with the date, the
-  // weather above and what's next below, centred over the slideshow, darkened so the clock reads first.
+  // `photo_clock: true`: when the screen goes idle it shows the slideshow at full brightness with
+  // the weather and time in the top right corner, the day and date under them, then what's next.
   // Each new photo fades in over the last and drifts slowly. A tap goes back to the pages.
   _photoClock() {
     const cam = this._st(this._config.photos);
@@ -579,7 +579,7 @@ class OverlookShow extends LitElement {
     if (key !== this._pcKey) { this._pcPrev = this._pcPic; this._pcKey = key; }
     this._pcPic = pic;
     const n = this._now, [h, mm] = this._time(n).split(":");
-    const w = this._st(this._config.weather), cond = w ? this._cond(w) : null, f = this._forecast;
+    const w = this._st(this._config.weather), cond = w ? this._cond(w) : null;
     const next = (this._events || []).find((e) => this._d(e.end) > n);
     let when = "";
     if (next) {
@@ -596,14 +596,13 @@ class OverlookShow extends LitElement {
         </div>
         <div class="pc-scrim"></div>
         <div class="pc-face">
-          ${cond ? html`<div class="pc-wx">${this._wxIcon(w.state, "pc-ico")}<b>${this._deg(w.attributes.temperature)}</b>
-            <span>${cond[1]}${f && w.state !== "unavailable" ? ` · H ${Math.round(f.temperature)}° L ${Math.round(f.templow)}°` : ""}</span></div>` : nothing}
-          <div class="pc-time" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${h}:${mm}</div>
-          <div class="pc-under">
-            <span class="pc-date">${DAYS_LONG[n.getDay()]} ${n.getDate()} ${LONG_MONTHS[n.getMonth()]}</span>
-            ${next ? html`<span class="pc-ev"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</span>` : nothing}
+          <div class="pc-top">
+            ${this._washer()}
+            ${cond ? html`${this._wxIcon(w.state, "pc-ico")}<span class="pc-temp">${this._deg(w.attributes.temperature)}</span>` : nothing}
+            <span class="pc-time" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>${h}:${mm}</span>
           </div>
-          ${this._washer()}
+          <div class="pc-date">${DAYS_LONG[n.getDay()]} ${n.getDate()}</div>
+          ${next ? html`<div class="pc-ev"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</div>` : nothing}
           ${this._npLine()}
         </div>
       </div>`;
@@ -3757,24 +3756,22 @@ class OverlookShow extends LitElement {
     @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
-    .pc-scrim { background: radial-gradient(80% 75% at 50% 50%, rgba(5, 7, 12, 0.44) 0%, rgba(5, 7, 12, 0.26) 60%, rgba(5, 7, 12, 0.36) 100%); }
-    /* one centred column: weather, the time, then the date and what's next */
-    .pc-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-               gap: 3vh; padding: 0 5vw; text-align: center; }
-    .pc-time { font-family: var(--display); font-weight: 800; font-size: min(30vh, 20vw); line-height: 0.85;
-               letter-spacing: -0.04em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45); }
-    .pc-under { display: flex; flex-direction: column; align-items: center; gap: 1.6vh; max-width: 100%; }
-    .pc-date { font-weight: 700; font-size: min(5vh, 32px); letter-spacing: 0.12em; text-transform: uppercase;
-               color: rgba(255, 255, 255, 0.86); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
-    .pc-ev { display: flex; align-items: center; gap: 10px; max-width: 100%; font-size: min(3.6vh, 24px); font-weight: 700;
-             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
-    .pc-ev ha-icon { --mdc-icon-size: min(3.8vh, 26px); color: rgba(255, 255, 255, 0.8); flex: none; }
-    .pc-wx { display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 16px; border-radius: 999px;
-             background: rgba(10, 14, 22, 0.45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-    .pc-wx .pc-ico { --mdc-icon-size: min(7vh, 48px); }
-    .pc-wx b { font-family: var(--display); font-weight: 800; font-size: min(6vh, 40px); }
-    .pc-wx span { font-size: min(3.4vh, 22px); font-weight: 600; color: rgba(255, 255, 255, 0.85); }
-    .pc-face .np-line { position: static; max-width: 100%; }
+    /* no dimming: only a soft shade in the top right corner, behind the clock */
+    .pc-scrim { background: radial-gradient(55% 60% at 100% 0%, rgba(5, 7, 12, 0.32) 0%, rgba(5, 7, 12, 0) 100%); }
+    /* top right, right-aligned: weather and time, the day and date, then what's next */
+    .pc-face { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 22px); right: 34px; max-width: 60%;
+               display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;
+               text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 18px rgba(0, 0, 0, 0.45); }
+    .pc-top { display: flex; align-items: center; gap: 14px; }
+    .pc-top .pc-ico { --mdc-icon-size: min(7vh, 52px); filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.5)); }
+    .pc-temp { font-size: min(6vh, 46px); font-weight: 600; }
+    .pc-time { font-family: var(--display); font-weight: 700; font-size: min(14vh, 108px); line-height: 0.95; margin-left: 10px;
+               letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+    .pc-date { font-weight: 700; font-size: min(4.6vh, 34px); }
+    .pc-ev { display: flex; align-items: center; gap: 8px; max-width: 100%; font-size: min(3.2vh, 24px); font-weight: 600;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.92); }
+    .pc-ev ha-icon { --mdc-icon-size: min(3.4vh, 26px); flex: none; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5)); }
+    .pc-face .np-line { position: static; max-width: 100%; margin-top: 6px; }
   `];
 }
 

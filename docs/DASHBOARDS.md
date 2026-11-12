@@ -53,7 +53,7 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
 - Rooms with `swipe`: lights and scenes on the left; on the right, one now-playing tile (the
   room's playing speaker, else one with something queued; the Nest Hub showing this dashboard
   doesn't count), then Climate, then Plugs & plants as rows.
-- `photo_clock`: when idle, one centred column over the slideshow: the weather pill, a big clock, then the date and the next event
+- `photo_clock`: when idle, the slideshow at full brightness with the weather and clock in the top right corner, the day and date ("Friday 13") under them, then the next event
   (darkened). A new photo fades in over the last. A tap goes back to Home.
 - `night` (an input_boolean; the kitchen uses `input_boolean.bedroom_night_mode`, 9pm-7:30am
   while someone's home): while it's on, idle shows the Echo's red clock on black instead. A tap
