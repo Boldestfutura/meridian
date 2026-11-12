@@ -300,7 +300,7 @@ function homePage(c) {
         ${calendar(c)}
       </div>
     </div>
-    ${popPlayer(c)}${timerSheet(c)}`;
+    ${c._config.swipe ? nothing : html`${popPlayer(c)}${timerSheet(c)}`}`;
 }
 
 // ---------------------------------------------------------------- Rooms
@@ -637,21 +637,28 @@ function recipesPage(c) {
           <button class="tab ${tab === id ? "on" : ""}" @click=${() => setTab(id)}><ha-icon icon=${icon}></ha-icon><span>${name}</span><small>${n}</small></button>`)}</div>
         <div class="shelf-row">${items}</div>
       </section>
-      ${c._tDay ? dayPicker(c, L) : nothing}
+      ${c._tDay && !c._config.swipe ? dayPicker(c, L) : nothing}
     </div>`;
 }
 
 // ---------------------------------------------------------------- entry
 
-export function tabletPage(c) {
+export function tabletPage(c, page = c._page) {
   ensureFeeds(c);
-  switch (c._page) {
+  switch (page) {
     case "rooms": return roomsPage(c);
     case "climate": return climatePage(c);
     case "media": return mediaPage(c);
     case "recipes": return recipesPage(c);
     default: return homePage(c);
   }
+}
+
+// With `swipe`, every page is drawn side by side on a sliding strip, and a sheet drawn inside one
+// would slide with it and cover the whole strip. So the pages leave their sheets out and the card
+// draws them here, once, over the screen.
+export function tabletSheets(c) {
+  return html`${popPlayer(c)}${timerSheet(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
 }
 
 // everything under .tablet, so the other screens built from this card are untouched

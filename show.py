@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.31.1"
+VERSION = "0.32.0"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -149,6 +149,10 @@ CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
 # the kitchen tablet's own pages (www/tablet.js): Home, Rooms, Climate, Media, Recipes
 CARD.update({
     "tablet": True,
+    # no dock: swipe between Media | Home | Rooms | Recipes (each room's climate is on Rooms)
+    "swipe": ["media", "home", "rooms", "recipes"],
+    # idle: the time, weather, who's home and what's next over the darkened slideshow
+    "photo_clock": True,
     # the washing machine bubble beside the clock (input_select kept by automation washing_machine)
     "washer": {"entity": "input_select.washing_machine", "started": "input_datetime.washing_machine_started",
                "alert": "input_boolean.washing_machine_alert"},

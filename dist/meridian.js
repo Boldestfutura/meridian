@@ -1326,7 +1326,7 @@ function homePage(c2) {
         ${calendar(c2)}
       </div>
     </div>
-    ${popPlayer(c2)}${timerSheet(c2)}`;
+    ${c2._config.swipe ? J : Z`${popPlayer(c2)}${timerSheet(c2)}`}`;
 }
 var x2 = (t3) => Z`<div class="piece rt"><div class="ph-grid one x2">${t3}</div></div>`;
 function roomHeatPump(c2, id) {
@@ -1686,12 +1686,12 @@ function recipesPage(c2) {
           <button class="tab ${tab === id ? "on" : ""}" @click=${() => setTab(id)}><ha-icon icon=${icon}></ha-icon><span>${name}</span><small>${n2}</small></button>`)}</div>
         <div class="shelf-row">${items}</div>
       </section>
-      ${c2._tDay ? dayPicker(c2, L2) : J}
+      ${c2._tDay && !c2._config.swipe ? dayPicker(c2, L2) : J}
     </div>`;
 }
-function tabletPage(c2) {
+function tabletPage(c2, page = c2._page) {
   ensureFeeds(c2);
-  switch (c2._page) {
+  switch (page) {
     case "rooms":
       return roomsPage(c2);
     case "climate":
@@ -1703,6 +1703,9 @@ function tabletPage(c2) {
     default:
       return homePage(c2);
   }
+}
+function tabletSheets(c2) {
+  return Z`${popPlayer(c2)}${timerSheet(c2)}${c2._tDay && c2._lib && !c2._lib.error ? dayPicker(c2, c2._lib) : J}`;
 }
 var TABLET_CSS = o`
   /* home */
@@ -2964,7 +2967,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.31.1";
+var VERSION = "0.32.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -2993,6 +2996,7 @@ var INPUTS = {
 };
 var POWER_TILES = ["media_player.living_room"];
 var DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+var DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 var MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 var LONG_MONTHS = [
   "January",
@@ -3492,6 +3496,11 @@ var OverlookShow = class extends dt {
     return this.hass.callService(domain, service, data);
   }
   _go(page) {
+    const sw = this._swipePages();
+    if (sw && page !== "photos" && !sw.includes(page)) {
+      page = { climate: "rooms", controls: "rooms", music: "media" }[page] || "home";
+      if (!sw.includes(page)) page = sw[0];
+    }
     this._picker = false;
     this._scenes = false;
     this._pop = null;
@@ -3520,6 +3529,148 @@ var OverlookShow = class extends dt {
   _time(d2) {
     const h2 = d2.getHours() % 12 || 12;
     return `${h2}:${String(d2.getMinutes()).padStart(2, "0")}`;
+  }
+  // --- swiping between the tablet's pages ------------------------------------
+  // `swipe: true` (or a list of page ids) drops the dock: the pages sit side by side on a strip,
+  // a sideways drag moves it with the finger and settles on a page, and dots along the bottom show
+  // where you are. A drag that starts on a row that scrolls sideways (the recipe shelf, the quick
+  // actions) scrolls that row; an up-and-down drag is left to the page.
+  _swipePages() {
+    const s2 = this._config && this._config.swipe;
+    if (!s2 || this._config.phone || this._config.bedside) return null;
+    return Array.isArray(s2) ? s2 : ["media", "home", "rooms", "recipes"];
+  }
+  _pgPos(dx = 0) {
+    const pages = this._swipePages(), i2 = Math.max(0, pages.indexOf(this._page));
+    return `translateX(calc(${(-i2 * 100 / pages.length).toFixed(4)}% + ${dx}px))`;
+  }
+  _pgDown(e2) {
+    if (e2.button > 0) return;
+    const row = e2.composedPath().find((n2) => n2 instanceof HTMLElement && n2.scrollWidth > n2.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n2).overflowX));
+    this._pg = {
+      x: e2.clientX,
+      y: e2.clientY,
+      dx: 0,
+      on: false,
+      dead: false,
+      row,
+      left: row ? row.scrollLeft : 0,
+      w: e2.currentTarget.parentElement.clientWidth,
+      track: e2.currentTarget
+    };
+  }
+  _pgMove(e2) {
+    const s2 = this._pg;
+    if (!s2 || s2.dead) return;
+    const dx = e2.clientX - s2.x, dy = e2.clientY - s2.y;
+    if (!s2.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        s2.dead = true;
+        return;
+      }
+      if (Math.abs(dx) < 10) return;
+      s2.on = true;
+      s2.track.classList.add("dragging");
+    }
+    s2.dx = dx;
+    if (s2.row) {
+      s2.row.scrollLeft = s2.left - dx;
+      return;
+    }
+    const pages = this._swipePages(), i2 = pages.indexOf(this._page);
+    const edge = i2 === 0 && dx > 0 || i2 === pages.length - 1 && dx < 0;
+    s2.track.style.transform = this._pgPos(edge ? dx / 3 : dx);
+  }
+  _pgUp() {
+    const s2 = this._pg;
+    this._pg = null;
+    if (!s2 || !s2.on) return;
+    s2.track.classList.remove("dragging");
+    const swallow = (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    this.shadowRoot.addEventListener("click", swallow, { capture: true, once: true });
+    setTimeout(() => this.shadowRoot.removeEventListener("click", swallow, true), 60);
+    if (s2.row) return;
+    const pages = this._swipePages(), i2 = pages.indexOf(this._page);
+    const to = s2.dx < -Math.min(70, s2.w / 8) ? i2 + 1 : s2.dx > Math.min(70, s2.w / 8) ? i2 - 1 : i2;
+    const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
+    if (next !== this._page) {
+      fireHaptic("light");
+      this._go(next);
+    }
+    s2.track.style.transform = this._pgPos();
+  }
+  _pgStrip(pages) {
+    return Z`
+      <div class="sw-track" style="width:${pages.length * 100}%;transform:${this._pgPos()}"
+           @pointerdown=${(e2) => this._pgDown(e2)} @pointermove=${(e2) => this._pgMove(e2)}
+           @pointerup=${() => this._pgUp()} @pointercancel=${() => {
+      if (this._pg && this._pg.on) this._pg.dx = 0;
+      this._pgUp();
+    }}
+           @dragstart=${(e2) => e2.preventDefault()}>
+        ${pages.map((p2) => Z`<main class="page sw-page" style="width:${(100 / pages.length).toFixed(4)}%"
+          aria-hidden=${p2 === this._page ? "false" : "true"}>${tabletPage(this, p2)}</main>`)}
+      </div>
+      <div class="sw-dots">${pages.map((p2) => {
+      const t3 = TABLET_PAGES.find(([id]) => id === p2);
+      return Z`<button class="sw-dot ${p2 === this._page ? "on" : ""}" title=${t3 ? t3[1] : p2}
+          aria-label=${`${t3 ? t3[1] : p2} page`} @click=${() => this._go(p2)}></button>`;
+    })}</div>
+      ${tabletSheets(this)}`;
+  }
+  // --- the photo clock ------------------------------------------------------
+  // `photo_clock: true`: when the screen goes idle it shows the time big, with the date, the
+  // weather, who's home and what's next, over the slideshow darkened so the clock reads first.
+  // Each new photo fades in over the last and drifts slowly. A tap goes back to the pages.
+  _photoClock() {
+    const cam = this._st(this._config.photos);
+    const pic = cam && cam.attributes.entity_picture;
+    const key = pic ? pic.replace(/token=[^&]*&?/, "") : "";
+    if (key !== this._pcKey) {
+      this._pcPrev = this._pcPic;
+      this._pcKey = key;
+    }
+    this._pcPic = pic;
+    const n2 = this._now, [h2, mm] = this._time(n2).split(":");
+    const w2 = this._st(this._config.weather), cond = w2 ? this._cond(w2) : null, f2 = this._forecast;
+    const people = (this._config.status || []).filter((x3) => x3.person).filter((x3) => {
+      const e2 = this._st(x3.entity);
+      return e2 && e2.state === "home";
+    }).map((x3) => x3.name || this._st(x3.entity).attributes.friendly_name);
+    const next = (this._events || []).find((e2) => this._d(e2.end) > n2);
+    let when = "";
+    if (next) {
+      const s2 = this._d(next.start), t3 = new Date(n2);
+      t3.setDate(t3.getDate() + 1);
+      const day = s2.toDateString() === n2.toDateString() ? "Today" : s2.toDateString() === t3.toDateString() ? "Tomorrow" : DAYS_LONG[s2.getDay()];
+      when = next.start.dateTime ? `${day} ${this._ampm(s2)}` : day;
+    }
+    const [down, up] = this._holdToUncover();
+    return Z`
+      <div class="pclock" @click=${() => this._go("home")}>
+        <div class="pc-photos">
+          ${this._pcPrev ? Z`<img class="pc-ph prev" src=${this._u(this._pcPrev)} alt="">` : J}
+          ${pic ? ss(key, Z`<img class="pc-ph" src=${this._u(pic)} alt="">`) : J}
+        </div>
+        <div class="pc-scrim"></div>
+        <div class="pc-face">
+          <div class="pc-clock" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
+            <div class="pc-time">${h2}:${mm}</div>
+            <div class="pc-date">${DAYS_LONG[n2.getDay()]} ${n2.getDate()} ${LONG_MONTHS[n2.getMonth()]}</div>
+          </div>
+          <div class="pc-day">
+            ${cond ? Z`<div class="pc-wx">${this._wxIcon(w2.state, "pc-ico")}<b>${this._deg(w2.attributes.temperature)}</b>
+              <span>${cond[1]}${f2 && w2.state !== "unavailable" ? ` \xB7 H ${Math.round(f2.temperature)}\xB0 L ${Math.round(f2.templow)}\xB0` : ""}</span></div>` : J}
+            <div class="pc-line"><ha-icon icon="mdi:account"></ha-icon>${people.length ? `${people.join(" and ")} ${people.length > 1 ? "are" : "is"} home` : "Nobody home"}</div>
+            ${next ? Z`<div class="pc-line"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</div>` : J}
+            ${this._washer()}
+            ${this._npLine()}
+          </div>
+        </div>
+      </div>`;
   }
   // --- render -------------------------------------------------------------
   // the voice glow sits over whatever screen is showing
@@ -3833,6 +3984,19 @@ var OverlookShow = class extends dt {
     }
     if (this._wx) return this._wxPage();
     const photos = this._page === "photos";
+    if (photos && this._config.photo_clock && this._config.photos) {
+      return Z`<div class="screen tablet on-photo">${this._photoClock()}</div>`;
+    }
+    const sw = this._swipePages();
+    if (sw) {
+      return Z`
+        <div class="screen tablet swipe">
+          ${this._pgStrip(sw)}
+          ${this._topRight(false)}
+          ${this._pop ? this._popSheet() : J}
+          ${this._light ? this._lightSheet() : J}
+        </div>`;
+    }
     return Z`
       <div class="screen tablet ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : J}
@@ -6679,7 +6843,48 @@ var OverlookShow = class extends dt {
     .screen.overlay { background: none; pointer-events: none; z-index: 20; }
     .screen.overlay::after { display: none; }
     .screen.overlay > * { pointer-events: auto; }
-  `, TABLET_CSS];
+  `, TABLET_CSS, o`
+    /* swipe: no dock, the pages side by side on a strip, dots along the bottom */
+    .screen.swipe { grid-template-columns: minmax(0, 1fr); }
+    .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
+                transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .sw-track.dragging { transition: none; }
+    .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
+    .tablet.swipe .m-rec { width: 100%; }
+    .sw-dots { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2; display: flex; justify-content: center;
+               gap: 2px; pointer-events: none; }
+    .sw-dot { pointer-events: auto; width: 26px; height: 22px; display: grid; place-items: center; border: 0; padding: 0; background: none; }
+    .sw-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: 0.45;
+                     transition: opacity 0.2s, transform 0.2s; }
+    .sw-dot.on::after { background: var(--ink); opacity: 1; transform: scale(1.1); }
+    @media (max-height: 680px) { .sw-page { padding: 62px 18px 22px; } .sw-dots { bottom: 1px; } }
+
+    /* the photo clock: the slideshow behind a big clock, darkened so the time reads first */
+    .pclock { position: absolute; inset: 0; overflow: hidden; background: #06080d; color: #fff; }
+    .pc-photos, .pc-scrim { position: absolute; inset: 0; pointer-events: none; }
+    .pc-ph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+             animation: pc-in 1.6s ease both, pc-drift 30s linear both; }
+    .pc-ph.prev { animation: none; transform: scale(1.06); }
+    @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
+    @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
+    .pc-scrim { background: radial-gradient(90% 75% at 45% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
+    .pc-face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 4vw; padding: 0 4vw; }
+    .pc-time { font-family: var(--display); font-weight: 800; font-size: min(29vh, 18vw); line-height: 0.85;
+               letter-spacing: -0.04em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45); }
+    .pc-date { margin-top: 14px; font-weight: 700; font-size: 18px; letter-spacing: 0.16em; text-transform: uppercase;
+               color: rgba(255, 255, 255, 0.78); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
+    .pc-day { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; min-width: 0; max-width: 42vw;
+              padding-left: 3.2vw; border-left: 1px solid rgba(255, 255, 255, 0.22); }
+    .pc-wx { display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 12px; border-radius: 999px;
+             background: rgba(10, 14, 22, 0.45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .pc-wx .pc-ico { --mdc-icon-size: 32px; }
+    .pc-wx b { font-family: var(--display); font-weight: 800; font-size: 26px; }
+    .pc-wx span { font-size: 15px; color: rgba(255, 255, 255, 0.8); }
+    .pc-line { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
+    .pc-line ha-icon { --mdc-icon-size: 24px; color: rgba(255, 255, 255, 0.8); flex: none; }
+    .pc-day .np-line { position: static; max-width: 100%; }
+  `];
 };
 try {
   CSS.registerProperty({ name: "--ov-at", syntax: "<number>", inherits: true, initialValue: "50" });

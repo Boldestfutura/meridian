@@ -10,11 +10,11 @@
 // Why a card and not button-card: the vertical light slider, the
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
-import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
-import { TABLET_PAGES, tabletPage, TABLET_CSS, wave } from "./tablet.js";
+import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
+import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.31.1";
+const VERSION = "0.32.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -45,6 +45,7 @@ const INPUTS = {
 // phone tiles with play/pause and power, always, instead of volume
 const POWER_TILES = ["media_player.living_room"];
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
   "August", "September", "October", "November", "December"];
@@ -435,6 +436,13 @@ class OverlookShow extends LitElement {
     return this.hass.callService(domain, service, data);
   }
   _go(page) {
+    // swiping: a page that isn't on the strip (a voice "show me the climate") opens the one that
+    // holds it instead
+    const sw = this._swipePages();
+    if (sw && page !== "photos" && !sw.includes(page)) {
+      page = { climate: "rooms", controls: "rooms", music: "media" }[page] || "home";
+      if (!sw.includes(page)) page = sw[0];
+    }
     this._picker = false;
     this._scenes = false;
     this._pop = null;
@@ -460,6 +468,123 @@ class OverlookShow extends LitElement {
   _time(d) {
     const h = d.getHours() % 12 || 12;
     return `${h}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
+  // --- swiping between the tablet's pages ------------------------------------
+  // `swipe: true` (or a list of page ids) drops the dock: the pages sit side by side on a strip,
+  // a sideways drag moves it with the finger and settles on a page, and dots along the bottom show
+  // where you are. A drag that starts on a row that scrolls sideways (the recipe shelf, the quick
+  // actions) scrolls that row; an up-and-down drag is left to the page.
+  _swipePages() {
+    const s = this._config && this._config.swipe;
+    if (!s || this._config.phone || this._config.bedside) return null;
+    return Array.isArray(s) ? s : ["media", "home", "rooms", "recipes"];
+  }
+  _pgPos(dx = 0) {
+    const pages = this._swipePages(), i = Math.max(0, pages.indexOf(this._page));
+    return `translateX(calc(${(-i * 100 / pages.length).toFixed(4)}% + ${dx}px))`;
+  }
+  _pgDown(e) {
+    if (e.button > 0) return;
+    const row = e.composedPath().find((n) => n instanceof HTMLElement && n.scrollWidth > n.clientWidth + 1
+      && /(auto|scroll)/.test(getComputedStyle(n).overflowX));
+    this._pg = { x: e.clientX, y: e.clientY, dx: 0, on: false, dead: false, row, left: row ? row.scrollLeft : 0,
+      w: e.currentTarget.parentElement.clientWidth, track: e.currentTarget };
+  }
+  _pgMove(e) {
+    const s = this._pg;
+    if (!s || s.dead) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (!s.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { s.dead = true; return; }
+      if (Math.abs(dx) < 10) return;
+      s.on = true;
+      s.track.classList.add("dragging");
+    }
+    s.dx = dx;
+    if (s.row) { s.row.scrollLeft = s.left - dx; return; }
+    const pages = this._swipePages(), i = pages.indexOf(this._page);
+    const edge = (i === 0 && dx > 0) || (i === pages.length - 1 && dx < 0);
+    s.track.style.transform = this._pgPos(edge ? dx / 3 : dx);       // rubber band at the ends
+  }
+  _pgUp() {
+    const s = this._pg;
+    this._pg = null;
+    if (!s || !s.on) return;
+    s.track.classList.remove("dragging");
+    // the drag ends with a click on whatever is under the finger; it shouldn't press it
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    this.shadowRoot.addEventListener("click", swallow, { capture: true, once: true });
+    setTimeout(() => this.shadowRoot.removeEventListener("click", swallow, true), 60);
+    if (s.row) return;
+    const pages = this._swipePages(), i = pages.indexOf(this._page);
+    const to = s.dx < -Math.min(70, s.w / 8) ? i + 1 : s.dx > Math.min(70, s.w / 8) ? i - 1 : i;
+    const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
+    if (next !== this._page) { fireHaptic("light"); this._go(next); }
+    s.track.style.transform = this._pgPos();
+  }
+  _pgStrip(pages) {
+    return html`
+      <div class="sw-track" style="width:${pages.length * 100}%;transform:${this._pgPos()}"
+           @pointerdown=${(e) => this._pgDown(e)} @pointermove=${(e) => this._pgMove(e)}
+           @pointerup=${() => this._pgUp()} @pointercancel=${() => { if (this._pg && this._pg.on) this._pg.dx = 0; this._pgUp(); }}
+           @dragstart=${(e) => e.preventDefault()}>
+        ${pages.map((p) => html`<main class="page sw-page" style="width:${(100 / pages.length).toFixed(4)}%"
+          aria-hidden=${p === this._page ? "false" : "true"}>${tabletPage(this, p)}</main>`)}
+      </div>
+      <div class="sw-dots">${pages.map((p) => {
+        const t = TABLET_PAGES.find(([id]) => id === p);
+        return html`<button class="sw-dot ${p === this._page ? "on" : ""}" title=${t ? t[1] : p}
+          aria-label=${`${t ? t[1] : p} page`} @click=${() => this._go(p)}></button>`;
+      })}</div>
+      ${tabletSheets(this)}`;
+  }
+
+  // --- the photo clock ------------------------------------------------------
+  // `photo_clock: true`: when the screen goes idle it shows the time big, with the date, the
+  // weather, who's home and what's next, over the slideshow darkened so the clock reads first.
+  // Each new photo fades in over the last and drifts slowly. A tap goes back to the pages.
+  _photoClock() {
+    const cam = this._st(this._config.photos);
+    const pic = cam && cam.attributes.entity_picture;
+    // the photo's own address, without the access token that changes every few minutes
+    const key = pic ? pic.replace(/token=[^&]*&?/, "") : "";
+    if (key !== this._pcKey) { this._pcPrev = this._pcPic; this._pcKey = key; }
+    this._pcPic = pic;
+    const n = this._now, [h, mm] = this._time(n).split(":");
+    const w = this._st(this._config.weather), cond = w ? this._cond(w) : null, f = this._forecast;
+    const people = (this._config.status || []).filter((x) => x.person).filter((x) => { const e = this._st(x.entity); return e && e.state === "home"; })
+      .map((x) => x.name || this._st(x.entity).attributes.friendly_name);
+    const next = (this._events || []).find((e) => this._d(e.end) > n);
+    let when = "";
+    if (next) {
+      const s = this._d(next.start), t = new Date(n); t.setDate(t.getDate() + 1);
+      const day = s.toDateString() === n.toDateString() ? "Today" : s.toDateString() === t.toDateString() ? "Tomorrow" : DAYS_LONG[s.getDay()];
+      when = next.start.dateTime ? `${day} ${this._ampm(s)}` : day;
+    }
+    const [down, up] = this._holdToUncover();
+    return html`
+      <div class="pclock" @click=${() => this._go("home")}>
+        <div class="pc-photos">
+          ${this._pcPrev ? html`<img class="pc-ph prev" src=${this._u(this._pcPrev)} alt="">` : nothing}
+          ${pic ? keyed(key, html`<img class="pc-ph" src=${this._u(pic)} alt="">`) : nothing}
+        </div>
+        <div class="pc-scrim"></div>
+        <div class="pc-face">
+          <div class="pc-clock" @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
+            <div class="pc-time">${h}:${mm}</div>
+            <div class="pc-date">${DAYS_LONG[n.getDay()]} ${n.getDate()} ${LONG_MONTHS[n.getMonth()]}</div>
+          </div>
+          <div class="pc-day">
+            ${cond ? html`<div class="pc-wx">${this._wxIcon(w.state, "pc-ico")}<b>${this._deg(w.attributes.temperature)}</b>
+              <span>${cond[1]}${f && w.state !== "unavailable" ? ` · H ${Math.round(f.temperature)}° L ${Math.round(f.templow)}°` : ""}</span></div>` : nothing}
+            <div class="pc-line"><ha-icon icon="mdi:account"></ha-icon>${people.length ? `${people.join(" and ")} ${people.length > 1 ? "are" : "is"} home` : "Nobody home"}</div>
+            ${next ? html`<div class="pc-line"><ha-icon icon="mdi:calendar-blank-outline"></ha-icon>${when} · ${next.summary}</div>` : nothing}
+            ${this._washer()}
+            ${this._npLine()}
+          </div>
+        </div>
+      </div>`;
   }
 
   // --- render -------------------------------------------------------------
@@ -750,6 +875,19 @@ class OverlookShow extends LitElement {
     }
     if (this._wx) return this._wxPage();
     const photos = this._page === "photos";
+    if (photos && this._config.photo_clock && this._config.photos) {
+      return html`<div class="screen tablet on-photo">${this._photoClock()}</div>`;
+    }
+    const sw = this._swipePages();
+    if (sw) {
+      return html`
+        <div class="screen tablet swipe">
+          ${this._pgStrip(sw)}
+          ${this._topRight(false)}
+          ${this._pop ? this._popSheet() : nothing}
+          ${this._light ? this._lightSheet() : nothing}
+        </div>`;
+    }
     return html`
       <div class="screen tablet ${photos ? "on-photo" : ""}">
         ${photos ? this._photos() : nothing}
@@ -3564,7 +3702,48 @@ class OverlookShow extends LitElement {
     .screen.overlay { background: none; pointer-events: none; z-index: 20; }
     .screen.overlay::after { display: none; }
     .screen.overlay > * { pointer-events: auto; }
-  `, TABLET_CSS];
+  `, TABLET_CSS, css`
+    /* swipe: no dock, the pages side by side on a strip, dots along the bottom */
+    .screen.swipe { grid-template-columns: minmax(0, 1fr); }
+    .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
+                transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .sw-track.dragging { transition: none; }
+    .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
+    .tablet.swipe .m-rec { width: 100%; }
+    .sw-dots { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2; display: flex; justify-content: center;
+               gap: 2px; pointer-events: none; }
+    .sw-dot { pointer-events: auto; width: 26px; height: 22px; display: grid; place-items: center; border: 0; padding: 0; background: none; }
+    .sw-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: 0.45;
+                     transition: opacity 0.2s, transform 0.2s; }
+    .sw-dot.on::after { background: var(--ink); opacity: 1; transform: scale(1.1); }
+    @media (max-height: 680px) { .sw-page { padding: 62px 18px 22px; } .sw-dots { bottom: 1px; } }
+
+    /* the photo clock: the slideshow behind a big clock, darkened so the time reads first */
+    .pclock { position: absolute; inset: 0; overflow: hidden; background: #06080d; color: #fff; }
+    .pc-photos, .pc-scrim { position: absolute; inset: 0; pointer-events: none; }
+    .pc-ph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+             animation: pc-in 1.6s ease both, pc-drift 30s linear both; }
+    .pc-ph.prev { animation: none; transform: scale(1.06); }
+    @keyframes pc-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pc-drift { from { transform: scale(1); } to { transform: scale(1.06); } }
+    @media (prefers-reduced-motion: reduce) { .pc-ph { animation: pc-in 1.6s ease both; } .pc-ph.prev { transform: none; } }
+    .pc-scrim { background: radial-gradient(90% 75% at 45% 50%, rgba(5, 7, 12, 0.62) 0%, rgba(5, 7, 12, 0.42) 60%, rgba(5, 7, 12, 0.55) 100%); }
+    .pc-face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 4vw; padding: 0 4vw; }
+    .pc-time { font-family: var(--display); font-weight: 800; font-size: min(29vh, 18vw); line-height: 0.85;
+               letter-spacing: -0.04em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45); }
+    .pc-date { margin-top: 14px; font-weight: 700; font-size: 18px; letter-spacing: 0.16em; text-transform: uppercase;
+               color: rgba(255, 255, 255, 0.78); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
+    .pc-day { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; min-width: 0; max-width: 42vw;
+              padding-left: 3.2vw; border-left: 1px solid rgba(255, 255, 255, 0.22); }
+    .pc-wx { display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 12px; border-radius: 999px;
+             background: rgba(10, 14, 22, 0.45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .pc-wx .pc-ico { --mdc-icon-size: 32px; }
+    .pc-wx b { font-family: var(--display); font-weight: 800; font-size: 26px; }
+    .pc-wx span { font-size: 15px; color: rgba(255, 255, 255, 0.8); }
+    .pc-line { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
+    .pc-line ha-icon { --mdc-icon-size: 24px; color: rgba(255, 255, 255, 0.8); flex: none; }
+    .pc-day .np-line { position: static; max-width: 100%; }
+  `];
 }
 
 // a typed --ov-at can transition; an untyped custom property would jump

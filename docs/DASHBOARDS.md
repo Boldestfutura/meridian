@@ -40,6 +40,13 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
   Apple TV's goes to the amp); `follows` hides a player while the one it follows is on.
 - `tablet_tv`: the player whose Plex art fills the Home page's TV tile.
 - `scheme`: `sun.sun` switches light and dark with sunrise and sunset.
+- `swipe`: a list of page ids (`["media", "home", "rooms", "recipes"]`) drops the dock. The
+  pages sit side by side and a sideways drag moves between them, with dots along the bottom.
+  A drag that starts on a row that scrolls sideways (the quick actions, the recipe shelf) scrolls
+  that row. A page that isn't in the list (a voice "show me the climate") opens the one that
+  holds it: climate and controls go to Rooms, music to Media, anything else to Home.
+- `photo_clock`: when idle, a big clock with the date, weather, who's home and the next event
+  over the slideshow, darkened. A new photo fades in over the last. A tap goes back to Home.
 
 ## Changing one
 

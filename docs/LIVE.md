@@ -60,7 +60,8 @@ deploy them.
 ## What exists, by dashboard
 
 **Kitchen Show** `ha-show` (`show.py`, view `show`): the tablet pages in `www/tablet.js`. Shown on
-the kitchen tablet and cast to the Nest Hub since 2026-11-11. Hub Show (`ha-show-hub`), Kitchen
+the kitchen tablet and cast to the Nest Hub since 2026-11-11. Since 0.32.0 (2026-11-13) both swipe between
+Media | Home | Rooms | Recipes with no dock (Climate lives in Rooms) and go idle to the photo clock. Hub Show (`ha-show-hub`), Kitchen
 Tablet Show (`kitchen-tablet-show`) and View Assist (`view-assist`) were deleted that day;
 backups in `~/.config/ha/*.deleted-2026-11-11.json`.
 - **Tablet:** ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS. Runs in VACA 0.14.1 (the
