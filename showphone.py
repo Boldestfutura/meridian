@@ -34,7 +34,7 @@ ROOMS = [
     {"name": "Kitchen", "icon": "mdi:fridge", "group": "light.kitchen_lights", "items": [
         light("light.kitchen_light_2", "Kitchen Light"),
         light("light.bench_lamp", "Bench Lamp"),
-        media("media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "Kitchen Tablet", "mdi:tablet"),
+        media("media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "Kitchen Display", "mdi:tablet"),
     ]},
     {"name": "Living Room", "icon": "mdi:sofa", "group": "light.living_room", "items": [
         {"type": "climate", "entity": "climate.living_room"},
@@ -201,8 +201,8 @@ POPUPS = {
         {"type": "player", "entity": ATV},
         {"type": "choices", "title": "Apps", "entity": ATV, "attr": "source", "service": "media_player.select_source",
          "field": "source", "compact": True, "options": [[a, a.replace("\u00a0", " "), i] for a, i in ATV_APPS]}]},
-    "kitchen_display": player_popup("media_player.kitchen_display", "Kitchen Display", "mdi:monitor"),
-    "kitchen_tablet": player_popup("media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "Kitchen Tablet", "mdi:tablet"),
+    "kitchen_display": player_popup("media_player.kitchen_display", "Kitchen Nest Hub", "mdi:monitor"),
+    "kitchen_tablet": player_popup("media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "Kitchen Display", "mdi:tablet"),
     "homepod_en_suite": player_popup("media_player.homepod_mini_kitchen", "En Suite HomePod", "mdi:speaker"),
     "echo_bedroom": player_popup("media_player.bedroom_echo", "Bedroom Echo", "mdi:speaker"),
     "homepod_guest": player_popup("media_player.guest_bedroom_homepod_mini", "Guest HomePod", "mdi:speaker"),

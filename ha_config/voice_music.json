@@ -1,7 +1,7 @@
 {
  "id": "voice_music",
  "alias": "Voice Music",
- "description": "\"Play ...\" by voice through Music Assistant (Spotify). Artist (\"play Fleetwood Mac\", \"play some Radiohead\"), song (\"play Dreams by Fleetwood Mac\"), playlist (\"play my golden hour playlist\", matched loosely against the library). End with \"in the kitchen\" / \"on the kitchen tablet\" / \"in the en suite\" / \"on the amp\" / \"in the guest room\" / \"in the bedroom\" to pick a speaker; otherwise it plays in the room of the device you spoke to (bedroom if typed). Pause, skip and volume are HA's built-in media commands.",
+ "description": "\"Play ...\" by voice through Music Assistant (Spotify). Artist (\"play Fleetwood Mac\", \"play some Radiohead\"), song (\"play Dreams by Fleetwood Mac\"), playlist (\"play my golden hour playlist\", matched loosely against the library). End with \"in the kitchen\" / \"on the kitchen display\" / \"in the en suite\" / \"on the amp\" / \"in the guest room\" / \"in the bedroom\" to pick a speaker; otherwise it plays in the room of the device you spoke to (bedroom if typed). Pause, skip and volume are HA's built-in media commands.",
  "mode": "parallel",
  "triggers": [
   {
@@ -31,8 +31,8 @@
      "guest_bedroom": "the guest room"
     },
     "said": "{{ (trigger.slots.q | default('')) | lower | regex_replace('[.?!]+$', '') | trim }}",
-    "room_m": "{{ said | regex_findall('^(.+?)\\s+(?:in|on|through)\\s+(?:the\\s+)?(kitchen tablet|kitchen|en suite|ensuite|en-suite|living room amp|living room|lounge|amp|guest bedroom|guest room|spare room|master bedroom|bedroom)$') }}",
-    "room": "{% if room_m %}{% set r = room_m[0][1] %}{{ 'kitchen' if r in ['kitchen','kitchen tablet'] else 'en_suite' if r in ['en suite','ensuite','en-suite'] else 'living_room' if r in ['living room amp','living room','lounge','amp'] else 'guest_bedroom' if r in ['guest bedroom','guest room','spare room'] else 'bedroom' }}{% endif %}",
+    "room_m": "{{ said | regex_findall('^(.+?)\\s+(?:in|on|through)\\s+(?:the\\s+)?(kitchen display|kitchen tablet|kitchen|en suite|ensuite|en-suite|living room amp|living room|lounge|amp|guest bedroom|guest room|spare room|master bedroom|bedroom)$') }}",
+    "room": "{% if room_m %}{% set r = room_m[0][1] %}{{ 'kitchen' if r in ['kitchen','kitchen display','kitchen tablet'] else 'en_suite' if r in ['en suite','ensuite','en-suite'] else 'living_room' if r in ['living room amp','living room','lounge','amp'] else 'guest_bedroom' if r in ['guest bedroom','guest room','spare room'] else 'bedroom' }}{% endif %}",
     "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in players else 'bedroom' }}",
     "target_room": "{{ room if room else here }}",
     "player": "{{ players[target_room] }}",

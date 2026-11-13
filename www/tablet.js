@@ -1,4 +1,4 @@
-// The kitchen tablet's pages (overlook-show with `tablet: true`, 1280x800).
+// The kitchen display's pages (overlook-show with `tablet: true`, 1280x800).
 //
 // Home is quick actions: a dinner card, what's on the TV, the shopping list, a row of
 // favourite actions and the week's calendar. Then Rooms (a room's lights, scenes and plugs as

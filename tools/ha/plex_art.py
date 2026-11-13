@@ -8,7 +8,7 @@ Infuse reports TV as "Show - S8 ∙ E2 - Episode", or "Show - E7 - Episode" for 
 anything else is looked up as a film.
 Reads /config/.plex.json ({"url", "token"}, mode 600) and writes into /config/www/nowplaying:
 <ratingKey>-bg.jpg, <ratingKey>-logo.png and index.json ({normalised name: {name, kind, bg, logo}}),
-which the kitchen tablet's media card reads. A title already in the index is not fetched again.
+which the kitchen display's media card reads. A title already in the index is not fetched again.
 """
 import base64, json, os, re, sys, urllib.parse, urllib.request
 

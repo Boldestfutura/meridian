@@ -22,7 +22,8 @@ export function createPip() {
     cold:      { name: "Cold", group: "home", hue: "#bfeaff", what: "Tinted blue, shivers in bursts, teeth chatter, wears a scarf, snow falls. Hugs itself.", src: "Kitchen under 17 °C.", status: "BRRR" },
     stuffy:    { name: "Stuffy air", group: "home", hue: "#b5c26a", what: "Murky haze drifts past, squinting eyes, little coughs. Waves the air away and covers its coughs.", src: "Kitchen VOC index over 250 or PM2.5 over 35, usually cooking. Open a window.", status: "STUFFY" },
     rain:      { name: "Raining", group: "home", hue: "#7aa3c9", what: "Shelters under a tiny umbrella while rain falls round it. Holds the umbrella.", src: "The home forecast says rainy or pouring.", status: "RAINING" },
-    music:     { name: "Music", group: "home", hue: "#ff6fd8", what: "Dances side to side on the beat, eyes closed, notes float up. Pumps its hands to the beat.", src: "Music Assistant is playing in the room.", status: "DANCING" },
+    music:     { name: "Music", group: "home", hue: "#ff6fd8", what: "Dances on the beat: hops from foot to foot, sways, punches its hands up in turn, eyes closed, notes float up.", src: "Music is playing on any of the speakers (not the TV's own sound through the amp).", status: "DANCING" },
+    tv:        { name: "Watching TV", group: "home", hue: "#7fb6ff", what: "Sits back with a striped tub of popcorn, lit by the flicker of the screen. Every few seconds a piece goes in and it munches; now and then a kernel pops out of the tub.", src: "The Apple TV is playing a show or a movie.", status: "SHOWTIME" },
     guests:    { name: "Guests", group: "home", hue: "#ffe680", what: "Waves a leaf, big eyes, grin, confetti. Waves a hand and a leaf.", src: "Guest mode is on.", status: "HI!" },
     error:     { name: "Can't connect", group: "home", hue: "#ff6b6b", what: "Greyed out and wilted under a little rain cloud. Hands flopped on the floor.", src: "Home Assistant or the Claude pipeline can't be reached.", status: "NO SIGNAL" },
   };
@@ -31,11 +32,20 @@ export function createPip() {
     idle: [.72, .8, .7, .75], listening: [.72, .8, .78, .75], thinking: [.72, .8, .78, .75], speaking: [.72, .8, .82, .75],
     happy: [.9, .9, 1, .85], thirsty: [.15, .62, .45, .6], sleepy: [.66, .7, .64, .18], error: [.6, .6, .5, .6],
     hungry: [.7, .12, .5, .6], asleep: [.66, .7, .64, .4], sad: [.7, .75, .25, .6], angry: [.5, .45, .06, .5], dizzy: [.72, .8, .7, .75], hot: [.4, .7, .5, .5], cold: [.7, .7, .5, .6], stuffy: [.7, .7, .45, .6],
-    rain: [.75, .8, .7, .75], music: [.72, .8, 1, .7], guests: [.72, .8, .95, .7],
+    rain: [.75, .8, .7, .75], music: [.72, .8, 1, .7], guests: [.72, .8, .95, .7], tv: [.72, .85, .95, .7],
   };
   const STAT_COL = ["#59b8ff", "#ffb547", "#ff7fb0", "#9a8cff"];
+  // occasions: drawn over whatever mood it's in (a hat, a prop on the floor, something in the sky)
+  const OCCASIONS = {
+    birthday:   { name: "Birthday", what: "A striped party hat, and a cake on the floor beside it with three flickering candles. Confetti drifts down.", src: "Cameron's birthday (11 July) or Paget's (4 November).", status: "HAPPY BIRTHDAY" },
+    christmas:  { name: "Christmas", what: "A Santa hat with a bobbing pom-pom, a little tree with blinking lights, and light snow.", src: "1 to 26 December.", status: "MERRY XMAS" },
+    newyear:    { name: "New Year", what: "A gold party hat, fireworks bursting overhead.", src: "31 December and 1 January.", status: "HAPPY NEW YEAR" },
+    halloween:  { name: "Halloween", what: "A witch's hat, a jack-o'-lantern with a flickering face, bats flapping past.", src: "25 to 31 October.", status: "BOO!" },
+    valentines: { name: "Valentine's", what: "Hearts float up round it.", src: "14 February.", status: "\u2665" },
+    easter:     { name: "Easter", what: "Bunny ears and a painted egg on the floor.", src: "Good Friday to Easter Monday.", status: "HAPPY EASTER" },
+  };
 
-  let state = "idle", stage = 2, petUntil = -1, dizzyUntil = -1, hearts = [];
+  let state = "idle", stage = 2, petUntil = -1, dizzyUntil = -1, hearts = [], occasion = "";
   const SPEED = 0.6;   // animation pace: 1 is the original, lower is calmer
 
   // ---- palette ---------------------------------------------------------------
@@ -43,7 +53,10 @@ export function createPip() {
     MOUTH: 12, TONGUE: 13, STEM: 14, LD: 15, LM: 16, LL: 17, PET: 18, PETC: 19, G0: 20, G1: 21, G2: 22, G3: 23,
     SPK: 24, SHADOW: 25, DROP: 26, DROPL: 27, CLOUD: 28, ZZ: 29,
     SCARF: 30, SCARF2: 31, SNOW: 32, SWEAT: 33, HAZE: 34, FOOD: 35, FOODL: 36, UMB: 37, UMB2: 38, CONF: 39,
-    PIL: 40, PILD: 41, BLK1: 42, BLK2: 43, BLKL: 44, CAP: 45, CAP2: 46, POM: 47 };
+    PIL: 40, PILD: 41, BLK1: 42, BLK2: 43, BLKL: 44, CAP: 45, CAP2: 46, POM: 47,
+    HAT1: 48, HAT2: 49, SANTA: 50, SANTAW: 51, WITCH: 52, WITCH2: 53, PUMP: 54, PUMPD: 55, FLAME: 56, FLAME2: 57,
+    CAKE: 58, CAKED: 59, ICING: 60, PLATE: 61, TREE: 62, TREED: 63, BAT: 64, EGG1: 65, EGG2: 66, EGG3: 67,
+    EAR: 68, EARIN: 69, POP: 70, POPD: 71, TUB: 72, TUBW: 73, GOLD: 74 };
   const BASE = {
     BG: "#000000", OUT: "#16241a", BD: "#4c7a3a", BM: "#6b9c4a", BL: "#90bf5e", BH: "#bfe085",
     BEL: "#eef3c9", BELD: "#cfdd9c", EYE: "#132018", SHINE: "#ffffff", BLUSH: "#f28b86", MOUTH: "#3b1d1f",
@@ -52,12 +65,16 @@ export function createPip() {
     SCARF: "#d6453d", SCARF2: "#f3e7cf", SNOW: "#eef8ff", SWEAT: "#9fd8ff", HAZE: "#5d6640", FOOD: "#e2453c",
     FOODL: "#7ccf5a", UMB: "#e8554e", UMB2: "#f7c948", CONF: "#7fe0ff",
     PIL: "#ece8f4", PILD: "#b4adc9", BLK1: "#4a5fc4", BLK2: "#6f86e2", BLKL: "#e6eafb", CAP: "#7a58d4", CAP2: "#a88df2", POM: "#f6f3ff",
+    HAT1: "#ff5fa2", HAT2: "#ffd84a", SANTA: "#d8262e", SANTAW: "#f4f4f4", WITCH: "#3b2457", WITCH2: "#5c3d86", PUMP: "#f08a24", PUMPD: "#b85a12",
+    FLAME: "#ffe066", FLAME2: "#ff8a2a", CAKE: "#e9c58a", CAKED: "#b98a52", ICING: "#ff9ccf", PLATE: "#dfe6f2", TREE: "#2f9a4e", TREED: "#1d6634",
+    BAT: "#8a6bb8", EGG1: "#8fd3ff", EGG2: "#ffe07a", EGG3: "#ff9ccf", EAR: "#f4f1f8", EARIN: "#f7a8c4", POP: "#fff4d6", POPD: "#f3d27a",
+    TUB: "#e23b3b", TUBW: "#fafafa", GOLD: "#f5c542",
   };
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
   function palette(st) {
     const hue = hex(STATES[st].hue), black = [0, 0, 0];
-    const p = new Array(48);
+    const p = new Array(Object.keys(I).length);
     for (const [k, v] of Object.entries(BASE)) p[I[k]] = hex(v);
     p[I.RIM] = mix(hex(BASE.BL), hue, .7);
     p[I.G0] = hue; p[I.G1] = mix(hue, black, .5); p[I.G2] = mix(hue, black, .72); p[I.G3] = mix(hue, black, .86);
@@ -96,6 +113,20 @@ export function createPip() {
       let c = Math.abs(v) < .55 && u < .85 ? I.LD : (v * light > 0 ? I.LL : I.LM);
       putS(x, y, c);
     }
+  }
+
+  // pixels [x, y, colour] drawn solid with an outline of their own, so they sit in front
+  function sprite(px) {
+    const key = new Set(px.map(([x, y]) => Math.floor(x) + "," + Math.floor(y)));
+    for (const [x, y] of px) for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      if (!key.has((Math.floor(x) + ox) + "," + (Math.floor(y) + oy))) putS(x + ox, y + oy, I.OUT);
+    for (const [x, y, c] of px) putS(x, y, c);
+  }
+  // a picture from rows of characters; `col(ch, i, j)` gives each character's colour (or null)
+  function art(rows, x0, y0, col) {
+    const px = [];
+    rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== ".") { const c = col(ch, i, j); if (c != null) px.push([x0 + i, y0 + j, c]); } }));
+    return px;
   }
 
   function zGlyph(x, y, s) {
@@ -201,7 +232,7 @@ export function createPip() {
     if (st === "cold" && (t % 2.4) < 1.3) cx += Math.floor(t * 16) & 1;
     const rumble = st === "hungry" && (t % 3.2) < .5;
     if (rumble) cx += (Math.floor(t * 14) & 1) ? 1 : -1;
-    if (st === "music") cx += Math.round(Math.sin(t * Math.PI * 1.8) * 2);
+    if (st === "music") cx += Math.round(Math.sin(t * Math.PI * 1.8) * 3);
     const stomp = st === "angry" ? (t % 2.2) : 9;
     if (stomp < .5) cx += (Math.floor(t * 18) & 1) ? 1 : -1;
     const wob = t < dizzyUntil ? Math.min(1, (dizzyUntil - t) / 3) : 1;   // dizzy: the wobble fades as it comes round
@@ -215,12 +246,13 @@ export function createPip() {
       rx *= 1 + sq; ry *= 1 - sq;
     } else if (st === "music") {
       const ph = (t * 1.8) % 1, b = Math.max(0, 1 - ph * 4);
-      rx *= 1 + b * .09; ry *= 1 - b * .09; lift = Math.sin(ph * Math.PI) * 1.5;
+      rx *= 1 + b * .1; ry *= 1 - b * .1; lift = Math.sin(ph * Math.PI) * 2.5;
     } else {
       const s = breathe * (st === "sleepy" ? .035 : .02) + talk * .03;
       rx *= 1 - s * .5; ry *= 1 + s;
     }
     if (st === "thirsty" || st === "error") { ry *= .96; rx *= 1.02; }
+    if (st === "tv") { ry *= .9; rx *= 1.04; }                         // sat back on the floor
     if (stomp < .5) lift = Math.sin(stomp / .5 * Math.PI) * 2.5;
     if (st === "angry") { rx *= 1.04 + Math.sin(t * 9) * .01; ry *= .97; }   // puffed up
     if (st === "dizzy") { const q = Math.sin(t * 8.4) * .05 * (.3 + .7 * wob); rx *= 1 + q; ry *= 1 - q; lift = Math.abs(Math.cos(t * 4.2)) * 1.5 * wob; }
@@ -229,7 +261,7 @@ export function createPip() {
     // aura: dithered glow round the body, on the black
     const A = { idle: .5 + .08 * breathe, listening: .8 + .15 * Math.sin(t * 6), thinking: .65 + .1 * Math.sin(t * 3),
       speaking: .5 + .45 * talk, happy: .8, thirsty: .45, sleepy: .3 + .05 * breathe, error: .4, hungry: .5 + (rumble ? .25 : 0),
-      hot: .75 + .1 * Math.sin(t * 4), cold: .55, stuffy: .4, rain: .45, music: .55 + .4 * Math.max(0, 1 - ((t * 1.8) % 1) * 3), guests: .75, sad: .35, angry: .7 + .2 * Math.abs(Math.sin(t * 4)), dizzy: .5 + .12 * Math.sin(t * 5) }[st];
+      hot: .75 + .1 * Math.sin(t * 4), cold: .55, stuffy: .4, rain: .45, tv: .42 + .22 * Math.sin(t * 13) * Math.sin(t * 3.7), music: .55 + .4 * Math.max(0, 1 - ((t * 1.8) % 1) * 3), guests: .75, sad: .35, angry: .7 + .2 * Math.abs(Math.sin(t * 4)), dizzy: .5 + .12 * Math.sin(t * 5) }[st];
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const dx = (x + .5 - cx) / (rx + 2), dy = (y + .5 - (cy - 3)) / (ry + 5);
       const d = Math.hypot(dx, dy);
@@ -248,11 +280,16 @@ export function createPip() {
     }
 
     // feet: two root nubs
-    for (const f of [-1, 1]) for (let y = 0; y < 2; y++) for (let x = 0; x < 3; x++)
-      if (!(y === 1 && (x === 0 && f < 0 || x === 2 && f > 0))) putS(cx + f * 6 - 1.5 + x, ground - 2 + y - lift, I.BD);
+    // dancing, it hops from foot to foot; watching TV, its feet are out in front
+    for (const f of [-1, 1]) {
+      const hop = st === "music" ? Math.round(Math.max(0, Math.sin(t * Math.PI * 1.8 + (f > 0 ? Math.PI : 0))) * 2) : 0;
+      const fx = st === "tv" ? 8 : 6;
+      for (let y = 0; y < 2; y++) for (let x = 0; x < 3; x++)
+        if (!(y === 1 && (x === 0 && f < 0 || x === 2 && f > 0))) putS(cx + f * fx - 1.5 + x, ground - 2 + y - lift - hop, I.BD);
+    }
 
     // body: a lit, dithered egg with a pale belly and a state-tinted rim on the right
-    const rimOn = !["idle", "sleepy", "rain"].includes(st);
+    const rimOn = !["idle", "sleepy", "rain"].includes(st);   // (tv: the screen's light on its side)
     for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++) for (let x = Math.floor(cx - rx - 1); x <= Math.ceil(cx + rx + 1); x++) {
       const nx = (x + .5 - cx) / rx, ny0 = (y + .5 - cy) / ry;
       const ny = ny0 < 0 ? ny0 * 1.06 : ny0;          // a little narrower on top: an egg
@@ -334,7 +371,11 @@ export function createPip() {
     else if (st === "cold") { const j = (t % 2.4) < 1.3 ? (Math.floor(t * 16) & 1) : 0; H = [-1, 1].map(s => [cx + s * (rx - 1) + j, cy + ry * .3, 1]); }  // hugging itself
     else if (st === "stuffy") H = [[cx - side - 1 + Math.sin(t * 8) * 1.5, eyY, 0], (t % 2.6) / 2.6 < .45 ? [cx + 1, mY + 1, 1] : rest(1)];  // waving the air, covering a cough
     else if (st === "rain") H = [rest(-1), [cx - .5, Math.round(top - L - 4) + 3, 1]];                       // holding the umbrella
-    else if (st === "music") H = [-1, 1].map(s => [cx + s * side, cy - 2 - Math.max(0, Math.sin(t * Math.PI * 1.8 + (s > 0 ? Math.PI : 0))) * 4, 0]);
+    else if (st === "music") H = [-1, 1].map(s => { const up = Math.max(0, Math.sin(t * Math.PI * 1.8 + (s > 0 ? Math.PI : 0))); return [cx + s * (side + up * 1.5), cy - 1 - up * 7, 0]; });  // punching the air in turn
+    else if (st === "tv") {                                                                                  // one hand on the tub, one fetching popcorn
+      const ph = (t % 3.4) / 3.4, k = ph < .4 ? Math.sin(ph / .4 * Math.PI) : 0, tubY = Math.round(cy + ry * .45) + 1;
+      H = [[cx - 9, tubY + 3, 1], [cx + 8 + (cx + 1 - (cx + 8)) * k, tubY + 2 + (mY + 1 - (tubY + 2)) * k, 1]];
+    }
     else if (st === "guests") H = [rest(-1), [cx + rx + 4 + Math.sin(t * 7) * 1.5, cy - ry + 1, 0]];          // waving hello
     else if (st === "error") H = [-1, 1].map(s => [cx + s * (rx + 2), ground - 3, 0]);
     else if (st === "sad") H = [[cx - side + 1, cy + ry - 3, 0], (t % 4) < 1.8 ? [cx + 6 + Math.sin(t * 9) * .7, eyY + 1, 1] : [cx + side - 1, cy + ry - 3, 0]];  // rubbing an eye
@@ -365,6 +406,7 @@ export function createPip() {
     if (st === "listening") gy = -1;
     if (st === "thirsty") gy = -1;
     if (st === "hungry") { gx = 1; gy = -1; }
+    if (st === "tv") gx = 1;
     const blink = (t % 4.1) < .12 || ((t % 9.7) > 9.45 && (t % 9.7) < 9.57);
     const eyes = (fn) => { fn(cx - 7 + gx, ey + gy, -1); fn(cx + 5 + gx, ey + gy, 1); };
     const blush = () => { for (const [x, s] of [[cx - 9, 0], [cx + 6, 0]]) { put(x, ey + 3, I.BLUSH); put(x + 1, ey + 3, I.BLUSH); put(x + 2, ey + 3, I.BLUSH); } };
@@ -458,6 +500,11 @@ export function createPip() {
         for (let x = -2; x <= 1; x++) put(cx + x, my + 1, x === -1 || x === 0 ? I.TONGUE : I.MOUTH);
       } else if (st === "thirsty") {
         put(cx - 2, my + 1, I.MOUTH); put(cx - 1, my, I.MOUTH); put(cx, my, I.MOUTH); put(cx + 1, my + 1, I.MOUTH);
+      } else if (st === "tv") {
+        const ph = (t % 3.4) / 3.4, chew = ph > .3 && ph < .75;
+        if (chew && (Math.floor(t * 7) & 1)) { put(cx - 1, my, I.MOUTH); put(cx, my, I.MOUTH); put(cx - 1, my + 1, I.MOUTH); put(cx, my + 1, I.MOUTH); }
+        else if (chew) { put(cx - 2, my + 1, I.MOUTH); put(cx - 1, my + 1, I.MOUTH); put(cx, my + 1, I.MOUTH); put(cx + 1, my + 1, I.MOUTH); }
+        else { put(cx - 2, my, I.MOUTH); put(cx - 1, my + 1, I.MOUTH); put(cx, my + 1, I.MOUTH); put(cx + 1, my, I.MOUTH); }
       } else {
         put(cx - 2, my, I.MOUTH); put(cx - 1, my + 1, I.MOUTH); put(cx, my + 1, I.MOUTH); put(cx + 1, my, I.MOUTH);
       }
@@ -470,6 +517,19 @@ export function createPip() {
       for (let y = y0 + 3; y <= y0 + 7; y++) for (let x = cx + 3; x <= cx + 5; x++) put(x, y, (y + x) % 3 ? I.SCARF : I.SCARF2);
     }
 
+    if (st === "tv") {
+      // a striped popcorn tub in its lap, a heap of popcorn on top, a kernel popping out now and then
+      const top = Math.round(cy + ry * .45) + 1, x0 = Math.round(cx) - 7, W = 14, px = [];
+      for (let j = 0; top + j <= ground; j++) {
+        const inset = Math.floor(j / 4);
+        for (let i = inset; i < W - inset; i++) px.push([x0 + i, top + j, j === 0 ? I.TUBW : (Math.floor((i - inset + 1) / 2) & 1) ? I.TUBW : I.TUB]);
+      }
+      const HEAP = ["....##..##....", "..##.####.##..", ".############.", "##############"];
+      HEAP.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === "#") px.push([x0 + i, top - 4 + j, (i * 5 + j * 3) % 7 < 2 ? I.POPD : I.POP]); }));
+      sprite(px);
+      const k = (t % 2.7) / 2.7;
+      if (k < .3) { const kx = x0 + 10, ky = top - 6 - Math.sin(k / .3 * Math.PI) * 6; putS(kx, ky, I.POP); putS(kx + 1, ky, I.POPD); putS(kx, ky - 1, I.POP); }
+    }
     for (const h of H) if (h[2]) {
       const px = handPx(h), key = new Set(px.map(([x, y]) => x + "," + y));
       for (const [x, y] of px) for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
@@ -622,6 +682,73 @@ export function createPip() {
       const r = (t * 1.6) % 1;
       putBg(ox + 3, oy + 5 + r * 9, I.DROP); putBg(ox + 7, oy + 5 + ((r + .5) % 1) * 9, I.DROP);
     }
+    if (occasion) drawOccasion(t, st, cx, cy, rx, ry, ground, tipY);
+  }
+
+  // ---- occasions: a hat on its head, a prop on the floor to its right, something in the sky ----
+  const PARTY = ["...oo...", "...oo...", "...hh...", "...hh...", "..hhhh..", "..hhhh..", ".hhhhhh.", ".hhhhhh.", "hhhhhhhh"];
+  const SANTA = [".........ww", ".......RRww", ".....RRRR..", "....RRRRR..", "...RRRRRR..", "..RRRRRRR..", ".RRRRRRRRR.", "WWWWWWWWWWW", "WWWWWWWWWWW"];
+  const WITCH = ["......k.....", ".....kk.....", "....kkk.....", "....kkkk....", "...kkkkk....", "...kkkkkk...", "...oooooo...", "..kkkkkkkk..", "kkkkkkkkkkkk"];
+  const EAR = [".ww.", "wppw", "wppw", "wppw", "wppw", "wppw", ".ww."];
+  const CAKE = ["..F.F.F..", "..c.c.c..", ".IIIIIII.", ".IiIIiII.", ".CCCCCCC.", ".CYYYYYC.", ".CCCCCCC.", "PPPPPPPPP"];
+  const TREE = ["....S....", "....T....", "...TTT...", "..TTLTT..", "...TTT...", "..TTTTT..", ".TLTTTLT.", "..TTTTT..", ".TTTTTTT.", "TTLTTTTLT", "....B...."];
+  const PUMPKIN = ["....g....", "..OOgOO..", ".OOOOOOO.", ".OeOOOeO.", ".OOOOOOO.", ".OmmmmmO.", "..OOOOO.."];
+  const EGG = [".EEE.", "EEEEE", "QQQQQ", "EEEEE", "RRRRR", "EEEEE", ".EEE."];
+  const HEART = [".#.#.", "#####", "#####", ".###.", "..#.."];
+  function drawOccasion(t, st, cx, cy, rx, ry, ground, tipY) {
+    const o = occasion;
+    // the sky first, so it stays behind it
+    if (o === "christmas") for (let i = 0; i < 6; i++) {
+      const x = (i * 11.3 + Math.sin(t * .7 + i) * 2 + 64) % 64, y = (t * 4 + i * 13.1) % 64; putBg(x, y, I.SNOW);
+    }
+    if (o === "birthday") {
+      const cols = [I.HAT1, I.HAT2, I.CONF, I.FOODL];
+      for (let i = 0; i < 7; i++) { const x = (i * 9.1 + Math.sin(t + i) * 2 + 64) % 64, y = (t * 6 + i * 9.7) % 64; putBg(x, y, cols[i % 4]); }
+    }
+    if (o === "newyear") for (let b = 0; b < 2; b++) {
+      const ph = (t * .45 + b * .5) % 1, seed = Math.floor(t * .45 + b * .5) * 7 + b * 13;
+      const fx = 10 + (seed * 17) % 44, fy = 6 + (seed * 11) % 12, r = ph * 8, c = [I.GOLD, I.HAT1, I.CONF, I.SPK][seed % 4];
+      if (ph < .15) { putBg(fx, ground - (ground - fy) * ph / .15, I.GOLD); continue; }   // the rocket going up
+      if (ph > .8 && bay(b, seed) > (1 - ph) * 5) continue;
+      for (let a = 0; a < 10; a++) { const ang = a * Math.PI / 5; putBg(fx + Math.cos(ang) * r, fy + Math.sin(ang) * r, c); if (r > 3) putBg(fx + Math.cos(ang) * (r - 2), fy + Math.sin(ang) * (r - 2), I.G1); }
+    }
+    if (o === "halloween") for (let b = 0; b < 2; b++) {
+      const x = ((t * (5 + b * 2) + b * 30) % 80) - 8, y = 7 + b * 6 + Math.sin(t * 2 + b) * 2, up = (Math.floor(t * 6 + b) & 1);
+      (up ? ["#...#", "##.##", ".###."] : [".###.", "##.##", "#...#"]).forEach((row, j) => [...row].forEach((ch, i) => { if (ch === "#") putBg(x + i, y + j, I.BAT); }));
+    }
+    if (o === "valentines") for (let i = 0; i < 4; i++) {
+      const ph = (t * .3 + i / 4) % 1, x = cx + (i % 2 ? 1 : -1) * (14 + i * 2) + Math.sin(t * 2 + i) * 2, y = ground - 6 - ph * 40;
+      if (ph > .8 && bay(i, Math.floor(ph * 30)) > .5) continue;
+      HEART.forEach((row, j) => [...row].forEach((ch, k) => { if (ch === "#") putBg(x - 2 + k, y + j, i % 2 ? I.FOOD : I.PET); }));
+    }
+    // the prop on the floor, right of it
+    const px0 = Math.round(cx + rx - 2);           // in front of its right side: the round screen clips the corners
+    const flick = Math.floor(t * 8) & 1;
+    if (o === "birthday") sprite(art(CAKE, px0, ground + 1 - CAKE.length, (ch, i) => ({ F: (flick + i) & 1 ? I.FLAME : I.FLAME2, c: I.EGG1, I: I.ICING, i: I.SNOW, C: I.CAKE, Y: I.HAT2, P: I.PLATE })[ch]));
+    if (o === "christmas") sprite(art(TREE, px0, ground + 1 - TREE.length, (ch, i, j) => ({ S: I.GOLD, T: (i + j) % 3 ? I.TREE : I.TREED, B: I.CAKED,
+      L: [I.HAT1, I.GOLD, I.CONF][(Math.floor(t * 2) + i + j) % 3] })[ch]));
+    if (o === "halloween") sprite(art(PUMPKIN, px0, ground + 1 - PUMPKIN.length, (ch, i) => ({ g: I.TREED, O: i % 2 ? I.PUMP : I.PUMPD, e: flick ? I.FLAME : I.FLAME2, m: flick ? I.FLAME2 : I.FLAME })[ch]));
+    if (o === "easter") sprite(art(EGG, px0 + 2, ground + 1 - EGG.length, (ch) => ({ E: I.EGG1, Q: I.EGG2, R: I.EGG3 })[ch]));
+    // the hat: perched to the left of the stem; none under the umbrella
+    if (st === "rain") return;
+    const headY = (x) => { const u = (x + .5 - cx) / rx; return Math.round(cy - ry / 1.06 * Math.sqrt(Math.max(0, 1 - u * u))); };
+    if (o === "birthday" || o === "newyear") {
+      const hx = Math.round(cx - 11);
+      sprite(art(PARTY, hx, headY(hx + 4) + 2 - PARTY.length, (ch, i, j) => ch === "o" ? (o === "newyear" ? I.SNOW : I.HAT2)
+        : ((i + j) >> 1) & 1 ? (o === "newyear" ? I.GOLD : I.HAT1) : (o === "newyear" ? I.SANTAW : I.HAT2)));
+    }
+    if (o === "christmas") {
+      const hx = Math.round(cx - 12), bob = Math.round(Math.sin(t * 2.4));
+      sprite(art(SANTA, hx, headY(hx + 5) + 2 - SANTA.length, (ch, i, j) => ch === "w" ? (j + bob >= 0 ? I.SANTAW : null) : ch === "R" ? I.SANTA : I.SANTAW));
+    }
+    if (o === "halloween") {
+      const hx = Math.round(cx - 13);
+      sprite(art(WITCH, hx, headY(hx + 6) + 2 - WITCH.length, (ch, i) => ch === "o" ? I.PUMP : i % 3 ? I.WITCH : I.WITCH2));
+    }
+    if (o === "easter") for (const [ex, ph] of [[cx - 8, 0], [cx + 4, 1.3]]) {
+      const tilt = Math.round(Math.sin(t * 1.6 + ph));
+      sprite(art(EAR, Math.round(ex) + tilt, headY(ex + 2) + 2 - EAR.length, (ch) => ch === "w" ? I.EAR : I.EARIN));
+    }
   }
 
 
@@ -656,16 +783,18 @@ export function createPip() {
     ctx.fillStyle = "#cfe6c2"; ctx.textAlign = "center";
     ctx.font = `${20 * k}px Silkscreen, ui-monospace, monospace`;
     const now = new Date(); ctx.fillText(`${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`, cxp, y + 48 * k);
-    const label = st === "dizzy" ? STATES.dizzy.status : t < petUntil ? "\u2665" : STATES[state].status;
+    const label = st === "dizzy" ? STATES.dizzy.status : t < petUntil ? "\u2665" : STATES[state].status || (occasion && st !== "asleep" ? OCCASIONS[occasion].status : "");
     if (label) { ctx.font = `${13 * k}px Silkscreen, ui-monospace, monospace`; ctx.fillStyle = STATES[st].hue; ctx.fillText(label, cxp, y + 436 * k); }
     ctx.globalAlpha = 1;
   }
 
   return {
-    STATES, STAT_COL, frame,
+    STATES, STAT_COL, OCCASIONS, frame,
     get state() { return state; },
     set state(v) { if (STATES[v] && v !== state) { state = v; petUntil = -1; } },
     set stage(v) { stage = Math.max(0, Math.min(3, v | 0)); },
+    get occasion() { return occasion; },
+    set occasion(v) { occasion = OCCASIONS[v] ? v : ""; },
     // a tap: a heart floats up; `pet` also shows the happy face for a moment
     heart(t) { t *= SPEED; hearts = hearts.filter((h) => t - h.t < 1.5); hearts.push({ t, dx: Math.round((Math.random() - .5) * 16) }); },
     pet(t) { petUntil = t * SPEED + 2.4; },

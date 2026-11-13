@@ -7,7 +7,7 @@ rewritten for the Show card on 2026-11-08, and the Goal on 2026-11-11 for the ta
 ## Goal
 
 The Show card's playlist tiles (`_playlists()` in `www/overlook-show.js`, drawn on the Kitchen
-Show's **Media** page by `www/tablet.js`, which the kitchen tablet and the Nest Hub both show,
+Show's **Media** page by `www/tablet.js`, which the kitchen display and the Nest Hub both show,
 and by the `meridian-playlists` card on Computer Show and the bedroom Echo) gain Paget's
 playlists next to Cameron's:
 

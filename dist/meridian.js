@@ -2001,7 +2001,8 @@ function createPip() {
     cold: { name: "Cold", group: "home", hue: "#bfeaff", what: "Tinted blue, shivers in bursts, teeth chatter, wears a scarf, snow falls. Hugs itself.", src: "Kitchen under 17 \xB0C.", status: "BRRR" },
     stuffy: { name: "Stuffy air", group: "home", hue: "#b5c26a", what: "Murky haze drifts past, squinting eyes, little coughs. Waves the air away and covers its coughs.", src: "Kitchen VOC index over 250 or PM2.5 over 35, usually cooking. Open a window.", status: "STUFFY" },
     rain: { name: "Raining", group: "home", hue: "#7aa3c9", what: "Shelters under a tiny umbrella while rain falls round it. Holds the umbrella.", src: "The home forecast says rainy or pouring.", status: "RAINING" },
-    music: { name: "Music", group: "home", hue: "#ff6fd8", what: "Dances side to side on the beat, eyes closed, notes float up. Pumps its hands to the beat.", src: "Music Assistant is playing in the room.", status: "DANCING" },
+    music: { name: "Music", group: "home", hue: "#ff6fd8", what: "Dances on the beat: hops from foot to foot, sways, punches its hands up in turn, eyes closed, notes float up.", src: "Music is playing on any of the speakers (not the TV's own sound through the amp).", status: "DANCING" },
+    tv: { name: "Watching TV", group: "home", hue: "#7fb6ff", what: "Sits back with a striped tub of popcorn, lit by the flicker of the screen. Every few seconds a piece goes in and it munches; now and then a kernel pops out of the tub.", src: "The Apple TV is playing a show or a movie.", status: "SHOWTIME" },
     guests: { name: "Guests", group: "home", hue: "#ffe680", what: "Waves a leaf, big eyes, grin, confetti. Waves a hand and a leaf.", src: "Guest mode is on.", status: "HI!" },
     error: { name: "Can't connect", group: "home", hue: "#ff6b6b", what: "Greyed out and wilted under a little rain cloud. Hands flopped on the floor.", src: "Home Assistant or the Claude pipeline can't be reached.", status: "NO SIGNAL" }
   };
@@ -2026,10 +2027,19 @@ function createPip() {
     stuffy: [0.7, 0.7, 0.45, 0.6],
     rain: [0.75, 0.8, 0.7, 0.75],
     music: [0.72, 0.8, 1, 0.7],
-    guests: [0.72, 0.8, 0.95, 0.7]
+    guests: [0.72, 0.8, 0.95, 0.7],
+    tv: [0.72, 0.85, 0.95, 0.7]
   };
   const STAT_COL = ["#59b8ff", "#ffb547", "#ff7fb0", "#9a8cff"];
-  let state = "idle", stage = 2, petUntil = -1, dizzyUntil = -1, hearts = [];
+  const OCCASIONS = {
+    birthday: { name: "Birthday", what: "A striped party hat, and a cake on the floor beside it with three flickering candles. Confetti drifts down.", src: "Cameron's birthday (11 July) or Paget's (4 November).", status: "HAPPY BIRTHDAY" },
+    christmas: { name: "Christmas", what: "A Santa hat with a bobbing pom-pom, a little tree with blinking lights, and light snow.", src: "1 to 26 December.", status: "MERRY XMAS" },
+    newyear: { name: "New Year", what: "A gold party hat, fireworks bursting overhead.", src: "31 December and 1 January.", status: "HAPPY NEW YEAR" },
+    halloween: { name: "Halloween", what: "A witch's hat, a jack-o'-lantern with a flickering face, bats flapping past.", src: "25 to 31 October.", status: "BOO!" },
+    valentines: { name: "Valentine's", what: "Hearts float up round it.", src: "14 February.", status: "\u2665" },
+    easter: { name: "Easter", what: "Bunny ears and a painted egg on the floor.", src: "Good Friday to Easter Monday.", status: "HAPPY EASTER" }
+  };
+  let state = "idle", stage = 2, petUntil = -1, dizzyUntil = -1, hearts = [], occasion = "";
   const SPEED = 0.6;
   const I2 = {
     BG: 0,
@@ -2079,7 +2089,34 @@ function createPip() {
     BLKL: 44,
     CAP: 45,
     CAP2: 46,
-    POM: 47
+    POM: 47,
+    HAT1: 48,
+    HAT2: 49,
+    SANTA: 50,
+    SANTAW: 51,
+    WITCH: 52,
+    WITCH2: 53,
+    PUMP: 54,
+    PUMPD: 55,
+    FLAME: 56,
+    FLAME2: 57,
+    CAKE: 58,
+    CAKED: 59,
+    ICING: 60,
+    PLATE: 61,
+    TREE: 62,
+    TREED: 63,
+    BAT: 64,
+    EGG1: 65,
+    EGG2: 66,
+    EGG3: 67,
+    EAR: 68,
+    EARIN: 69,
+    POP: 70,
+    POPD: 71,
+    TUB: 72,
+    TUBW: 73,
+    GOLD: 74
   };
   const BASE = {
     BG: "#000000",
@@ -2123,13 +2160,40 @@ function createPip() {
     BLKL: "#e6eafb",
     CAP: "#7a58d4",
     CAP2: "#a88df2",
-    POM: "#f6f3ff"
+    POM: "#f6f3ff",
+    HAT1: "#ff5fa2",
+    HAT2: "#ffd84a",
+    SANTA: "#d8262e",
+    SANTAW: "#f4f4f4",
+    WITCH: "#3b2457",
+    WITCH2: "#5c3d86",
+    PUMP: "#f08a24",
+    PUMPD: "#b85a12",
+    FLAME: "#ffe066",
+    FLAME2: "#ff8a2a",
+    CAKE: "#e9c58a",
+    CAKED: "#b98a52",
+    ICING: "#ff9ccf",
+    PLATE: "#dfe6f2",
+    TREE: "#2f9a4e",
+    TREED: "#1d6634",
+    BAT: "#8a6bb8",
+    EGG1: "#8fd3ff",
+    EGG2: "#ffe07a",
+    EGG3: "#ff9ccf",
+    EAR: "#f4f1f8",
+    EARIN: "#f7a8c4",
+    POP: "#fff4d6",
+    POPD: "#f3d27a",
+    TUB: "#e23b3b",
+    TUBW: "#fafafa",
+    GOLD: "#f5c542"
   };
   const hex = (h2) => [1, 3, 5].map((i2) => parseInt(h2.slice(i2, i2 + 2), 16));
   const mix = (a2, b2, t3) => a2.map((v2, i2) => v2 + (b2[i2] - v2) * t3);
   function palette(st2) {
     const hue = hex(STATES[st2].hue), black = [0, 0, 0];
-    const p2 = new Array(48);
+    const p2 = new Array(Object.keys(I2).length);
     for (const [k2, v2] of Object.entries(BASE)) p2[I2[k2]] = hex(v2);
     p2[I2.RIM] = mix(hex(BASE.BL), hue, 0.7);
     p2[I2.G0] = hue;
@@ -2183,6 +2247,22 @@ function createPip() {
       let c2 = Math.abs(v2) < 0.55 && u2 < 0.85 ? I2.LD : v2 * light > 0 ? I2.LL : I2.LM;
       putS(x3, y2, c2);
     }
+  }
+  function sprite(px) {
+    const key = new Set(px.map(([x3, y2]) => Math.floor(x3) + "," + Math.floor(y2)));
+    for (const [x3, y2] of px) for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      if (!key.has(Math.floor(x3) + ox + "," + (Math.floor(y2) + oy))) putS(x3 + ox, y2 + oy, I2.OUT);
+    for (const [x3, y2, c2] of px) putS(x3, y2, c2);
+  }
+  function art(rows, x0, y0, col) {
+    const px = [];
+    rows.forEach((row, j2) => [...row].forEach((ch, i2) => {
+      if (ch !== ".") {
+        const c2 = col(ch, i2, j2);
+        if (c2 != null) px.push([x0 + i2, y0 + j2, c2]);
+      }
+    }));
+    return px;
   }
   function zGlyph(x3, y2, s2) {
     for (let i2 = 0; i2 < s2; i2++) {
@@ -2297,7 +2377,7 @@ function createPip() {
     if (st2 === "cold" && t3 % 2.4 < 1.3) cx += Math.floor(t3 * 16) & 1;
     const rumble = st2 === "hungry" && t3 % 3.2 < 0.5;
     if (rumble) cx += Math.floor(t3 * 14) & 1 ? 1 : -1;
-    if (st2 === "music") cx += Math.round(Math.sin(t3 * Math.PI * 1.8) * 2);
+    if (st2 === "music") cx += Math.round(Math.sin(t3 * Math.PI * 1.8) * 3);
     const stomp = st2 === "angry" ? t3 % 2.2 : 9;
     if (stomp < 0.5) cx += Math.floor(t3 * 18) & 1 ? 1 : -1;
     const wob = t3 < dizzyUntil ? Math.min(1, (dizzyUntil - t3) / 3) : 1;
@@ -2312,9 +2392,9 @@ function createPip() {
       ry *= 1 - sq;
     } else if (st2 === "music") {
       const ph = t3 * 1.8 % 1, b2 = Math.max(0, 1 - ph * 4);
-      rx *= 1 + b2 * 0.09;
-      ry *= 1 - b2 * 0.09;
-      lift = Math.sin(ph * Math.PI) * 1.5;
+      rx *= 1 + b2 * 0.1;
+      ry *= 1 - b2 * 0.1;
+      lift = Math.sin(ph * Math.PI) * 2.5;
     } else {
       const s2 = breathe * (st2 === "sleepy" ? 0.035 : 0.02) + talk * 0.03;
       rx *= 1 - s2 * 0.5;
@@ -2323,6 +2403,10 @@ function createPip() {
     if (st2 === "thirsty" || st2 === "error") {
       ry *= 0.96;
       rx *= 1.02;
+    }
+    if (st2 === "tv") {
+      ry *= 0.9;
+      rx *= 1.04;
     }
     if (stomp < 0.5) lift = Math.sin(stomp / 0.5 * Math.PI) * 2.5;
     if (st2 === "angry") {
@@ -2350,6 +2434,7 @@ function createPip() {
       cold: 0.55,
       stuffy: 0.4,
       rain: 0.45,
+      tv: 0.42 + 0.22 * Math.sin(t3 * 13) * Math.sin(t3 * 3.7),
       music: 0.55 + 0.4 * Math.max(0, 1 - t3 * 1.8 % 1 * 3),
       guests: 0.75,
       sad: 0.35,
@@ -2372,8 +2457,12 @@ function createPip() {
       put(x3, ground + 1, I2.SHADOW);
       if (Math.abs(u2) < 0.7) put(x3, ground + 2, I2.SHADOW);
     }
-    for (const f2 of [-1, 1]) for (let y2 = 0; y2 < 2; y2++) for (let x3 = 0; x3 < 3; x3++)
-      if (!(y2 === 1 && (x3 === 0 && f2 < 0 || x3 === 2 && f2 > 0))) putS(cx + f2 * 6 - 1.5 + x3, ground - 2 + y2 - lift, I2.BD);
+    for (const f2 of [-1, 1]) {
+      const hop = st2 === "music" ? Math.round(Math.max(0, Math.sin(t3 * Math.PI * 1.8 + (f2 > 0 ? Math.PI : 0))) * 2) : 0;
+      const fx = st2 === "tv" ? 8 : 6;
+      for (let y2 = 0; y2 < 2; y2++) for (let x3 = 0; x3 < 3; x3++)
+        if (!(y2 === 1 && (x3 === 0 && f2 < 0 || x3 === 2 && f2 > 0))) putS(cx + f2 * fx - 1.5 + x3, ground - 2 + y2 - lift - hop, I2.BD);
+    }
     const rimOn = !["idle", "sleepy", "rain"].includes(st2);
     for (let y2 = Math.floor(cy - ry - 1); y2 <= Math.ceil(cy + ry + 1); y2++) for (let x3 = Math.floor(cx - rx - 1); x3 <= Math.ceil(cx + rx + 1); x3++) {
       const nx = (x3 + 0.5 - cx) / rx, ny0 = (y2 + 0.5 - cy) / ry;
@@ -2460,8 +2549,14 @@ function createPip() {
       H2 = [-1, 1].map((s2) => [cx + s2 * (rx - 1) + j2, cy + ry * 0.3, 1]);
     } else if (st2 === "stuffy") H2 = [[cx - side - 1 + Math.sin(t3 * 8) * 1.5, eyY, 0], t3 % 2.6 / 2.6 < 0.45 ? [cx + 1, mY + 1, 1] : rest(1)];
     else if (st2 === "rain") H2 = [rest(-1), [cx - 0.5, Math.round(top - L2 - 4) + 3, 1]];
-    else if (st2 === "music") H2 = [-1, 1].map((s2) => [cx + s2 * side, cy - 2 - Math.max(0, Math.sin(t3 * Math.PI * 1.8 + (s2 > 0 ? Math.PI : 0))) * 4, 0]);
-    else if (st2 === "guests") H2 = [rest(-1), [cx + rx + 4 + Math.sin(t3 * 7) * 1.5, cy - ry + 1, 0]];
+    else if (st2 === "music") H2 = [-1, 1].map((s2) => {
+      const up = Math.max(0, Math.sin(t3 * Math.PI * 1.8 + (s2 > 0 ? Math.PI : 0)));
+      return [cx + s2 * (side + up * 1.5), cy - 1 - up * 7, 0];
+    });
+    else if (st2 === "tv") {
+      const ph = t3 % 3.4 / 3.4, k2 = ph < 0.4 ? Math.sin(ph / 0.4 * Math.PI) : 0, tubY = Math.round(cy + ry * 0.45) + 1;
+      H2 = [[cx - 9, tubY + 3, 1], [cx + 8 + (cx + 1 - (cx + 8)) * k2, tubY + 2 + (mY + 1 - (tubY + 2)) * k2, 1]];
+    } else if (st2 === "guests") H2 = [rest(-1), [cx + rx + 4 + Math.sin(t3 * 7) * 1.5, cy - ry + 1, 0]];
     else if (st2 === "error") H2 = [-1, 1].map((s2) => [cx + s2 * (rx + 2), ground - 3, 0]);
     else if (st2 === "sad") H2 = [[cx - side + 1, cy + ry - 3, 0], t3 % 4 < 1.8 ? [cx + 6 + Math.sin(t3 * 9) * 0.7, eyY + 1, 1] : [cx + side - 1, cy + ry - 3, 0]];
     else if (st2 === "angry") H2 = [[cx - 3, cy + ry * 0.8, 1], [cx + 3, cy + ry * 0.8 + 1, 1]];
@@ -2493,6 +2588,7 @@ function createPip() {
       gx = 1;
       gy = -1;
     }
+    if (st2 === "tv") gx = 1;
     const blink = t3 % 4.1 < 0.12 || t3 % 9.7 > 9.45 && t3 % 9.7 < 9.57;
     const eyes = (fn) => {
       fn(cx - 7 + gx, ey + gy, -1);
@@ -2667,6 +2763,24 @@ function createPip() {
         put(cx - 1, my, I2.MOUTH);
         put(cx, my, I2.MOUTH);
         put(cx + 1, my + 1, I2.MOUTH);
+      } else if (st2 === "tv") {
+        const ph = t3 % 3.4 / 3.4, chew = ph > 0.3 && ph < 0.75;
+        if (chew && Math.floor(t3 * 7) & 1) {
+          put(cx - 1, my, I2.MOUTH);
+          put(cx, my, I2.MOUTH);
+          put(cx - 1, my + 1, I2.MOUTH);
+          put(cx, my + 1, I2.MOUTH);
+        } else if (chew) {
+          put(cx - 2, my + 1, I2.MOUTH);
+          put(cx - 1, my + 1, I2.MOUTH);
+          put(cx, my + 1, I2.MOUTH);
+          put(cx + 1, my + 1, I2.MOUTH);
+        } else {
+          put(cx - 2, my, I2.MOUTH);
+          put(cx - 1, my + 1, I2.MOUTH);
+          put(cx, my + 1, I2.MOUTH);
+          put(cx + 1, my, I2.MOUTH);
+        }
       } else {
         put(cx - 2, my, I2.MOUTH);
         put(cx - 1, my + 1, I2.MOUTH);
@@ -2679,6 +2793,25 @@ function createPip() {
       for (let y2 = y0; y2 <= y0 + 2; y2++) for (let x3 = 0; x3 < N2; x3++)
         if (solid[y2 * N2 + x3]) put(x3, y2, Math.floor((x3 + (y2 - y0)) / 3) % 2 ? I2.SCARF2 : I2.SCARF);
       for (let y2 = y0 + 3; y2 <= y0 + 7; y2++) for (let x3 = cx + 3; x3 <= cx + 5; x3++) put(x3, y2, (y2 + x3) % 3 ? I2.SCARF : I2.SCARF2);
+    }
+    if (st2 === "tv") {
+      const top2 = Math.round(cy + ry * 0.45) + 1, x0 = Math.round(cx) - 7, W2 = 14, px = [];
+      for (let j2 = 0; top2 + j2 <= ground; j2++) {
+        const inset = Math.floor(j2 / 4);
+        for (let i2 = inset; i2 < W2 - inset; i2++) px.push([x0 + i2, top2 + j2, j2 === 0 ? I2.TUBW : Math.floor((i2 - inset + 1) / 2) & 1 ? I2.TUBW : I2.TUB]);
+      }
+      const HEAP = ["....##..##....", "..##.####.##..", ".############.", "##############"];
+      HEAP.forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") px.push([x0 + i2, top2 - 4 + j2, (i2 * 5 + j2 * 3) % 7 < 2 ? I2.POPD : I2.POP]);
+      }));
+      sprite(px);
+      const k2 = t3 % 2.7 / 2.7;
+      if (k2 < 0.3) {
+        const kx = x0 + 10, ky = top2 - 6 - Math.sin(k2 / 0.3 * Math.PI) * 6;
+        putS(kx, ky, I2.POP);
+        putS(kx + 1, ky, I2.POPD);
+        putS(kx, ky - 1, I2.POP);
+      }
     }
     for (const h2 of H2) if (h2[2]) {
       const px = handPx(h2), key = new Set(px.map(([x3, y2]) => x3 + "," + y2));
@@ -2871,6 +3004,89 @@ function createPip() {
       putBg(ox + 3, oy + 5 + r2 * 9, I2.DROP);
       putBg(ox + 7, oy + 5 + (r2 + 0.5) % 1 * 9, I2.DROP);
     }
+    if (occasion) drawOccasion(t3, st2, cx, cy, rx, ry, ground, tipY);
+  }
+  const PARTY = ["...oo...", "...oo...", "...hh...", "...hh...", "..hhhh..", "..hhhh..", ".hhhhhh.", ".hhhhhh.", "hhhhhhhh"];
+  const SANTA = [".........ww", ".......RRww", ".....RRRR..", "....RRRRR..", "...RRRRRR..", "..RRRRRRR..", ".RRRRRRRRR.", "WWWWWWWWWWW", "WWWWWWWWWWW"];
+  const WITCH = ["......k.....", ".....kk.....", "....kkk.....", "....kkkk....", "...kkkkk....", "...kkkkkk...", "...oooooo...", "..kkkkkkkk..", "kkkkkkkkkkkk"];
+  const EAR = [".ww.", "wppw", "wppw", "wppw", "wppw", "wppw", ".ww."];
+  const CAKE = ["..F.F.F..", "..c.c.c..", ".IIIIIII.", ".IiIIiII.", ".CCCCCCC.", ".CYYYYYC.", ".CCCCCCC.", "PPPPPPPPP"];
+  const TREE = ["....S....", "....T....", "...TTT...", "..TTLTT..", "...TTT...", "..TTTTT..", ".TLTTTLT.", "..TTTTT..", ".TTTTTTT.", "TTLTTTTLT", "....B...."];
+  const PUMPKIN = ["....g....", "..OOgOO..", ".OOOOOOO.", ".OeOOOeO.", ".OOOOOOO.", ".OmmmmmO.", "..OOOOO.."];
+  const EGG = [".EEE.", "EEEEE", "QQQQQ", "EEEEE", "RRRRR", "EEEEE", ".EEE."];
+  const HEART = [".#.#.", "#####", "#####", ".###.", "..#.."];
+  function drawOccasion(t3, st2, cx, cy, rx, ry, ground, tipY) {
+    const o2 = occasion;
+    if (o2 === "christmas") for (let i2 = 0; i2 < 6; i2++) {
+      const x3 = (i2 * 11.3 + Math.sin(t3 * 0.7 + i2) * 2 + 64) % 64, y2 = (t3 * 4 + i2 * 13.1) % 64;
+      putBg(x3, y2, I2.SNOW);
+    }
+    if (o2 === "birthday") {
+      const cols = [I2.HAT1, I2.HAT2, I2.CONF, I2.FOODL];
+      for (let i2 = 0; i2 < 7; i2++) {
+        const x3 = (i2 * 9.1 + Math.sin(t3 + i2) * 2 + 64) % 64, y2 = (t3 * 6 + i2 * 9.7) % 64;
+        putBg(x3, y2, cols[i2 % 4]);
+      }
+    }
+    if (o2 === "newyear") for (let b2 = 0; b2 < 2; b2++) {
+      const ph = (t3 * 0.45 + b2 * 0.5) % 1, seed = Math.floor(t3 * 0.45 + b2 * 0.5) * 7 + b2 * 13;
+      const fx = 10 + seed * 17 % 44, fy = 6 + seed * 11 % 12, r2 = ph * 8, c2 = [I2.GOLD, I2.HAT1, I2.CONF, I2.SPK][seed % 4];
+      if (ph < 0.15) {
+        putBg(fx, ground - (ground - fy) * ph / 0.15, I2.GOLD);
+        continue;
+      }
+      if (ph > 0.8 && bay(b2, seed) > (1 - ph) * 5) continue;
+      for (let a2 = 0; a2 < 10; a2++) {
+        const ang = a2 * Math.PI / 5;
+        putBg(fx + Math.cos(ang) * r2, fy + Math.sin(ang) * r2, c2);
+        if (r2 > 3) putBg(fx + Math.cos(ang) * (r2 - 2), fy + Math.sin(ang) * (r2 - 2), I2.G1);
+      }
+    }
+    if (o2 === "halloween") for (let b2 = 0; b2 < 2; b2++) {
+      const x3 = (t3 * (5 + b2 * 2) + b2 * 30) % 80 - 8, y2 = 7 + b2 * 6 + Math.sin(t3 * 2 + b2) * 2, up = Math.floor(t3 * 6 + b2) & 1;
+      (up ? ["#...#", "##.##", ".###."] : [".###.", "##.##", "#...#"]).forEach((row, j2) => [...row].forEach((ch, i2) => {
+        if (ch === "#") putBg(x3 + i2, y2 + j2, I2.BAT);
+      }));
+    }
+    if (o2 === "valentines") for (let i2 = 0; i2 < 4; i2++) {
+      const ph = (t3 * 0.3 + i2 / 4) % 1, x3 = cx + (i2 % 2 ? 1 : -1) * (14 + i2 * 2) + Math.sin(t3 * 2 + i2) * 2, y2 = ground - 6 - ph * 40;
+      if (ph > 0.8 && bay(i2, Math.floor(ph * 30)) > 0.5) continue;
+      HEART.forEach((row, j2) => [...row].forEach((ch, k2) => {
+        if (ch === "#") putBg(x3 - 2 + k2, y2 + j2, i2 % 2 ? I2.FOOD : I2.PET);
+      }));
+    }
+    const px0 = Math.round(cx + rx - 2);
+    const flick = Math.floor(t3 * 8) & 1;
+    if (o2 === "birthday") sprite(art(CAKE, px0, ground + 1 - CAKE.length, (ch, i2) => ({ F: flick + i2 & 1 ? I2.FLAME : I2.FLAME2, c: I2.EGG1, I: I2.ICING, i: I2.SNOW, C: I2.CAKE, Y: I2.HAT2, P: I2.PLATE })[ch]));
+    if (o2 === "christmas") sprite(art(TREE, px0, ground + 1 - TREE.length, (ch, i2, j2) => ({
+      S: I2.GOLD,
+      T: (i2 + j2) % 3 ? I2.TREE : I2.TREED,
+      B: I2.CAKED,
+      L: [I2.HAT1, I2.GOLD, I2.CONF][(Math.floor(t3 * 2) + i2 + j2) % 3]
+    })[ch]));
+    if (o2 === "halloween") sprite(art(PUMPKIN, px0, ground + 1 - PUMPKIN.length, (ch, i2) => ({ g: I2.TREED, O: i2 % 2 ? I2.PUMP : I2.PUMPD, e: flick ? I2.FLAME : I2.FLAME2, m: flick ? I2.FLAME2 : I2.FLAME })[ch]));
+    if (o2 === "easter") sprite(art(EGG, px0 + 2, ground + 1 - EGG.length, (ch) => ({ E: I2.EGG1, Q: I2.EGG2, R: I2.EGG3 })[ch]));
+    if (st2 === "rain") return;
+    const headY = (x3) => {
+      const u2 = (x3 + 0.5 - cx) / rx;
+      return Math.round(cy - ry / 1.06 * Math.sqrt(Math.max(0, 1 - u2 * u2)));
+    };
+    if (o2 === "birthday" || o2 === "newyear") {
+      const hx = Math.round(cx - 11);
+      sprite(art(PARTY, hx, headY(hx + 4) + 2 - PARTY.length, (ch, i2, j2) => ch === "o" ? o2 === "newyear" ? I2.SNOW : I2.HAT2 : i2 + j2 >> 1 & 1 ? o2 === "newyear" ? I2.GOLD : I2.HAT1 : o2 === "newyear" ? I2.SANTAW : I2.HAT2));
+    }
+    if (o2 === "christmas") {
+      const hx = Math.round(cx - 12), bob = Math.round(Math.sin(t3 * 2.4));
+      sprite(art(SANTA, hx, headY(hx + 5) + 2 - SANTA.length, (ch, i2, j2) => ch === "w" ? j2 + bob >= 0 ? I2.SANTAW : null : ch === "R" ? I2.SANTA : I2.SANTAW));
+    }
+    if (o2 === "halloween") {
+      const hx = Math.round(cx - 13);
+      sprite(art(WITCH, hx, headY(hx + 6) + 2 - WITCH.length, (ch, i2) => ch === "o" ? I2.PUMP : i2 % 3 ? I2.WITCH : I2.WITCH2));
+    }
+    if (o2 === "easter") for (const [ex, ph] of [[cx - 8, 0], [cx + 4, 1.3]]) {
+      const tilt = Math.round(Math.sin(t3 * 1.6 + ph));
+      sprite(art(EAR, Math.round(ex) + tilt, headY(ex + 2) + 2 - EAR.length, (ch) => ch === "w" ? I2.EAR : I2.EARIN));
+    }
   }
   const small = document.createElement("canvas");
   small.width = small.height = N2;
@@ -2919,7 +3135,7 @@ function createPip() {
     ctx.font = `${20 * k2}px Silkscreen, ui-monospace, monospace`;
     const now = /* @__PURE__ */ new Date();
     ctx.fillText(`${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`, cxp, y2 + 48 * k2);
-    const label = st2 === "dizzy" ? STATES.dizzy.status : t3 < petUntil ? "\u2665" : STATES[state].status;
+    const label = st2 === "dizzy" ? STATES.dizzy.status : t3 < petUntil ? "\u2665" : STATES[state].status || (occasion && st2 !== "asleep" ? OCCASIONS[occasion].status : "");
     if (label) {
       ctx.font = `${13 * k2}px Silkscreen, ui-monospace, monospace`;
       ctx.fillStyle = STATES[st2].hue;
@@ -2930,6 +3146,7 @@ function createPip() {
   return {
     STATES,
     STAT_COL,
+    OCCASIONS,
     frame,
     get state() {
       return state;
@@ -2942,6 +3159,12 @@ function createPip() {
     },
     set stage(v2) {
       stage = Math.max(0, Math.min(3, v2 | 0));
+    },
+    get occasion() {
+      return occasion;
+    },
+    set occasion(v2) {
+      occasion = OCCASIONS[v2] ? v2 : "";
     },
     // a tap: a heart floats up; `pet` also shows the happy face for a moment
     heart(t3) {
@@ -2982,7 +3205,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.32.9";
+var VERSION = "0.33.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4009,7 +4232,8 @@ var OverlookShow = class extends dt {
   // is listening, processing or answering, like the light ring on an Echo
   _glow() {
     const id = this._config && this._config.voice_satellite;
-    const e2 = id && this._st(id);
+    if (!id || /CrKey/.test(navigator.userAgent)) return J;
+    const e2 = this._st(id);
     const st2 = e2 && ["listening", "processing", "responding"].includes(e2.state) ? e2.state : null;
     return st2 ? Z`<div class="va-glow ${st2}"></div>` : J;
   }
@@ -7944,7 +8168,7 @@ var ownKeys = (c2) => Object.keys(c2 || {}).filter((k2) => !["type", "grid_optio
 var SWATCH = { amber: "#e0a63c", blue: "#5a7ea8", green: "#3f8f63", teal: "#3f8f8a", red: "#c8553d", purple: "#7c6bb0", grey: "#7a8394" };
 var ECHO_VIEW = (bg, n2 = 6) => `
   :host {
-    --ha-section-grid-row-height: calc((100vh - ${28 + (n2 - 1) * 14}px) / ${n2});
+    --ha-section-grid-row-height: calc((100vh - ${28 + ECHO_DOTS + (n2 - 1) * 14}px) / ${n2});
     --ha-section-grid-row-gap: 14px;
     --ha-section-grid-column-gap: 14px;
     --ha-view-sections-row-gap: 14px;
@@ -7954,7 +8178,8 @@ var ECHO_VIEW = (bg, n2 = 6) => `
     --lovelace-background: ${bg};
   }
   .header { display: none !important; }
-  hui-view-container { padding-top: 0 !important; padding-left: 76px !important; }`;
+  hui-view-container { padding-top: 0 !important; padding-left: 0 !important; touch-action: pan-y; }`;
+var ECHO_DOTS = 14;
 var ECHO_BG = { light: "linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%)", dark: "linear-gradient(165deg, #0b0f18 0%, #121827 100%)" };
 var ECHO_SHELL = null;
 var ECHO_DOCKS = 0;
@@ -7985,15 +8210,97 @@ var MeridianEchoShell = class extends OverlookShow {
     };
     window.addEventListener("location-changed", this._loc);
     window.addEventListener("popstate", this._loc);
+    this._esDown = this._esDown.bind(this);
+    this._esMove = this._esMove.bind(this);
+    this._esUp = this._esUp.bind(this);
+    window.addEventListener("pointerdown", this._esDown, true);
+    window.addEventListener("pointermove", this._esMove, true);
+    window.addEventListener("pointerup", this._esUp, true);
+    window.addEventListener("pointercancel", this._esUp, true);
     this._tick = setInterval(() => this._sync(), 400);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("location-changed", this._loc);
     window.removeEventListener("popstate", this._loc);
+    window.removeEventListener("pointerdown", this._esDown, true);
+    window.removeEventListener("pointermove", this._esMove, true);
+    window.removeEventListener("pointerup", this._esUp, true);
+    window.removeEventListener("pointercancel", this._esUp, true);
     clearInterval(this._tick);
     styleHuiRoot(this._root, "");
     stylePage("");
+  }
+  // --- swiping between views, as on the kitchen display ---------------------------------
+  // A sideways drag anywhere on a view moves HA's view with the finger; let go past an eighth of
+  // the screen and it slides off and the next view slides in, otherwise it springs back. Drags
+  // that start on a slider, an open sheet or a row that scrolls sideways are left alone.
+  _esView() {
+    const r2 = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    return r2 && r2.shadowRoot && r2.shadowRoot.querySelector("hui-view-container");
+  }
+  _esDown(e2) {
+    this._es = null;
+    if (this._editing || this._page === "photos" || e2.button > 0 || e2.isPrimary === false) return;
+    if (this._pop || this._picker || this._light || this._ct || this._wx) return;
+    if (e2.composedPath().some((n2) => n2 instanceof HTMLElement && (n2.matches("input,textarea,select,[role=slider],ha-control-slider,.vol,.sw-dots") || n2.scrollWidth > n2.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n2).overflowX)))) return;
+    this._es = { x: e2.clientX, y: e2.clientY, dx: 0, on: false, el: this._esView() };
+  }
+  _esMove(e2) {
+    const s2 = this._es;
+    if (!s2 || !s2.el) return;
+    const dx = e2.clientX - s2.x, dy = e2.clientY - s2.y;
+    if (!s2.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        this._es = null;
+        return;
+      }
+      if (Math.abs(dx) < 12) return;
+      s2.on = true;
+      s2.el.style.transition = "none";
+    }
+    const views = this._views(), i2 = views.findIndex(([p2]) => p2 === this._page);
+    const edge = i2 <= 0 && dx > 0 || i2 === views.length - 1 && dx < 0;
+    s2.dx = dx;
+    s2.el.style.transform = `translateX(${edge ? dx / 3 : dx}px)`;
+  }
+  _esUp(e2) {
+    const s2 = this._es;
+    this._es = null;
+    if (!s2 || !s2.on) return;
+    const swallow = (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener("click", swallow, true);
+    setTimeout(() => window.removeEventListener("click", swallow, true), 250);
+    const el = s2.el, w2 = window.innerWidth;
+    const views = this._views(), i2 = views.findIndex(([p2]) => p2 === this._page);
+    const far = Math.min(70, w2 / 8);
+    const dir = e2.type === "pointercancel" ? 0 : s2.dx < -far ? 1 : s2.dx > far ? -1 : 0;
+    const next = dir ? views[i2 + dir] : null;
+    if (!next) {
+      el.style.transition = "transform 0.25s cubic-bezier(.2,.8,.2,1)";
+      el.style.transform = "";
+      return;
+    }
+    fireHaptic("light");
+    el.style.transition = "transform 0.16s ease-in";
+    el.style.transform = `translateX(${-dir * w2}px)`;
+    setTimeout(() => {
+      this._go(next[0]);
+      requestAnimationFrame(() => {
+        const v2 = this._esView() || el;
+        v2.style.transition = "none";
+        v2.style.transform = `translateX(${dir * w2 * 0.35}px)`;
+        v2.style.opacity = "0";
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          v2.style.transition = "transform 0.28s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease-out";
+          v2.style.transform = "";
+          v2.style.opacity = "";
+        }));
+      });
+    }, 160);
   }
   // HA's view: header hidden and the Echo grid while showing; HA's own while editing
   _sync() {
@@ -8022,7 +8329,7 @@ var MeridianEchoShell = class extends OverlookShow {
       }
     };
     walk(r2 && r2.shadowRoot, 0);
-    const row = (window.innerHeight - 28 - (n2 - 1) * 14) / n2;
+    const row = (window.innerHeight - 28 - ECHO_DOTS - (n2 - 1) * 14) / n2;
     let most = 0;
     for (const sec of secs) {
       const c2 = sec.shadowRoot && sec.shadowRoot.querySelector(".container") || sec;
@@ -8082,20 +8389,13 @@ var MeridianEchoShell = class extends OverlookShow {
     const ha = document.querySelector("home-assistant");
     if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
+  // page dots along the bottom, as on the kitchen display; a dot also goes to its view
   _dock() {
+    if (this._page === "photos") return J;
     return Z`
-      <nav class="dock">
-        <div class="dock-pill">
-          ${this._views().map(([id, name, icon]) => Z`
-            <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name} @click=${() => this._go(id)}>
-              <ha-icon icon=${icon}></ha-icon>
-            </button>`)}
-        </div>
-        ${this._config.photos ? Z`
-          <button class="dock-btn photo-btn" title="Photos" @click=${() => this._go("photos")}>
-            <ha-icon icon="mdi:image-multiple-outline"></ha-icon>
-          </button>` : J}
-      </nav>`;
+      <div class="sw-dots">${this._views().map(([id, name]) => Z`
+        <button class="sw-dot ${this._page === id ? "on" : ""}" title=${name} @click=${() => this._go(id)}></button>`)}
+      </div>`;
   }
   // the Show's screen, minus its pages: the HA view under it is the page
   _screen() {
@@ -8120,6 +8420,8 @@ var MeridianEchoShell = class extends OverlookShow {
   static styles = [OverlookShow.styles, o`
     .echo-shell.shell-only { background: none; pointer-events: none; }
     .echo-shell.shell-only > * { pointer-events: auto; }
+    .echo-shell > .sw-dots { pointer-events: none; bottom: 0; }
+    .echo-shell .sw-dot { height: 14px; }
   `];
 };
 defineEcho("echo-shell", MeridianEchoShell);
@@ -8828,6 +9130,7 @@ var PIP_SAY = {
   rain: "Raining out",
   music: "Dancing",
   guests: "Guests!",
+  tv: "Watching TV with you",
   sad: "Sad, give me a pet",
   angry: "Cross, nobody's been around",
   error: "Can't reach the house",
@@ -8878,6 +9181,21 @@ var MeridianPip = class extends OverlookPiece {
     const e2 = this._ent("mood");
     return !e2 || ["unavailable", "unknown"].includes(e2.state) || !PIP_SAY[e2.state] ? "error" : e2.state;
   }
+  // ["birthday", "Happy birthday, Cameron!"] from sensor.pip_occasion (birthday_cameron, christmas, ...)
+  _occasion() {
+    const v2 = ((this._ent("occasion") || {}).state || "").toLowerCase();
+    if (v2.startsWith("birthday")) {
+      const who = v2.split("_")[1];
+      return ["birthday", who ? `Happy birthday, ${who[0].toUpperCase()}${who.slice(1)}!` : "Happy birthday!"];
+    }
+    return [v2, {
+      christmas: "Merry Christmas!",
+      newyear: "Happy New Year!",
+      halloween: "Happy Halloween!",
+      valentines: "Happy Valentine's Day",
+      easter: "Happy Easter!"
+    }[v2] || ""];
+  }
   _stats() {
     return ["water", "food", "fun", "rest"].map((k2) => {
       const v2 = Number((this._ent(k2) || {}).state);
@@ -8889,6 +9207,7 @@ var MeridianPip = class extends OverlookPiece {
     const p2 = this._pip, stage = Number((this._ent("stage") || {}).state);
     p2.state = this._mood();
     p2.stage = isFinite(stage) ? stage : 2;
+    p2.occasion = this._occasion()[0];
     const dpr = Math.min(2, window.devicePixelRatio || 1), stats = this._stats();
     for (const [cv, ring] of [
       [this.renderRoot && this.renderRoot.querySelector(".pip-tile canvas"), false],
@@ -8996,7 +9315,7 @@ var MeridianPip = class extends OverlookPiece {
         <div class="pip-face"><canvas></canvas></div>
         <div class="pip-info">
           <div class="pip-name">Pip</div>
-          <div class="pip-say" style="--hue:${S2 ? S2.hue : "var(--muted)"}">${PIP_SAY[m2]}</div>
+          <div class="pip-say" style="--hue:${S2 ? S2.hue : "var(--muted)"}">${["idle", "happy"].includes(m2) && this._occasion()[1] || PIP_SAY[m2]}</div>
           <div class="pip-bars">${["Water", "Food", "Fun", "Rest"].map((n2, i2) => Z`
             <div class="pip-bar" title="${n2} ${Math.round(s2[i2] * 100)}%"><i style="width:${Math.round(s2[i2] * 100)}%;background:${cols[i2]}"></i></div>`)}</div>
         </div>

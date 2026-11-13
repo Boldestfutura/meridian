@@ -1,4 +1,4 @@
-"""Kitchen Show (ha-show/show): the kitchen tablet's pages, also cast to the Nest Hub.
+"""Kitchen Show (ha-show/show): the kitchen display's pages, also cast to the Nest Hub.
 
 The pages themselves are www/tablet.js. Everything is one custom card, www/overlook-show.js, which
 covers the whole screen: a dock of pages on the left, weather and the clock top
@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.32.9"
+VERSION = "0.33.0"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -48,6 +48,7 @@ CARD = {
         {"entity": "light.kitchen_lights", "name": "Kitchen Lights", "icon": "mdi:lightbulb-group"},
     ],
     "climate": "climate.living_room",
+    "voice_satellite": "assist_satellite.kitchen_tablet_va",
     # each speaker lists its plain entity first, then the Music Assistant one
     "speakers": [
         {"name": "Living Room Amp", "icon": "mdi:speaker",
@@ -56,7 +57,7 @@ CARD = {
         {"name": "En Suite HomePod", "icon": "mdi:speaker-wireless",
          "entities": ["media_player.homepod_mini_kitchen_2", "media_player.homepod_mini_kitchen"],
          "ma": "media_player.homepod_mini_kitchen_2"},
-        {"name": "Kitchen Tablet", "icon": "mdi:tablet",
+        {"name": "Kitchen Display", "icon": "mdi:tablet",
          "entities": ["media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player"],
          "ma": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "auto": False},
         {"name": "Bedroom Echo", "icon": "mdi:speaker-wireless",
@@ -90,7 +91,7 @@ CARD = {
                     {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:lamp"}],
          "sensors": air(),
          "media": [{"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
-                    "name": "Kitchen Tablet", "icon": "mdi:tablet"},
+                    "name": "Kitchen Display", "icon": "mdi:tablet"},
                    {"entity": "media_player.kitchen_display", "name": "Nest Hub", "icon": "mdi:monitor-speaker"}],
          "scenes": KITCHEN_SCENES},
         {"name": "Living Room", "icon": "mdi:sofa", "group": "light.living_room", "climate": "climate.living_room",
@@ -151,7 +152,7 @@ FAV_SCENES = [("script.goodnight", "Goodnight"), ("script.heatpump_cool_30min", 
               ("script.kitchen_dimmed", "Kitchen Dim"), ("input_boolean.bedroom_night_mode", "Sleep Sounds")]
 CARD["scenes"] = [dict(_all[e], name=n) for e, n in FAV_SCENES]
 
-# the kitchen tablet's own pages (www/tablet.js): Home, Rooms, Climate, Media, Recipes
+# the kitchen display's own pages (www/tablet.js): Home, Rooms, Climate, Media, Recipes
 CARD.update({
     "tablet": True,
     # no dock: swipe between Media | Home | Rooms | Recipes (each room's climate is on Rooms)
@@ -170,7 +171,7 @@ CARD.update({
         {"entity": "media_player.living_room_amp_2", "name": "Living Room Amp", "icon": "mdi:speaker",
          "follows": "media_player.living_room"},
         {"entity": "media_player.homepod_mini_kitchen_2", "name": "En Suite HomePod", "icon": "mdi:speaker-wireless"},
-        {"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "name": "Kitchen Tablet", "icon": "mdi:tablet"},
+        {"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "name": "Kitchen Display", "icon": "mdi:tablet"},
         {"entity": "media_player.bedroom_echo", "name": "Bedroom Echo", "icon": "mdi:speaker-wireless"},
         {"entity": "media_player.guest_bedroom_homepod_mini_2", "name": "Guest HomePod", "icon": "mdi:speaker-wireless"},
     ],

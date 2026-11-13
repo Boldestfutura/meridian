@@ -83,7 +83,7 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
    view does not reload it.
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 and at 1024x600 (the Nest Hub), every page
-   - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every dock page (Meridian screen cards, edited in HA, not by deploy.py)
+   - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every view (since 0.33.0 it swipes between views with page dots, no dock) (Meridian screen cards, edited in HA, not by deploy.py)
    - Computer Show `/ha-show-computer/home` at 1920x1080, sidebar open (Meridian cards, edited in HA, not by deploy.py)
    - Phone Show `/ha-show-native/home` at 390 wide
 

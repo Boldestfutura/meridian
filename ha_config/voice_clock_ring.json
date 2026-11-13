@@ -1,7 +1,7 @@
 {
  "id": "voice_clock_ring",
  "alias": "Voice Timers and Alarms - Ringing",
- "description": "Rings the room's Echo (VACA's alarm switch, its alarm volume) when timer.<area>_timer finishes or input_datetime.<area>_alarm_time arrives while input_boolean.<area>_alarm is on, by setting input_select.<area>_ringing to Timer or Alarm; the Show card shows the stop/reset or stop/snooze screen from that. Ringing back to Off silences it and puts the screen brightness back; a finished alarm turns itself off. Stops by itself after 10 minutes. Per-room device entities are in the `rooms` variable. Kitchen (the kitchen tablet, 2026-11-10) added: no brightness automation or sleep switch there, so those steps skip.",
+ "description": "Rings the room's Echo (VACA's alarm switch, its alarm volume) when timer.<area>_timer finishes or input_datetime.<area>_alarm_time arrives while input_boolean.<area>_alarm is on, by setting input_select.<area>_ringing to Timer or Alarm; the Show card shows the stop/reset or stop/snooze screen from that. Ringing back to Off silences it and puts the screen brightness back; a finished alarm turns itself off. Stops by itself after 10 minutes. Per-room device entities are in the `rooms` variable. Kitchen (the kitchen display, 2026-11-10) added: no brightness automation or sleep switch there, so those steps skip.",
  "triggers": [
   {
    "trigger": "event",

@@ -60,19 +60,19 @@ deploy them.
 ## What exists, by dashboard
 
 **Kitchen Show** `ha-show` (`show.py`, view `show`): the tablet pages in `www/tablet.js`. Shown on
-the kitchen tablet and cast to the Nest Hub since 2026-11-11. Since 0.32.0 (2026-11-13) both swipe between
+the kitchen display and cast to the Nest Hub since 2026-11-11. Since 0.32.0 (2026-11-13) both swipe between
 Media | Home | Rooms | Recipes with no dock (Climate lives in Rooms) and go idle to the photo clock. Hub Show (`ha-show-hub`), Kitchen
 Tablet Show (`kitchen-tablet-show`) and View Assist (`view-assist`) were deleted that day;
 backups in `~/.config/ha/*.deleted-2026-11-11.json`.
 - **Tablet:** ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS. Runs in VACA 0.14.1 (the
-  Android home app), device "Kitchen Tablet VA" in area Kitchen, entities `*.kitchen_tablet_va_*`.
+  Android home app), device "Kitchen Display VA" in area Kitchen, entities `*.kitchen_tablet_va_*`.
   Pipeline Claude, wake word Alexa (microWakeWord, 6.5). Camera permission denied and its entity
   disabled.
   - VACA's start page is the integration option `default_dashboard` (`ha-show/show`), not a
     user's default panel. Change it through the integration's options flow.
   - Music: VACA's SendSpin output is enabled. Music Assistant creates
     `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player`, device "Kitchen
-    Tablet" in area Kitchen. It is the kitchen voice-music target and the Kitchen room media
+    Display" in area Kitchen. It is the kitchen voice-music target and the Kitchen room media
     tile.
   - Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`,
     `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`;
@@ -112,6 +112,22 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
 - **En Suite HomePod:** the old kitchen HomePod moved to En Suite on 2026-11-13. Entity IDs stay
   `media_player.homepod_mini_kitchen` (AirPlay) and `_2` (MA); HA friendly names, device names and
   the area are **En Suite HomePod** / `en_suite`. The dashboards label it En Suite HomePod.
+  Its readings arrive like the guest room's (see the HomePod webhook in `configuration.yaml`): the
+  same webhook, with `"room": "En Suite"` in the body, sets `sensor.en_suite_temperature` and
+  `sensor.en_suite_humidity`; a body without a room still goes to the guest room.
+
+**Renamed 2026-11-14: the tablet is the Kitchen Display.** Device and entity *names* say Kitchen
+Display (VACA "Kitchen Display VA", the MA player "Kitchen Display", the companion app "Kitchen
+Display App"); the Nest Hub is now "Kitchen Nest Hub". Entity *IDs* are unchanged
+(`*.kitchen_tablet_va_*`, `media_player.kitchen_display` is still the Hub): 195 of them, wired into
+VACA and the automations. The voice glow (`voice_satellite`) shows on the tablet and never on a Cast
+receiver (`CrKey` in the user agent), so the Hub showing the same dashboard stays dark.
+
+**Washing machine plug (2026-11-14).** Tapo P110M, in HA twice: the TP-Link integration (device
+"Washing Machine", area Laundry: `sensor.washing_machine_power`, `switch.washing_machine`, ...) and
+Matter ("Washing Machine (Matter)", only an on/off switch, `switch.washing_machine_matter`, hidden).
+Power only comes through TP-Link. Its auto-update is OFF (firmware moved the P100 to TPAP and locked
+HA out). The door sensor isn't bought yet.
   - MA fetches local files from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`).
     Keep a plain space in the URL: `%20` shows up in the title. Sol can't reach the VM's LAN IP.
 
@@ -119,7 +135,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
 - Uses the phone's rooms, scenes and pop-ups from `showphone.py`. If a room changes, edit
   `ROOMS`/`SCENES` there. The live layout is hand-edited, so patch it by key; deploy only
   writes it while it still matches `.deployed/shownative.json`.
-- The Kitchen media tile is the Kitchen Tablet MA player, not the Nest Hub (live layout
+- The Kitchen media tile is the Kitchen Display MA player, not the Nest Hub (live layout
   patched 2026-11-13).
 
 **Computer Show** `ha-show-computer`
@@ -229,7 +245,7 @@ five helpers for its area, a `rooms` entry in the ringing automation, and `clock
 
 "Play Fleetwood Mac", "play some Radiohead", "play Dreams by Fleetwood Mac", "play my golden
 hour playlist", "play Discover Weekly", and bare "play music" (resumes). End with "in the
-kitchen" / "on the kitchen tablet" / "in the en suite" / "on the amp" / "in the guest room" /
+kitchen" / "on the kitchen display" / "in the en suite" / "on the amp" / "in the guest room" /
 "in the bedroom" to pick a speaker; otherwise it plays in the room of the device you spoke to
 (typed Assist: bedroom). One sentence trigger,
 `automation.voice_music` (`ha_config/voice_music.json`), works out the kind from the words
@@ -238,8 +254,8 @@ are matched loosely against the library (`get_library`, so spoken names need not
 the rest with `music_assistant.search`; a bare name takes an exact artist, then song, then
 album, then the top artist. Speakers are the MA players: bedroom `media_player.bedroom_echo`,
 kitchen `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player` (the Kitchen
-Tablet), en suite `media_player.homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest
-`guest_bedroom_homepod_mini_2`. "In the kitchen" and "on the kitchen tablet" both pick the
+Display), en suite `media_player.homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest
+`guest_bedroom_homepod_mini_2`. "In the kitchen" and "on the kitchen display" both pick the
 tablet; "in the en suite" picks the moved HomePod.
 Pause, skip and volume are HA's built-in media intents (bare "pause" goes through the timer
 automation first).

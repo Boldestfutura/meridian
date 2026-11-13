@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.32.9";
+const VERSION = "0.33.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -499,7 +499,7 @@ class OverlookShow extends LitElement {
     const dx = e.clientX - s.x, dy = e.clientY - s.y;
     if (s.dead) {
       // A vertical drag. The browser should be scrolling the column and cancel this pointer; if
-      // moves keep arriving it isn't (the kitchen tablet's WebView only scrolled from the gaps
+      // moves keep arriving it isn't (the kitchen display's WebView only scrolled from the gaps
       // between tiles), so scroll the column by hand and fling it on release
       if (!s.col) return;
       const t = performance.now();
@@ -883,7 +883,10 @@ class OverlookShow extends LitElement {
   // is listening, processing or answering, like the light ring on an Echo
   _glow() {
     const id = this._config && this._config.voice_satellite;
-    const e = id && this._st(id);
+    // a Cast receiver (the Nest Hub showing the same dashboard) has no microphone of its own, so it
+    // never glows for the screen whose satellite this is
+    if (!id || /CrKey/.test(navigator.userAgent)) return nothing;
+    const e = this._st(id);
     const st = e && ["listening", "processing", "responding"].includes(e.state) ? e.state : null;
     return st ? html`<div class="va-glow ${st}"></div>` : nothing;
   }
@@ -4731,7 +4734,7 @@ const SWATCH = { amber: "#e0a63c", blue: "#5a7ea8", green: "#3f8f63", teal: "#3f
 // n rows fill the screen: 14px padding top and bottom, 14px between rows
 const ECHO_VIEW = (bg, n = 6) => `
   :host {
-    --ha-section-grid-row-height: calc((100vh - ${28 + (n - 1) * 14}px) / ${n});
+    --ha-section-grid-row-height: calc((100vh - ${28 + ECHO_DOTS + (n - 1) * 14}px) / ${n});
     --ha-section-grid-row-gap: 14px;
     --ha-section-grid-column-gap: 14px;
     --ha-view-sections-row-gap: 14px;
@@ -4741,7 +4744,9 @@ const ECHO_VIEW = (bg, n = 6) => `
     --lovelace-background: ${bg};
   }
   .header { display: none !important; }
-  hui-view-container { padding-top: 0 !important; padding-left: 76px !important; }`;
+  hui-view-container { padding-top: 0 !important; padding-left: 0 !important; touch-action: pan-y; }`;
+// room for the page dots under the grid (the Echo swipes between views like the kitchen display)
+const ECHO_DOTS = 14;
 const ECHO_BG = { light: "linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%)", dark: "linear-gradient(165deg, #0b0f18 0%, #121827 100%)" };
 
 let ECHO_SHELL = null, ECHO_DOCKS = 0, ECHO_DROP = null;
@@ -4771,6 +4776,13 @@ class MeridianEchoShell extends OverlookShow {
     this._loc = () => { const v = this._viewNow(); if (v && this._page !== "photos") this._page = v; };
     window.addEventListener("location-changed", this._loc);
     window.addEventListener("popstate", this._loc);
+    this._esDown = this._esDown.bind(this);
+    this._esMove = this._esMove.bind(this);
+    this._esUp = this._esUp.bind(this);
+    window.addEventListener("pointerdown", this._esDown, true);
+    window.addEventListener("pointermove", this._esMove, true);
+    window.addEventListener("pointerup", this._esUp, true);
+    window.addEventListener("pointercancel", this._esUp, true);
     this._tick = setInterval(() => this._sync(), 400);
   }
 
@@ -4778,9 +4790,83 @@ class MeridianEchoShell extends OverlookShow {
     super.disconnectedCallback();
     window.removeEventListener("location-changed", this._loc);
     window.removeEventListener("popstate", this._loc);
+    window.removeEventListener("pointerdown", this._esDown, true);
+    window.removeEventListener("pointermove", this._esMove, true);
+    window.removeEventListener("pointerup", this._esUp, true);
+    window.removeEventListener("pointercancel", this._esUp, true);
     clearInterval(this._tick);
     styleHuiRoot(this._root, "");
     stylePage("");
+  }
+
+  // --- swiping between views, as on the kitchen display ---------------------------------
+  // A sideways drag anywhere on a view moves HA's view with the finger; let go past an eighth of
+  // the screen and it slides off and the next view slides in, otherwise it springs back. Drags
+  // that start on a slider, an open sheet or a row that scrolls sideways are left alone.
+  _esView() {
+    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    return r && r.shadowRoot && r.shadowRoot.querySelector("hui-view-container");
+  }
+  _esDown(e) {
+    this._es = null;
+    if (this._editing || this._page === "photos" || e.button > 0 || e.isPrimary === false) return;
+    if (this._pop || this._picker || this._light || this._ct || this._wx) return;
+    if (e.composedPath().some((n) => n instanceof HTMLElement
+      && (n.matches("input,textarea,select,[role=slider],ha-control-slider,.vol,.sw-dots")
+        || (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX))))) return;
+    this._es = { x: e.clientX, y: e.clientY, dx: 0, on: false, el: this._esView() };
+  }
+  _esMove(e) {
+    const s = this._es;
+    if (!s || !s.el) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (!s.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { this._es = null; return; }
+      if (Math.abs(dx) < 12) return;
+      s.on = true;
+      s.el.style.transition = "none";
+    }
+    const views = this._views(), i = views.findIndex(([p]) => p === this._page);
+    const edge = (i <= 0 && dx > 0) || (i === views.length - 1 && dx < 0);
+    s.dx = dx;
+    s.el.style.transform = `translateX(${edge ? dx / 3 : dx}px)`;       // rubber band at the ends
+  }
+  _esUp(e) {
+    const s = this._es;
+    this._es = null;
+    if (!s || !s.on) return;
+    // the drag ends with a click on whatever is under the finger; it shouldn't press it
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    window.addEventListener("click", swallow, true);
+    setTimeout(() => window.removeEventListener("click", swallow, true), 250);
+    const el = s.el, w = window.innerWidth;
+    const views = this._views(), i = views.findIndex(([p]) => p === this._page);
+    const far = Math.min(70, w / 8);
+    const dir = e.type === "pointercancel" ? 0 : s.dx < -far ? 1 : s.dx > far ? -1 : 0;
+    const next = dir ? views[i + dir] : null;
+    if (!next) {
+      el.style.transition = "transform 0.25s cubic-bezier(.2,.8,.2,1)";
+      el.style.transform = "";
+      return;
+    }
+    fireHaptic("light");
+    el.style.transition = "transform 0.16s ease-in";
+    el.style.transform = `translateX(${-dir * w}px)`;
+    setTimeout(() => {
+      this._go(next[0]);
+      // the new view comes in from the side the finger came from
+      requestAnimationFrame(() => {
+        const v = this._esView() || el;
+        v.style.transition = "none";
+        v.style.transform = `translateX(${dir * w * 0.35}px)`;
+        v.style.opacity = "0";
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          v.style.transition = "transform 0.28s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease-out";
+          v.style.transform = "";
+          v.style.opacity = "";
+        }));
+      });
+    }, 160);
   }
 
   // HA's view: header hidden and the Echo grid while showing; HA's own while editing
@@ -4810,7 +4896,7 @@ class MeridianEchoShell extends OverlookShow {
       }
     };
     walk(r && r.shadowRoot, 0);
-    const row = (window.innerHeight - 28 - (n - 1) * 14) / n;
+    const row = (window.innerHeight - 28 - ECHO_DOTS - (n - 1) * 14) / n;
     let most = 0;
     for (const sec of secs) {
       const c = (sec.shadowRoot && sec.shadowRoot.querySelector(".container")) || sec;
@@ -4875,20 +4961,13 @@ class MeridianEchoShell extends OverlookShow {
     if (ha) ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
+  // page dots along the bottom, as on the kitchen display; a dot also goes to its view
   _dock() {
+    if (this._page === "photos") return nothing;
     return html`
-      <nav class="dock">
-        <div class="dock-pill">
-          ${this._views().map(([id, name, icon]) => html`
-            <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name} @click=${() => this._go(id)}>
-              <ha-icon icon=${icon}></ha-icon>
-            </button>`)}
-        </div>
-        ${this._config.photos ? html`
-          <button class="dock-btn photo-btn" title="Photos" @click=${() => this._go("photos")}>
-            <ha-icon icon="mdi:image-multiple-outline"></ha-icon>
-          </button>` : nothing}
-      </nav>`;
+      <div class="sw-dots">${this._views().map(([id, name]) => html`
+        <button class="sw-dot ${this._page === id ? "on" : ""}" title=${name} @click=${() => this._go(id)}></button>`)}
+      </div>`;
   }
 
   // the Show's screen, minus its pages: the HA view under it is the page
@@ -4916,6 +4995,8 @@ class MeridianEchoShell extends OverlookShow {
   static styles = [OverlookShow.styles, css`
     .echo-shell.shell-only { background: none; pointer-events: none; }
     .echo-shell.shell-only > * { pointer-events: auto; }
+    .echo-shell > .sw-dots { pointer-events: none; bottom: 0; }
+    .echo-shell .sw-dot { height: 14px; }
   `];
 }
 defineEcho("echo-shell", MeridianEchoShell);
@@ -5562,7 +5643,7 @@ if (BUILD !== "show") {
 const PIP_SAY = {
   idle: "Doing fine", happy: "Happy", hungry: "Hungry, feed me", thirsty: "A plant needs water",
   sleepy: "Getting sleepy", asleep: "Asleep", hot: "Too hot in here", cold: "Brr, it's cold",
-  stuffy: "Stuffy air, open a window", rain: "Raining out", music: "Dancing", guests: "Guests!",
+  stuffy: "Stuffy air, open a window", rain: "Raining out", music: "Dancing", guests: "Guests!", tv: "Watching TV with you",
   sad: "Sad, give me a pet", angry: "Cross, nobody's been around", error: "Can't reach the house",
   listening: "Listening", thinking: "Thinking", speaking: "Talking",
 };
@@ -5603,6 +5684,16 @@ class MeridianPip extends OverlookPiece {
     const e = this._ent("mood");
     return !e || ["unavailable", "unknown"].includes(e.state) || !PIP_SAY[e.state] ? "error" : e.state;
   }
+  // ["birthday", "Happy birthday, Cameron!"] from sensor.pip_occasion (birthday_cameron, christmas, ...)
+  _occasion() {
+    const v = ((this._ent("occasion") || {}).state || "").toLowerCase();
+    if (v.startsWith("birthday")) {
+      const who = v.split("_")[1];
+      return ["birthday", who ? `Happy birthday, ${who[0].toUpperCase()}${who.slice(1)}!` : "Happy birthday!"];
+    }
+    return [v, { christmas: "Merry Christmas!", newyear: "Happy New Year!", halloween: "Happy Halloween!",
+      valentines: "Happy Valentine's Day", easter: "Happy Easter!" }[v] || ""];
+  }
   _stats() {
     return ["water", "food", "fun", "rest"].map((k) => {
       const v = Number((this._ent(k) || {}).state);
@@ -5615,6 +5706,7 @@ class MeridianPip extends OverlookPiece {
     const p = this._pip, stage = Number((this._ent("stage") || {}).state);
     p.state = this._mood();
     p.stage = isFinite(stage) ? stage : 2;
+    p.occasion = this._occasion()[0];
     const dpr = Math.min(2, window.devicePixelRatio || 1), stats = this._stats();
     for (const [cv, ring] of [[this.renderRoot && this.renderRoot.querySelector(".pip-tile canvas"), false],
                               [this._fullEl && this._fullEl.querySelector("canvas"), true]]) {
@@ -5707,7 +5799,7 @@ class MeridianPip extends OverlookPiece {
         <div class="pip-face"><canvas></canvas></div>
         <div class="pip-info">
           <div class="pip-name">Pip</div>
-          <div class="pip-say" style="--hue:${S ? S.hue : "var(--muted)"}">${PIP_SAY[m]}</div>
+          <div class="pip-say" style="--hue:${S ? S.hue : "var(--muted)"}">${["idle", "happy"].includes(m) && this._occasion()[1] || PIP_SAY[m]}</div>
           <div class="pip-bars">${["Water", "Food", "Fun", "Rest"].map((n, i) => html`
             <div class="pip-bar" title="${n} ${Math.round(s[i] * 100)}%"><i style="width:${Math.round(s[i] * 100)}%;background:${cols[i]}"></i></div>`)}</div>
         </div>

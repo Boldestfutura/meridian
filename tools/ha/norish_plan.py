@@ -6,7 +6,7 @@
 
 Runs inside the HA container with the same sign-in as norish_fav.py (/config/.norish.json).
 Afterwards it writes /config/www/norish/plan.json, {"YYYY-MM-DD": "<recipe-id>"} for last week
-through three weeks ahead, which is what the kitchen tablet's planner row reads.
+through three weeks ahead, which is what the kitchen display's planner row reads.
 """
 import datetime, json, os, re, sys, urllib.parse, urllib.request
 from http.cookiejar import CookieJar

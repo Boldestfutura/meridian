@@ -1,7 +1,7 @@
 {
   "id": "washing_machine",
   "alias": "Washing machine",
-  "description": "Power plug says when a cycle starts and finishes; the door sensor says when it's been emptied. Keeps input_select.washing_machine (idle/running/done) for the dashboard bubble. Placeholders until the hardware is paired: rename the plug's power sensor to sensor.washing_machine_power and the door sensor to binary_sensor.washing_machine_door. Thresholds are first guesses; tune after a real cycle. The first reminder (30 min) switches on input_boolean.washing_machine_alert, the full-screen alert on the kitchen tablet and bedroom Echo; it stays up until the door opens, a new cycle starts or Got it is tapped on either screen; the later reminders only go to the phones, so a dismissed alert stays dismissed.",
+  "description": "Power plug says when a cycle starts and finishes; the door sensor says when it's been emptied. Keeps input_select.washing_machine (idle/running/done) for the dashboard bubble. Placeholders until the hardware is paired: rename the plug's power sensor to sensor.washing_machine_power and the door sensor to binary_sensor.washing_machine_door. Thresholds are first guesses; tune after a real cycle. The first reminder (30 min) switches on input_boolean.washing_machine_alert, the full-screen alert on the kitchen display and bedroom Echo; it stays up until the door opens, a new cycle starts or Got it is tapped on either screen; the later reminders only go to the phones, so a dismissed alert stays dismissed.",
   "triggers": [
     {
       "trigger": "numeric_state",
