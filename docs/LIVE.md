@@ -70,6 +70,10 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   disabled.
   - VACA's start page is the integration option `default_dashboard` (`ha-show/show`), not a
     user's default panel. Change it through the integration's options flow.
+  - Music: VACA's SendSpin output is enabled. Music Assistant creates
+    `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player`, device "Kitchen
+    Tablet" in area Kitchen. It is the kitchen voice-music target and the Kitchen room media
+    tile.
   - Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`,
     `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`;
     `voice_clock_ring` has a `kitchen` room.
@@ -105,12 +109,18 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
 - **Echo as a speaker:** SendSpin Player (`com.sendspindroid`) connects it to Music Assistant as
   `media_player.bedroom_echo`, its only media player. The old bedroom HomePod moved to the guest
   bedroom on 2026-11-05: `media_player.guest_bedroom_homepod_mini` (AirPlay) and `_2` (MA).
+- **En Suite HomePod:** the old kitchen HomePod moved to En Suite on 2026-11-13. Entity IDs stay
+  `media_player.homepod_mini_kitchen` (AirPlay) and `_2` (MA); HA friendly names, device names and
+  the area are **En Suite HomePod** / `en_suite`. The dashboards label it En Suite HomePod.
   - MA fetches local files from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`).
     Keep a plain space in the URL: `%20` shows up in the title. Sol can't reach the VM's LAN IP.
 
 **Phone Show** `ha-show-native` (`shownative.py`)
 - Uses the phone's rooms, scenes and pop-ups from `showphone.py`. If a room changes, edit
-  `ROOMS`/`SCENES` there.
+  `ROOMS`/`SCENES` there. The live layout is hand-edited, so patch it by key; deploy only
+  writes it while it still matches `.deployed/shownative.json`.
+- The Kitchen media tile is the Kitchen Tablet MA player, not the Nest Hub (live layout
+  patched 2026-11-13).
 
 **Computer Show** `ha-show-computer`
 - Meridian cards edited in HA's own editor since 2026-11-10; deploy.py no longer writes it. Its
@@ -124,8 +134,8 @@ picture. A new photo screen needs its own entry.
 
 **Playlists.** The Media pages play Spotify through **Music Assistant** with the Soloist
 provider; HA's own Spotify integration can't drive the Sonos Amp or the AirPlay-only HomePods.
-MA players are the `_2` entities (`media_player.living_room_amp_2`, `homepod_mini_kitchen_2`,
-`guest_bedroom_homepod_mini_2`), plus `bedroom_echo`.
+MA players are the `_2` entities (`media_player.living_room_amp_2`, `homepod_mini_kitchen_2`
+— now the En Suite HomePod — and `guest_bedroom_homepod_mini_2`), plus `bedroom_echo`.
 - `sensor.tablet_playlists` (`ha_config/tablet_playlists.yaml`, in `configuration.yaml`) lists
   what the card shows: `sensor.spotify_recent_playlists` first (the last 30 playlists Cameron
   started in the Spotify app, from HA's watch-only Spotify integration), then MA's last-played
@@ -219,13 +229,17 @@ five helpers for its area, a `rooms` entry in the ringing automation, and `clock
 
 "Play Fleetwood Mac", "play some Radiohead", "play Dreams by Fleetwood Mac", "play my golden
 hour playlist", "play Discover Weekly", and bare "play music" (resumes). End with "in the
-kitchen" / "on the amp" / "in the guest room" / "in the bedroom" to pick a speaker; otherwise
-it plays in the room of the device you spoke to (typed Assist: bedroom). One sentence trigger,
+kitchen" / "on the kitchen tablet" / "in the en suite" / "on the amp" / "in the guest room" /
+"in the bedroom" to pick a speaker; otherwise it plays in the room of the device you spoke to
+(typed Assist: bedroom). One sentence trigger,
 `automation.voice_music` (`ha_config/voice_music.json`), works out the kind from the words
 ("... playlist", "... by <artist>", "some <artist>") and asks Music Assistant: playlists
 are matched loosely against the library (`get_library`, so spoken names need not be exact),
 the rest with `music_assistant.search`; a bare name takes an exact artist, then song, then
 album, then the top artist. Speakers are the MA players: bedroom `media_player.bedroom_echo`,
-kitchen `homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest `guest_bedroom_homepod_mini_2`.
+kitchen `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player` (the Kitchen
+Tablet), en suite `media_player.homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest
+`guest_bedroom_homepod_mini_2`. "In the kitchen" and "on the kitchen tablet" both pick the
+tablet; "in the en suite" picks the moved HomePod.
 Pause, skip and volume are HA's built-in media intents (bare "pause" goes through the timer
 automation first).

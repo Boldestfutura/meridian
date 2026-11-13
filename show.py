@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.32.8"
+VERSION = "0.32.9"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -53,9 +53,12 @@ CARD = {
         {"name": "Living Room Amp", "icon": "mdi:speaker",
          "entities": ["media_player.living_room_amp", "media_player.living_room_amp_2"],
          "ma": "media_player.living_room_amp_2"},
-        {"name": "Kitchen HomePod", "icon": "mdi:speaker-wireless",
+        {"name": "En Suite HomePod", "icon": "mdi:speaker-wireless",
          "entities": ["media_player.homepod_mini_kitchen_2", "media_player.homepod_mini_kitchen"],
          "ma": "media_player.homepod_mini_kitchen_2"},
+        {"name": "Kitchen Tablet", "icon": "mdi:tablet",
+         "entities": ["media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player"],
+         "ma": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "auto": False},
         {"name": "Bedroom Echo", "icon": "mdi:speaker-wireless",
          "entities": ["media_player.bedroom_echo"],
          "ma": "media_player.bedroom_echo", "auto": False},
@@ -86,8 +89,9 @@ CARD = {
          "lights": [{"entity": "light.kitchen_light_2", "name": "Kitchen Light", "icon": "mdi:ceiling-light"},
                     {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:lamp"}],
          "sensors": air(),
-         "media": [{"entity": "media_player.kitchen_display", "name": "Nest Hub", "icon": "mdi:monitor-speaker"},
-                   {"entity": "media_player.homepod_mini_kitchen", "name": "HomePod", "icon": "mdi:speaker-wireless"}],
+         "media": [{"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+                    "name": "Kitchen Tablet", "icon": "mdi:tablet"},
+                   {"entity": "media_player.kitchen_display", "name": "Nest Hub", "icon": "mdi:monitor-speaker"}],
          "scenes": KITCHEN_SCENES},
         {"name": "Living Room", "icon": "mdi:sofa", "group": "light.living_room", "climate": "climate.living_room",
          "lights": [{"entity": "light.couch_lamp", "name": "Couch Lamp", "icon": "mdi:floor-lamp"},
@@ -108,7 +112,8 @@ CARD = {
          "lights": [{"entity": "light.bedside_left", "name": "Bedside Left", "icon": "mdi:lamp"},
                     {"entity": "light.bedside_right", "name": "Bedside Right", "icon": "mdi:lamp"},
                     {"entity": "light.mushroom_lamp", "name": "Mushroom Lamp", "icon": "mdi:mushroom-outline"}],
-         "media": [{"entity": "media_player.bedroom_echo", "name": "Echo", "icon": "mdi:speaker-wireless"}],
+         "media": [{"entity": "media_player.bedroom_echo", "name": "Echo", "icon": "mdi:speaker-wireless"},
+                   {"entity": "media_player.homepod_mini_kitchen", "name": "En Suite HomePod", "icon": "mdi:speaker-wireless"}],
          "switches": [{"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier",
                        "icon": "mdi:air-humidifier"}],
          "sensors": air("_2"),   # the bedroom's own monitor
@@ -164,7 +169,8 @@ CARD.update({
          "volume": "media_player.living_room_amp_2"},
         {"entity": "media_player.living_room_amp_2", "name": "Living Room Amp", "icon": "mdi:speaker",
          "follows": "media_player.living_room"},
-        {"entity": "media_player.homepod_mini_kitchen_2", "name": "Kitchen HomePod", "icon": "mdi:speaker-wireless"},
+        {"entity": "media_player.homepod_mini_kitchen_2", "name": "En Suite HomePod", "icon": "mdi:speaker-wireless"},
+        {"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "name": "Kitchen Tablet", "icon": "mdi:tablet"},
         {"entity": "media_player.bedroom_echo", "name": "Bedroom Echo", "icon": "mdi:speaker-wireless"},
         {"entity": "media_player.guest_bedroom_homepod_mini_2", "name": "Guest HomePod", "icon": "mdi:speaker-wireless"},
     ],
