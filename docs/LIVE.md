@@ -128,6 +128,13 @@ receiver (`CrKey` in the user agent), so the Hub showing the same dashboard stay
 Matter ("Washing Machine (Matter)", only an on/off switch, `switch.washing_machine_matter`, hidden).
 Power only comes through TP-Link. Its auto-update is OFF (firmware moved the P100 to TPAP and locked
 HA out). The door sensor isn't bought yet.
+First real cycles 2026-11-14: filling draws ~10 W and the idle machine ~2 W, so the start
+threshold is **5 W** for 2 min (was 10, which missed the fill); finish is under 4 W for 5 min, and no
+pause inside a cycle came close. `script.washing_hung_out` (idle, alert off, phone notifications
+cleared) is run by the **Hung it out** button on the phone notification (action `WASHING_HUNG_OUT`,
+handled in automation `washing_machine`) and on the cards' built-in washer pop-up (0.33.1). Tapping
+the washer bubble or status pill opens that pop-up (status, time, power graph) instead of HA's
+input_select dialog, where someone on the Echo had set it back to running by mistake.
   - MA fetches local files from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`).
     Keep a plain space in the URL: `%20` shows up in the title. Sol can't reach the VM's LAN IP.
 

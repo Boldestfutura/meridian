@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.33.0";
+const VERSION = "0.33.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -129,6 +129,15 @@ const loadFonts = (hass) => {
 const fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
 };
+
+// The washing machine, wherever it shows (bubble, status pill): one built-in pop-up.
+// Entities default to the house's own; a card's `washer:` option overrides any of them.
+const WASHER = { entity: "input_select.washing_machine", started: "input_datetime.washing_machine_started",
+                 alert: "input_boolean.washing_machine_alert", power: "sensor.washing_machine_power",
+                 hung_out: "script.washing_hung_out" };
+const washerOf = (c) => Object.assign({}, WASHER, (c && c.washer) || {});
+const washerPopup = (w) => ({ title: "Washing machine", icon: "mdi:washing-machine", washer: true,
+  sections: [{ type: "washer", washer: w }, { type: "graph", entity: w.power, name: "Power", hours: 3 }] });
 
 class OverlookShow extends LitElement {
   static properties = {
@@ -1213,6 +1222,14 @@ class OverlookShow extends LitElement {
   // config.popups[id] = {title, icon, sections}; config.links[entity] = id says which
   // tap opens which sheet. Anything without a link falls back to HA's more-info.
   _open(entityId) {
+    const w = washerOf(this._config);
+    if (entityId === w.entity) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __washer: washerPopup(w) }) });
+      this._pop = "__washer";
+      this._loadHistory(this._config.popups.__washer);
+      return;
+    }
     const id = this._links()[entityId];
     if (!id || !this._config.popups[id]) { this._moreInfo(entityId); return; }
     fireHaptic("light");
@@ -1332,11 +1349,55 @@ class OverlookShow extends LitElement {
     const head = s.title ? html`<div class="pop-sub">${s.title}</div>` : nothing;
     switch (s.type) {
       case "player": return html`${head}${this._popPlayer(s.entity)}`;
+      case "washer": return this._popWasher(s.washer);
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
       default: return html`${head}<div class="pop-grid">${(s.items || []).map((x) => this._popTile(x))}</div>`;
     }
+  }
+
+  // the washer pop-up: what it's doing now, how long, and Hung it out once it's done
+  _popWasher(w) {
+    const e = this._st(w.entity);
+    if (!e) return nothing;
+    const now = this._now || new Date(), st = e.state;
+    const dur = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`);
+    const mins = (a, b) => Math.max(0, Math.round((b - a) / 60000));
+    const s = this._st(w.started), t0 = s ? new Date(s.state.replace(" ", "T")) : null;
+    const hasT0 = t0 && !isNaN(t0);
+    const p = this._st(w.power), watts = p ? Number(p.state) : NaN;
+    const phase = isNaN(watts) ? "" : watts > 1000 ? "Heating the water" : watts > 300 ? "Spinning"
+      : watts > 40 ? "Washing" : watts > 5 ? "Filling or resting" : "Quiet";
+    // done is set 5 minutes after the power drops, so the real finish is 5 minutes earlier
+    const fin = new Date(new Date(e.last_changed).getTime() - 5 * 60000);
+    let chip, big, sub;
+    if (st === "running") {
+      chip = "Running";
+      big = hasT0 ? dur(mins(t0, now)) : "Running";
+      sub = [hasT0 ? `Started ${this._ampm(t0)}` : "", phase].filter(Boolean).join(" · ");
+    } else if (st === "done") {
+      chip = "Ready to hang out";
+      big = `Finished ${dur(mins(fin, now))} ago`;
+      sub = [`Done at ${this._ampm(fin)}`, hasT0 ? `${dur(mins(t0, fin))} cycle` : ""].filter(Boolean).join(" · ");
+    } else {
+      chip = "Empty";
+      big = "Nothing in the wash";
+      sub = hasT0 ? `Last wash started ${this._ampm(t0)}${t0.toDateString() === now.toDateString() ? " today" : ""}` : "";
+    }
+    const hung = (ev) => {
+      ev.stopPropagation();
+      fireHaptic("success");
+      this._call("script", "turn_on", { entity_id: w.hung_out });
+    };
+    return html`
+      <div class="wpop wpop-${st}">
+        <span class="wpop-chip">${chip}</span>
+        <div class="wpop-big">${big}</div>
+        ${sub ? html`<div class="wpop-sub muted">${sub}</div>` : nothing}
+        ${st === "running" && !isNaN(watts) ? html`<div class="wpop-watts"><ha-icon icon="mdi:flash"></ha-icon>${Math.round(watts).toLocaleString()} W now</div>` : nothing}
+        ${st === "done" ? html`<button class="wpop-btn" @click=${hung}><ha-icon icon="mdi:tshirt-crew"></ha-icon>Hung it out</button>` : nothing}
+      </div>`;
   }
 
   // a value the way ha-phone words it: Open/Closed, Home/Away, Low/OK, 90%, 4:30pm
@@ -1516,7 +1577,7 @@ class OverlookShow extends LitElement {
                 <path d=${d} fill="none" stroke=${c} stroke-width="2" vector-effect="non-scaling-stroke"
                       stroke-linejoin="round" stroke-linecap="round"></path>`}
         </svg>
-        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e && e.attributes.unit_of_measurement === "%" ? "%" : "°"} ${(s.hours || 168) >= 168 ? "this week" : "today"}</span>
+        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${((u) => (u === "%" ? "%" : u === "W" ? " W" : "°"))(e && e.attributes.unit_of_measurement)} ${(s.hours || 168) >= 168 ? "this week" : (s.hours || 168) <= 6 ? "lately" : "today"}</span>
           <span>${(s.hours || 168) >= 48 ? `${(s.hours || 168) / 24} days` : `${s.hours} hours`}</span></div>
       </div>`;
   }
@@ -3596,6 +3657,20 @@ class OverlookShow extends LitElement {
     .pop-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
                margin: 8px 4px 0; }
     .pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .wpop { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px 16px;
+            border-radius: 22px; background: var(--inset); }
+    .wpop-chip { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px;
+                 border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
+    .wpop-done .wpop-chip { color: #fff; background: var(--accent); }
+    .wpop-big { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1.1; letter-spacing: -0.01em; }
+    .wpop-sub { font-size: 14px; font-weight: 600; }
+    .wpop-watts { display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--accent); }
+    .wpop-watts ha-icon { --mdc-icon-size: 18px; }
+    .wpop-btn { align-self: stretch; margin-top: 8px; height: 56px; border: 0; border-radius: 18px; display: flex;
+                align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: 17px; font-weight: 700;
+                color: #fff; background: var(--accent); cursor: pointer; }
+    .wpop-btn ha-icon { --mdc-icon-size: 22px; }
+    .wpop-btn:active { transform: scale(0.98); }
     .ptile { display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center; padding: 10px 12px; min-height: 62px;
              border-radius: 20px; background: var(--inset); text-align: left; min-width: 0; }
     .ptile.wide { grid-column: 1 / -1; }
@@ -3887,6 +3962,8 @@ class OverlookPiece extends OverlookShow {
   }
   _links() { return Object.fromEntries(Object.keys(this._ownPopups()).map((k) => [k, k])); }
   _open(id) {
+    const w = washerOf(this._config);
+    if (id === w.entity) { overlay(this.hass).openPopup(washerPopup(w)); return; }
     const p = this._ownPopups()[id];
     if (p) overlay(this.hass).openPopup(p); else overlay(this.hass)._moreInfo(id);
   }

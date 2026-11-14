@@ -3205,7 +3205,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.33.0";
+var VERSION = "0.33.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -3362,6 +3362,20 @@ var loadFonts = (hass) => {
 var fireHaptic = (type = "light") => {
   window.dispatchEvent(new CustomEvent("haptic", { detail: type, bubbles: true, composed: true }));
 };
+var WASHER = {
+  entity: "input_select.washing_machine",
+  started: "input_datetime.washing_machine_started",
+  alert: "input_boolean.washing_machine_alert",
+  power: "sensor.washing_machine_power",
+  hung_out: "script.washing_hung_out"
+};
+var washerOf = (c2) => Object.assign({}, WASHER, c2 && c2.washer || {});
+var washerPopup = (w2) => ({
+  title: "Washing machine",
+  icon: "mdi:washing-machine",
+  washer: true,
+  sections: [{ type: "washer", washer: w2 }, { type: "graph", entity: w2.power, name: "Power", hours: 3 }]
+});
 var OverlookShow = class extends dt {
   static properties = {
     hass: { attribute: false },
@@ -4572,6 +4586,14 @@ var OverlookShow = class extends dt {
   // config.popups[id] = {title, icon, sections}; config.links[entity] = id says which
   // tap opens which sheet. Anything without a link falls back to HA's more-info.
   _open(entityId) {
+    const w2 = washerOf(this._config);
+    if (entityId === w2.entity) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __washer: washerPopup(w2) }) });
+      this._pop = "__washer";
+      this._loadHistory(this._config.popups.__washer);
+      return;
+    }
     const id = this._links()[entityId];
     if (!id || !this._config.popups[id]) {
       this._moreInfo(entityId);
@@ -4697,6 +4719,8 @@ var OverlookShow = class extends dt {
     switch (s2.type) {
       case "player":
         return Z`${head}${this._popPlayer(s2.entity)}`;
+      case "washer":
+        return this._popWasher(s2.washer);
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":
@@ -4706,6 +4730,46 @@ var OverlookShow = class extends dt {
       default:
         return Z`${head}<div class="pop-grid">${(s2.items || []).map((x3) => this._popTile(x3))}</div>`;
     }
+  }
+  // the washer pop-up: what it's doing now, how long, and Hung it out once it's done
+  _popWasher(w2) {
+    const e2 = this._st(w2.entity);
+    if (!e2) return J;
+    const now = this._now || /* @__PURE__ */ new Date(), st2 = e2.state;
+    const dur = (m2) => m2 < 60 ? `${m2} min` : `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}`;
+    const mins = (a2, b2) => Math.max(0, Math.round((b2 - a2) / 6e4));
+    const s2 = this._st(w2.started), t0 = s2 ? new Date(s2.state.replace(" ", "T")) : null;
+    const hasT0 = t0 && !isNaN(t0);
+    const p2 = this._st(w2.power), watts = p2 ? Number(p2.state) : NaN;
+    const phase = isNaN(watts) ? "" : watts > 1e3 ? "Heating the water" : watts > 300 ? "Spinning" : watts > 40 ? "Washing" : watts > 5 ? "Filling or resting" : "Quiet";
+    const fin = new Date(new Date(e2.last_changed).getTime() - 5 * 6e4);
+    let chip, big, sub;
+    if (st2 === "running") {
+      chip = "Running";
+      big = hasT0 ? dur(mins(t0, now)) : "Running";
+      sub = [hasT0 ? `Started ${this._ampm(t0)}` : "", phase].filter(Boolean).join(" \xB7 ");
+    } else if (st2 === "done") {
+      chip = "Ready to hang out";
+      big = `Finished ${dur(mins(fin, now))} ago`;
+      sub = [`Done at ${this._ampm(fin)}`, hasT0 ? `${dur(mins(t0, fin))} cycle` : ""].filter(Boolean).join(" \xB7 ");
+    } else {
+      chip = "Empty";
+      big = "Nothing in the wash";
+      sub = hasT0 ? `Last wash started ${this._ampm(t0)}${t0.toDateString() === now.toDateString() ? " today" : ""}` : "";
+    }
+    const hung = (ev) => {
+      ev.stopPropagation();
+      fireHaptic("success");
+      this._call("script", "turn_on", { entity_id: w2.hung_out });
+    };
+    return Z`
+      <div class="wpop wpop-${st2}">
+        <span class="wpop-chip">${chip}</span>
+        <div class="wpop-big">${big}</div>
+        ${sub ? Z`<div class="wpop-sub muted">${sub}</div>` : J}
+        ${st2 === "running" && !isNaN(watts) ? Z`<div class="wpop-watts"><ha-icon icon="mdi:flash"></ha-icon>${Math.round(watts).toLocaleString()} W now</div>` : J}
+        ${st2 === "done" ? Z`<button class="wpop-btn" @click=${hung}><ha-icon icon="mdi:tshirt-crew"></ha-icon>Hung it out</button>` : J}
+      </div>`;
   }
   // a value the way ha-phone words it: Open/Closed, Home/Away, Low/OK, 90%, 4:30pm
   _fmt(e2, x3 = {}) {
@@ -4880,7 +4944,7 @@ var OverlookShow = class extends dt {
                 <path d=${d2} fill="none" stroke=${c2} stroke-width="2" vector-effect="non-scaling-stroke"
                       stroke-linejoin="round" stroke-linecap="round"></path>`}
         </svg>
-        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${e2 && e2.attributes.unit_of_measurement === "%" ? "%" : "\xB0"} ${(s2.hours || 168) >= 168 ? "this week" : "today"}</span>
+        <div class="graph-foot muted"><span>${Math.round(lo)}–${Math.round(hi)}${/* @__PURE__ */ ((u2) => u2 === "%" ? "%" : u2 === "W" ? " W" : "\xB0")(e2 && e2.attributes.unit_of_measurement)} ${(s2.hours || 168) >= 168 ? "this week" : (s2.hours || 168) <= 6 ? "lately" : "today"}</span>
           <span>${(s2.hours || 168) >= 48 ? `${(s2.hours || 168) / 24} days` : `${s2.hours} hours`}</span></div>
       </div>`;
   }
@@ -6976,6 +7040,20 @@ var OverlookShow = class extends dt {
     .pop-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
                margin: 8px 4px 0; }
     .pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .wpop { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px 16px;
+            border-radius: 22px; background: var(--inset); }
+    .wpop-chip { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px;
+                 border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
+    .wpop-done .wpop-chip { color: #fff; background: var(--accent); }
+    .wpop-big { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1.1; letter-spacing: -0.01em; }
+    .wpop-sub { font-size: 14px; font-weight: 600; }
+    .wpop-watts { display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--accent); }
+    .wpop-watts ha-icon { --mdc-icon-size: 18px; }
+    .wpop-btn { align-self: stretch; margin-top: 8px; height: 56px; border: 0; border-radius: 18px; display: flex;
+                align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: 17px; font-weight: 700;
+                color: #fff; background: var(--accent); cursor: pointer; }
+    .wpop-btn ha-icon { --mdc-icon-size: 22px; }
+    .wpop-btn:active { transform: scale(0.98); }
     .ptile { display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center; padding: 10px 12px; min-height: 62px;
              border-radius: 20px; background: var(--inset); text-align: left; min-width: 0; }
     .ptile.wide { grid-column: 1 / -1; }
@@ -7270,6 +7348,11 @@ var OverlookPiece = class extends OverlookShow {
     return Object.fromEntries(Object.keys(this._ownPopups()).map((k2) => [k2, k2]));
   }
   _open(id) {
+    const w2 = washerOf(this._config);
+    if (id === w2.entity) {
+      overlay(this.hass).openPopup(washerPopup(w2));
+      return;
+    }
     const p2 = this._ownPopups()[id];
     if (p2) overlay(this.hass).openPopup(p2);
     else overlay(this.hass)._moreInfo(id);
