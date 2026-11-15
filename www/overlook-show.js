@@ -13,9 +13,9 @@
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
-import { MeridianWeather } from "./weather.js";
+import { weatherPopup, wxSection, wxPill, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.0";
+const VERSION = "0.34.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1134,6 +1134,7 @@ class OverlookShow extends LitElement {
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
     const pills = (this._config.status || []).map((x) => {
+      if (x.weather) return wxPill(this, x);   // always shown: temperature and condition, or the warning
       const e = this._st(x.entity);
       if (!e) return nothing;
       if (x.person) {
@@ -1235,6 +1236,12 @@ class OverlookShow extends LitElement {
       return;
     }
     const id = this._links()[entityId];
+    if (String(entityId).startsWith("weather.") && !(id && this._config.popups[id])) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __weather: weatherPopup() }) });
+      this._pop = "__weather";
+      return;
+    }
     if (!id || !this._config.popups[id]) { this._moreInfo(entityId); return; }
     fireHaptic("light");
     this._pop = id;
@@ -1350,6 +1357,7 @@ class OverlookShow extends LitElement {
       const w = this._st(s.when.entity);
       if (!w || w.state !== s.when.state) return nothing;
     }
+    if (String(s.type).startsWith("wx-")) return wxSection(this, s);   // the weather sheet (www/weather.js)
     const head = s.title ? html`<div class="pop-sub">${s.title}</div>` : nothing;
     switch (s.type) {
       case "player": return html`${head}${this._popPlayer(s.entity)}`;
@@ -2690,7 +2698,7 @@ class OverlookShow extends LitElement {
     input.focus();
   }
 
-  static styles = [css`
+  static styles = [WX_CSS, css`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
@@ -3968,7 +3976,7 @@ class OverlookPiece extends OverlookShow {
   _open(id) {
     const w = washerOf(this._config);
     if (id === w.entity) { overlay(this.hass).openPopup(washerPopup(w)); return; }
-    const p = this._ownPopups()[id];
+    const p = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
     if (p) overlay(this.hass).openPopup(p); else overlay(this.hass)._moreInfo(id);
   }
   getCardSize() { return 1; }
@@ -5190,8 +5198,9 @@ class EchoPiece extends OverlookShow {
 
   // a pop-up set on the card opens in the shell; without one, HA's details
   _open(id) {
-    const p = this._config.popup, s = ECHO_SHELL;
-    if (s && p && (p.sections || []).length) { s.hass = this.hass; s.openPopup(p); return; }
+    const own = this._config.popup, s = ECHO_SHELL;
+    const p = own && (own.sections || []).length ? own : String(id).startsWith("weather.") ? weatherPopup() : null;
+    if (s && p) { s.hass = this.hass; s.openPopup(p); return; }
     this._moreInfo(id);
   }
   _openLight(id) {
@@ -5957,11 +5966,6 @@ class MeridianCountdown extends LitElement {
 }
 definePhone("countdown", MeridianCountdown);
 
-// the weather page (www/weather.js), with Meridian's fonts
-definePhone("weather", class extends MeridianWeather {
-  connectedCallback() { super.connectedCallback(); loadFonts(this.hass); }
-});
-
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
@@ -5971,7 +5975,6 @@ if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
   { type: "meridian-countdown", name: "Meridian countdown", description: "Counts down to a date and time, with artwork and big ticking digits" },
-  { type: "meridian-weather", name: "Meridian weather", description: "A full weather page in the iOS Weather layout: warnings, next-hour rain, hourly, daily, radar and detail tiles" },
   { type: "meridian-pip", name: "Meridian Pip", description: "Pip the sprout: a tamagotchi pet that lives on the house's sensors. Tap to open, three taps to pet" },
 );
 if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });

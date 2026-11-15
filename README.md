@@ -103,7 +103,6 @@ can use them, and a dashboard built from them is a Show screen without `deploy.p
 | `meridian-playlists` | playlist tiles that play on the media card's speaker |
 | `meridian-shopping-list` | a to-do list's open items: tap one to tick it off, + to add; six rows high by default |
 | `meridian-recipes` | your Norish recipes (favourites, recently added, cookbooks); tap one for ingredients and method. Best on a view of its own with `max_columns: 1` |
-| `meridian-weather` | a whole weather page in the iOS Weather layout: place and temperature, Bureau of Meteorology warnings, next-hour rain, the next 24 hours (Conditions / Rain / Wind tabs, sunrise and sunset), the coming days with range bars, an animated rain radar, and UV, sunset, feels like, wind, rain, humidity, pressure and moon tiles. Needs the BoM integration (`bremor/bureau_of_meteorology`); next-hour rain needs the Pirate Weather sensor in [`ha_config/configuration.yaml`](ha_config/configuration.yaml). Put it alone in a **panel** view |
 | `meridian-dock` | the Show's dock: one button per dashboard view, plus photos, night clock, voice timers and alarms, and full-screen now playing. Rows grow to fit the tallest column (6 at least), so bigger screens can hold more |
 
 Put one `meridian-dock` on each view (a bare one copies the first configured one). The weather

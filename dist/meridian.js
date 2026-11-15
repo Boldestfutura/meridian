@@ -1106,11 +1106,11 @@ function setDinner(c2, day, id) {
 }
 function airTile(c2, x3) {
   const key = Object.keys(AIRC).find((k2) => (x3.attr || x3.entity).includes(k2)) || "temperature";
-  const [name, colour, icon, unit, verdict] = AIRC[key];
+  const [name, colour, icon2, unit, verdict] = AIRC[key];
   const v2 = num(c2, x3.entity, x3.attr);
   return Z`
     <button class="card air-tile" style="--c:${colour}" @click=${() => c2._open(x3.entity)}>
-      <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+      <span class="air-ico"><ha-icon icon=${icon2}></ha-icon></span>
       <span class="air-val">${v2 == null ? "\u2013" : key === "temperature" ? Math.round(v2 * 10) / 10 : Math.round(v2)}<small>${unit}</small></span>
       <span class="air-name">${name}<span class="air-q">${v2 == null ? "No reading" : verdict(v2)}</span></span>
     </button>`;
@@ -1686,8 +1686,8 @@ function recipesPage(c2) {
       <section class="shelf"><div class="card-title">This week's dinners <span class="muted mp-src">synced with Norish</span></div>
         <div class="mp-row">${days.map(day)}</div></section>
       <section class="shelf rec-tabs">
-        <div class="rt-chips">${tabs.map(([id, name, icon, n2]) => Z`
-          <button class="tab ${tab === id ? "on" : ""}" @click=${() => setTab(id)}><ha-icon icon=${icon}></ha-icon><span>${name}</span><small>${n2}</small></button>`)}</div>
+        <div class="rt-chips">${tabs.map(([id, name, icon2, n2]) => Z`
+          <button class="tab ${tab === id ? "on" : ""}" @click=${() => setTab(id)}><ha-icon icon=${icon2}></ha-icon><span>${name}</span><small>${n2}</small></button>`)}</div>
         <div class="shelf-row">${items}</div>
       </section>
       ${c2._tDay && !c2._config.swipe ? dayPicker(c2, L2) : J}
@@ -3206,22 +3206,22 @@ function shakeDetector(onShake) {
 }
 
 // www/weather.js
-var DEFAULTS = {
-  name: "South Melbourne",
+var WX = {
   weather: "weather.outdoor_south_melbourne",
-  // daily forecast + current condition
   hourly: "weather.outdoor_south_melbourne_hourly",
-  detail: "weather.forecast_home",
-  // pressure (met.no)
   forecast: "bom_south_melbourne",
   // sensor.<forecast>_<kind>_0
   observations: "bom_olympic_park",
   // sensor.<observations>_<kind>
   warnings: "sensor.bom_south_melbourne_warnings",
-  rain: "sensor.rain_next_hour",
-  latitude: -37.83,
-  longitude: 144.953
+  rain: "sensor.rain_next_hour"
 };
+var weatherPopup = () => ({
+  title: "Weather",
+  icon: "mdi:weather-partly-cloudy",
+  weather: true,
+  sections: ["now", "warnings", "rain", "hours", "week", "details"].map((k2) => ({ type: `wx-${k2}` }))
+});
 var LABEL = {
   "sunny": "Sunny",
   "clear-night": "Clear",
@@ -3239,507 +3239,191 @@ var LABEL = {
   "windy-variant": "Windy",
   "exceptional": "Severe weather"
 };
-var ICONS = new Set(Object.keys(LABEL));
-var POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-var bearing = (b2) => typeof b2 === "number" ? b2 : POINTS.indexOf(String(b2 || "").toUpperCase()) * 22.5;
+var wxLabel = (cond) => LABEL[cond] || "";
 var DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var hourLabel = (d2) => `${d2.getHours() % 12 || 12}${d2.getHours() < 12 ? "am" : "pm"}`;
-var clock = (d2) => `${d2.getHours() % 12 || 12}:${String(d2.getMinutes()).padStart(2, "0")} ${d2.getHours() < 12 ? "am" : "pm"}`;
+var clock = (d2) => `${d2.getHours() % 12 || 12}:${String(d2.getMinutes()).padStart(2, "0")}${d2.getHours() < 12 ? "am" : "pm"}`;
 var num2 = (v2) => {
   const n2 = parseFloat(v2);
   return isFinite(n2) ? n2 : null;
 };
-var round = (v2) => v2 == null ? "\u2013" : Math.round(v2);
-function tempColour(t3) {
-  const stops = [[0, [94, 148, 255]], [10, [92, 200, 235]], [17, [120, 214, 160]], [23, [250, 210, 90]], [30, [255, 150, 60]], [38, [240, 70, 60]]];
-  if (t3 <= stops[0][0]) return `rgb(${stops[0][1]})`;
-  for (let i2 = 1; i2 < stops.length; i2++) {
-    if (t3 <= stops[i2][0]) {
-      const [a2, ca] = stops[i2 - 1], [b2, cb] = stops[i2], k2 = (t3 - a2) / (b2 - a2);
-      return `rgb(${ca.map((c2, j2) => Math.round(c2 + (cb[j2] - c2) * k2))})`;
-    }
-  }
-  return `rgb(${stops[stops.length - 1][1]})`;
-}
-function moon(d2 = /* @__PURE__ */ new Date()) {
-  const p2 = ((d2.getTime() / 864e5 + 24405875e-1 - 24515501e-1) / 29.530588853 % 1 + 1) % 1;
-  const name = p2 < 0.034 || p2 > 0.966 ? "New moon" : p2 < 0.216 ? "Waxing crescent" : p2 < 0.284 ? "First quarter" : p2 < 0.466 ? "Waxing gibbous" : p2 < 0.534 ? "Full moon" : p2 < 0.716 ? "Waning gibbous" : p2 < 0.784 ? "Last quarter" : "Waning crescent";
-  return { phase: p2, name, lit: Math.round((1 - Math.cos(p2 * 2 * Math.PI)) / 2 * 100) };
-}
-var worldPx = (lat, lon, z2) => {
-  const n2 = 256 * 2 ** z2, s2 = Math.sin(lat * Math.PI / 180);
-  return [(lon + 180) / 360 * n2, (0.5 - Math.log((1 + s2) / (1 - s2)) / (4 * Math.PI)) * n2];
+var round = (v2) => v2 == null || !isFinite(v2) ? "\u2013" : Math.round(v2);
+var icon = (cond, night) => {
+  let c2 = LABEL[cond] ? cond : "cloudy";
+  if (night && c2 === "sunny") c2 = "clear-night";
+  return `/local/weather/${c2}.svg`;
 };
-var MeridianWeather = class extends dt {
-  static get properties() {
-    return {
-      hass: { attribute: false },
-      _daily: { state: true },
-      _hourly: { state: true },
-      _tab: { state: true },
-      _frames: { state: true },
-      _frame: { state: true }
-    };
+var WeatherFeed = class {
+  constructor(host) {
+    this.host = host;
+    this.daily = null;
+    this.hourly = null;
   }
-  static getStubConfig() {
-    return {};
-  }
-  setConfig(c2) {
-    this._config = Object.assign({}, DEFAULTS, c2 || {});
-    this._tab = this._tab || "conditions";
-  }
-  getCardSize() {
-    return 30;
-  }
-  getGridOptions() {
-    return { columns: "full", rows: "auto" };
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this._radar();
-    this._radarTimer = setInterval(() => this._radar(), 10 * 6e4);
-    this._tick = setInterval(() => this.requestUpdate(), 6e4);
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    for (const u2 of [this._unsubD, this._unsubH]) if (u2) u2.then((f2) => f2()).catch(() => {
-    });
-    this._unsubD = this._unsubH = null;
-    clearInterval(this._radarTimer);
-    clearInterval(this._tick);
-    clearInterval(this._anim);
-  }
-  updated() {
-    if (!this.hass || this._unsubD) return;
-    const sub = (type, entity, set) => this.hass.connection.subscribeMessage(
-      (m2) => set(m2.forecast || []),
+  touch(hass) {
+    this.seen = Date.now();
+    if (this.subs || !hass) return;
+    const sub = (type, entity, key) => hass.connection.subscribeMessage(
+      (m2) => {
+        this[key] = m2.forecast || [];
+        this.host.requestUpdate();
+      },
       { type: "weather/subscribe_forecast", forecast_type: type, entity_id: entity }
-    );
-    this._unsubD = sub("daily", this._config.weather, (f2) => {
-      this._daily = f2;
-    });
-    this._unsubH = sub("hourly", this._config.hourly, (f2) => {
-      this._hourly = f2;
-    });
+    ).catch(() => null);
+    this.subs = [sub("daily", WX.weather, "daily"), sub("hourly", WX.hourly, "hourly")];
+    this.watch = setInterval(() => {
+      if (Date.now() - this.seen < 12e4) return;
+      for (const s2 of this.subs) s2.then((f2) => f2 && f2()).catch(() => {
+      });
+      this.subs = null;
+      clearInterval(this.watch);
+    }, 3e4);
   }
-  _st(id) {
-    return this.hass && this.hass.states[id];
-  }
-  _v(id) {
-    const s2 = this._st(id);
-    return s2 ? num2(s2.state) : null;
-  }
-  _obs(k2) {
-    return this._v(`sensor.${this._config.observations}_${k2}`);
-  }
-  _fc(k2) {
-    const s2 = this._st(`sensor.${this._config.forecast}_${k2}_0`);
-    return s2 && !["unknown", "unavailable"].includes(s2.state) ? s2.state : null;
-  }
-  _sun() {
-    const t3 = (k2) => {
-      const v2 = this._fc(`astronomical_${k2}_time`);
-      return v2 ? new Date(v2) : null;
-    };
-    return { rise: t3("sunrise"), set: t3("sunset") };
-  }
-  _night(d2 = /* @__PURE__ */ new Date()) {
-    const { rise, set } = this._sun();
-    if (!rise || !set) return (this._st("sun.sun") || {}).state === "below_horizon";
+};
+function wxSection(c2, s2) {
+  const feed = c2.__wxFeed || (c2.__wxFeed = new WeatherFeed(c2));
+  feed.touch(c2.hass);
+  const st2 = (id) => c2.hass && c2.hass.states[id];
+  const obs = (k2) => {
+    const e2 = st2(`sensor.${WX.observations}_${k2}`);
+    return e2 ? num2(e2.state) : null;
+  };
+  const fc = (k2) => {
+    const e2 = st2(`sensor.${WX.forecast}_${k2}_0`);
+    return e2 && !["unknown", "unavailable"].includes(e2.state) ? e2.state : null;
+  };
+  const sunT = (k2) => {
+    const x3 = fc(`astronomical_${k2}_time`);
+    return x3 ? new Date(x3) : null;
+  };
+  const rise = sunT("sunrise"), set = sunT("sunset");
+  const night = (d2 = /* @__PURE__ */ new Date()) => {
+    if (!rise || !set) return (st2("sun.sun") || {}).state === "below_horizon";
     const m2 = d2.getHours() * 60 + d2.getMinutes();
     return m2 < rise.getHours() * 60 + rise.getMinutes() || m2 > set.getHours() * 60 + set.getMinutes();
-  }
-  _icon(cond, night) {
-    let c2 = ICONS.has(cond) ? cond : "cloudy";
-    if (night && c2 === "sunny") c2 = "clear-night";
-    return `/local/weather/${c2}.svg`;
-  }
-  // ---- radar ---------------------------------------------------------------------------------
-  async _radar() {
-    try {
-      const r2 = await (await fetch("https://api.rainviewer.com/public/weather-maps.json")).json();
-      this._host = r2.host;
-      this._frames = (r2.radar && r2.radar.past || []).slice(-10);
-      this._frame = this._frames.length - 1;
-      clearInterval(this._anim);
-      let hold = 0;
-      this._anim = setInterval(() => {
-        if (!this._frames || !this._frames.length) return;
-        if (this._frame === this._frames.length - 1 && hold++ < 3) return;
-        hold = 0;
-        this._frame = (this._frame + 1) % this._frames.length;
-      }, 600);
-    } catch (e2) {
-      this._frames = [];
+  };
+  const today = (feed.daily || [])[0];
+  const todayLo = Math.min(...[today && (today.templow ?? today.temperature), obs("min_temp")].filter((x3) => x3 != null));
+  const todayHi = Math.max(...[today && today.temperature, obs("max_temp")].filter((x3) => x3 != null));
+  switch (s2.type) {
+    case "wx-now": {
+      const w2 = st2(WX.weather), short = fc("short_text");
+      return Z`<div class="wp-now">
+        <img src=${icon(w2 ? w2.state : "cloudy", night())} alt="">
+        <div class="wp-big">${round(obs("temp") ?? (w2 && w2.attributes.temperature))}°</div>
+        <div class="wp-what"><b>${short ? short.replace(/\.$/, "") : wxLabel(w2 && w2.state)}</b>
+          <span class="muted">H ${round(todayHi)}° · L ${round(todayLo)}° · Feels ${round(obs("temp_feels_like"))}°</span></div></div>`;
     }
-  }
-  // RainViewer's free tiles draw the faintest returns in beige; repaint those as Apple's pale blue.
-  // Tiles come back as data URLs once recoloured (the original is shown until then).
-  _tint(url) {
-    this._tints = this._tints || /* @__PURE__ */ new Map();
-    const done = this._tints.get(url);
-    if (done) return done === true ? url : done;
-    this._tints.set(url, true);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const cv = document.createElement("canvas");
-        cv.width = img.width;
-        cv.height = img.height;
-        const cx = cv.getContext("2d");
-        cx.drawImage(img, 0, 0);
-        const d2 = cx.getImageData(0, 0, cv.width, cv.height), px = d2.data;
-        for (let i2 = 0; i2 < px.length; i2 += 4) {
-          const [r2, g2, b2] = [px[i2], px[i2 + 1], px[i2 + 2]];
-          if (px[i2 + 3] && r2 > b2 + 20 && g2 > b2 + 8 && Math.abs(r2 - g2) < 40) {
-            px[i2] = 150;
-            px[i2 + 1] = 200;
-            px[i2 + 2] = 255;
-            px[i2 + 3] = Math.round(px[i2 + 3] * 0.55);
-          }
-        }
-        cx.putImageData(d2, 0, 0);
-        this._tints.set(url, cv.toDataURL());
-        if (this._tints.size > 400) this._tints.delete(this._tints.keys().next().value);
-        this.requestUpdate();
-      } catch (e2) {
-      }
-    };
-    img.src = url;
-    return url;
-  }
-  _map() {
-    const c2 = this._config, Z2 = 8;
-    const [px, py] = worldPx(c2.latitude, c2.longitude, Z2);
-    const tx = Math.floor(px / 256), ty = Math.floor(py / 256), x0 = tx - 2, y0 = ty - 1;
-    const base = [], labels = [], esri = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_";
-    for (let x3 = x0; x3 <= tx + 2; x3++) for (let y2 = y0; y2 <= ty + 1; y2++) {
-      const at2 = `left:${(x3 - x0) * 256}px;top:${(y2 - y0) * 256}px`;
-      base.push(Z`<img src="${esri}Base/MapServer/tile/${Z2}/${y2}/${x3}" style=${at2} alt="">`);
-      labels.push(Z`<img class="lbl" src="${esri}Reference/MapServer/tile/${Z2}/${y2}/${x3}" style=${at2} alt="">`);
-    }
-    const radar = [];
-    if (this._frames && this._host) {
-      const X0 = Math.floor(x0 / 2), Y0 = Math.floor(y0 / 2);
-      this._frames.forEach((f3, i2) => {
-        for (let X2 = X0; X2 <= Math.floor((tx + 2) / 2); X2++) for (let Y2 = Y0; Y2 <= Math.floor((ty + 1) / 2); Y2++)
-          radar.push(Z`<img class="rad ${i2 === this._frame ? "on" : ""}" src="${this._tint(`${this._host}${f3.path}/256/7/${X2}/${Y2}/2/1_1.png`)}"
-            style="left:${X2 * 512 - x0 * 256}px;top:${Y2 * 512 - y0 * 256}px" alt="">`);
+    case "wx-warnings":
+      return ((st2(WX.warnings) || { attributes: {} }).attributes.warnings || []).map((w2) => {
+        const until = w2.expiry_time ? new Date(w2.expiry_time) : null;
+        return Z`<a class="wp-row wp-warn ${w2.warning_group_type === "major" ? "major" : ""}" target="_blank" rel="noreferrer"
+            href="https://www.bom.gov.au/products/${String(w2.id || "").split("_").pop()}.shtml">
+          <ha-icon icon="mdi:alert"></ha-icon><span><b>${w2.short_title || w2.title}</b>
+            <span class="muted">${until ? `Until ${DAY[until.getDay()]} ${clock(until)}` : "Bureau of Meteorology"}</span></span></a>`;
       });
+    case "wx-rain": {
+      const e2 = st2(WX.rain), pts = (e2 && e2.attributes.data || []).slice(0, 60);
+      if (!pts.some((p2) => p2.precipProbability >= 0.15 && p2.precipIntensity >= 0.05)) return J;
+      return Z`<div class="wp-row"><ha-icon icon="mdi:umbrella"></ha-icon><span><b>${(e2.state || "Rain soon").replace(/\.$/, "")}</b>
+        <span class="muted">Next hour, up to ${Math.round(Math.max(...pts.map((p2) => p2.precipProbability)) * 100)}% chance</span></span></div>`;
     }
-    const f2 = this._frames && this._frames[this._frame];
-    return Z`<div class="panel map">
-      <div class="lab"><ha-icon icon="mdi:radar"></ha-icon>Rain radar</div>
-      <div class="mapbox">
-        <div class="tiles" style="transform:translate(${-(px - x0 * 256)}px, ${-(py - y0 * 256)}px)">${base}${radar}${labels}</div>
-        <div class="home"></div>
-        ${f2 ? Z`<div class="stamp">${clock(new Date(f2.time * 1e3))}</div>` : J}
-        <div class="credit">Esri, HERE, Garmin · RainViewer</div>
-      </div></div>`;
+    case "wx-hours": {
+      const now = Date.now(), list = (feed.hourly || []).filter((f2) => Date.parse(f2.datetime) > now - 36e5).slice(0, 8);
+      if (!list.length) return J;
+      return Z`<div class="wp-hours">${list.map((f2, i2) => {
+        const d2 = new Date(f2.datetime), p2 = f2.precipitation_probability || 0;
+        return Z`<div><span class="muted">${i2 ? hourLabel(d2) : "Now"}</span><img src=${icon(f2.condition, night(d2))} alt="">
+          <b>${round(i2 === 0 && obs("temp") != null ? obs("temp") : f2.temperature)}°</b><small>${p2 >= 20 ? `${p2}%` : ""}</small></div>`;
+      })}</div>`;
+    }
+    case "wx-week": {
+      const list = (feed.daily || []).slice(0, 7);
+      if (!list.length) return J;
+      return Z`<div class="wp-week">${list.map((f2, i2) => {
+        const p2 = f2.precipitation_probability || 0;
+        return Z`<div><span>${i2 ? DAY[new Date(f2.datetime).getDay()] : "Today"}</span><img src=${icon(f2.condition, false)} alt="">
+          <small>${p2 >= 20 ? `${p2}%` : ""}</small>
+          <span class="muted wp-n">${round(i2 ? f2.templow ?? f2.temperature : todayLo)}°</span><b class="wp-n">${round(i2 ? f2.temperature : todayHi)}°</b></div>`;
+      })}</div>`;
+    }
+    case "wx-details": {
+      const dir = (st2(`sensor.${WX.observations}_wind_direction`) || {}).state || "", gust = obs("gust_speed_kilometre");
+      const uv = fc("uv_max_index"), uvS = fc("uv_start_time"), uvE = fc("uv_end_time"), dew = obs("dew_point");
+      const now = /* @__PURE__ */ new Date(), setNext = set && set > now, next = setNext ? set : rise ? new Date(rise.getTime() + (rise < now ? 864e5 : 0)) : null;
+      const tile = (ic, label, big, note) => Z`<div class="wp-tile"><span class="muted"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small class="muted">${note}</small></div>`;
+      return Z`<div class="wp-tiles">
+        ${tile("mdi:weather-windy", "Wind", `${round(obs("wind_speed_kilometre"))} km/h`, [dir && `From the ${dir}`, gust != null && `gusts ${round(gust)}`].filter(Boolean).join(", "))}
+        ${tile("mdi:weather-sunny-alert", "UV today", uv ? `${uv} ${fc("uv_category") || ""}` : "\u2013", uvS && uvE ? `Cover up ${clock(new Date(uvS))}\u2013${clock(new Date(uvE))}` : "")}
+        ${tile("mdi:water-percent", "Humidity", `${round(obs("humidity"))}%`, dew != null ? `Dew point ${round(dew)}\xB0` : "")}
+        ${tile(
+        setNext ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up",
+        setNext ? "Sunset" : "Sunrise",
+        next ? clock(next) : "\u2013",
+        setNext ? rise ? `Sunrise ${clock(rise)}` : "" : set ? `Sunset ${clock(set)}` : ""
+      )}
+      </div>`;
+    }
   }
-  // ---- sections ------------------------------------------------------------------------------
-  _hero(cond, night) {
-    const temp = this._obs("temp") ?? (this._st(this._config.weather) || { attributes: {} }).attributes.temperature;
-    const today = (this._daily || [])[0] || {};
-    const hi = Math.max(...[today.temperature, this._obs("max_temp")].filter((v2) => v2 != null));
-    const lo = Math.min(...[today.templow, this._obs("min_temp")].filter((v2) => v2 != null));
-    const short = this._fc("short_text");
-    return Z`<header>
-      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>Home</div>
-      <h1>${this._config.name}</h1>
-      <div class="big">${round(temp)}°</div>
-      <div class="cond">${short ? short.replace(/\.$/, "") : LABEL[cond] || ""}</div>
-      <div class="hl">H:${isFinite(hi) ? round(hi) : "\u2013"}°  L:${isFinite(lo) ? round(lo) : "\u2013"}°  ·  Feels like ${round(this._obs("temp_feels_like"))}°</div>
-    </header>`;
-  }
-  _warnings() {
-    const s2 = this._st(this._config.warnings), list = s2 && s2.attributes.warnings || [];
-    return list.map((w2) => {
-      const prod = String(w2.id || "").split("_").pop();
-      const until = w2.expiry_time ? new Date(w2.expiry_time) : null;
-      const major = w2.warning_group_type === "major";
-      return Z`<a class="panel warn ${major ? "major" : ""}" href="https://www.bom.gov.au/products/${prod}.shtml" target="_blank" rel="noreferrer">
-        <div class="wt"><ha-icon icon="mdi:alert"></ha-icon>${w2.short_title || w2.title}</div>
-        <div class="wd">${w2.title}${until ? Z` Until ${DAY[until.getDay()]} ${clock(until)}.` : J}</div>
-        <div class="src">Bureau of Meteorology</div></a>`;
-    });
-  }
-  _nextHour() {
-    const s2 = this._st(this._config.rain);
-    const pts = (s2 && s2.attributes.data || []).slice(0, 60);
-    if (!pts.length) return J;
-    const wet = pts.some((p2) => p2.precipProbability >= 0.15 && p2.precipIntensity >= 0.05);
-    if (!wet) return Z`<div class="panel slim"><ha-icon icon="mdi:weather-cloudy-clock"></ha-icon>No rain expected in the next hour</div>`;
-    const h2 = (i2) => i2 <= 0 ? 0 : i2 <= 0.5 ? i2 / 0.5 / 3 : i2 <= 4 ? 1 / 3 + (i2 - 0.5) / 3.5 / 3 : 2 / 3 + Math.min(1, (i2 - 4) / 12) / 3;
-    const top = Math.max(...pts.map((p2) => p2.precipProbability));
-    return Z`<div class="panel">
-      <div class="nh-title">${(s2.state || "Rain").replace(/\.$/, "")}</div>
-      <div class="nh-sub">Up to ${Math.round(top * 100)}% chance in the next hour</div>
-      <div class="nh">
-        <i class="g" style="bottom:33.3%"></i><i class="g" style="bottom:66.6%"></i>
-        ${pts.map((p2) => Z`<b style="height:${Math.max(2, h2(p2.precipIntensity) * 100)}%;opacity:${0.35 + 0.65 * p2.precipProbability}"></b>`)}
-      </div>
-      <div class="ticks">${["Now", "10m", "20m", "30m", "40m", "50m"].map((t3) => Z`<span>${t3}</span>`)}</div>
-    </div>`;
-  }
-  _hours() {
-    const now = Date.now(), list = (this._hourly || []).filter((f2) => Date.parse(f2.datetime) > now - 36e5).slice(0, 24);
-    if (!list.length) return J;
-    const { rise, set } = this._sun(), items = [];
-    list.forEach((f2, i2) => {
-      const d2 = new Date(f2.datetime);
-      items.push({ kind: "h", f: f2, d: d2, label: i2 === 0 ? "Now" : hourLabel(d2) });
-      for (const [t3, what] of [[rise, "Sunrise"], [set, "Sunset"]])
-        for (const x3 of t3 ? [t3, new Date(t3.getTime() + 864e5)] : [])
-          if (x3 > d2 && x3 <= new Date(d2.getTime() + 36e5) && x3 > now) items.push({ kind: "s", d: x3, what });
-    });
-    const tab = this._tab, nowT = this._obs("temp");
-    const tabs = [["conditions", "mdi:weather-partly-cloudy", "Conditions"], ["rain", "mdi:water", "Rain"], ["wind", "mdi:weather-windy", "Wind"]];
-    return Z`<div class="panel">
-      <div class="hrhead">
-        <div><div class="lab big">${tabs.find((t3) => t3[0] === tab)[2]}</div>
-          <div class="hint">${tab === "rain" ? "Chance and amount" : tab === "wind" ? "Speed and gusts (km/h)" : "Temperature (\xB0C)"}</div></div>
-        <div class="seg">${tabs.map(([k2, ic]) => Z`<button class=${tab === k2 ? "on" : ""} @click=${() => {
-      this._tab = k2;
-    }}><ha-icon icon=${ic}></ha-icon></button>`)}</div>
-      </div>
-      <div class="hours">${items.map((it2, i2) => {
-      if (it2.kind === "s") return Z`<div class="hr sun"><span>${clock(it2.d).replace(" ", "")}</span>
-          <img src=${it2.what === "Sunset" ? "/local/weather/partlycloudy.svg" : "/local/weather/sunny.svg"} alt=""><b>${it2.what}</b></div>`;
-      const f2 = it2.f, p2 = f2.precipitation_probability || 0;
-      if (tab === "rain") return Z`<div class="hr"><span>${it2.label}</span>
-          <div class="rbar"><i style="height:${p2}%"></i></div><b class="blue">${p2}%</b><small>${f2.precipitation || 0} mm</small></div>`;
-      if (tab === "wind") return Z`<div class="hr"><span>${it2.label}</span>
-          <ha-icon class="arrow" icon="mdi:navigation" style="transform:rotate(${bearing(f2.wind_bearing) + 180}deg)"></ha-icon>
-          <b>${round(f2.wind_speed)}</b><small>${f2.wind_gust_speed ? `gust ${round(f2.wind_gust_speed)}` : ""}</small></div>`;
-      return Z`<div class="hr"><span>${it2.label}</span>
-          <img src=${this._icon(f2.condition, this._night(it2.d))} alt="">
-          <small class="blue">${p2 >= 20 ? `${p2}%` : ""}</small><b>${round(i2 === 0 && nowT != null ? nowT : f2.temperature)}°</b></div>`;
-    })}</div></div>`;
-  }
-  _days() {
-    const list = (this._daily || []).slice(0, 8);
-    if (!list.length) return J;
-    const obs = [this._obs("min_temp"), this._obs("max_temp")].filter((v2) => v2 != null);
-    const lo = Math.min(...list.map((f2) => f2.templow ?? f2.temperature), ...obs), hi = Math.max(...list.map((f2) => f2.temperature), ...obs);
-    const span = Math.max(1, hi - lo), nowT = this._obs("temp");
-    return Z`<div class="panel">
-      <div class="lab"><ha-icon icon="mdi:calendar-month"></ha-icon>${list.length}-day forecast</div>
-      ${list.map((f2, i2) => {
-      const d2 = new Date(f2.datetime);
-      const a2 = i2 === 0 ? Math.min(...[f2.templow ?? f2.temperature, this._obs("min_temp")].filter((v2) => v2 != null)) : f2.templow ?? f2.temperature;
-      const b2 = i2 === 0 ? Math.max(...[f2.temperature, this._obs("max_temp")].filter((v2) => v2 != null)) : f2.temperature;
-      const l2 = (a2 - lo) / span * 100, w2 = Math.max(4, (b2 - a2) / span * 100), p2 = f2.precipitation_probability || 0;
-      const dot = i2 === 0 && nowT != null ? Math.min(100, Math.max(0, (nowT - lo) / span * 100)) : null;
-      return Z`<div class="day">
-          <span class="dn">${i2 === 0 ? "Today" : DAY[d2.getDay()]}</span>
-          <span class="di"><img src=${this._icon(f2.condition, false)} alt="">${p2 >= 20 ? Z`<small class="blue">${p2}%</small>` : J}</span>
-          <span class="lo">${round(a2)}°</span>
-          <span class="range"><i style="left:${l2}%;width:${w2}%;background:linear-gradient(90deg, ${tempColour(a2)}, ${tempColour(b2)})"></i>
-            ${dot != null ? Z`<u style="left:${dot}%"></u>` : J}</span>
-          <span class="hi">${round(b2)}°</span></div>`;
-    })}</div>`;
-  }
-  _tiles() {
-    const uv = num2(this._fc("uv_max_index")), uvCat = this._fc("uv_category");
-    const uvS = this._fc("uv_start_time"), uvE = this._fc("uv_end_time");
-    const { rise, set } = this._sun(), now = /* @__PURE__ */ new Date();
-    const nextSet = set && set > now, next = nextSet ? set : rise ? new Date(rise.getTime() + (rise < now ? 864e5 : 0)) : null;
-    const feels = this._obs("temp_feels_like"), temp = this._obs("temp");
-    const wind = this._obs("wind_speed_kilometre"), gust = this._obs("gust_speed_kilometre");
-    const dirS = this._st(`sensor.${this._config.observations}_wind_direction`), dir = dirS ? dirS.state : "";
-    const hum = this._obs("humidity"), dew = this._obs("dew_point");
-    const det = (this._st(this._config.detail) || { attributes: {} }).attributes, pres = num2(det.pressure);
-    const rain9 = this._obs("rain_since_9am"), range = this._fc("rain_amount_range"), chance = this._fc("rain_chance");
-    const m2 = moon(), fire = this._fc("fire_danger");
-    const dayFrac = (d2) => (d2.getHours() * 60 + d2.getMinutes()) / 1440;
-    const r0 = rise ? dayFrac(rise) : 0.25, s0 = set ? dayFrac(set) : 0.83, nf = dayFrac(now);
-    const curve = (x3) => 30 - 22 * Math.sin(Math.PI * (x3 - r0) / (s0 - r0));
-    const path = Array.from({ length: 49 }, (_2, i2) => {
-      const x3 = i2 / 48;
-      return `${i2 ? "L" : "M"}${x3 * 100},${x3 < r0 || x3 > s0 ? 30 + 6 * Math.sin(Math.PI * ((x3 < r0 ? x3 + 1 : x3) - s0) / (1 + r0 - s0)) : curve(x3)}`;
-    }).join(" ");
-    const sunY = nf < r0 || nf > s0 ? 30 + 6 * Math.sin(Math.PI * ((nf < r0 ? nf + 1 : nf) - s0) / (1 + r0 - s0)) : curve(nf);
-    const tile = (icon, label, body) => Z`<div class="panel tile"><div class="lab"><ha-icon icon=${icon}></ha-icon>${label}</div>${body}</div>`;
-    return Z`<div class="grid">
-      ${tile("mdi:weather-sunny-alert", "UV index", Z`
-        <div class="tv">${uv ?? "\u2013"}</div><div class="tw">${uvCat || ""}</div>
-        <div class="uvbar"><u style="left:${Math.min(100, (uv || 0) / 11 * 100)}%"></u></div>
-        <div class="tn">${uvS && uvE ? `Sun protection ${clock(new Date(uvS))} to ${clock(new Date(uvE))}.` : "Today's peak."}</div>`)}
-      ${tile(nextSet ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up", nextSet ? "Sunset" : "Sunrise", Z`
-        <div class="tv mid">${next ? clock(next) : "\u2013"}</div>
-        <svg class="sunarc" viewBox="0 0 100 40" preserveAspectRatio="none">
-          <path d=${path} fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"></path>
-          <line x1="0" x2="100" y1="30" y2="30" stroke="currentColor" stroke-width=".5" opacity=".35"></line>
-          <circle cx=${nf * 100} cy=${sunY} r="2.6" fill="#fff"></circle></svg>
-        <div class="tn">${nextSet ? rise ? `Sunrise: ${clock(rise)}` : "" : set ? `Sunset: ${clock(set)}` : ""}</div>`)}
-      ${tile("mdi:thermometer", "Feels like", Z`
-        <div class="tv">${round(feels)}°</div><div class="tw">Actual: ${round(temp)}°</div>
-        <div class="tn">${feels != null && temp != null ? temp - feels >= 2 ? "Wind is making it feel cooler." : feels - temp >= 2 ? "Humidity is making it feel warmer." : "Similar to the actual temperature." : ""}</div>`)}
-      ${tile("mdi:weather-windy", "Wind", Z`
-        <div class="wind">
-          <div class="wnum"><div class="tv">${round(wind)}</div><div class="tw">km/h</div>
-            <div class="tn">${gust != null ? `Gusts ${round(gust)} km/h` : ""}</div></div>
-          <svg class="compass" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"></circle>
-            ${Array.from({ length: 36 }, (_2, i2) => q`<line x1="50" y1="8" x2="50" y2=${i2 % 9 ? 11 : 14} stroke="currentColor" stroke-width="1" opacity=".45" transform="rotate(${i2 * 10} 50 50)"></line>`)}
-            ${["N", "E", "S", "W"].map((p2, i2) => q`<text x=${50 + 32 * Math.sin(i2 * Math.PI / 2)} y=${53 - 32 * Math.cos(i2 * Math.PI / 2)} text-anchor="middle" font-size="9" fill="currentColor" opacity=".7">${p2}</text>`)}
-            <g transform="rotate(${bearing(dir) + 180} 50 50)">
-              <line x1="50" y1="78" x2="50" y2="26" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></line>
-              <path d="M50 18 L56 30 L44 30 Z" fill="#fff"></path><circle cx="50" cy="80" r="3" fill="none" stroke="#fff" stroke-width="1.6"></circle></g>
-          </svg></div>
-        <div class="tn">${dir ? `From the ${dir}` : ""}</div>`)}
-      ${tile("mdi:water", "Rain", Z`
-        <div class="tv">${rain9 ?? "\u2013"} mm</div><div class="tw">since 9 am</div>
-        <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : ""}</div>`)}
-      ${tile("mdi:water-percent", "Humidity", Z`
-        <div class="tv">${round(hum)}%</div>
-        <div class="tn">${dew != null ? `The dew point is ${round(dew)}\xB0 right now.` : ""}</div>`)}
-      ${tile("mdi:gauge", "Pressure", Z`
-        <svg class="gauge" viewBox="0 0 100 62">
-          ${Array.from({ length: 41 }, (_2, i2) => {
-      const a2 = -120 + i2 * 6;
-      return q`<line x1="50" y1="8" x2="50" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".4" transform="rotate(${a2} 50 54)"></line>`;
-    })}
-          ${pres != null ? q`<line x1="50" y1="5" x2="50" y2="17" stroke="#fff" stroke-width="3" stroke-linecap="round" transform="rotate(${Math.max(-120, Math.min(120, (pres - 1013) * 4))} 50 54)"></line>` : J}
-          <text x="50" y="50" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">${pres != null ? Math.round(pres) : "\u2013"}</text>
-          <text x="50" y="61" text-anchor="middle" font-size="7.5" fill="currentColor" opacity=".7">hPa</text></svg>`)}
-      ${tile("mdi:moon-waxing-crescent", "Moon", Z`
-        <div class="moonrow"><svg class="moon" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="40" fill="#2b3346"></circle>
-          <path d=${(() => {
-      const k2 = Math.cos(m2.phase * 2 * Math.PI) * 40, waxing = m2.phase < 0.5;
-      return `M50 10 A40 40 0 0 ${waxing ? 1 : 0} 50 90 A${Math.abs(k2)} 40 0 0 ${k2 > 0 === waxing ? 0 : 1} 50 10 Z`;
-    })()} fill="#e9ecf4"></path></svg>
-          <div><div class="tw strong">${m2.name}</div><div class="tn">${m2.lit}% lit</div></div></div>`)}
-      ${fire ? tile("mdi:fire", "Fire danger", Z`<div class="tv mid">${fire}</div><div class="tn">CFA rating for the district.</div>`) : J}
-    </div>`;
-  }
-  render() {
-    if (!this.hass || !this._config) return J;
-    const w2 = this._st(this._config.weather), cond = w2 ? w2.state : "cloudy", night = this._night();
-    const sky = night ? ["rainy", "pouring", "lightning", "lightning-rainy", "cloudy", "fog"].includes(cond) ? "night-grey" : "night" : ["rainy", "pouring", "lightning", "lightning-rainy"].includes(cond) ? "rain" : ["cloudy", "fog"].includes(cond) ? "grey" : "clear";
-    return Z`<div class="page sky-${sky}">
-      ${this._hero(cond, night)}
-      ${this._warnings()}
-      ${this._nextHour()}
-      ${this._hours()}
-      ${this._days()}
-      ${this._map()}
-      ${this._tiles()}
-      <div class="foot">Bureau of Meteorology · Pirate Weather · met.no</div>
-    </div>`;
-  }
-  static styles = o`
-    :host { display: block; --display: "Amazon Ember Display", "Amazon Ember", system-ui, sans-serif;
-            --body: "Amazon Ember", system-ui, sans-serif; --ink: #f4f7ff; --muted: rgba(235, 241, 255, 0.66);
-            --panel: rgba(16, 22, 38, 0.34); --edge: rgba(255, 255, 255, 0.10); --blue: #7cc4ff; }
-    * { box-sizing: border-box; }
-    button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    .page { min-height: 100vh; color: var(--ink); font-family: var(--body);
-            padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
-            display: flex; flex-direction: column; gap: 12px; }
-    :host { background: #3d4a63; }
-    .sky-clear { background: linear-gradient(180deg, #2f6fd0 0%, #5b9ae6 45%, #8bbcef 100%); }
-    .sky-grey { background: linear-gradient(180deg, #4d5b74 0%, #6b7a93 50%, #8693a8 100%); }
-    .sky-rain { background: linear-gradient(180deg, #37455e 0%, #4f5d76 45%, #66748c 100%); }
-    .sky-night { background: linear-gradient(180deg, #0a1230 0%, #18245a 55%, #27366e 100%); }
-    .sky-night-grey { background: linear-gradient(180deg, #141a2a 0%, #222b40 55%, #2f3a52 100%); }
-    .page > * { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; }
-    header { text-align: center; padding: 18px 0 22px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
-    .here { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-    .here ha-icon { --mdc-icon-size: 13px; transform: rotate(45deg); }
-    h1 { margin: 2px 0 0; font-family: var(--display); font-size: 32px; font-weight: 500; letter-spacing: -0.01em; }
-    .big { font-family: var(--display); font-size: 104px; font-weight: 200; line-height: 1; margin: 2px 0 2px 26px; letter-spacing: -0.04em; }
-    .cond { font-size: 20px; font-weight: 600; }
-    .hl { margin-top: 4px; font-size: 16px; font-weight: 500; color: var(--ink); white-space: pre; }
-    .panel { display: block; background: var(--panel); border: 1px solid var(--edge); border-radius: 22px; padding: 12px 14px;
-             backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); color: inherit; text-decoration: none; }
-    .lab { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
-    .lab ha-icon { --mdc-icon-size: 14px; }
-    .lab.big { display: block; font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--ink); }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 1px; }
-    .warn .wt { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; color: #ffd37a; }
-    .warn.major .wt { color: #ff8a7a; }
-    .warn .wt ha-icon { --mdc-icon-size: 18px; }
-    .warn .wd { font-size: 14px; margin-top: 4px; line-height: 1.35; }
-    .warn .src { font-size: 11px; color: var(--muted); margin-top: 6px; }
-    .slim { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
-    .slim ha-icon { --mdc-icon-size: 18px; color: var(--muted); }
-    .nh-title { font-family: var(--display); font-size: 18px; font-weight: 700; }
-    .nh-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
-    .nh { position: relative; height: 74px; margin-top: 12px; display: flex; align-items: flex-end; gap: 1.5px; }
-    .nh .g { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(255, 255, 255, 0.16); }
-    .nh b { flex: 1; background: var(--blue); border-radius: 2px 2px 0 0; min-width: 0; }
-    .ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); }
-    .ticks span:first-child { color: var(--ink); font-weight: 700; }
-    .hrhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .hrhead > div:first-child { text-align: left; }
-    .seg { display: flex; background: rgba(255, 255, 255, 0.10); border-radius: 999px; padding: 3px; gap: 2px; }
-    .seg button { width: 38px; height: 28px; border-radius: 999px; display: grid; place-items: center; color: var(--muted); }
-    .seg button.on { background: rgba(255, 255, 255, 0.92); color: #26324a; }
-    .seg ha-icon { --mdc-icon-size: 17px; }
-    .hours { display: flex; overflow-x: auto; gap: 4px; margin: 12px -14px 0; padding: 0 14px 4px; scrollbar-width: none; }
-    .hours::-webkit-scrollbar { display: none; }
-    .hr { flex: 0 0 auto; min-width: 50px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .hr span { font-size: 13px; font-weight: 600; white-space: nowrap; }
-    .hr img { width: 30px; height: 30px; }
-    .hr b { font-size: 17px; font-weight: 600; }
-    .hr small { font-size: 11px; font-weight: 700; min-height: 13px; color: var(--muted); white-space: nowrap; }
-    .hr.sun b { font-size: 12px; font-weight: 600; }
-    .blue { color: var(--blue) !important; }
-    .rbar { width: 20px; height: 44px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); display: flex; align-items: flex-end; overflow: hidden; }
-    .rbar i { display: block; width: 100%; background: var(--blue); }
-    .arrow { --mdc-icon-size: 24px; height: 30px; display: grid; place-items: center; }
-    .day { display: grid; grid-template-columns: 54px 46px 34px 1fr 34px; align-items: center; gap: 8px; padding: 9px 0;
-           border-top: 1px solid rgba(255, 255, 255, 0.10); font-size: 17px; font-weight: 600; }
-    .day:nth-of-type(1) { border-top: 0; }
-    .lab + .day { border-top: 0; margin-top: 4px; }
-    .di { display: flex; flex-direction: column; align-items: center; }
-    .di img { width: 28px; height: 28px; }
-    .di small { font-size: 11px; font-weight: 700; margin-top: -2px; }
-    .lo { color: var(--muted); text-align: right; }
-    .hi { text-align: right; }
-    .range { position: relative; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.22); }
-    .range i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
-    .range u { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fff;
-               box-shadow: 0 0 0 2px rgba(20, 28, 48, 0.6); }
-    .mapbox { position: relative; height: 300px; margin-top: 10px; border-radius: 14px; overflow: hidden; background: #1a1d24; }
-    .tiles { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-    .tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
-    .tiles img.rad { width: 512px; height: 512px; opacity: 0; transition: opacity 0.25s; image-rendering: auto; }
-    .tiles img.rad.on { opacity: 0.85; }
-    .tiles img.lbl { opacity: 0.9; }
-    .home { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
-            background: #3d8bff; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }
-    .stamp { position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700;
-             background: rgba(0, 0, 0, 0.5); }
-    .credit { position: absolute; right: 8px; bottom: 6px; font-size: 9px; color: rgba(255, 255, 255, 0.55); }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .tile { min-height: 158px; display: flex; flex-direction: column; min-width: 0; }
-    .tv { font-family: var(--display); font-size: 34px; font-weight: 500; margin-top: 6px; line-height: 1.05; }
-    .tv.mid { font-size: 26px; }
-    .tw { font-size: 16px; font-weight: 600; margin-top: 2px; }
-    .tw.strong { font-size: 17px; }
-    .tn { font-size: 13px; margin-top: auto; padding-top: 8px; line-height: 1.3; color: var(--ink); }
-    .uvbar { position: relative; height: 5px; border-radius: 3px; margin-top: 10px;
-             background: linear-gradient(90deg, #5ad06a, #f2d14a, #f39a43, #ef5a4a, #b05ad6); }
-    .uvbar u { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #fff;
-               box-shadow: 0 0 0 2px rgba(20, 28, 48, 0.55); }
-    .sunarc { width: 100%; height: 46px; margin-top: 6px; color: #fff; }
-    .wind { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .wnum .tn { margin-top: 4px; padding-top: 0; }
-    .compass { width: 82px; height: 82px; flex: 0 0 auto; color: #fff; }
-    .gauge { width: 100%; max-width: 150px; margin: 8px auto 0; color: #fff; display: block; }
-    .moonrow { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-    .moon { width: 64px; height: 64px; flex: 0 0 auto; }
-    .foot { text-align: center; font-size: 11px; color: var(--muted); padding-top: 4px; }
-  `;
-};
+  return J;
+}
+function wxPill(c2, x3) {
+  const w2 = c2.hass && c2.hass.states[x3.entity || WX.weather];
+  if (!w2) return J;
+  const o2 = c2.hass.states[`sensor.${WX.observations}_temp`], t3 = o2 && isFinite(parseFloat(o2.state)) ? parseFloat(o2.state) : w2.attributes.temperature;
+  const warns = ((c2.hass.states[WX.warnings] || { attributes: {} }).attributes.warnings || []).filter((v2) => v2.type !== "sheep_graziers_warning");
+  const ic = {
+    "sunny": "mdi:weather-sunny",
+    "clear-night": "mdi:weather-night",
+    "partlycloudy": "mdi:weather-partly-cloudy",
+    "rainy": "mdi:weather-rainy",
+    "pouring": "mdi:weather-pouring",
+    "lightning": "mdi:weather-lightning",
+    "lightning-rainy": "mdi:weather-lightning-rainy",
+    "fog": "mdi:weather-fog",
+    "windy": "mdi:weather-windy"
+  }[w2.state] || "mdi:weather-cloudy";
+  return Z`<button class="tab st reading wp-pill ${warns.length ? "warned" : ""}" @click=${() => c2._open(x3.entity || WX.weather)}>
+    <ha-icon icon=${warns.length ? "mdi:alert" : ic}></ha-icon><span>${round(t3)}°</span>
+    <small>${warns.length ? warns[0].short_title : wxLabel(w2.state) || x3.name || "Weather"}</small></button>`;
+}
+var WX_CSS = o`
+  .wp-now { display: grid; grid-template-columns: 56px auto 1fr; align-items: center; gap: 12px; padding: 0 4px 4px; }
+  .wp-now img { width: 56px; height: 56px; }
+  .wp-big { font-family: var(--display); font-size: 44px; font-weight: 400; line-height: 1; letter-spacing: -0.03em; }
+  .wp-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .wp-what b { font-size: 16px; }
+  .wp-what .muted, .wp-row .muted { font-size: 13px; }
+  .wp-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: var(--inset);
+            color: inherit; text-decoration: none; }
+  .wp-row > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .wp-row ha-icon { --mdc-icon-size: 22px; color: var(--cool); flex: none; }
+  .wp-warn ha-icon { color: var(--warm); }
+  .wp-warn.major ha-icon { color: #e5484d; }
+  .wp-hours { display: grid; grid-template-columns: repeat(8, minmax(40px, 1fr)); gap: 2px; padding: 10px 6px; border-radius: 18px;
+              background: var(--inset); overflow-x: auto; scrollbar-width: none; }
+  .wp-hours > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .wp-hours span { font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .wp-hours img { width: 28px; height: 28px; }
+  .wp-hours b { font-size: 15px; }
+  .wp-hours small, .wp-week small { font-size: 11px; font-weight: 700; color: var(--cool); min-height: 13px; }
+  .wp-week { padding: 4px 14px; border-radius: 18px; background: var(--inset); }
+  .wp-week > div { display: grid; grid-template-columns: 1fr 30px 40px 36px 36px; align-items: center; gap: 6px; padding: 6px 0;
+                   font-size: 15px; font-weight: 700; border-top: 1px solid var(--grid-line); }
+  .wp-week > div:first-child { border-top: 0; }
+  .wp-week img { width: 26px; height: 26px; }
+  .wp-n { text-align: right; }
+  .wp-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wp-tile { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 18px; background: var(--inset); min-width: 0; }
+  .wp-tile > span { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+  .wp-tile ha-icon { --mdc-icon-size: 15px; }
+  .wp-tile b { font-family: var(--display); font-size: 20px; font-weight: 700; }
+  .wp-tile small { font-size: 12px; }
+  .wp-pill ha-icon { color: var(--warm); }
+  .wp-pill.warned ha-icon { color: #e5484d; }
+`;
 
 // www/overlook-show.js
-var VERSION = "0.34.0";
+var VERSION = "0.34.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4575,8 +4259,8 @@ var OverlookShow = class extends dt {
       if (ringing) this._call("input_select", "select_option", { entity_id: `input_select.${c2.a}_ringing`, option: "Off" });
       this._call("timer", "start", { entity_id: `timer.${c2.a}_timer`, duration: total });
     };
-    const btn = (label, icon, fn, main) => Z`
-      <button class="ck-btn ${main ? "main" : ""}" @click=${fn}><ha-icon icon=${icon}></ha-icon>${label}</button>`;
+    const btn = (label, icon2, fn, main) => Z`
+      <button class="ck-btn ${main ? "main" : ""}" @click=${fn}><ha-icon icon=${icon2}></ha-icon>${label}</button>`;
     if (c2.ring === "Alarm") {
       const d2 = new Date(now);
       const [h2, mm] = this._time(d2).split(":");
@@ -4749,7 +4433,7 @@ var OverlookShow = class extends dt {
       ev.stopPropagation();
       this._call("media_player", svc, Object.assign({ entity_id: id }, d2));
     };
-    const b2 = (icon, fn, cls = "") => Z`<button class="np-btn ${cls}" @click=${fn}><ha-icon icon=${icon}></ha-icon></button>`;
+    const b2 = (icon2, fn, cls = "") => Z`<button class="np-btn ${cls}" @click=${fn}><ha-icon icon=${icon2}></ha-icon></button>`;
     return Z`
       <div class="screen np" style=${col ? `--np-hot:${col.hot};--np-on:${col.on}` : ""}>
         ${pic ? Z`<div class="np-blur" style="background-image:url('${pic}')"></div>` : J}
@@ -4848,7 +4532,7 @@ var OverlookShow = class extends dt {
       if (k2 === tmrw && !short) return "Tomorrow";
       return d2.toLocaleDateString("en-AU", short ? { weekday: "short" } : { weekday: "long", day: "numeric", month: "short" });
     };
-    const icon = (c2) => WEATHER[c2] || WEATHER.cloudy;
+    const icon2 = (c2) => WEATHER[c2] || WEATHER.cloudy;
     const night = this._night() ? "#a8231b" : "";
     const rain = (f2) => f2.precipitation >= 0.2 ? `${f2.precipitation < 1 ? "<1" : Math.round(f2.precipitation)} mm` : "";
     const close = () => {
@@ -4859,7 +4543,7 @@ var OverlookShow = class extends dt {
     if (!days.length) {
       body = Z`<div class="wx-none">No forecast</div>`;
     } else if (!this._wx.week || days.length === 1) {
-      const f2 = days[0], k2 = ymd2(f2), [ic, name, col] = icon(f2.condition);
+      const f2 = days[0], k2 = ymd2(f2), [ic, name, col] = icon2(f2.condition);
       const now = Date.now() - 36e5;
       const hours = (this._hourly || []).filter((h2) => ymd2(h2) === k2 && new Date(h2.datetime) >= now).filter((h2, i2) => i2 % 3 === 0).slice(0, 6);
       const ch = this._chance, pct = ch && ch.daily[k2];
@@ -4897,7 +4581,7 @@ var OverlookShow = class extends dt {
       body = Z`
         <div class="wx-week" style="grid-template-columns:repeat(${days.length}, minmax(0, 1fr))">
           ${days.map((f2) => {
-        const [ic, name, col] = icon(f2.condition);
+        const [ic, name, col] = icon2(f2.condition);
         return Z`
             <div class="wx-col">
               <span class="wx-dow">${label(f2, true)}</span>
@@ -4942,7 +4626,7 @@ var OverlookShow = class extends dt {
       const min = t0 && !isNaN(t0) ? Math.max(0, Math.floor((this._now - t0) / 6e4)) : null;
       label = min == null ? "Washing" : min < 60 ? `Washing \xB7 ${min} min` : `Washing \xB7 ${Math.floor(min / 60)} h ${min % 60} min`;
     }
-    const icon = q`<svg class="wm-ico" viewBox="0 0 24 24" aria-hidden="true">
+    const icon2 = q`<svg class="wm-ico" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="2" width="18" height="20" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7"></rect>
         <line x1="3" y1="7" x2="21" y2="7" stroke="currentColor" stroke-width="1.4"></line>
         <circle cx="6.6" cy="4.6" r="0.9" fill="currentColor"></circle><circle cx="9.4" cy="4.6" r="0.9" fill="currentColor"></circle>
@@ -4958,7 +4642,7 @@ var OverlookShow = class extends dt {
         @click=${(ev) => {
       ev.stopPropagation();
       this._open(w2.entity);
-    }}>${icon}<span>${label}</span></button>`;
+    }}>${icon2}<span>${label}</span></button>`;
   }
   // the forgotten-washing alert: `washer.alert` (an input_boolean the automation switches on at
   // each reminder, and off when the door opens or a new cycle starts) takes the whole screen in a
@@ -4976,7 +4660,7 @@ var OverlookShow = class extends dt {
       ev.stopPropagation();
       this._call("input_boolean", "turn_off", { entity_id: w2.alert });
     };
-    const icon = q`<svg class="wa-ico" viewBox="0 0 24 24" aria-hidden="true">
+    const icon2 = q`<svg class="wa-ico" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="2" width="18" height="20" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
         <line x1="3" y1="7" x2="21" y2="7" stroke="currentColor" stroke-width="1.2"></line>
         <circle cx="6.6" cy="4.6" r="0.85" fill="currentColor"></circle><circle cx="9.4" cy="4.6" r="0.85" fill="currentColor"></circle>
@@ -4991,7 +4675,7 @@ var OverlookShow = class extends dt {
       <div class="screen wa" @pointerdown=${(ev) => ev.stopPropagation()}>
         <div class="wa-top">
           <div class="wa-label"><ha-icon icon="mdi:washing-machine-alert"></ha-icon>Washing machine</div>
-          ${icon}
+          ${icon2}
         </div>
         <div class="wa-text">
           <div class="wa-title">The washing's still in there</div>
@@ -5028,6 +4712,7 @@ var OverlookShow = class extends dt {
   // People are always shown; the rest appear only while their entity is in `when` (default "on").
   _status() {
     const pills = (this._config.status || []).map((x3) => {
+      if (x3.weather) return wxPill(this, x3);
       const e2 = this._st(x3.entity);
       if (!e2) return J;
       if (x3.person) {
@@ -5130,6 +4815,12 @@ var OverlookShow = class extends dt {
       return;
     }
     const id = this._links()[entityId];
+    if (String(entityId).startsWith("weather.") && !(id && this._config.popups[id])) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __weather: weatherPopup() }) });
+      this._pop = "__weather";
+      return;
+    }
     if (!id || !this._config.popups[id]) {
       this._moreInfo(entityId);
       return;
@@ -5250,6 +4941,7 @@ var OverlookShow = class extends dt {
       const w2 = this._st(s2.when.entity);
       if (!w2 || w2.state !== s2.when.state) return J;
     }
+    if (String(s2.type).startsWith("wx-")) return wxSection(this, s2);
     const head = s2.title ? Z`<div class="pop-sub">${s2.title}</div>` : J;
     switch (s2.type) {
       case "player":
@@ -5386,10 +5078,10 @@ var OverlookShow = class extends dt {
     const [dom, svc] = s2.service.split(".");
     return Z`
       <div class="choices ${s2.compact ? "compact" : ""}">
-        ${(s2.options || []).map((o2) => Array.isArray(o2) ? o2 : [o2.value, o2.name || o2.value, o2.icon || "mdi:circle-medium"]).map(([v2, name, icon]) => Z`
+        ${(s2.options || []).map((o2) => Array.isArray(o2) ? o2 : [o2.value, o2.name || o2.value, o2.icon || "mdi:circle-medium"]).map(([v2, name, icon2]) => Z`
           <button class="choice ${now === v2 ? "on" : ""}"
                   @click=${() => this._call(dom, svc, { entity_id: s2.entity, [s2.field]: v2 })}>
-            <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
+            <ha-icon icon=${icon2}></ha-icon><span>${name}</span></button>`)}
       </div>`;
   }
   _popPlayer(id, card = false) {
@@ -5577,10 +5269,10 @@ var OverlookShow = class extends dt {
     return Z`
       <nav class="dock">
         <div class="dock-pill">
-          ${TABLET_PAGES.map(([id, name, icon]) => Z`
+          ${TABLET_PAGES.map(([id, name, icon2]) => Z`
             <button class="dock-btn ${this._page === id ? "on" : ""}" title=${name}
                     @click=${() => this._go(id)}>
-              <ha-icon icon=${icon}></ha-icon>
+              <ha-icon icon=${icon2}></ha-icon>
             </button>`)}
         </div>
         ${this._config.photos ? Z`
@@ -6237,7 +5929,7 @@ var OverlookShow = class extends dt {
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
   // the split pill itself: drag to dim, tap = that brightness, tap the bulb = on/off
-  _split(id, icon, lit, pct, at2, cls = "", style = "") {
+  _split(id, icon2, lit, pct, at2, cls = "", style = "") {
     return Z`
       <div class="split ${lit ? "lit" : ""} ${cls} ${this._press && this._press.id === id && this._press.moved ? "dragging" : ""}"
            style="--ov-at:${at2};${style}" data-lo=${cls === "big" ? 8 : 22} data-hi=${cls === "big" ? 96 : 88}
@@ -6248,7 +5940,7 @@ var OverlookShow = class extends dt {
            @touchmove=${(ev) => ev.preventDefault()}>
         <div class="seg seg-top"></div>
         <div class="seg seg-bot">
-          <span class="seg-ico"><ha-icon icon=${icon || "mdi:lightbulb-outline"}></ha-icon></span>
+          <span class="seg-ico"><ha-icon icon=${icon2 || "mdi:lightbulb-outline"}></ha-icon></span>
         </div>
       </div>`;
   }
@@ -6536,10 +6228,10 @@ var OverlookShow = class extends dt {
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
         <div class="modes">
-          ${modes.map(([m2, name, icon]) => Z`
+          ${modes.map(([m2, name, icon2]) => Z`
             <button class="mode ${mode === m2 ? "on " + m2 : ""}"
                     @click=${() => this._call("climate", "set_hvac_mode", { entity_id: e2.entity_id, hvac_mode: m2 })}>
-              <ha-icon icon=${icon}></ha-icon><span>${name}</span></button>`)}
+              <ha-icon icon=${icon2}></ha-icon><span>${name}</span></button>`)}
         </div>
       </div>`;
   }
@@ -6604,7 +6296,7 @@ var OverlookShow = class extends dt {
     input.value = "";
     input.focus();
   }
-  static styles = [o`
+  static styles = [WX_CSS, o`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
@@ -7888,7 +7580,7 @@ var OverlookPiece = class extends OverlookShow {
       overlay(this.hass).openPopup(washerPopup(w2));
       return;
     }
-    const p2 = this._ownPopups()[id];
+    const p2 = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
     if (p2) overlay(this.hass).openPopup(p2);
     else overlay(this.hass)._moreInfo(id);
   }
@@ -8357,7 +8049,7 @@ var OverlookFavourites = class extends OverlookPiece {
     if (!e2) return J;
     const dom = id.split(".")[0], type = DOMAIN_TYPE[dom];
     const name = e2.attributes.friendly_name || id;
-    const icon = e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || DOMAIN_ICON[dom];
+    const icon2 = e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || DOMAIN_ICON[dom];
     const tap = () => {
       if (type === "media") return this._call("media_player", e2.state === "off" ? "turn_on" : "media_play_pause", { entity_id: id });
       if (type === "climate") return this._call("climate", this._isOn(id) ? "turn_off" : "turn_on", { entity_id: id });
@@ -8370,7 +8062,7 @@ var OverlookFavourites = class extends OverlookPiece {
       <button class="mini-scene fav-sq ${this._isOn(id) ? "lit" : ""}" title=${name}
               @pointerdown=${down} @pointermove=${move} @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
               @click=${click}>
-        <ha-icon icon=${icon}></ha-icon>
+        <ha-icon icon=${icon2}></ha-icon>
         <span class="ms-name">${name}</span></button>`;
   }
   render() {
@@ -8646,9 +8338,9 @@ var OverlookPopupEditor = class extends dt {
             .computeLabel=${edLabel} @value-changed=${(ev) => put(sectionFromForm(s2.type || "tiles", ev.detail.value))}></ha-form>
           ${s2.type === "choices" ? Z`<div><button class="ed-chip" @click=${() => this._fill(s2, put)}>
             <ha-icon icon="mdi:auto-fix"></ha-icon>Fill options from the entity</button></div>` : J}`, putSections)}
-        <div class="ed-add">${SECTION_KINDS.map(([type, label, icon]) => Z`
+        <div class="ed-add">${SECTION_KINDS.map(([type, label, icon2]) => Z`
           <button class="ed-chip" @click=${() => putSections([...sections, type === "tiles" ? { type, items: [] } : { type }])}>
-            <ha-icon icon=${icon}></ha-icon>${label}</button>`)}</div>
+            <ha-icon icon=${icon2}></ha-icon>${label}</button>`)}</div>
       </div>`;
   }
 };
@@ -9169,8 +8861,9 @@ var EchoPiece = class extends OverlookShow {
   }
   // a pop-up set on the card opens in the shell; without one, HA's details
   _open(id) {
-    const p2 = this._config.popup, s2 = ECHO_SHELL;
-    if (s2 && p2 && (p2.sections || []).length) {
+    const own = this._config.popup, s2 = ECHO_SHELL;
+    const p2 = own && (own.sections || []).length ? own : String(id).startsWith("weather.") ? weatherPopup() : null;
+    if (s2 && p2) {
       s2.hass = this.hass;
       s2.openPopup(p2);
       return;
@@ -9228,7 +8921,7 @@ var MeridianLargeButton = class extends EchoPiece {
     if (!e2) return this._missing(c2.name || id || "Pick an entity");
     const dom = id.split(".")[0], on = e2.state === "on";
     const name = c2.name || e2.attributes.friendly_name || id;
-    const icon = c2.icon || e2.attributes.icon || DOMAIN_ICON[dom] || "mdi:toggle-switch-outline";
+    const icon2 = c2.icon || e2.attributes.icon || DOMAIN_ICON[dom] || "mdi:toggle-switch-outline";
     const colour = dom === "light" ? "var(--warm)" : "#3f86f2";
     const tap = () => {
       if (dom === "light") this._call("light", on ? "turn_off" : "turn_on", { entity_id: id });
@@ -9245,7 +8938,7 @@ var MeridianLargeButton = class extends EchoPiece {
       <button class="card air-tile control-tile ${on ? "on" : ""}" style="--c:${colour}"
               @pointerdown=${h2.down} @pointermove=${h2.move} @pointerup=${h2.up} @pointercancel=${h2.up} @click=${h2.click}
               @contextmenu=${(ev) => ev.preventDefault()}>
-        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+        <span class="air-ico"><ha-icon icon=${icon2}></ha-icon></span>
         <span class="air-name">${name}<span class="air-q">${on ? "On" : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
       </button>`;
   }
@@ -9265,13 +8958,13 @@ var MeridianLargeSensor = class extends EchoPiece {
     const label = x3.name || air && air[0] || e2.attributes.friendly_name || x3.entity;
     const colour = x3.color && x3.color !== "auto" ? SWATCH[x3.color] || x3.color : air ? air[1] : SWATCH.grey;
     const verdict = air ? air[2] : () => "";
-    const icon = x3.icon || e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || "mdi:gauge";
+    const icon2 = x3.icon || e2.attributes.icon || CLASS_ICON[e2.attributes.device_class] || "mdi:gauge";
     const raw = e2.attributes.unit_of_measurement || "";
     const unit = x3.unit != null ? x3.unit : /^°[CF]$/.test(raw) ? "\xB0" : raw;
     const v2 = Number(e2.state), ok = !isNaN(v2) && e2.state !== "";
     return Z`
       <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x3.entity)}>
-        <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
+        <span class="air-ico"><ha-icon icon=${icon2}></ha-icon></span>
         <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${unit}</small></span>
         <span class="air-name">${label}<span class="air-q">${ok ? verdict(v2) : "No reading"}</span></span>
       </button>`;
@@ -10024,12 +9717,6 @@ var MeridianCountdown = class extends dt {
   `;
 };
 definePhone("countdown", MeridianCountdown);
-definePhone("weather", class extends MeridianWeather {
-  connectedCallback() {
-    super.connectedCallback();
-    loadFonts(this.hass);
-  }
-});
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
@@ -10039,7 +9726,6 @@ if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
   { type: "meridian-countdown", name: "Meridian countdown", description: "Counts down to a date and time, with artwork and big ticking digits" },
-  { type: "meridian-weather", name: "Meridian weather", description: "A full weather page in the iOS Weather layout: warnings, next-hour rain, hourly, daily, radar and detail tiles" },
   { type: "meridian-pip", name: "Meridian Pip", description: "Pip the sprout: a tamagotchi pet that lives on the house's sensors. Tap to open, three taps to pet" }
 );
 if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
