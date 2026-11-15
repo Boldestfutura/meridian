@@ -1,7 +1,7 @@
 {
   "id": "weather_warning_notify",
-  "alias": "Weather - Notify New BoM Warnings",
-  "description": "Phone alert when the Bureau issues a new warning for the district (sheep graziers skipped). Major warnings any time and time-sensitive; minor ones 7 am to 10 pm. Opens the Weather dashboard.",
+  "alias": "Weather - Warning Alert on the Screens",
+  "description": "A new Bureau warning for the district (sheep graziers skipped) turns on input_boolean.weather_warning_alert, which puts it full screen on the Kitchen Display and the Echo until someone taps Got it. The alert goes off by itself once no warning is left. No phone notifications.",
   "triggers": [
     {
       "trigger": "state",
@@ -17,44 +17,45 @@
   "actions": [
     {
       "variables": {
-        "new": "{% set old = (trigger.from_state.attributes.warnings or []) | map(attribute='id') | list %}{% set skip = ['sheep_graziers_warning'] %}{% set ns = namespace(out=[]) %}{% for w in trigger.to_state.attributes.warnings or [] %}{% if w.id not in old and w.type not in skip and (w.warning_group_type == 'major' or 7 <= now().hour < 22) %}{% set ns.out = ns.out + [w] %}{% endif %}{% endfor %}{{ ns.out }}"
+        "new": "{% set old = (trigger.from_state.attributes.warnings or []) | map(attribute='id') | list %}{% set skip = ['sheep_graziers_warning'] %}{% set ns = namespace(out=[]) %}{% for w in trigger.to_state.attributes.warnings or [] %}{% if w.id not in old and w.type not in skip %}{% set ns.out = ns.out + [w] %}{% endif %}{% endfor %}{{ ns.out }}",
+        "live": "{% set skip = ['sheep_graziers_warning'] %}{{ (trigger.to_state.attributes.warnings or []) | rejectattr('type', 'in', skip) | list | count }}"
       }
     },
     {
-      "condition": "template",
-      "value_template": "{{ new | count > 0 }}"
-    },
-    {
-      "action": "notify.mobile_app_camerons_iphone",
-      "continue_on_error": true,
-      "data": {
-        "title": "{{ new[0].short_title }}{{ ' and %d more' % (new | count - 1) if new | count > 1 else '' }}",
-        "message": "{{ new | map(attribute='title') | join('. ') }}. Tap for the forecast.",
-        "data": {
-          "tag": "weather-warning",
-          "group": "weather",
-          "url": "/ha-show-native/home",
-          "push": {
-            "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
-          }
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "template",
+              "value_template": "{{ new | count > 0 }}"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_on",
+              "target": {
+                "entity_id": "input_boolean.weather_warning_alert"
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "template",
+              "value_template": "{{ live | int == 0 }}"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.weather_warning_alert"
+              }
+            }
+          ]
         }
-      }
-    },
-    {
-      "action": "notify.mobile_app_paget_s_iphone",
-      "continue_on_error": true,
-      "data": {
-        "title": "{{ new[0].short_title }}{{ ' and %d more' % (new | count - 1) if new | count > 1 else '' }}",
-        "message": "{{ new | map(attribute='title') | join('. ') }}. Tap for the forecast.",
-        "data": {
-          "tag": "weather-warning",
-          "group": "weather",
-          "url": "/ha-show-native/home",
-          "push": {
-            "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
-          }
-        }
-      }
+      ]
     }
   ],
   "mode": "queued"

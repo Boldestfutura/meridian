@@ -9,7 +9,7 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.34.5"
+VERSION = "0.34.6"
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
@@ -162,6 +162,8 @@ CARD.update({
     # the washing machine bubble beside the clock (input_select kept by automation washing_machine)
     "washer": {"entity": "input_select.washing_machine", "started": "input_datetime.washing_machine_started",
                "alert": "input_boolean.washing_machine_alert"},
+    # Bureau weather warnings full screen (input_boolean.weather_warning_alert, automation weather_warning_notify)
+    "warnings": True,
     "clock": "kitchen",                       # timer.kitchen_timer behind the Timer button
     "tablet_tv": "media_player.living_room",  # its Plex art comes from /local/nowplaying
     "tablet_players": [

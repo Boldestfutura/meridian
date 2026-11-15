@@ -57,6 +57,47 @@ class WeatherFeed {
   }
 }
 
+// The weather warning alert, full screen on the room screens (the Kitchen Display, the Echo), like
+// the washing alert. Option `warnings: true` (or {alert, entity} to override): the automation
+// weather_warning_notify switches input_boolean.weather_warning_alert on for a new Bureau warning
+// and off once none is left; Got it on any screen turns it off everywhere. It shows the live
+// warnings, major first, sheep graziers aside. Over the washing alert, under a timer or alarm,
+// and never in a dark room.
+export const WARN = { alert: "input_boolean.weather_warning_alert", entity: WX.warnings };
+export const liveWarnings = (hass, entity = WX.warnings) =>
+  (((hass && hass.states[entity]) || { attributes: {} }).attributes.warnings || [])
+    .filter((w) => w.type !== "sheep_graziers_warning" && (!w.expiry_time || new Date(w.expiry_time) > new Date()))
+    .sort((a, b) => (b.warning_group_type === "major") - (a.warning_group_type === "major"));
+const WARN_ICON = [["thunderstorm", "mdi:weather-lightning-rainy"], ["wind", "mdi:weather-windy"], ["gale", "mdi:weather-windy"],
+  ["flood", "mdi:home-flood"], ["fire", "mdi:fire-alert"], ["heat", "mdi:thermometer-alert"], ["frost", "mdi:snowflake-alert"],
+  ["snow", "mdi:snowflake-alert"], ["surf", "mdi:waves"], ["marine", "mdi:waves"], ["rain", "mdi:weather-pouring"]];
+const warnIcon = (type) => (WARN_ICON.find(([k]) => String(type).includes(k)) || [0, "mdi:alert"])[1];
+
+export function wxAlert(c, opt) {
+  if (!opt || !c.hass) return nothing;
+  const o = Object.assign({}, WARN, typeof opt === "object" ? opt : {});
+  const a = c.hass.states[o.alert];
+  if (!a || a.state !== "on" || c._night()) return nothing;
+  const list = liveWarnings(c.hass, o.entity);
+  if (!list.length) return nothing;
+  const w = list[0], major = w.warning_group_type === "major";
+  const until = w.expiry_time ? new Date(w.expiry_time) : null;
+  const sub = [until ? `Until ${DAY[until.getDay()]} ${clock(until)}` : "", list.length > 1 ? `+ ${list.length - 1} more` : ""].filter(Boolean).join(" · ");
+  const dismiss = (ev) => { ev.stopPropagation(); c._call("input_boolean", "turn_off", { entity_id: o.alert }); };
+  return html`
+    <div class="screen ww ${major ? "ww-major" : ""}" @pointerdown=${(ev) => ev.stopPropagation()}>
+      <div class="ww-top">
+        <div class="ww-label"><ha-icon icon="mdi:alert"></ha-icon>${major ? "Severe weather" : "Weather warning"}</div>
+        <ha-icon class="ww-ico ${String(w.type).includes("thunderstorm") ? "ww-flash" : ""}" icon=${warnIcon(w.type)}></ha-icon>
+      </div>
+      <div class="ww-text">
+        <div class="ww-title">${(w.short_title || w.title || "").replace(/ Warning$/, "")}</div>
+        ${sub ? html`<div class="ww-sub">${sub}</div>` : nothing}
+      </div>
+      <button class="ww-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+    </div>`;
+}
+
 // one section of the sheet; `c` is the card (hass, requestUpdate)
 export function wxSection(c, s) {
   const feed = c.__wxFeed || (c.__wxFeed = new WeatherFeed(c));
@@ -184,4 +225,32 @@ export const WX_CSS = css`
   .wp-tile small { font-size: 12px; }
   .wp-pill ha-icon { color: var(--warm); }
   .wp-pill.warned ha-icon { color: #e5484d; }
+  /* the weather warning alert: a storm-dark screen with an amber edge breathing in (red when major) */
+  .screen.ww { z-index: 885; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto auto; gap: 3.5vh;
+        padding: 6vh 5.5vw 6vh; color: #f3efe6; background: #0e1424; isolation: isolate; --ww-edge: 232, 150, 40; }
+  .screen.ww.ww-major { --ww-edge: 222, 40, 40; }
+  .ww::before { content: ""; position: absolute; inset: -20%; z-index: -1;
+        background: radial-gradient(ellipse at 70% 30%, #2c3a5c 0%, #172038 45%, #0b0f1c 100%); animation: ww-drift 7s ease-in-out infinite; }
+  .ww::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+        box-shadow: inset 0 0 6vh 1vh rgba(var(--ww-edge), 0.7); animation: ww-edge 2.6s ease-in-out infinite; }
+  @keyframes ww-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-4%, 3%) scale(1.06); } }
+  @keyframes ww-edge { 0%, 100% { box-shadow: inset 0 0 4vh 0.5vh rgba(var(--ww-edge), 0.45); }
+        50% { box-shadow: inset 0 0 14vh 4vh rgba(var(--ww-edge), 0.9); } }
+  .ww-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 3vw; min-height: 0; }
+  .ww-label { display: flex; align-items: center; gap: 1.4vw; font-family: var(--display); font-weight: 700;
+        font-size: 6.5vh; white-space: nowrap; padding-top: 1vh; color: rgb(var(--ww-edge)); }
+  .ww-label ha-icon { --mdc-icon-size: 7.5vh; }
+  .ww-ico { --mdc-icon-size: 34vh; flex: none; color: #dfe6f5; }
+  .ww-flash { animation: ww-flash 5s linear infinite; }
+  @keyframes ww-flash { 0%, 80%, 86%, 100% { color: #dfe6f5; filter: none; } 82%, 88% { color: #fff6c8; filter: drop-shadow(0 0 4vh #ffe27a); } }
+  .ww-text { min-width: 0; }
+  .ww-title { font-family: var(--display); font-weight: 800; font-size: min(15vh, 8.2vw); line-height: 0.95;
+        letter-spacing: -0.02em; text-wrap: balance; }
+  .ww-sub { margin-top: 1.6vh; font-family: var(--display); font-weight: 700; font-size: 6vh; opacity: 0.75; }
+  .ww-btn { height: 20vh; border: 0; border-radius: 7vh; background: rgb(var(--ww-edge)); color: #10131c;
+        display: flex; align-items: center; justify-content: center; gap: 1.6vw; font-family: var(--display);
+        font-weight: 700; font-size: 7vh; transition: transform 0.12s; }
+  .ww-btn ha-icon { --mdc-icon-size: 8vh; }
+  .ww-btn:active { transform: scale(0.97); }
+  @media (prefers-reduced-motion: reduce) { .ww::before, .ww::after, .ww-flash { animation: none; } }
 `;
