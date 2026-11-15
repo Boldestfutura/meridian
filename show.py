@@ -168,6 +168,12 @@ CARD.update({
     "morning": True,
     "clock": "kitchen",                       # timer.kitchen_timer behind the Timer button
     "tablet_tv": "media_player.living_room",  # its Plex art comes from /local/nowplaying
+    # a game being played takes the TV tile (PS5 via PlayStation Network, the Bazzite PC via Steam)
+    "tablet_games": [
+        {"name": "PS5", "entity": "media_player.living_room_playstation_5"},
+        {"name": "PC", "entity": "sensor.living_room_boldfutura_now_playing",
+         "bg": "image.living_room_boldfutura_library_hero_capsule", "logo": "image.living_room_boldfutura_library_logo"},
+    ],
     "tablet_players": [
         {"entity": "media_player.living_room", "name": "Apple TV", "icon": "mdi:apple",
          "volume": "media_player.living_room_amp_2"},
