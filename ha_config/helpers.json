@@ -26,6 +26,11 @@
    "icon": "mdi:alarm"
   },
   {
+   "id": "morning_forecast",
+   "name": "Morning forecast",
+   "icon": "mdi:weather-partly-cloudy"
+  },
+  {
    "id": "washing_machine_alert",
    "name": "Washing machine alert",
    "icon": "mdi:washing-machine-alert"

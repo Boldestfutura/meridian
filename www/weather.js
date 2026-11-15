@@ -98,6 +98,63 @@ export function wxAlert(c, opt) {
     </div>`;
 }
 
+// The morning forecast, full screen on the room screens before we head out. Option `morning: true`
+// (or {alert}): automation weather_morning_forecast turns input_boolean.morning_forecast on at 6 am
+// when someone's home and off at 10 am or when the house empties; Got it on any screen turns it
+// off everywhere. Today's high and low, rain chance and amount, UV and cover-up times, wind, and
+// the day's temperatures at 9, 12, 3, 6 and 9. Under the washing and warning alerts and the
+// clocks, and never in a dark room, so it waits for the lights.
+export const MORNING = { alert: "input_boolean.morning_forecast" };
+const COND_OF = { sunny: "sunny", clear: "sunny", mostly_sunny: "partlycloudy", partly_cloudy: "partlycloudy", cloudy: "cloudy",
+  hazy: "fog", haze: "fog", fog: "fog", light_rain: "rainy", rain: "pouring", shower: "rainy", light_shower: "rainy",
+  heavy_shower: "pouring", storm: "lightning-rainy", windy: "windy", dusty: "windy", frost: "snowy", snow: "snowy", cyclone: "exceptional" };
+
+export function wxMorning(c, opt) {
+  if (!opt || !c.hass) return nothing;
+  const o = Object.assign({}, MORNING, typeof opt === "object" ? opt : {});
+  const a = c.hass.states[o.alert];
+  if (!a || a.state !== "on" || c._night()) return nothing;
+  const feed = c.__wxFeed || (c.__wxFeed = new WeatherFeed(c));
+  feed.touch(c.hass);
+  const st = (id) => c.hass.states[id];
+  const obs = (k) => { const e = st(`sensor.${WX.observations}_${k}`); return e ? num(e.state) : null; };
+  const fc = (k) => { const e = st(`sensor.${WX.forecast}_${k}_0`); return e && !["unknown", "unavailable"].includes(e.state) ? e.state : null; };
+  const today = (feed.daily || [])[0];
+  const hi = num(fc("temp_max")) ?? (today && today.temperature);
+  const lo = num(fc("temp_min")) ?? obs("min_temp") ?? (today && today.templow);
+  const cond = COND_OF[fc("icon_descriptor")] || (today && today.condition) || ((st(WX.weather) || {}).state) || "cloudy";
+  const short = (fc("short_text") || wxLabel(cond) || "").replace(/\.$/, "");
+  const rain = num(fc("rain_chance")), mm = fc("rain_amount_range");
+  const uv = fc("uv_max_index"), uvS = fc("uv_start_time"), uvE = fc("uv_end_time");
+  const dir = (st(`sensor.${WX.observations}_wind_direction`) || {}).state || "", gust = obs("gust_speed_kilometre");
+  const now = new Date();
+  const slots = (feed.hourly || []).filter((f) => { const d = new Date(f.datetime); return d > now && d.getDate() === now.getDate() && [9, 12, 15, 18, 21].includes(d.getHours()); }).slice(0, 5);
+  const dismiss = (ev) => { ev.stopPropagation(); c._call("input_boolean", "turn_off", { entity_id: o.alert }); };
+  const tile = (ic, label, big, note) => html`<div class="mf-tile"><span class="mf-k"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small>${note}</small></div>`;
+  return html`
+    <div class="screen mf" @pointerdown=${(ev) => ev.stopPropagation()}>
+      <div class="mf-top">
+        <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
+        <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+      </div>
+      <div class="mf-main">
+        <img src=${icon(cond, false)} alt="">
+        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` · low ${round(lo)}°` : ""}</span></div>
+        <div class="mf-what">${short}</div>
+      </div>
+      <div class="mf-tiles">
+        ${tile("mdi:umbrella", "Rain", rain != null ? `${rain}%` : "–", mm && mm !== "0" ? `${mm} mm` : rain != null && rain < 20 ? "Unlikely" : "")}
+        ${tile("mdi:weather-sunny-alert", "UV", uv ? `${uv}` : "–", [fc("uv_category"), uvS && uvE ? `${clock(new Date(uvS))}–${clock(new Date(uvE))}` : ""].filter(Boolean).join(" · "))}
+        ${tile("mdi:weather-windy", "Wind", `${round(obs("wind_speed_kilometre"))} km/h`, [dir && `From the ${dir}`, gust != null && `gusts ${round(gust)}`].filter(Boolean).join(", "))}
+      </div>
+      ${slots.length ? html`<div class="mf-hours">${slots.map((f) => {
+        const d = new Date(f.datetime), p = f.precipitation_probability || 0;
+        return html`<div><span>${hourLabel(d)}</span><img src=${icon(f.condition, d.getHours() >= 20)} alt=""><b>${round(f.temperature)}°</b><small>${p >= 20 ? `${p}%` : ""}</small></div>`;
+      })}</div>` : nothing}
+    </div>`;
+}
+const DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 // one section of the sheet; `c` is the card (hass, requestUpdate)
 export function wxSection(c, s) {
   const feed = c.__wxFeed || (c.__wxFeed = new WeatherFeed(c));
@@ -253,4 +310,33 @@ export const WX_CSS = css`
   .ww-btn ha-icon { --mdc-icon-size: 8vh; }
   .ww-btn:active { transform: scale(0.97); }
   @media (prefers-reduced-motion: reduce) { .ww::before, .ww::after, .ww-flash { animation: none; } }
+  /* the morning forecast: a pale dawn sky, calm (no pulsing), dark ink */
+  .screen.mf { z-index: 870; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto auto; gap: 2.6vh;
+        padding: 4.5vh 4.5vw 5vh; color: #14213a; isolation: isolate;
+        background: linear-gradient(165deg, #bcd8f2 0%, #dfe9f1 45%, #f7ecdc 80%, #fbdcb8 100%); }
+  .mf-top { display: flex; justify-content: space-between; align-items: center; gap: 3vw; }
+  .mf-label { font-family: var(--display); font-weight: 800; font-size: 6.4vh; letter-spacing: -0.01em; white-space: nowrap; }
+  .mf-btn { height: 9.5vh; padding: 0 3.4vh; border: 0; border-radius: 5vh; background: #14213a; color: #f7ecdc;
+        display: flex; align-items: center; gap: 1.2vh; font-family: var(--display); font-weight: 700; font-size: 4.2vh; flex: none; }
+  .mf-btn ha-icon { --mdc-icon-size: 4.6vh; }
+  .mf-btn:active { transform: scale(0.96); }
+  .mf-main { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 3vw; min-height: 0; }
+  .mf-main img { height: min(30vh, 22vw); width: auto; filter: drop-shadow(0 1vh 2vh rgba(20, 33, 58, 0.18)); }
+  .mf-temps { display: flex; flex-direction: column; line-height: 0.9; }
+  .mf-temps b { font-family: var(--display); font-weight: 800; font-size: min(24vh, 15vw); letter-spacing: -0.04em; }
+  .mf-temps span { font-family: var(--display); font-weight: 700; font-size: 5.4vh; opacity: 0.6; margin-top: 1vh; }
+  .mf-what { font-family: var(--display); font-weight: 700; font-size: min(8vh, 4.6vw); line-height: 1.05; text-wrap: balance; min-width: 0; }
+  .mf-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2vw; }
+  .mf-tile { display: flex; flex-direction: column; gap: 0.4vh; padding: 2vh 2.2vw; border-radius: 3.6vh; background: rgba(255, 255, 255, 0.55); min-width: 0; }
+  .mf-k { display: flex; align-items: center; gap: 1vh; font-weight: 700; font-size: min(3.4vh, 1.7vw); opacity: 0.65; }
+  .mf-k ha-icon { --mdc-icon-size: 3.8vh; }
+  .mf-tile b { font-family: var(--display); font-weight: 800; font-size: 7.6vh; line-height: 1; }
+  .mf-tile small { font-weight: 600; font-size: min(3.2vh, 1.6vw); opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mf-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1vw; padding: 1.4vh 1.6vw;
+        border-radius: 3.6vh; background: rgba(255, 255, 255, 0.4); }
+  .mf-hours > div { display: grid; grid-template-columns: auto auto auto auto; justify-content: center; align-items: center; gap: min(1vh, 0.5vw); min-width: 0; }
+  .mf-hours span { font-weight: 700; font-size: min(3.4vh, 1.7vw); opacity: 0.65; }
+  .mf-hours img { height: min(5.4vh, 2.7vw); width: auto; }
+  .mf-hours b { font-family: var(--display); font-weight: 800; font-size: min(4.4vh, 2.2vw); }
+  .mf-hours small { font-weight: 700; font-size: min(3vh, 1.5vw); color: #2f6fd0; min-width: 0; }
 `;

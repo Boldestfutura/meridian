@@ -1,0 +1,102 @@
+{
+  "id": "weather_morning_forecast",
+  "alias": "Weather - Morning Forecast on the Screens",
+  "description": "Puts today's forecast full screen on the Kitchen Display and the Echo (input_boolean.morning_forecast) from 6 am while someone's home; the screens hold it back until the room is light. Off at 10 am, when the house empties (guest mode aside), or when someone taps Got it.",
+  "triggers": [
+    {
+      "trigger": "time",
+      "at": "06:00:00",
+      "id": "on"
+    },
+    {
+      "trigger": "time",
+      "at": "10:00:00",
+      "id": "off"
+    },
+    {
+      "trigger": "numeric_state",
+      "entity_id": "zone.home",
+      "below": 1,
+      "for": {
+        "minutes": 2
+      },
+      "id": "empty"
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "on"
+            },
+            {
+              "condition": "or",
+              "conditions": [
+                {
+                  "condition": "numeric_state",
+                  "entity_id": "zone.home",
+                  "above": 0
+                },
+                {
+                  "condition": "state",
+                  "entity_id": "input_boolean.guest_mode",
+                  "state": "on"
+                }
+              ]
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_on",
+              "target": {
+                "entity_id": "input_boolean.morning_forecast"
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "off"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.morning_forecast"
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "empty"
+            },
+            {
+              "condition": "state",
+              "entity_id": "input_boolean.guest_mode",
+              "state": "off"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "input_boolean.turn_off",
+              "target": {
+                "entity_id": "input_boolean.morning_forecast"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mode": "queued"
+}

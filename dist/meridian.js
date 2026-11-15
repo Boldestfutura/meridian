@@ -3322,6 +3322,85 @@ function wxAlert(c2, opt) {
       <button class="ww-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
     </div>`;
 }
+var MORNING = { alert: "input_boolean.morning_forecast" };
+var COND_OF = {
+  sunny: "sunny",
+  clear: "sunny",
+  mostly_sunny: "partlycloudy",
+  partly_cloudy: "partlycloudy",
+  cloudy: "cloudy",
+  hazy: "fog",
+  haze: "fog",
+  fog: "fog",
+  light_rain: "rainy",
+  rain: "pouring",
+  shower: "rainy",
+  light_shower: "rainy",
+  heavy_shower: "pouring",
+  storm: "lightning-rainy",
+  windy: "windy",
+  dusty: "windy",
+  frost: "snowy",
+  snow: "snowy",
+  cyclone: "exceptional"
+};
+function wxMorning(c2, opt) {
+  if (!opt || !c2.hass) return J;
+  const o2 = Object.assign({}, MORNING, typeof opt === "object" ? opt : {});
+  const a2 = c2.hass.states[o2.alert];
+  if (!a2 || a2.state !== "on" || c2._night()) return J;
+  const feed = c2.__wxFeed || (c2.__wxFeed = new WeatherFeed(c2));
+  feed.touch(c2.hass);
+  const st2 = (id) => c2.hass.states[id];
+  const obs = (k2) => {
+    const e2 = st2(`sensor.${WX.observations}_${k2}`);
+    return e2 ? num2(e2.state) : null;
+  };
+  const fc = (k2) => {
+    const e2 = st2(`sensor.${WX.forecast}_${k2}_0`);
+    return e2 && !["unknown", "unavailable"].includes(e2.state) ? e2.state : null;
+  };
+  const today = (feed.daily || [])[0];
+  const hi = num2(fc("temp_max")) ?? (today && today.temperature);
+  const lo = num2(fc("temp_min")) ?? obs("min_temp") ?? (today && today.templow);
+  const cond = COND_OF[fc("icon_descriptor")] || today && today.condition || (st2(WX.weather) || {}).state || "cloudy";
+  const short = (fc("short_text") || wxLabel(cond) || "").replace(/\.$/, "");
+  const rain = num2(fc("rain_chance")), mm = fc("rain_amount_range");
+  const uv = fc("uv_max_index"), uvS = fc("uv_start_time"), uvE = fc("uv_end_time");
+  const dir = (st2(`sensor.${WX.observations}_wind_direction`) || {}).state || "", gust = obs("gust_speed_kilometre");
+  const now = /* @__PURE__ */ new Date();
+  const slots = (feed.hourly || []).filter((f2) => {
+    const d2 = new Date(f2.datetime);
+    return d2 > now && d2.getDate() === now.getDate() && [9, 12, 15, 18, 21].includes(d2.getHours());
+  }).slice(0, 5);
+  const dismiss = (ev) => {
+    ev.stopPropagation();
+    c2._call("input_boolean", "turn_off", { entity_id: o2.alert });
+  };
+  const tile = (ic, label, big, note) => Z`<div class="mf-tile"><span class="mf-k"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small>${note}</small></div>`;
+  return Z`
+    <div class="screen mf" @pointerdown=${(ev) => ev.stopPropagation()}>
+      <div class="mf-top">
+        <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
+        <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+      </div>
+      <div class="mf-main">
+        <img src=${icon(cond, false)} alt="">
+        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` \xB7 low ${round(lo)}\xB0` : ""}</span></div>
+        <div class="mf-what">${short}</div>
+      </div>
+      <div class="mf-tiles">
+        ${tile("mdi:umbrella", "Rain", rain != null ? `${rain}%` : "\u2013", mm && mm !== "0" ? `${mm} mm` : rain != null && rain < 20 ? "Unlikely" : "")}
+        ${tile("mdi:weather-sunny-alert", "UV", uv ? `${uv}` : "\u2013", [fc("uv_category"), uvS && uvE ? `${clock(new Date(uvS))}\u2013${clock(new Date(uvE))}` : ""].filter(Boolean).join(" \xB7 "))}
+        ${tile("mdi:weather-windy", "Wind", `${round(obs("wind_speed_kilometre"))} km/h`, [dir && `From the ${dir}`, gust != null && `gusts ${round(gust)}`].filter(Boolean).join(", "))}
+      </div>
+      ${slots.length ? Z`<div class="mf-hours">${slots.map((f2) => {
+    const d2 = new Date(f2.datetime), p2 = f2.precipitation_probability || 0;
+    return Z`<div><span>${hourLabel(d2)}</span><img src=${icon(f2.condition, d2.getHours() >= 20)} alt=""><b>${round(f2.temperature)}°</b><small>${p2 >= 20 ? `${p2}%` : ""}</small></div>`;
+  })}</div>` : J}
+    </div>`;
+}
+var DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 function wxSection(c2, s2) {
   const feed = c2.__wxFeed || (c2.__wxFeed = new WeatherFeed(c2));
   feed.touch(c2.hass);
@@ -3491,10 +3570,39 @@ var WX_CSS = o`
   .ww-btn ha-icon { --mdc-icon-size: 8vh; }
   .ww-btn:active { transform: scale(0.97); }
   @media (prefers-reduced-motion: reduce) { .ww::before, .ww::after, .ww-flash { animation: none; } }
+  /* the morning forecast: a pale dawn sky, calm (no pulsing), dark ink */
+  .screen.mf { z-index: 870; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto auto; gap: 2.6vh;
+        padding: 4.5vh 4.5vw 5vh; color: #14213a; isolation: isolate;
+        background: linear-gradient(165deg, #bcd8f2 0%, #dfe9f1 45%, #f7ecdc 80%, #fbdcb8 100%); }
+  .mf-top { display: flex; justify-content: space-between; align-items: center; gap: 3vw; }
+  .mf-label { font-family: var(--display); font-weight: 800; font-size: 6.4vh; letter-spacing: -0.01em; white-space: nowrap; }
+  .mf-btn { height: 9.5vh; padding: 0 3.4vh; border: 0; border-radius: 5vh; background: #14213a; color: #f7ecdc;
+        display: flex; align-items: center; gap: 1.2vh; font-family: var(--display); font-weight: 700; font-size: 4.2vh; flex: none; }
+  .mf-btn ha-icon { --mdc-icon-size: 4.6vh; }
+  .mf-btn:active { transform: scale(0.96); }
+  .mf-main { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 3vw; min-height: 0; }
+  .mf-main img { height: min(30vh, 22vw); width: auto; filter: drop-shadow(0 1vh 2vh rgba(20, 33, 58, 0.18)); }
+  .mf-temps { display: flex; flex-direction: column; line-height: 0.9; }
+  .mf-temps b { font-family: var(--display); font-weight: 800; font-size: min(24vh, 15vw); letter-spacing: -0.04em; }
+  .mf-temps span { font-family: var(--display); font-weight: 700; font-size: 5.4vh; opacity: 0.6; margin-top: 1vh; }
+  .mf-what { font-family: var(--display); font-weight: 700; font-size: min(8vh, 4.6vw); line-height: 1.05; text-wrap: balance; min-width: 0; }
+  .mf-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2vw; }
+  .mf-tile { display: flex; flex-direction: column; gap: 0.4vh; padding: 2vh 2.2vw; border-radius: 3.6vh; background: rgba(255, 255, 255, 0.55); min-width: 0; }
+  .mf-k { display: flex; align-items: center; gap: 1vh; font-weight: 700; font-size: min(3.4vh, 1.7vw); opacity: 0.65; }
+  .mf-k ha-icon { --mdc-icon-size: 3.8vh; }
+  .mf-tile b { font-family: var(--display); font-weight: 800; font-size: 7.6vh; line-height: 1; }
+  .mf-tile small { font-weight: 600; font-size: min(3.2vh, 1.6vw); opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mf-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1vw; padding: 1.4vh 1.6vw;
+        border-radius: 3.6vh; background: rgba(255, 255, 255, 0.4); }
+  .mf-hours > div { display: grid; grid-template-columns: auto auto auto auto; justify-content: center; align-items: center; gap: min(1vh, 0.5vw); min-width: 0; }
+  .mf-hours span { font-weight: 700; font-size: min(3.4vh, 1.7vw); opacity: 0.65; }
+  .mf-hours img { height: min(5.4vh, 2.7vw); width: auto; }
+  .mf-hours b { font-family: var(--display); font-weight: 800; font-size: min(4.4vh, 2.2vw); }
+  .mf-hours small { font-weight: 700; font-size: min(3vh, 1.5vw); color: #2f6fd0; min-width: 0; }
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.6";
+var VERSION = "0.34.7";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4240,7 +4348,7 @@ var OverlookShow = class extends dt {
   // --- render -------------------------------------------------------------
   // the voice glow sits over whatever screen is showing
   render() {
-    return Z`${this._screen()}${this._npLayer()}${this._washLayer()}${wxAlert(this, this._config && this._config.warnings)}${this._clockLayer()}${this._glow()}`;
+    return Z`${this._screen()}${this._npLayer()}${wxMorning(this, this._config && this._config.morning)}${this._washLayer()}${wxAlert(this, this._config && this._config.warnings)}${this._clockLayer()}${this._glow()}`;
   }
   // --- voice clock: timer and alarm screens --------------------------------
   // option `clock`: an area id whose helpers the "Voice Timers and Alarms" automations drive:

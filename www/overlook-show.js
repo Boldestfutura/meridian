@@ -13,9 +13,9 @@
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
-import { weatherPopup, wxSection, wxPill, wxAlert, WX_CSS } from "./weather.js";
+import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.6";
+const VERSION = "0.34.7";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -621,7 +621,7 @@ class OverlookShow extends LitElement {
   // --- render -------------------------------------------------------------
   // the voice glow sits over whatever screen is showing
   render() {
-    return html`${this._screen()}${this._npLayer()}${this._washLayer()}${wxAlert(this, this._config && this._config.warnings)}${this._clockLayer()}${this._glow()}`;
+    return html`${this._screen()}${this._npLayer()}${wxMorning(this, this._config && this._config.morning)}${this._washLayer()}${wxAlert(this, this._config && this._config.warnings)}${this._clockLayer()}${this._glow()}`;
   }
 
   // --- voice clock: timer and alarm screens --------------------------------

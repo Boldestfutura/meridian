@@ -63,7 +63,8 @@
                 "started": "input_datetime.washing_machine_started",
                 "alert": "input_boolean.washing_machine_alert"
               },
-              "warnings": true
+              "warnings": true,
+              "morning": true
             }
           ]
         }
