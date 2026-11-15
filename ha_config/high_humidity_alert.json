@@ -1,0 +1,99 @@
+{
+ "id": "1783999005869",
+ "alias": "High Humidity Alert - Kitchen & Master Bedroom",
+ "description": "Notify both iPhones when humidity rises above 75%, max once per hour per room",
+ "triggers": [
+  {
+   "entity_id": "sensor.air_quality_monitor_humidity",
+   "above": 75,
+   "id": "kitchen_humid",
+   "trigger": "numeric_state"
+  },
+  {
+   "entity_id": "sensor.air_quality_monitor_humidity_2",
+   "above": 75,
+   "id": "bedroom_humid",
+   "trigger": "numeric_state"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "kitchen_humid"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.kitchen_humidity_alert_last_sent'), 0)) > 3600 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "High Humidity - Kitchen",
+        "message": "Kitchen humidity is at {{ states('sensor.air_quality_monitor_humidity') }}% - consider ventilating."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.kitchen_humidity_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "bedroom_humid"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.bedroom_humidity_alert_last_sent'), 0)) > 3600 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "High Humidity - Master Bedroom",
+        "message": "Master bedroom humidity is at {{ states('sensor.air_quality_monitor_humidity_2') }}% - consider turning the dehumidifier on."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.bedroom_humidity_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "mode": "queued"
+}

@@ -4,7 +4,7 @@ Echo Show-style Home Assistant dashboards, a matching theme and a set of phone c
 
 - **Meridian cards**: tiles, room headings, scenes and status pills with pop-ups, set up in
   HA's own card editor. Installed from HA's marketplace (HACS). See [Install](#install-with-hacs).
-- **The Kitchen Show**: a full-screen layout for the kitchen display, also cast to a Nest Hub,
+- **The Kitchen Show**: a full-screen layout for the kitchen display,
   deployed with `deploy.py`.
 - **The Meridian theme** for HA's own pages.
 
@@ -14,7 +14,7 @@ Python files say which entities go where on each screen.
 
 | dashboard | screen | layout |
 |---|---|---|
-| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800, and the Nest Hub, 1024x600, cast | five pages (`www/tablet.js`): Home (tonight's dinner, now playing, shopping list, quick actions, calendar), Rooms, Climate, Media, Recipes; idles to photos |
+| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800 | five pages (`www/tablet.js`): Home (tonight's dinner, now playing, shopping list, quick actions, calendar), Rooms, Climate, Media, Recipes; idles to photos |
 | **Master Bedroom Echo Show** `master-bedroom-echo-show` | Echo Show 5, 788x394 | built from the Meridian screen cards in HA's editor: photos and a clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1920x1080, beside HA's sidebar | the whole house on one page, built from Meridian cards in HA's editor: large weather, heat pump and speaker tiles, 2x tiles under each room heading |
 | **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |
@@ -50,7 +50,7 @@ day, dark after sunset (`scheme: sun.sun`).
   <img src="docs/images/tablet-recipes.png" width="49%" alt="Kitchen Show, Recipes">
 </p>
 
-The Nest Hub shows the same pages at 1024x600; under 680px tall a compact layout takes over.
+Under 680px tall (a 1024x600 screen) a compact layout takes over.
 
 ## Master Bedroom Echo Show
 <p>
@@ -125,7 +125,7 @@ Amazon Ember is not included; without it the cards fall back to the system font.
 - SSH to the HA box (`deploy.py` copies the card to `/config/www` with `scp`) and a long-lived
   access token at `~/.config/ha/token`.
 - Optional, per feature: `album_slideshow` cameras for the photos, Music Assistant for
-  playlists (the template sensor in [`ha_config/tablet_playlists.yaml`](ha_config/tablet_playlists.yaml)),
+  playlists (the template sensor in [`ha_config/configuration.yaml`](ha_config/configuration.yaml)),
   Norish for recipes (`tools/norish_sync.py`), a `todo` list and calendars.
 - Amazon Ember, optional: see [Fonts](#fonts).
 - The `Meridian` theme ([`themes/meridian.yaml`](themes/meridian.yaml)) for HA's own pages and

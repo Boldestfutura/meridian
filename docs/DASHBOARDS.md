@@ -80,11 +80,9 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
    lives in the Python. Run `python3 tools/live_sync.py` first: if HA's ha-show has a change
    the Python lacks, deploy would undo it.
 4. **Reload the devices that keep the page open.** The Echo needs its View Assist Companion
-   app restarted (`docs/tasks/echo-show-bedroom.md`). The Nest Hub needs the cast dropped and
-   started again (`media_player.turn_off`, then `cast.show_lovelace_view`); recasting the same
-   view does not reload it.
+   app restarted (`docs/tasks/echo-show-bedroom.md`). The Kitchen Display reloads with `button.kitchen_tablet_va_refresh`.
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
-   - Kitchen Show `/ha-show/show` at 1280x800 and at 1024x600 (the Nest Hub), every page
+   - Kitchen Show `/ha-show/show` at 1280x800 and 1024x600 (the compact layout), every page
    - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every view (since 0.33.0 it swipes between views with page dots, no dock) (Meridian screen cards, edited in HA, not by deploy.py)
    - Computer Show `/ha-show-computer/home` at 1920x1080, sidebar open (Meridian cards, edited in HA, not by deploy.py)
    - Phone Show `/ha-show-native/home` at 390 wide
@@ -128,8 +126,15 @@ python3 tools/live_sync.py pull     # copy HA-side edits into the repo, then che
 ```
 
 It covers the HA-edited dashboards (`dashboards/`), the Kitchen Show against `show.py`, every
-automation and script in `ha_config/`, Pip's template helpers, the YAML in `configuration.yaml`,
-and the two card files (the `overlook-show.js` version and HACS's `meridian.js`). After any
+automation and script in `ha_config/` (scripts in `ha_config/scripts/`), the helpers
+(`helpers.json`), the template helpers (`template_helpers.json`, Pip's in `pip/templates.py`),
+`configuration.yaml` (ids masked), the Meridian themes, `tools/ha/*.py` against
+`/config/scripts`, and the two card files (the `overlook-show.js` version and HACS's `meridian.js`).
+
+Nothing else is installed for the screens: since 2026-11-15 HA loads only Meridian, the Show
+card, the Ember stylesheet and album_slideshow's own card. The old HACS cards, card-mod,
+button-card, stack-in-card, View Assist and the Mushroom and Google themes were removed
+(backup on HA in `/config/cleanup-backup-2026-11-15`). After any
 change in HA, pull and commit; after any change here, deploy, then check. Pull never writes
 `show.py`: a live Kitchen Show change has to be put into the Python by hand.
 

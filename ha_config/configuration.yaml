@@ -1,0 +1,203 @@
+# Home Assistant's configuration.yaml, as live (LF here; HA's copy is CRLF).
+# The webhook and config entry ids are masked; tools/live_sync.py masks the live file the same way to compare.
+homeassistant:
+  media_dirs:
+    media: /config/media
+# Loads default set of integrations. Do not remove.
+default_config:
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+template:
+  - binary_sensor:
+      - name: "Any Device Battery Low"
+        icon: mdi:battery-alert
+        state: >-
+          {{ [
+            states('sensor.soil_moisture_sensor_1_battery'),
+            states('sensor.moisture_sensor_2_battery'),
+            states('sensor.window_sensor_battery'),
+            states('sensor.door_sensor_battery'),
+            states('sensor.shortcut_button_battery'),
+            states('sensor.dimmer_switch_battery'),
+            states('sensor.master_bedroom_dimmer_battery')
+          ] | select('is_number') | map('float') | select('lt', 5) | list | count > 0 }}
+      - name: "Any Plant Needs Water"
+        icon: mdi:flower-alert
+        state: >-
+          {{ (states('sensor.soil_moisture_sensor_1_humidity') | float(100) < 5)
+             or (states('sensor.moisture_sensor_2_humidity') | float(100) < 5) }}
+  # Spotify playlists Cameron has started anywhere (phone, desktop, Sonos),
+  # newest first, for the tablet's playlist order. HA's Spotify integration
+  # can only name playlists the API will return: ones Spotify made (Daily
+  # Mix, Discover Weekly, This Is ...) never appear; DJ does.
+  - trigger:
+      - trigger: state
+        entity_id: media_player.spotify_cameron
+        attribute: media_playlist
+      - trigger: event
+        event_type: tablet_playlists_refresh
+    condition:
+      - condition: template
+        value_template: >-
+          {{ state_attr('media_player.spotify_cameron', 'media_playlist') not in [none, ''] }}
+    sensor:
+      - name: Spotify Recent Playlists
+        unique_id: spotify_recent_playlists
+        icon: mdi:history
+        state: "{{ state_attr('media_player.spotify_cameron', 'media_playlist') }}"
+        attributes:
+          names: >-
+            {% set new = state_attr('media_player.spotify_cameron', 'media_playlist') %}
+            {% set old = this.attributes.names | default([]) %}
+            {{ ([new] + (old | reject('eq', new) | list))[:30] }}
+  # Playlists for the tablet's Media tab. Music Assistant's library, the
+  # ones last started in Spotify first, then MA's most recently played,
+  # minus MA's own generated mixes and the six Plex
+  # playlists, so the tab shows Spotify only. State is the count,
+  # which the tablet's eight playlist slots use to hide the empty ones.
+  - trigger:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/30"
+      - trigger: event
+        event_type: tablet_playlists_refresh
+      - trigger: state
+        entity_id: sensor.spotify_recent_playlists
+    action:
+      - action: music_assistant.get_library
+        data:
+          config_entry_id: "<config entry id>"
+          media_type: playlist
+          order_by: last_played_desc
+          limit: 100
+        response_variable: lib
+      - variables:
+          generated:
+            - "500 Random tracks (from library)"
+            - "All favorited tracks"
+            - "Infinite Mix (favorites)"
+            - "Infinite Mix (library)"
+            - "Random Album (from library)"
+            - "Random Artist (from library)"
+            - "Recently added tracks"
+            - "Recently played tracks"
+            - "All Music"
+            - "Fresh ❤️"
+            - "Noah Kahan"
+            - "Recently Added"
+            - "Recently Played"
+            - "❤️ Tracks"
+          picked: >-
+            {% set recent = state_attr('sensor.spotify_recent_playlists', 'names') or [] %}
+            {% set items = lib['items'] | rejectattr('name', 'in', generated) | list %}
+            {% set ns = namespace(out=[]) %}
+            {% for n in recent %}
+              {% for i in items if i.name == n %}
+                {% set ns.out = ns.out + [{'name': i.name, 'uri': i.uri, 'image': i.image or ''}] %}
+              {% endfor %}
+            {% endfor %}
+            {% for i in items if i.name not in recent %}
+              {% set ns.out = ns.out + [{'name': i.name, 'uri': i.uri, 'image': i.image or ''}] %}
+            {% endfor %}
+            {{ ns.out[:8] }}
+    sensor:
+      - name: Tablet Playlists
+        unique_id: tablet_playlists
+        icon: mdi:playlist-music
+        state: "{{ picked | count }}"
+        attributes:
+          items: "{{ picked }}"
+  # Guest Bedroom HomePod mini readings, pushed from an Apple Home automation
+  # (converted to a shortcut: Get the state of the HomePod's temperature and
+  # humidity, then Get Contents of URL, POST JSON {"temperature":..,"humidity":..}).
+  # The values keep whatever arrived last.
+  - triggers:
+      - trigger: webhook
+        webhook_id: "<webhook id>"
+        allowed_methods: [POST]
+        local_only: true
+    sensor:
+      - name: Guest Bedroom Temperature
+        unique_id: guest_bedroom_homepod_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: >
+          {% set ns2 = namespace(r='') %}{% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'room' %}{% set ns2.r = v | string | lower %}{% endfor %}
+          {% set ns = namespace(v='') %}
+          {% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'temperature' %}{% set ns.v = v %}{% endfor %}
+          {% set m = (ns.v | string) | regex_findall('-?[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(1) if m and 'suite' not in ns2.r else this.state }}
+      - name: Guest Bedroom Humidity
+        unique_id: guest_bedroom_homepod_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        state: >
+          {% set ns2 = namespace(r='') %}{% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'room' %}{% set ns2.r = v | string | lower %}{% endfor %}
+          {% set ns = namespace(v='') %}
+          {% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'humidity' %}{% set ns.v = v %}{% endfor %}
+          {% set m = (ns.v | string) | regex_findall('[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(0) | int if m and 'suite' not in ns2.r else this.state }}
+      # the En Suite HomePod: same webhook, either extra keys ensuite_temperature /
+      # ensuite_humidity in the guest body, or its own body with "room": "En Suite"
+      - name: En Suite Temperature
+        unique_id: en_suite_homepod_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: >
+          {% set ns2 = namespace(r='') %}{% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'room' %}{% set ns2.r = v | string | lower %}{% endfor %}
+          {% set ns = namespace(v='') %}
+          {% set ns = namespace(v='', e='') %}{% for k, v in (trigger.json | default({})).items() %}{% if k | lower | trim == 'temperature' and 'suite' in ns2.r %}{% set ns.v = v %}{% endif %}{% if k | lower | replace(' ', '') | replace('_', '') | replace('-', '') == 'ensuitetemperature' %}{% set ns.e = v %}{% endif %}{% endfor %}{% if ns.e | string | length %}{% set ns.v = ns.e %}{% endif %}
+          {% set m = (ns.v | string) | regex_findall('-?[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(1) if m else this.state }}
+      - name: En Suite Humidity
+        unique_id: en_suite_homepod_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        state: >
+          {% set ns2 = namespace(r='') %}{% for k, v in (trigger.json | default({})).items() if k | lower | trim == 'room' %}{% set ns2.r = v | string | lower %}{% endfor %}
+          {% set ns = namespace(v='') %}
+          {% set ns = namespace(v='', e='') %}{% for k, v in (trigger.json | default({})).items() %}{% if k | lower | trim == 'humidity' and 'suite' in ns2.r %}{% set ns.v = v %}{% endif %}{% if k | lower | replace(' ', '') | replace('_', '') | replace('-', '') == 'ensuitehumidity' %}{% set ns.e = v %}{% endif %}{% endfor %}{% if ns.e | string | length %}{% set ns.v = ns.e %}{% endif %}
+          {% set m = (ns.v | string) | regex_findall('[0-9]+(?:[.,][0-9]+)?') %}
+          {{ (m[0] | replace(',', '.') | float) | round(0) | int if m else this.state }}
+  # Today's forecast high and low, for screens that can't call weather.get_forecasts
+  # themselves (the ESPHome bedside clock reads these). Refreshed every 30 minutes.
+  - triggers:
+      - trigger: time_pattern
+        minutes: /30
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home
+        data:
+          type: daily
+        response_variable: fc
+    sensor:
+      - name: Forecast Today High
+        unique_id: forecast_today_high
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ fc['weather.forecast_home'].forecast[0].temperature | default(this.state, true) }}"
+      - name: Forecast Today Low
+        unique_id: forecast_today_low
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ fc['weather.forecast_home'].forecast[0].templow | default(this.state, true) }}"
+
+# ha-show: heart a Norish recipe from the kitchen screen (overlook-ha tools/ha/norish_fav.py)
+shell_command:
+  norish_favourite: "python3 /config/scripts/norish_fav.py {{ recipe }} {{ favourite }}"
+  norish_plan: "python3 /config/scripts/norish_plan.py {{ date }} {{ recipe }}"
+  plex_art: "python3 /config/scripts/plex_art.py {{ title | base64_encode }}"

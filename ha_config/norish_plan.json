@@ -1,0 +1,25 @@
+{
+ "id": "tablet_norish_plan_refresh",
+ "alias": "Kitchen tablet: refresh Norish meal plan",
+ "description": "Keeps /local/norish/plan.json in step with dinners planned in the Norish app (tools/ha/norish_plan.py).",
+ "triggers": [
+  {
+   "trigger": "time_pattern",
+   "minutes": "/10"
+  },
+  {
+   "trigger": "homeassistant",
+   "event": "start"
+  }
+ ],
+ "actions": [
+  {
+   "action": "shell_command.norish_plan",
+   "data": {
+    "date": "refresh",
+    "recipe": ""
+   }
+  }
+ ],
+ "mode": "single"
+}

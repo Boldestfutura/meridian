@@ -1,0 +1,216 @@
+{
+ "input_boolean": [
+  {
+   "id": "bedroom_alarm",
+   "name": "Bedroom Alarm",
+   "icon": "mdi:alarm"
+  },
+  {
+   "id": "bedroom_night_mode",
+   "name": "Sleep Sounds",
+   "icon": "mdi:waves"
+  },
+  {
+   "id": "guest_mode",
+   "name": "Guest Mode",
+   "icon": "mdi:account-group"
+  },
+  {
+   "id": "homepod_reading_request",
+   "name": "HomePod Reading Request",
+   "icon": "mdi:thermometer-auto"
+  },
+  {
+   "id": "kitchen_alarm",
+   "name": "Kitchen Alarm",
+   "icon": "mdi:alarm"
+  },
+  {
+   "id": "washing_machine_alert",
+   "name": "Washing machine alert",
+   "icon": "mdi:washing-machine-alert"
+  }
+ ],
+ "input_select": [
+  {
+   "id": "bedroom_ringing",
+   "name": "Bedroom Ringing",
+   "options": [
+    "Off",
+    "Timer",
+    "Alarm"
+   ],
+   "icon": "mdi:bell-ring"
+  },
+  {
+   "id": "kitchen_ringing",
+   "name": "Kitchen Ringing",
+   "options": [
+    "Off",
+    "Timer",
+    "Alarm"
+   ],
+   "icon": "mdi:bell-ring"
+  },
+  {
+   "id": "washing_machine",
+   "name": "Washing machine",
+   "options": [
+    "idle",
+    "running",
+    "done"
+   ],
+   "icon": "mdi:washing-machine"
+  }
+ ],
+ "input_number": [
+  {
+   "id": "bedroom_echo_day_wake_threshold",
+   "name": "Bedroom Echo day wake threshold",
+   "min": 0.0,
+   "max": 10.0,
+   "step": 0.1,
+   "mode": "box",
+   "icon": "mdi:account-voice"
+  },
+  {
+   "id": "bedroom_timer_length",
+   "name": "Bedroom Timer Length",
+   "min": 0.0,
+   "max": 86400.0,
+   "step": 1.0,
+   "mode": "box",
+   "unit_of_measurement": "s",
+   "icon": "mdi:timer-cog-outline"
+  },
+  {
+   "id": "kitchen_timer_length",
+   "name": "Kitchen Timer Length",
+   "min": 0.0,
+   "max": 86400.0,
+   "step": 1.0,
+   "mode": "box",
+   "unit_of_measurement": "s",
+   "icon": "mdi:timer-cog-outline"
+  }
+ ],
+ "input_datetime": [
+  {
+   "id": "bedroom_air_quality_alert_last_sent",
+   "name": "Bedroom Air Quality Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:air-purifier",
+   "has_time": true
+  },
+  {
+   "id": "bedroom_alarm_time",
+   "name": "Bedroom Alarm Time",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:alarm"
+  },
+  {
+   "id": "bedroom_humidity_alert_last_sent",
+   "name": "Bedroom Humidity Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:clock-check",
+   "has_time": true
+  },
+  {
+   "id": "kitchen_air_quality_alert_last_sent",
+   "name": "Kitchen Air Quality Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:air-purifier",
+   "has_time": true
+  },
+  {
+   "id": "kitchen_alarm_time",
+   "name": "Kitchen Alarm Time",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:alarm"
+  },
+  {
+   "id": "kitchen_humidity_alert_last_sent",
+   "name": "Kitchen Humidity Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:clock-check",
+   "has_time": true
+  },
+  {
+   "id": "pip_born",
+   "name": "Pip born",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:sprout"
+  },
+  {
+   "id": "pip_last_fed",
+   "name": "Pip last fed",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:food-apple"
+  },
+  {
+   "id": "pip_last_petted",
+   "name": "Pip last petted",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:hand-heart"
+  },
+  {
+   "id": "pip_last_talked_to",
+   "name": "Pip last talked to",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:account-voice"
+  },
+  {
+   "id": "plant_1_watering_alert_last_sent",
+   "name": "Plant 1 Watering Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:flower",
+   "has_time": true
+  },
+  {
+   "id": "plant_2_watering_alert_last_sent",
+   "name": "Plant 2 Watering Alert Last Sent",
+   "has_date": true,
+   "icon": "mdi:flower",
+   "has_time": true
+  },
+  {
+   "id": "washing_machine_started",
+   "name": "Washing machine started",
+   "has_date": true,
+   "has_time": true,
+   "icon": "mdi:timer-play-outline"
+  }
+ ],
+ "input_text": [
+  {
+   "id": "overlook_voice",
+   "name": "Overlook Voice",
+   "max": 255,
+   "icon": "mdi:account-voice",
+   "min": 0,
+   "mode": "text"
+  }
+ ],
+ "timer": [
+  {
+   "id": "bedroom_timer",
+   "name": "Bedroom Timer",
+   "icon": "mdi:timer-outline",
+   "restore": true,
+   "duration": "0:00:00"
+  },
+  {
+   "id": "kitchen_timer",
+   "name": "Kitchen Timer",
+   "icon": "mdi:timer-outline",
+   "restore": true,
+   "duration": "0:00:00"
+  }
+ ]
+}

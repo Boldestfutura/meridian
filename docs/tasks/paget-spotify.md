@@ -19,8 +19,8 @@ selected speaker, the same as now. Nothing else on any dashboard changes.
 
 ## What exists today (do not rebuild it)
 
-- **Music Assistant (MA)** 2.10.8 runs on the NAS. Home Assistant reaches it at
-  `http://100.84.24.51:30278`. Spotify is in MA through the **Soloist** provider, and
+- **Music Assistant (MA)** runs as a Home Assistant add-on in the VM (since 2026-11-14; it
+  used to be an app on the NAS). Spotify is in MA through the **Soloist** provider, and
   only Cameron's account is set up so far.
 - MA's players in HA are the `_2` entities: `media_player.living_room_amp_2`,
   `media_player.homepod_mini_kitchen_2`, `media_player.bedroom_echo`, `media_player.guest_bedroom_homepod_mini_2`.
@@ -30,8 +30,7 @@ selected speaker, the same as now. Nothing else on any dashboard changes.
   drive the Sonos Amp or the AirPlay-only HomePods. Its `media_playlist` attribute names
   the playlist he's playing on any device.
 - `configuration.yaml` on HA holds two trigger-based template sensors. The repo copy is
-  `ha_config/tablet_playlists.yaml`, with a placeholder where the real
-  `config_entry_id` goes.
+  `ha_config/configuration.yaml`, with the `config_entry_id` masked.
   - `sensor.spotify_recent_playlists`: attribute `names` holds the last 30 playlist
     names Cameron started, newest first.
   - `sensor.tablet_playlists`: state is a count, attribute `items` is
@@ -96,8 +95,7 @@ An agent cannot do these. Wait until Cameron says all three are done.
 - Back it up first on the box, e.g. `configuration.yaml.bak-<date>`.
 - Check the config with REST `POST /api/config/core/check_config`. Then call
   `template.reload`, and fire event `tablet_playlists_refresh` to repopulate.
-- Mirror every change into `ha_config/tablet_playlists.yaml`, with the placeholder
-  config entry id, never the real one.
+- Then `python3 tools/live_sync.py pull`: it copies `configuration.yaml` with the ids masked.
 
 ## Step 4: the UI (www/overlook-show.js)
 

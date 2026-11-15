@@ -1,0 +1,54 @@
+{
+ "alias": "Washing hung out",
+ "icon": "mdi:tshirt-crew",
+ "description": "Someone has emptied the washing machine: the cycle goes back to idle, the full-screen alert goes away and the phone notifications are cleared. Run by the Hung it out button on the dashboards' washer pop-up and on the phone notification.",
+ "mode": "single",
+ "sequence": [
+  {
+   "action": "input_boolean.turn_off",
+   "target": {
+    "entity_id": "input_boolean.washing_machine_alert"
+   }
+  },
+  {
+   "if": [
+    {
+     "condition": "state",
+     "entity_id": "input_select.washing_machine",
+     "state": "done"
+    }
+   ],
+   "then": [
+    {
+     "action": "input_select.select_option",
+     "target": {
+      "entity_id": "input_select.washing_machine"
+     },
+     "data": {
+      "option": "idle"
+     }
+    }
+   ]
+  },
+  {
+   "action": "notify.mobile_app_camerons_iphone",
+   "continue_on_error": true,
+   "data": {
+    "message": "clear_notification",
+    "data": {
+     "tag": "washing"
+    }
+   }
+  },
+  {
+   "action": "notify.mobile_app_paget_s_iphone",
+   "continue_on_error": true,
+   "data": {
+    "message": "clear_notification",
+    "data": {
+     "tag": "washing"
+    }
+   }
+  }
+ ]
+}

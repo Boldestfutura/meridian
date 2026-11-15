@@ -1,0 +1,109 @@
+{
+ "alias": "Heatpump - Auto Heat or Cool 30min",
+ "sequence": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "template",
+       "value_template": "{{ state_attr('climate.living_room', 'current_temperature') | float < 17 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "climate.set_hvac_mode",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "hvac_mode": "heat"
+       }
+      },
+      {
+       "action": "climate.set_temperature",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "temperature": 19
+       }
+      },
+      {
+       "delay": {
+        "minutes": 30
+       }
+      },
+      {
+       "action": "climate.set_hvac_mode",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "hvac_mode": "off"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "template",
+       "value_template": "{{ state_attr('climate.living_room', 'current_temperature') | float > 25 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "climate.set_hvac_mode",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "hvac_mode": "cool"
+       }
+      },
+      {
+       "action": "climate.set_temperature",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "temperature": 23
+       }
+      },
+      {
+       "delay": {
+        "minutes": 30
+       }
+      },
+      {
+       "action": "climate.set_hvac_mode",
+       "target": {
+        "entity_id": "climate.living_room"
+       },
+       "data": {
+        "hvac_mode": "off"
+       }
+      }
+     ]
+    }
+   ],
+   "default": [
+    {
+     "action": "notify.send_message",
+     "target": {
+      "entity_id": [
+       "notify.iphone",
+       "notify.paget_s_iphone"
+      ]
+     },
+     "data": {
+      "title": "Heatpump",
+      "message": "Living room is at {{ state_attr('climate.living_room', 'current_temperature') }}°C - already comfortable, heatpump not started."
+     }
+    }
+   ]
+  }
+ ],
+ "mode": "single"
+}

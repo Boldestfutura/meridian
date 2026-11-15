@@ -1,0 +1,27 @@
+{
+ "id": "tablet_plex_art",
+ "alias": "Kitchen tablet: fetch Plex art for the Apple TV",
+ "description": "When the Apple TV starts something new, fetch its Plex background and logo for the tablet (tools/ha/plex_art.py).",
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "media_player.living_room",
+   "attribute": "media_title"
+  }
+ ],
+ "conditions": [
+  {
+   "condition": "template",
+   "value_template": "{{ trigger.to_state.attributes.media_title | default('', true) | trim != '' }}"
+  }
+ ],
+ "actions": [
+  {
+   "action": "shell_command.plex_art",
+   "data": {
+    "title": "{{ trigger.to_state.attributes.media_title }}"
+   }
+  }
+ ],
+ "mode": "queued"
+}

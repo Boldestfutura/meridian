@@ -1,0 +1,29 @@
+{
+ "alias": "Living Room Night Light",
+ "icon": "mdi:weather-night",
+ "description": "Light scene for the ha-show Home page",
+ "mode": "single",
+ "sequence": [
+  {
+   "action": "light.turn_off",
+   "target": {
+    "entity_id": [
+     "light.couch_lamp",
+     "light.tv_lamp"
+    ]
+   }
+  },
+  {
+   "action": "light.turn_on",
+   "target": {
+    "entity_id": [
+     "light.corner_light"
+    ]
+   },
+   "data": {
+    "brightness_pct": 5,
+    "color_temp_kelvin": 2000
+   }
+  }
+ ]
+}

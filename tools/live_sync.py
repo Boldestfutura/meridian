@@ -8,9 +8,12 @@ What it compares:
   - the dashboards edited in HA's own editor, saved here as dashboards/<url_path>.json (pulled)
   - the Kitchen Show (ha-show), built by show.py: compared only. Change show.py / showphone.py
     and ship it with ./deploy.py show
-  - every automation and script in ha_config/ (*.json, pip/*.json), by id (pulled)
+  - every automation and script in ha_config/ (*.json, scripts/, pip/), by id (pulled)
+  - the helpers (ha_config/helpers.json) and the UI template helpers other than Pip's
+    (ha_config/template_helpers.json) (pulled)
   - Pip's template helpers against ha_config/pip/templates.py: compared only
-  - ha_config/*.yaml against configuration.yaml (lines with a placeholder are skipped): compared only
+  - configuration.yaml against ha_config/configuration.yaml, webhook and config entry ids masked (pulled)
+  - the themes (themes/ vs /config/themes/meridian) and tools/ha/*.py vs /config/scripts: compared only
   - the card files: the /local/overlook-show.js resource's ?v= against show.VERSION, and HACS's
     meridian.js against dist/meridian.js: compared only
 A pulled file keeps its indentation and trailing newline, so the diff is only the real change.
@@ -25,7 +28,15 @@ HOST = deploy.HOST
 TOKEN = open(os.path.expanduser(deploy.TOKEN_FILE)).read().strip()
 DASHBOARDS = ["ha-show-native", "ha-show-computer", "master-bedroom-echo-show"]
 SCRIPT_IDS = {"voice_weather_script.json": "voice_weather_forecast"}   # where the file name isn't the id
-PLACEHOLDER = re.compile(r"CHANGE-ME|<your ")
+HELPER_DOMAINS = ["input_boolean", "input_select", "input_number", "input_datetime", "input_text",
+                  "input_button", "timer", "counter", "schedule"]
+CONF_HEADER = ("# Home Assistant's configuration.yaml, as live (LF here; HA's copy is CRLF).\n"
+               "# The webhook and config entry ids are masked; tools/live_sync.py masks the live file the same way to compare.\n")
+
+
+def mask(text):
+    text = re.sub(r"(webhook_id: *)\S+", r'\1"<webhook id>"', text)
+    return re.sub(r"(config_entry_id: *)\S+", r'\1"<config entry id>"', text)
 SSH = ["-q", "-o", "BatchMode=yes", "-o", "UserKnownHostsFile=/tmp/claude-1000/ha_known",
        "-i", os.path.expanduser("~/.config/ha/vmkey")]
 
@@ -82,7 +93,53 @@ def run(pull):
     if n:
         drift.append("ha-show: %d values differ from show.py (put the live change in show.py/showphone.py)" % n)
 
-    for path in sorted(glob.glob(os.path.join(ROOT, "ha_config", "*.json")) + glob.glob(os.path.join(ROOT, "ha_config", "pip", "*.json"))):
+    def pulled(rel, live, mine):
+        path = os.path.join(ROOT, rel)
+        if live == mine:
+            return
+        if pull:
+            save(path, live)
+            print("pulled   " + rel)
+        else:
+            drift.append("%s differs from HA" % rel)
+
+    helpers = {}
+    for d in HELPER_DOMAINS:
+        r = ha_ws.call(ws, next(ids), type=d + "/list")
+        if r.get("success") and r["result"]:
+            helpers[d] = sorted(r["result"], key=lambda x: x["id"])
+    pulled("ha_config/helpers.json", helpers, json.load(open(os.path.join(ROOT, "ha_config", "helpers.json"))))
+
+    live_tm = {}
+    for e in rest("GET", "/api/config/config_entries/entry?domain=template"):
+        if e["title"].startswith("Pip "):
+            continue
+        flow = rest("POST", "/api/config/config_entries/options/flow", {"handler": e["entry_id"]})
+        live_tm[e["title"]] = {f["name"]: (f.get("description") or {}).get("suggested_value") for f in flow.get("data_schema", [])
+                               if (f.get("description") or {}).get("suggested_value") is not None}
+        rest("DELETE", "/api/config/config_entries/options/flow/" + flow["flow_id"])     # read only: abort it
+    pulled("ha_config/template_helpers.json", live_tm, json.load(open(os.path.join(ROOT, "ha_config", "template_helpers.json"))))
+
+    conf = CONF_HEADER + mask(fetch("/config/configuration.yaml").decode().replace("\r\n", "\n"))
+    cpath = os.path.join(ROOT, "ha_config", "configuration.yaml")
+    if conf != open(cpath).read():
+        if pull:
+            open(cpath, "w").write(conf)
+            print("pulled   ha_config/configuration.yaml")
+        else:
+            drift.append("ha_config/configuration.yaml differs from HA")
+
+    for path in sorted(glob.glob(os.path.join(ROOT, "themes", "*.yaml"))):
+        if fetch("/config/themes/meridian/" + os.path.basename(path)) != open(path, "rb").read():
+            drift.append("themes/%s differs from HA's /config/themes/meridian" % os.path.basename(path))
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "ha", "*.py"))):
+        if fetch("/config/scripts/" + os.path.basename(path)) != open(path, "rb").read():
+            drift.append("tools/ha/%s differs from HA's /config/scripts (scp it over)" % os.path.basename(path))
+
+    for path in sorted(glob.glob(os.path.join(ROOT, "ha_config", "*.json")) + glob.glob(os.path.join(ROOT, "ha_config", "scripts", "*.json"))
+                       + glob.glob(os.path.join(ROOT, "ha_config", "pip", "*.json"))):
+        if os.path.basename(path) in ("helpers.json", "template_helpers.json"):
+            continue
         mine = json.load(open(path))
         name = os.path.relpath(path, ROOT)
         if "sequence" in mine and "triggers" not in mine and "trigger" not in mine:
@@ -110,14 +167,6 @@ def run(pull):
         rest("DELETE", "/api/config/config_entries/options/flow/" + flow["flow_id"])    # read only: abort it
         if seen.get("state") != state or seen.get("unit_of_measurement") != unit:
             drift.append("template helper %r differs from ha_config/pip/templates.py" % title)
-
-    conf = fetch("/config/configuration.yaml").decode().replace("\r\n", "\n")
-    for path in sorted(glob.glob(os.path.join(ROOT, "ha_config", "*.yaml"))):
-        lines = [l for l in open(path).read().splitlines()
-                 if l.strip() and not l.lstrip().startswith("#") and not PLACEHOLDER.search(l)]
-        missing = [l for l in lines if l not in conf]
-        if missing:
-            drift.append("%s: %d lines not in configuration.yaml, first: %s" % (os.path.relpath(path, ROOT), len(missing), missing[0].strip()))
 
     import show
     res = [r["url"] for r in ha_ws.call(ws, next(ids), type="lovelace/resources")["result"] if "overlook-show.js" in r["url"]]

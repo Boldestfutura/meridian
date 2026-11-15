@@ -1,0 +1,22 @@
+{
+ "alias": "Living Room Relax",
+ "icon": "mdi:sofa-single",
+ "description": "Light scene for the ha-show Home page",
+ "mode": "single",
+ "sequence": [
+  {
+   "action": "light.turn_on",
+   "target": {
+    "entity_id": [
+     "light.couch_lamp",
+     "light.tv_lamp",
+     "light.corner_light"
+    ]
+   },
+   "data": {
+    "brightness_pct": 55,
+    "color_temp_kelvin": 2400
+   }
+  }
+ ]
+}

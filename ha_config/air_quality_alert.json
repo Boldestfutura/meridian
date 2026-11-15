@@ -1,0 +1,183 @@
+{
+ "id": "1784007322236",
+ "alias": "Air Quality Alert - Kitchen & Master Bedroom",
+ "description": "Notify both iPhones when PM2.5 or VOC index rises above threshold in kitchen or master bedroom, max twice a day per room",
+ "triggers": [
+  {
+   "entity_id": "sensor.air_quality_monitor_pm2_5",
+   "above": 25,
+   "id": "kitchen_pm25",
+   "trigger": "numeric_state"
+  },
+  {
+   "entity_id": "sensor.air_quality_monitor_voc_index",
+   "above": 150,
+   "id": "kitchen_voc",
+   "trigger": "numeric_state"
+  },
+  {
+   "entity_id": "sensor.air_quality_monitor_pm2_5_2",
+   "above": 25,
+   "id": "bedroom_pm25",
+   "trigger": "numeric_state"
+  },
+  {
+   "entity_id": "sensor.air_quality_monitor_voc_index_2",
+   "above": 150,
+   "id": "bedroom_voc",
+   "trigger": "numeric_state"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "kitchen_pm25"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.kitchen_air_quality_alert_last_sent'), 0)) > 43200 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "Air Quality - Kitchen",
+        "message": "Kitchen PM2.5 is at {{ states('sensor.air_quality_monitor_pm2_5') }} μg/m³ - consider ventilating."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.kitchen_air_quality_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "kitchen_voc"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.kitchen_air_quality_alert_last_sent'), 0)) > 43200 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "Air Quality - Kitchen",
+        "message": "Kitchen VOC index is at {{ states('sensor.air_quality_monitor_voc_index') }} - consider ventilating."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.kitchen_air_quality_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "bedroom_pm25"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.bedroom_air_quality_alert_last_sent'), 0)) > 43200 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "Air Quality - Master Bedroom",
+        "message": "Master bedroom PM2.5 is at {{ states('sensor.air_quality_monitor_pm2_5_2') }} μg/m³ - consider ventilating."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.bedroom_air_quality_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "bedroom_voc"
+      },
+      {
+       "condition": "template",
+       "value_template": "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.bedroom_air_quality_alert_last_sent'), 0)) > 43200 }}"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "notify.send_message",
+       "target": {
+        "entity_id": [
+         "notify.iphone",
+         "notify.paget_s_iphone"
+        ]
+       },
+       "data": {
+        "title": "Air Quality - Master Bedroom",
+        "message": "Master bedroom VOC index is at {{ states('sensor.air_quality_monitor_voc_index_2') }} - consider ventilating."
+       }
+      },
+      {
+       "action": "input_datetime.set_datetime",
+       "target": {
+        "entity_id": "input_datetime.bedroom_air_quality_alert_last_sent"
+       },
+       "data": {
+        "timestamp": "{{ now().timestamp() }}"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "mode": "queued"
+}

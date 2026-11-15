@@ -1,0 +1,8 @@
+{
+ "Bedroom Dark": {
+  "state": "{{ is_state('light.master_bedroom_lights', 'off') and states('sensor.bedroom_echo_va_light_level') | float(99) < 3 }}"
+ },
+ "Kitchen Dark": {
+  "state": "{{ is_state('light.kitchen_lights', 'off') and states('sensor.kitchen_tablet_va_light_level') | float(99) < 3 }}"
+ }
+}

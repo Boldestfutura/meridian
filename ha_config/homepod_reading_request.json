@@ -1,0 +1,31 @@
+{
+ "id": "1794119448373",
+ "alias": "HomePod Reading Request",
+ "description": "Every 30 minutes, flick the HomePod Reading Request switch on for 30 seconds. It's shared with Apple Home through the HomeKit Bridge, and an Apple Home automation sends the guest bedroom HomePod's temperature and humidity back to HA when it turns on.",
+ "triggers": [
+  {
+   "trigger": "time_pattern",
+   "minutes": "/30"
+  }
+ ],
+ "actions": [
+  {
+   "action": "input_boolean.turn_on",
+   "target": {
+    "entity_id": "input_boolean.homepod_reading_request"
+   }
+  },
+  {
+   "delay": {
+    "seconds": 30
+   }
+  },
+  {
+   "action": "input_boolean.turn_off",
+   "target": {
+    "entity_id": "input_boolean.homepod_reading_request"
+   }
+  }
+ ],
+ "mode": "single"
+}

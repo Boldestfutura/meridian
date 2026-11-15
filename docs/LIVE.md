@@ -48,14 +48,10 @@ deploy them.
     `template.reload` (or the relevant reload).
 - Removing a config entry uses REST `DELETE /api/config/config_entries/entry/<id>`. There
   is no websocket command for it.
-- The VM **can't reach Sol's LAN IP**. Anything HA calls on Sol uses `100.84.24.51`:
-  Immich on :2283, Music Assistant on :30278.
-- **MA's "Internal URL" must stay `http://100.84.24.51:30278/`** (MA: Settings > System >
-  Webserver). MA announces it over mDNS and HA's MA integration copies it; when it falls back
-  to the LAN IP, every `_2` player goes unavailable (2026-10-28, 10-31, 11-05). A root cron job
-  on Sol (id 526, every 5 min) runs `tools/sol/ma-url-watch.sh` from
-  `/mnt/SSDs/appconfig/`: it stops MA, fixes `settings.json` and starts it again, at most once
-  per 30 minutes, and logs to `/mnt/SSDs/appconfig/ma-url-watch.log`.
+- The VM **can't reach Sol's LAN IP**. Anything HA calls on Sol uses `100.84.24.51`
+  (Immich on :2283).
+- Music Assistant is an HA add-on in the VM since 2026-11-14, so the old Sol URL watchdog
+  (`tools/sol/ma-url-watch.sh`, cron 526) is gone.
 
 ## What exists, by dashboard
 
@@ -82,12 +78,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - The white bar at the left edge is Android's gesture handle (natural portrait bottom). It
     can't be hidden without a kiosk app, which would break VACA's voice. Left as it is.
   - The WebView keeps old JS for a URL it has seen: bump `VERSION` on every deploy.
-- **Nest Hub** (1st gen, 1024x600, cast): `automation.kitchen_display_keep_the_cast_alive`
-  (`ha_config/kitchen_cast_keepalive.json`) casts `ha-show/show` every 2 minutes when the Hub
-  is off or idle, or showing an HA dashboard other than a `Kitchen Show:` page. It never
-  interrupts music or video playing on it.
-  - To reload it after a card change: `media_player.turn_off` the Hub, wait, then
-    `cast.show_lovelace_view`. Casting the same view again does not reload the page.
+- **Nest Hub**: retired 2026-11-14. Its cast keep-alive automation was removed on 2026-11-15.
   - **Never use a card that loads images by relative URL here.** The cast receiver runs at
     cast.home-assistant.io, so relative URLs 301 to a stock Nest Hub picture.
 - **Feeds the pages read:** `/local/norish/plan.json` (`tools/ha/norish_plan.py`, the week's
@@ -157,7 +148,7 @@ picture. A new photo screen needs its own entry.
 provider; HA's own Spotify integration can't drive the Sonos Amp or the AirPlay-only HomePods.
 MA players are the `_2` entities (`media_player.living_room_amp_2`, `homepod_mini_kitchen_2`
 — now the En Suite HomePod — and `guest_bedroom_homepod_mini_2`), plus `bedroom_echo`.
-- `sensor.tablet_playlists` (`ha_config/tablet_playlists.yaml`, in `configuration.yaml`) lists
+- `sensor.tablet_playlists` (in `configuration.yaml`; repo copy `ha_config/configuration.yaml`) lists
   what the card shows: `sensor.spotify_recent_playlists` first (the last 30 playlists Cameron
   started in the Spotify app, from HA's watch-only Spotify integration), then MA's last-played
   order. It filters MA's generated mixes and the six Plex playlists out **by name**, because
