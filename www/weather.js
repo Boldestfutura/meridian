@@ -163,7 +163,7 @@ export const WX_CSS = css`
   .wp-row ha-icon { --mdc-icon-size: 22px; color: var(--cool); flex: none; }
   .wp-warn ha-icon { color: var(--warm); }
   .wp-warn.major ha-icon { color: #e5484d; }
-  .wp-hours { display: grid; grid-template-columns: repeat(8, minmax(40px, 1fr)); gap: 2px; padding: 10px 6px; border-radius: 18px;
+  .wp-hours { flex: none; display: grid; grid-template-columns: repeat(8, minmax(40px, 1fr)); gap: 2px; padding: 10px 6px; border-radius: 18px;
               background: var(--inset); overflow-x: auto; scrollbar-width: none; }
   .wp-hours > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .wp-hours span { font-size: 12px; font-weight: 700; white-space: nowrap; }

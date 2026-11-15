@@ -15,7 +15,7 @@ import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tabl
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.3";
+const VERSION = "0.34.4";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
