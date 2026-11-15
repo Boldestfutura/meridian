@@ -29,8 +29,9 @@ else), the typefaces Echo devices use. The font files are not in this repo; see
 [Fonts](#fonts) for how to get them. Weather icons are our own SVGs, drawn by
 [`tools/weather_icons.py`](tools/weather_icons.py).
 
-*Calendar entries, the shopping list, what's playing and the photo in these screenshots are
-placeholders; the playlist covers are blurred.*
+*The screenshots show a made-up household. [`tools/docshots/shoot.py`](tools/docshots/shoot.py)
+takes them from the live dashboards and swaps out the people, what's playing, photos,
+calendars, the shopping list, playlists and recipes in the browser before the page draws.*
 
 ## Kitchen Show
 ![Kitchen Show, Home](docs/images/tablet-home.png)
@@ -52,10 +53,13 @@ day, dark after sunset (`scheme: sun.sun`).
 The Nest Hub shows the same pages at 1024x600; under 680px tall a compact layout takes over.
 
 ## Master Bedroom Echo Show
-![Bedroom Show, photos](docs/images/bedroom-photos.png)
 <p>
   <img src="docs/images/bedroom-controls.png" width="49%" alt="Bedroom Show, Controls">
+  <img src="docs/images/bedroom-media.png" width="49%" alt="Bedroom Show, Media">
+</p>
+<p>
   <img src="docs/images/bedroom-climate.png" width="49%" alt="Bedroom Show, Climate">
+  <img src="docs/images/bedroom-calendar.png" width="49%" alt="Bedroom Show, Calendar">
 </p>
 
 ## Computer Show

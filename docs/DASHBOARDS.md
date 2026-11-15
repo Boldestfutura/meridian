@@ -29,6 +29,7 @@ More screenshots in the [README](../README.md).
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
 | `tools/ha/norish_plan.py` | writes the Norish meal plan to `/config/www/norish/plan.json` for the Home and Recipes pages; runs on HA |
 | `tools/ha/plex_art.py` | fetches Plex's background and logo for what the Apple TV plays into `/config/www/nowplaying/` (`shell_command.plex_art`); runs on HA |
+| `tools/docshots/shoot.py` | the README screenshots, from the live dashboards in headless Firefox; `scrub.js` swaps in a made-up household before the page draws. `HA_HOST=… python3 tools/docshots/shoot.py [kitchen echo computer phone]` |
 
 The Show card has one full-screen layout, the Kitchen Show's pages in `www/tablet.js`. Every
 other dashboard is built from Meridian cards in HA's editor, from the same JS file.
