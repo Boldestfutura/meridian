@@ -4,5 +4,8 @@
  },
  "Kitchen Dark": {
   "state": "{{ is_state('light.kitchen_lights', 'off') and states('sensor.kitchen_tablet_va_light_level') | float(99) < 3 }}"
+ },
+ "GTA VI": {
+  "state": "{%- set s = (as_datetime('2026-11-19T00:00:00+11:00') - now()).total_seconds() | int -%}\n{%- if s <= 0 -%}Out now\n{%- elif s >= 86400 -%}{{ s // 86400 }}d {{ (s % 86400) // 3600 }}h\n{%- else -%}{{ s // 3600 }}h {{ (s % 3600) // 60 }}m{%- endif -%}"
  }
 }
