@@ -2,7 +2,6 @@
   "id": "weather_warning_notify",
   "alias": "Weather - Notify New BoM Warnings",
   "description": "Phone alert when the Bureau issues a new warning for the district (sheep graziers skipped). Major warnings any time and time-sensitive; minor ones 7 am to 10 pm. Opens the Weather dashboard.",
-  "mode": "queued",
   "triggers": [
     {
       "trigger": "state",
@@ -34,7 +33,7 @@
         "data": {
           "tag": "weather-warning",
           "group": "weather",
-          "url": "/ha-weather/now",
+          "url": "/ha-show-native/home",
           "push": {
             "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
           }
@@ -50,12 +49,13 @@
         "data": {
           "tag": "weather-warning",
           "group": "weather",
-          "url": "/ha-weather/now",
+          "url": "/ha-show-native/home",
           "push": {
             "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
           }
         }
       }
     }
-  ]
+  ],
+  "mode": "queued"
 }

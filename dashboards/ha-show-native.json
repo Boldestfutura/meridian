@@ -99,6 +99,11 @@
                   }
                 },
                 {
+                  "entity": "weather.outdoor_south_melbourne",
+                  "name": "Weather",
+                  "weather": true
+                },
+                {
                   "entity": "input_select.washing_machine",
                   "name": "Washing",
                   "icon": "mdi:washing-machine",
