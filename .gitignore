@@ -7,7 +7,6 @@ backup_*.json
 live_*.json
 screenshots/
 .live-backup-*/
-.deployed/
 # Amazon Ember lives on HA only, never here
 *.woff
 *.woff2

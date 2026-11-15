@@ -186,8 +186,8 @@ www/weather/           weather icons (drawn by tools/weather_icons.py)
 www/fonts/ember.css    @font-face rules for Amazon Ember (the font files are not in the repo)
 show.py                Kitchen Show and the shared CARD config, VERSION
 showphone.py           the phone's rooms, scenes and pop-ups (data only)
-shownative.py          Phone Show, as native HA sections
 deploy.py  ha_ws.py    CLI and a minimal websocket client
+dashboards/            the dashboards edited in HA's own editor, as HA holds them
 ha_config/             automations and sensors the dashboards rely on (repo copies)
 device/echo/           Echo Show 5 mute button
 tools/                 weather icon generator, Norish sync, headless-browser driver;

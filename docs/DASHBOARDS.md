@@ -23,8 +23,9 @@ More screenshots in the [README](../README.md).
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
 | `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`: rooms, scenes, status pills, calendars, recipes, and the tablet's own keys (`tablet_tv`, `tablet_players`, `tablet_quick`, `scheme`) |
-| `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `shownative.py` reads it |
-| `shownative.py` | Phone Show (`ha-show-native`): the same rooms, scenes and pop-ups as ordinary HA cards in a sections view (see below) |
+| `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `show.py` reads it |
+| `dashboards/*.json` | the Phone Show, Computer Show and Master Bedroom Echo Show, edited in HA's own editor, as HA holds them. Never edit these here: change HA, then pull |
+| `tools/live_sync.py` | keeps the repo and HA in lock step (below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
 | `tools/ha/norish_plan.py` | writes the Norish meal plan to `/config/www/norish/plan.json` for the Home and Recipes pages; runs on HA |
@@ -71,13 +72,13 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
    Skip this and browsers keep the old JS cached, so the change looks like it didn't work.
 3. Deploy:
    ```sh
-   ./deploy.py show shownative
+   ./deploy.py show
    ```
    This builds the Show card (and `dist/meridian.js` for HACS), copies the card and
    artwork to `/config/www` over SSH, points the resource at the new
-   version and rewrites the dashboards. ha-show
-   holds no UI edits, so its config lives in the Python; ha-show-native is
-   only rewritten while nobody has edited it in HA.
+   version and rewrites the Kitchen Show. ha-show holds no UI edits, so its config
+   lives in the Python. Run `python3 tools/live_sync.py` first: if HA's ha-show has a change
+   the Python lacks, deploy would undo it.
 4. **Reload the devices that keep the page open.** The Echo needs its View Assist Companion
    app restarted (`docs/tasks/echo-show-bedroom.md`). The Nest Hub needs the cast dropped and
    started again (`media_player.turn_off`, then `cast.show_lovelace_view`); recasting the same
@@ -111,11 +112,26 @@ off on 2026-11-04.
   carries its own pop-up (`popup:` on a tile, on each status pill and reading), edited in
   HA's card editor: title, icon, then sections (player, tiles, choices, graph, graph of
   several). Tiles, Scenes and Status have full UI editors; no YAML needed.
-- `./deploy.py shownative` writes the layout **only while it is unedited** (snapshot in
-  `.deployed/`, gitignored). Once it has been changed in HA, deploy keeps HA's version.
+- Its layout is edited in HA only; `dashboards/ha-show-native.json` is the repo's copy
+  (see Lock step). The old generator, `shownative.py`, was retired on 2026-11-15.
 - **Shipping a card change:** `deploy.py` rebuilds `dist/meridian.js`; commit and push it,
   then update Meridian cards in HACS. The Show screens' card goes straight to `/config/www`
   and never registers the Meridian cards, so the two can't clash.
+
+## Lock step
+
+The repo and the live HA are meant to match at all times:
+
+```sh
+python3 tools/live_sync.py          # check: lists every difference, exits 1 if any
+python3 tools/live_sync.py pull     # copy HA-side edits into the repo, then check
+```
+
+It covers the HA-edited dashboards (`dashboards/`), the Kitchen Show against `show.py`, every
+automation and script in `ha_config/`, Pip's template helpers, the YAML in `configuration.yaml`,
+and the two card files (the `overlook-show.js` version and HACS's `meridian.js`). After any
+change in HA, pull and commit; after any change here, deploy, then check. Pull never writes
+`show.py`: a live Kitchen Show change has to be put into the Python by hand.
 
 ## Adding things
 

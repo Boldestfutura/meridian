@@ -1,0 +1,1597 @@
+{
+  "title": "Phone Show (new)",
+  "views": [
+    {
+      "title": "Home",
+      "path": "home",
+      "icon": "mdi:home-variant-outline",
+      "type": "sections",
+      "max_columns": 4,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-status",
+              "status": [
+                {
+                  "entity": "person.cameron",
+                  "name": "Cameron",
+                  "person": true,
+                  "popup": {
+                    "title": "Cameron",
+                    "icon": "mdi:account",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "person.cameron",
+                            "name": "Location",
+                            "icon": "mdi:map-marker"
+                          },
+                          {
+                            "entity": "device_tracker.iphone",
+                            "name": "iPhone",
+                            "icon": "mdi:cellphone"
+                          },
+                          {
+                            "entity": "device_tracker.camerons_ipad_pro",
+                            "name": "iPad Pro",
+                            "icon": "mdi:tablet"
+                          },
+                          {
+                            "entity": "device_tracker.camerons_iphone_apple_watch",
+                            "name": "Watch",
+                            "icon": "mdi:watch"
+                          },
+                          {
+                            "entity": "sensor.iphone_battery_level",
+                            "name": "iPhone battery",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.camerons_ipad_pro_battery_level",
+                            "name": "iPad battery",
+                            "icon": "mdi:battery"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "person.paget",
+                  "name": "Paget",
+                  "person": true,
+                  "popup": {
+                    "title": "Paget",
+                    "icon": "mdi:account",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "person.paget",
+                            "name": "Location",
+                            "icon": "mdi:map-marker"
+                          },
+                          {
+                            "entity": "device_tracker.paget_s_iphone",
+                            "name": "iPhone",
+                            "icon": "mdi:cellphone"
+                          },
+                          {
+                            "entity": "sensor.paget_s_iphone_battery_level",
+                            "name": "iPhone battery",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.paget_s_ipad_battery_level",
+                            "name": "iPad battery",
+                            "icon": "mdi:battery"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "input_select.washing_machine",
+                  "name": "Washing",
+                  "icon": "mdi:washing-machine",
+                  "tone": "accent",
+                  "when": "running"
+                },
+                {
+                  "entity": "input_select.washing_machine",
+                  "name": "Washing done",
+                  "icon": "mdi:washing-machine-alert",
+                  "tone": "warn",
+                  "when": "done"
+                },
+                {
+                  "entity": "binary_sensor.door_sensor",
+                  "name": "Door open",
+                  "icon": "mdi:door-open",
+                  "tone": "warn",
+                  "popup": {
+                    "title": "Doors & Windows",
+                    "icon": "mdi:door-open",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "binary_sensor.door_sensor",
+                            "name": "Door",
+                            "icon": "mdi:door-open"
+                          },
+                          {
+                            "entity": "binary_sensor.window_sensor",
+                            "name": "Window",
+                            "icon": "mdi:window-open"
+                          },
+                          {
+                            "entity": "sensor.door_sensor_battery",
+                            "name": "Door battery",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.window_sensor_battery",
+                            "name": "Window battery",
+                            "icon": "mdi:battery"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "binary_sensor.window_sensor",
+                  "name": "Window open",
+                  "icon": "mdi:window-open-variant",
+                  "tone": "warn",
+                  "popup": {
+                    "title": "Doors & Windows",
+                    "icon": "mdi:door-open",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "binary_sensor.door_sensor",
+                            "name": "Door",
+                            "icon": "mdi:door-open"
+                          },
+                          {
+                            "entity": "binary_sensor.window_sensor",
+                            "name": "Window",
+                            "icon": "mdi:window-open"
+                          },
+                          {
+                            "entity": "sensor.door_sensor_battery",
+                            "name": "Door battery",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.window_sensor_battery",
+                            "name": "Window battery",
+                            "icon": "mdi:battery"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "update.home_assistant_operating_system_update",
+                  "name": "OS update",
+                  "icon": "mdi:package-up",
+                  "tone": "bad",
+                  "popup": {
+                    "title": "Updates",
+                    "icon": "mdi:package-up",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "update.home_assistant_core_update",
+                            "name": "Core",
+                            "icon": "mdi:home-assistant",
+                            "wide": true
+                          },
+                          {
+                            "entity": "update.home_assistant_operating_system_update",
+                            "name": "Operating System",
+                            "icon": "mdi:package-up",
+                            "wide": true
+                          },
+                          {
+                            "entity": "update.home_assistant_supervisor_update",
+                            "name": "Supervisor",
+                            "icon": "mdi:shield-home",
+                            "wide": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "update.home_assistant_core_update",
+                  "name": "HA update",
+                  "icon": "mdi:home-assistant",
+                  "tone": "bad",
+                  "popup": {
+                    "title": "Updates",
+                    "icon": "mdi:package-up",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "update.home_assistant_core_update",
+                            "name": "Core",
+                            "icon": "mdi:home-assistant",
+                            "wide": true
+                          },
+                          {
+                            "entity": "update.home_assistant_operating_system_update",
+                            "name": "Operating System",
+                            "icon": "mdi:package-up",
+                            "wide": true
+                          },
+                          {
+                            "entity": "update.home_assistant_supervisor_update",
+                            "name": "Supervisor",
+                            "icon": "mdi:shield-home",
+                            "wide": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "binary_sensor.any_device_battery_low",
+                  "name": "Battery low",
+                  "icon": "mdi:battery-alert-variant-outline",
+                  "tone": "bad",
+                  "popup": {
+                    "title": "Batteries",
+                    "icon": "mdi:battery-alert",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.door_sensor_battery",
+                            "name": "Door sensor",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.window_sensor_battery",
+                            "name": "Window sensor",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.dimmer_switch_battery",
+                            "name": "Dimmer switch",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.master_bedroom_dimmer_battery",
+                            "name": "MB dimmer",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.shortcut_button_battery",
+                            "name": "Shortcut button",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.kitchen_living_room_dimmer_switch_battery",
+                            "name": "Kitchen dimmer",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.master_bedroom_dimmer_switch_battery",
+                            "name": "MB dimmer switch",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.soil_moisture_sensor_1_battery",
+                            "name": "Fiddle leaf fig",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.moisture_sensor_2_battery",
+                            "name": "Banana Leaf",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.iphone_battery_level",
+                            "name": "Cameron iPhone",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.paget_s_iphone_battery_level",
+                            "name": "Paget iPhone",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.camerons_ipad_pro_battery_level",
+                            "name": "Cameron iPad",
+                            "icon": "mdi:battery"
+                          },
+                          {
+                            "entity": "sensor.paget_s_ipad_battery_level",
+                            "name": "Paget iPad",
+                            "icon": "mdi:battery"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "binary_sensor.any_plant_needs_water",
+                  "name": "Water plants",
+                  "icon": "mdi:watering-can-outline",
+                  "tone": "cool",
+                  "popup": {
+                    "title": "Plants",
+                    "icon": "mdi:sprout",
+                    "sections": [
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.soil_moisture_sensor_1_humidity",
+                            "name": "Fiddle leaf fig",
+                            "icon": "mdi:sprout"
+                          },
+                          {
+                            "entity": "sensor.moisture_sensor_2_humidity",
+                            "name": "Banana Leaf",
+                            "icon": "mdi:sprout"
+                          },
+                          {
+                            "entity": "sensor.soil_moisture_sensor_1_temperature",
+                            "name": "Fiddle soil temp",
+                            "icon": "mdi:thermometer"
+                          },
+                          {
+                            "entity": "sensor.moisture_sensor_2_temperature",
+                            "name": "Banana soil temp",
+                            "icon": "mdi:thermometer"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "input_boolean.guest_mode",
+                  "name": "Guest mode",
+                  "icon": "mdi:account-group",
+                  "tone": "accent",
+                  "toggle": true
+                }
+              ],
+              "status_air": [
+                {
+                  "entity": "sensor.air_quality_monitor_temperature",
+                  "name": "Temp",
+                  "icon": "mdi:thermometer",
+                  "unit": "°",
+                  "color": "#f39a43",
+                  "sources": [
+                    {
+                      "entity": "sensor.air_quality_monitor_temperature"
+                    },
+                    {
+                      "entity": "sensor.air_quality_monitor_temperature_2"
+                    },
+                    {
+                      "entity": "climate.living_room",
+                      "attr": "current_temperature"
+                    },
+                    {
+                      "entity": "sensor.guest_bedroom_temperature"
+                    },
+                    {
+                      "entity": "sensor.en_suite_temperature"
+                    }
+                  ],
+                  "popup": {
+                    "title": "Temperature",
+                    "icon": "mdi:thermometer",
+                    "sections": [
+                      {
+                        "type": "multigraph",
+                        "name": "Each room",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "color": "#1fb39b",
+                            "attr": "current_temperature"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_temperature",
+                            "name": "Guest Bedroom",
+                            "color": "#3f86f2"
+                          },
+                          {
+                            "entity": "sensor.en_suite_temperature",
+                            "name": "En Suite",
+                            "color": "#d6409f"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "°",
+                        "valid": [
+                          5,
+                          45
+                        ]
+                      },
+                      {
+                        "type": "multigraph",
+                        "name": "House average",
+                        "average": true,
+                        "color": "#e5484d",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "color": "#1fb39b",
+                            "attr": "current_temperature"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_temperature",
+                            "name": "Guest Bedroom",
+                            "color": "#3f86f2"
+                          },
+                          {
+                            "entity": "sensor.en_suite_temperature",
+                            "name": "En Suite",
+                            "color": "#d6409f"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "°",
+                        "valid": [
+                          5,
+                          45
+                        ]
+                      },
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature",
+                            "name": "Kitchen",
+                            "icon": "mdi:thermometer"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_temperature_2",
+                            "name": "Master Bedroom",
+                            "icon": "mdi:thermometer"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "icon": "mdi:thermometer",
+                            "attr": "current_temperature",
+                            "unit": "°"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_temperature",
+                            "name": "Guest Bedroom",
+                            "icon": "mdi:thermometer"
+                          },
+                          {
+                            "entity": "sensor.en_suite_temperature",
+                            "name": "En Suite",
+                            "icon": "mdi:thermometer"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "sensor.air_quality_monitor_humidity",
+                  "name": "Humidity",
+                  "icon": "mdi:water-percent",
+                  "color": "#3f86f2",
+                  "sources": [
+                    {
+                      "entity": "sensor.air_quality_monitor_humidity"
+                    },
+                    {
+                      "entity": "sensor.air_quality_monitor_humidity_2"
+                    },
+                    {
+                      "entity": "climate.living_room",
+                      "attr": "current_humidity"
+                    },
+                    {
+                      "entity": "sensor.guest_bedroom_humidity"
+                    },
+                    {
+                      "entity": "sensor.en_suite_humidity"
+                    }
+                  ],
+                  "popup": {
+                    "title": "Humidity",
+                    "icon": "mdi:water-percent",
+                    "sections": [
+                      {
+                        "type": "multigraph",
+                        "name": "Each room",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "color": "#1fb39b",
+                            "attr": "current_humidity"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_humidity",
+                            "name": "Guest Bedroom",
+                            "color": "#3f86f2"
+                          },
+                          {
+                            "entity": "sensor.en_suite_humidity",
+                            "name": "En Suite",
+                            "color": "#d6409f"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "%",
+                        "valid": [
+                          1,
+                          100
+                        ]
+                      },
+                      {
+                        "type": "multigraph",
+                        "name": "House average",
+                        "average": true,
+                        "color": "#e5484d",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "color": "#1fb39b",
+                            "attr": "current_humidity"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_humidity",
+                            "name": "Guest Bedroom",
+                            "color": "#3f86f2"
+                          },
+                          {
+                            "entity": "sensor.en_suite_humidity",
+                            "name": "En Suite",
+                            "color": "#d6409f"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "%",
+                        "valid": [
+                          1,
+                          100
+                        ]
+                      },
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity",
+                            "name": "Kitchen",
+                            "icon": "mdi:water-percent"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_humidity_2",
+                            "name": "Master Bedroom",
+                            "icon": "mdi:water-percent"
+                          },
+                          {
+                            "entity": "climate.living_room",
+                            "name": "Living Room",
+                            "icon": "mdi:water-percent",
+                            "attr": "current_humidity",
+                            "unit": "%"
+                          },
+                          {
+                            "entity": "sensor.guest_bedroom_humidity",
+                            "name": "Guest Bedroom",
+                            "icon": "mdi:water-percent"
+                          },
+                          {
+                            "entity": "sensor.en_suite_humidity",
+                            "name": "En Suite",
+                            "icon": "mdi:water-percent"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "sensor.air_quality_monitor_pm2_5",
+                  "name": "PM2.5",
+                  "icon": "mdi:blur",
+                  "unit": "",
+                  "color": "#3f8f63",
+                  "sources": [
+                    {
+                      "entity": "sensor.air_quality_monitor_pm2_5"
+                    },
+                    {
+                      "entity": "sensor.air_quality_monitor_pm2_5_2"
+                    }
+                  ],
+                  "popup": {
+                    "title": "PM2.5",
+                    "icon": "mdi:blur",
+                    "sections": [
+                      {
+                        "type": "multigraph",
+                        "name": "Each room",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "",
+                        "valid": [
+                          0,
+                          1000
+                        ]
+                      },
+                      {
+                        "type": "multigraph",
+                        "name": "House average",
+                        "average": true,
+                        "color": "#e5484d",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "",
+                        "valid": [
+                          0,
+                          1000
+                        ]
+                      },
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5",
+                            "name": "Kitchen",
+                            "icon": "mdi:blur"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_pm2_5_2",
+                            "name": "Master Bedroom",
+                            "icon": "mdi:blur"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "entity": "sensor.air_quality_monitor_voc_index",
+                  "name": "VOC",
+                  "icon": "mdi:air-filter",
+                  "unit": "",
+                  "color": "#8e5cf0",
+                  "sources": [
+                    {
+                      "entity": "sensor.air_quality_monitor_voc_index"
+                    },
+                    {
+                      "entity": "sensor.air_quality_monitor_voc_index_2"
+                    }
+                  ],
+                  "popup": {
+                    "title": "VOC",
+                    "icon": "mdi:air-filter",
+                    "sections": [
+                      {
+                        "type": "multigraph",
+                        "name": "Each room",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "",
+                        "valid": [
+                          1,
+                          500
+                        ]
+                      },
+                      {
+                        "type": "multigraph",
+                        "name": "House average",
+                        "average": true,
+                        "color": "#e5484d",
+                        "series": [
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index",
+                            "name": "Kitchen",
+                            "color": "#f39a43"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index_2",
+                            "name": "Master Bedroom",
+                            "color": "#8e6cf0"
+                          }
+                        ],
+                        "hours": 24,
+                        "unit": "",
+                        "valid": [
+                          1,
+                          500
+                        ]
+                      },
+                      {
+                        "type": "tiles",
+                        "title": null,
+                        "items": [
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index",
+                            "name": "Kitchen",
+                            "icon": "mdi:air-filter"
+                          },
+                          {
+                            "entity": "sensor.air_quality_monitor_voc_index_2",
+                            "name": "Master Bedroom",
+                            "icon": "mdi:air-filter"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-heading",
+              "name": "Scenes",
+              "icon": "mdi:creation"
+            },
+            {
+              "type": "custom:meridian-scenes",
+              "scenes": [
+                {
+                  "entity": "input_boolean.guest_mode",
+                  "name": "Guest Mode",
+                  "icon": "mdi:account-group"
+                },
+                {
+                  "entity": "script.heatpump_cool_30min",
+                  "name": "Heat/Cool",
+                  "icon": "mdi:sun-snowflake-variant"
+                },
+                {
+                  "entity": "input_boolean.bedroom_night_mode",
+                  "name": "Sleep Sounds",
+                  "icon": "mdi:waves"
+                },
+                {
+                  "entity": "script.goodnight",
+                  "name": "Goodnight",
+                  "icon": "mdi:weather-night"
+                },
+                {
+                  "entity": "script.kitchen_dimmed",
+                  "name": "Kitchen Dim",
+                  "icon": "mdi:lightbulb-on-30"
+                },
+                {
+                  "entity": "script.bedroom_dimmed",
+                  "name": "Bedroom Dim",
+                  "icon": "mdi:bed"
+                },
+                {
+                  "entity": "script.living_room_dimmed",
+                  "name": "Living Dim",
+                  "icon": "mdi:sofa"
+                },
+                {
+                  "entity": "script.guest_bedroom_dimmed",
+                  "name": "Guest Dim",
+                  "icon": "mdi:bed-outline"
+                },
+                {
+                  "entity": "scene.cool_down",
+                  "name": "Cool down",
+                  "icon": "mdi:snowflake-thermometer"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-heading",
+              "name": "Kitchen",
+              "icon": "mdi:fridge",
+              "group": "light.kitchen_lights"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+              "name": "Kitchen Display",
+              "icon": "mdi:tablet",
+              "popup": {
+                "title": "Kitchen Display",
+                "icon": "mdi:tablet",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player"
+                  }
+                ]
+              },
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+                  "state_not": "unavailable"
+                }
+              ]
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.kitchen_light_2",
+              "name": "Kitchen Light",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.bench_lamp",
+              "name": "Bench Lamp",
+              "icon": "mdi:lightbulb"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-heading",
+              "name": "Living Room",
+              "icon": "mdi:sofa",
+              "group": "light.living_room"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "climate.living_room",
+              "popup": {
+                "title": "Heat pump",
+                "icon": "mdi:sun-snowflake-variant",
+                "sections": [
+                  {
+                    "type": "choices",
+                    "title": "Fan speed",
+                    "entity": "climate.living_room",
+                    "compact": true,
+                    "options": [
+                      {
+                        "value": "quiet",
+                        "name": "Quiet",
+                        "icon": "mdi:volume-low"
+                      },
+                      {
+                        "value": "low",
+                        "name": "Low",
+                        "icon": "mdi:fan-speed-1"
+                      },
+                      {
+                        "value": "medium",
+                        "name": "Medium",
+                        "icon": "mdi:fan-speed-2"
+                      },
+                      {
+                        "value": "high",
+                        "name": "High",
+                        "icon": "mdi:fan"
+                      },
+                      {
+                        "value": "auto",
+                        "name": "Auto",
+                        "icon": "mdi:fan-auto"
+                      }
+                    ],
+                    "attr": "fan_mode",
+                    "field": "fan_mode",
+                    "service": "climate.set_fan_mode"
+                  },
+                  {
+                    "type": "choices",
+                    "title": "Swing",
+                    "entity": "climate.living_room",
+                    "options": [
+                      {
+                        "value": "stopped",
+                        "name": "Stopped",
+                        "icon": "mdi:arrow-collapse-vertical"
+                      },
+                      {
+                        "value": "rangefull",
+                        "name": "Full range",
+                        "icon": "mdi:arrow-expand-vertical"
+                      }
+                    ],
+                    "compact": true,
+                    "attr": "swing_mode",
+                    "field": "swing_mode",
+                    "service": "climate.set_swing_mode"
+                  },
+                  {
+                    "type": "tiles",
+                    "title": "More",
+                    "items": [
+                      {
+                        "entity": "switch.living_room_climate_react",
+                        "name": "Climate React",
+                        "icon": "mdi:auto-mode"
+                      },
+                      {
+                        "entity": "switch.living_room_timer",
+                        "name": "Timer",
+                        "icon": "mdi:timer-outline"
+                      },
+                      {
+                        "entity": "sensor.living_room_timer_end_time",
+                        "name": "Timer ends",
+                        "icon": "mdi:timer-outline",
+                        "wide": true,
+                        "when": {
+                          "entity": "switch.living_room_timer",
+                          "state": "on"
+                        }
+                      },
+                      {
+                        "entity": "binary_sensor.living_room_filter_clean_required",
+                        "name": "Filter",
+                        "icon": "mdi:air-filter"
+                      },
+                      {
+                        "entity": "button.living_room_reset_filter",
+                        "name": "Reset filter",
+                        "icon": "mdi:air-filter"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.living_room_amp",
+              "name": "Amp",
+              "icon": "mdi:speaker",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.living_room_amp",
+                  "state_not": "unavailable"
+                }
+              ],
+              "popup": {
+                "title": "Amp",
+                "icon": "mdi:speaker",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.living_room_amp"
+                  },
+                  {
+                    "type": "choices",
+                    "title": "Source",
+                    "entity": "media_player.living_room_amp",
+                    "attr": "source",
+                    "service": "media_player.select_source",
+                    "field": "source",
+                    "options": [
+                      [
+                        "TV",
+                        "TV",
+                        "mdi:television"
+                      ],
+                      [
+                        "Line-in",
+                        "Line-in",
+                        "mdi:audio-input-rca"
+                      ],
+                      [
+                        "Sound System",
+                        "Sound System",
+                        "mdi:speaker-multiple"
+                      ],
+                      [
+                        "Check This Radio",
+                        "Check This Radio",
+                        "mdi:radio"
+                      ],
+                      [
+                        "Rain",
+                        "Rain",
+                        "mdi:weather-pouring"
+                      ],
+                      [
+                        "Taylor Swift",
+                        "Taylor Swift",
+                        "mdi:music"
+                      ],
+                      [
+                        "The Era's Tour",
+                        "The Era's Tour",
+                        "mdi:music-note"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "tiles",
+                    "title": "Sound",
+                    "items": [
+                      {
+                        "entity": "switch.living_room_amp_speech_enhancement",
+                        "name": "Speech",
+                        "icon": "mdi:account-voice"
+                      },
+                      {
+                        "entity": "switch.living_room_amp_night_sound",
+                        "name": "Night sound",
+                        "icon": "mdi:weather-night"
+                      },
+                      {
+                        "entity": "switch.living_room_amp_loudness",
+                        "name": "Loudness",
+                        "icon": "mdi:volume-vibrate"
+                      },
+                      {
+                        "entity": "switch.living_room_amp_crossfade",
+                        "name": "Crossfade",
+                        "icon": "mdi:shuffle-variant"
+                      },
+                      {
+                        "entity": "switch.living_room_amp_subwoofer_enabled",
+                        "name": "Subwoofer",
+                        "icon": "mdi:speaker-wireless"
+                      },
+                      {
+                        "entity": "switch.living_room_amp_surround_enabled",
+                        "name": "Surround",
+                        "icon": "mdi:surround-sound"
+                      },
+                      {
+                        "entity": "number.living_room_amp_bass",
+                        "name": "Bass",
+                        "icon": "mdi:music-clef-bass"
+                      },
+                      {
+                        "entity": "number.living_room_amp_treble",
+                        "name": "Treble",
+                        "icon": "mdi:music-clef-treble"
+                      },
+                      {
+                        "entity": "sensor.living_room_amp_audio_input_format",
+                        "name": "Input",
+                        "icon": "mdi:audio-input-rca"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.living_room",
+              "name": "Apple TV",
+              "icon": "mdi:television",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.living_room",
+                  "state_not": "unavailable"
+                }
+              ],
+              "popup": {
+                "title": "Apple TV",
+                "icon": "mdi:television",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.living_room"
+                  },
+                  {
+                    "type": "choices",
+                    "title": "Apps",
+                    "entity": "media_player.living_room",
+                    "attr": "source",
+                    "service": "media_player.select_source",
+                    "field": "source",
+                    "compact": true,
+                    "options": [
+                      [
+                        "TV",
+                        "TV",
+                        "mdi:television-classic"
+                      ],
+                      [
+                        "YouTube",
+                        "YouTube",
+                        "mdi:youtube"
+                      ],
+                      [
+                        "Plex",
+                        "Plex",
+                        "mdi:plex"
+                      ],
+                      [
+                        "Spotify",
+                        "Spotify",
+                        "mdi:spotify"
+                      ],
+                      [
+                        "Music",
+                        "Music",
+                        "mdi:music"
+                      ],
+                      [
+                        "Podcasts",
+                        "Podcasts",
+                        "mdi:podcast"
+                      ],
+                      [
+                        "Infuse",
+                        "Infuse",
+                        "mdi:play-box"
+                      ],
+                      [
+                        "Kayo",
+                        "Kayo",
+                        "mdi:soccer"
+                      ],
+                      [
+                        "ABC iview",
+                        "ABC iview",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "SBS On Demand",
+                        "SBS On Demand",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "9Now",
+                        "9Now",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "7plus",
+                        "7plus",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "10",
+                        "10",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "TVNZ+",
+                        "TVNZ+",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "ThreeNow",
+                        "ThreeNow",
+                        "mdi:television-box"
+                      ],
+                      [
+                        "Photos",
+                        "Photos",
+                        "mdi:image-multiple"
+                      ],
+                      [
+                        "Fitness",
+                        "Fitness",
+                        "mdi:run"
+                      ],
+                      [
+                        "Arcade",
+                        "Arcade",
+                        "mdi:gamepad-variant"
+                      ],
+                      [
+                        "App Store",
+                        "App Store",
+                        "mdi:apps"
+                      ],
+                      [
+                        "Search",
+                        "Search",
+                        "mdi:magnify"
+                      ],
+                      [
+                        "Settings",
+                        "Settings",
+                        "mdi:cog"
+                      ]
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "sensor.soil_moisture_sensor_1_humidity",
+              "name": "Fiddle Leaf Fig",
+              "kind": "plant",
+              "popup": {
+                "title": "Fiddle leaf fig",
+                "icon": "mdi:sprout",
+                "sections": [
+                  {
+                    "type": "graph",
+                    "entity": "sensor.soil_moisture_sensor_1_humidity",
+                    "name": "Moisture",
+                    "color": "#3f86f2"
+                  },
+                  {
+                    "type": "graph",
+                    "entity": "sensor.soil_moisture_sensor_1_temperature",
+                    "name": "Soil temperature",
+                    "color": "#f39a43"
+                  },
+                  {
+                    "type": "tiles",
+                    "title": null,
+                    "items": [
+                      {
+                        "entity": "sensor.soil_moisture_sensor_1_humidity",
+                        "name": "Moisture",
+                        "icon": "mdi:water-percent"
+                      },
+                      {
+                        "entity": "sensor.soil_moisture_sensor_1_temperature",
+                        "name": "Soil temp",
+                        "icon": "mdi:thermometer"
+                      },
+                      {
+                        "entity": "sensor.soil_moisture_sensor_1_battery",
+                        "name": "Battery",
+                        "icon": "mdi:battery"
+                      },
+                      {
+                        "entity": "binary_sensor.any_plant_needs_water",
+                        "name": "Needs water",
+                        "icon": "mdi:watering-can"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "sensor.moisture_sensor_2_humidity",
+              "name": "Banana Leaf",
+              "kind": "plant",
+              "popup": {
+                "title": "Banana Leaf",
+                "icon": "mdi:sprout",
+                "sections": [
+                  {
+                    "type": "graph",
+                    "entity": "sensor.moisture_sensor_2_humidity",
+                    "name": "Moisture",
+                    "color": "#3f86f2"
+                  },
+                  {
+                    "type": "graph",
+                    "entity": "sensor.moisture_sensor_2_temperature",
+                    "name": "Soil temperature",
+                    "color": "#f39a43"
+                  },
+                  {
+                    "type": "tiles",
+                    "title": null,
+                    "items": [
+                      {
+                        "entity": "sensor.moisture_sensor_2_humidity",
+                        "name": "Moisture",
+                        "icon": "mdi:water-percent"
+                      },
+                      {
+                        "entity": "sensor.moisture_sensor_2_temperature",
+                        "name": "Soil temp",
+                        "icon": "mdi:thermometer"
+                      },
+                      {
+                        "entity": "sensor.moisture_sensor_2_battery",
+                        "name": "Battery",
+                        "icon": "mdi:battery"
+                      },
+                      {
+                        "entity": "binary_sensor.any_plant_needs_water",
+                        "name": "Needs water",
+                        "icon": "mdi:watering-can"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.couch_lamp",
+              "name": "Couch Lamp",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.tv_lamp",
+              "name": "TV Lamp",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.corner_light",
+              "name": "Corner Light",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "switch.smart_plug",
+              "name": "Smart Plug",
+              "icon": "mdi:power-plug"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-heading",
+              "name": "Master Bedroom",
+              "icon": "mdi:bed-king-outline",
+              "group": "light.master_bedroom_lights"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.bedroom_echo",
+              "name": "Echo",
+              "icon": "mdi:speaker-wireless",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.bedroom_echo",
+                  "state_not": "unavailable"
+                }
+              ],
+              "popup": {
+                "title": "Bedroom Echo",
+                "icon": "mdi:speaker",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.bedroom_echo"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.homepod_mini_kitchen",
+              "name": "En Suite HomePod",
+              "icon": "mdi:speaker-wireless",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.homepod_mini_kitchen",
+                  "state_not": "unavailable"
+                }
+              ],
+              "popup": {
+                "title": "En Suite HomePod",
+                "icon": "mdi:speaker",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.homepod_mini_kitchen"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "switch.tp_link_power_strip_6e3f_dehumidifier",
+              "name": "Dehumidifier",
+              "icon": "mdi:air-humidifier"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.mushroom_lamp",
+              "name": "Mushroom Lamp",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.bedside_left",
+              "name": "Bedside Left",
+              "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.bedside_right",
+              "name": "Bedside Right",
+              "icon": "mdi:lightbulb"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-heading",
+              "name": "Guest Bedroom",
+              "icon": "mdi:bed-outline",
+              "group": "light.guest_bedroom_lamp"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "media_player.guest_bedroom_homepod_mini",
+              "name": "HomePod",
+              "icon": "mdi:speaker-wireless",
+              "visibility": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.guest_bedroom_homepod_mini",
+                  "state_not": "unavailable"
+                }
+              ],
+              "popup": {
+                "title": "Guest HomePod",
+                "icon": "mdi:speaker",
+                "sections": [
+                  {
+                    "type": "player",
+                    "entity": "media_player.guest_bedroom_homepod_mini"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "light.guest_bedroom_lamp",
+              "name": "Guest Lamp",
+              "icon": "mdi:lightbulb"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-pip",
+              "prefix": "pip",
+              "grid_options": {
+                "columns": "full",
+                "rows": 2
+              }
+            },
+            {
+              "type": "custom:meridian-countdown",
+              "target": "2026-11-19T00:00:00+11:00",
+              "image": "/local/gta6/gta6.jpg",
+              "when": "Thursday 19 November · 12:00 am",
+              "done": "Out now"
+            },
+            {
+              "type": "custom:meridian-edit-button"
+            }
+          ]
+        }
+      ],
+      "footer": {},
+      "badges": []
+    }
+  ]
+}

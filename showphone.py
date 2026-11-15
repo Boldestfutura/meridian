@@ -1,6 +1,6 @@
 """The phone's data: rooms, scenes, reading pills and pop-ups. No dashboard of its own.
 
-shownative.py (Phone Show) reads it. The rooms and
+show.py reads its reading pills, pop-ups and links for the Kitchen Show. The rooms and
 scenes were copied tile for tile from the old ha-phone dashboard (retired 2026-11-08), so
 comments here still say "ha-phone's order"; that order is now simply the phone's.
 """
@@ -75,7 +75,8 @@ def tiles(*items, title=None):
 
 
 # one colour per room, the same in the temperature and humidity pop-ups
-ROOM_COLORS = {"Kitchen": "#f39a43", "Master Bedroom": "#8e6cf0", "Living Room": "#1fb39b", "Guest Bedroom": "#3f86f2"}
+ROOM_COLORS = {"Kitchen": "#f39a43", "Master Bedroom": "#8e6cf0", "Living Room": "#1fb39b", "Guest Bedroom": "#3f86f2",
+               "En Suite": "#d6409f"}
 
 
 # what each reading is in, and the range a real one stays inside (a glitch outside it is dropped)
@@ -123,11 +124,13 @@ POPUPS = {
     "temperature": air_popup("temperature", "Temperature", "mdi:thermometer",
                              "sensor.air_quality_monitor_temperature", "sensor.air_quality_monitor_temperature_2",
                              [t(CLIMATE, "Living Room", "mdi:thermometer", attr="current_temperature", unit="°"),
-                              t("sensor.guest_bedroom_temperature", "Guest Bedroom", "mdi:thermometer")]),
+                              t("sensor.guest_bedroom_temperature", "Guest Bedroom", "mdi:thermometer"),
+                              t("sensor.en_suite_temperature", "En Suite", "mdi:thermometer")]),
     "humidity": air_popup("humidity", "Humidity", "mdi:water-percent",
                           "sensor.air_quality_monitor_humidity", "sensor.air_quality_monitor_humidity_2",
                           [t(CLIMATE, "Living Room", "mdi:water-percent", attr="current_humidity", unit="%"),
-                           t("sensor.guest_bedroom_humidity", "Guest Bedroom", "mdi:water-percent")]),
+                           t("sensor.guest_bedroom_humidity", "Guest Bedroom", "mdi:water-percent"),
+                           t("sensor.en_suite_humidity", "En Suite", "mdi:water-percent")]),
     "pm2_5": air_popup("pm2_5", "PM2.5", "mdi:blur",
                        "sensor.air_quality_monitor_pm2_5", "sensor.air_quality_monitor_pm2_5_2"),
     "voc": air_popup("voc", "VOC", "mdi:air-filter",
@@ -231,8 +234,10 @@ LINKS = {
 # the reading pills cover the whole house: both air monitors, the heat pump's own
 # thermometer and hygrometer in the living room, and the guest bedroom HomePod
 HOUSE = {
-    "temperature": [{"entity": CLIMATE, "attr": "current_temperature"}, {"entity": "sensor.guest_bedroom_temperature"}],
-    "humidity": [{"entity": CLIMATE, "attr": "current_humidity"}, {"entity": "sensor.guest_bedroom_humidity"}],
+    "temperature": [{"entity": CLIMATE, "attr": "current_temperature"}, {"entity": "sensor.guest_bedroom_temperature"},
+                    {"entity": "sensor.en_suite_temperature"}],
+    "humidity": [{"entity": CLIMATE, "attr": "current_humidity"}, {"entity": "sensor.guest_bedroom_humidity"},
+                 {"entity": "sensor.en_suite_humidity"}],
 }
 STATUS_AIR = []
 for k, b in zip(show.air(), show.air("_2")):

@@ -5,9 +5,9 @@
     ./deploy.py show                        ship the card, rebuild Kitchen Show
     ./deploy.py --dry-run show              build and diff, write nothing
 
-Every Show dashboard first ships the card (www/overlook-show.js) and its artwork, then
-saves its config. ha-show-native is the exception: once it has been edited in HA's own
-editor, only the card ships and the live layout is kept.
+`show` ships the card (www/overlook-show.js) and its artwork, then saves the Kitchen Show's
+config. The other dashboards are edited in HA's own editor; tools/live_sync.py keeps their
+copies in dashboards/ in step with HA.
 """
 import argparse, itertools, json, os, sys
 
@@ -19,11 +19,7 @@ TOKEN_FILE = os.environ.get("HA_TOKEN_FILE", "~/.config/ha/token")
 
 TARGETS = {           # name -> (url_path, title, icon)
     "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
-    "shownative": ("ha-show-native", "Phone Show", "mdi:cellphone-cog"),
 }
-# edited in HA's own editor: deploy writes their layout only until that happens
-NATIVE = ("shownative",)
-SNAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deployed")
 
 
 def push_show(ws, ids):
@@ -61,16 +57,6 @@ def push_show(ws, ids):
 def connect():
     tok = open(os.path.expanduser(TOKEN_FILE)).read().strip()
     return ha_ws.connect(HOST, tok), itertools.count(1)
-
-
-def edited_live(name, live):
-    """True once the live dashboard is no longer what deploy last wrote, i.e. it was
-    changed in HA's editor. The NATIVE dashboards are edited there, so their layout is written
-    only until then; the card JS and pop-ups still ship."""
-    try:
-        return json.load(open(os.path.join(SNAP, name + ".json"))) != live
-    except FileNotFoundError:
-        return False
 
 
 def build(name):
@@ -119,12 +105,6 @@ def main():
             push_show(ws, ids); shipped = True
         cfg = build(name)
 
-        if name in NATIVE and url in have:
-            live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url).get("result")
-            if live and edited_live(name, live):
-                print("%-9s edited in HA - kept the live layout (card JS shipped)" % name)
-                continue
-
         if a.dry_run:
             live = ha_ws.call(ws, next(ids), type="lovelace/config", url_path=url)["result"]
             n = len(list(diff(live, cfg)))
@@ -132,9 +112,6 @@ def main():
             continue
         r = ha_ws.call(ws, next(ids), type="lovelace/config/save", url_path=url, config=cfg)
         print("%-9s -> %-13s %s" % (name, url, "ok" if r.get("success") else json.dumps(r.get("error"))[:120]))
-        if r.get("success") and name in NATIVE:
-            os.makedirs(SNAP, exist_ok=True)
-            json.dump(cfg, open(os.path.join(SNAP, name + ".json"), "w"))
 
 
 if __name__ == "__main__":

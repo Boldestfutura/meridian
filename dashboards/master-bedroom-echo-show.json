@@ -1,0 +1,352 @@
+{
+  "title": "Echo Native",
+  "views": [
+    {
+      "type": "sections",
+      "path": "controls",
+      "title": "Controls",
+      "icon": "mdi:tune-variant",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-large-button",
+              "entity": "light.master_bedroom_lights",
+              "name": "All Lights",
+              "icon": "mdi:lightbulb-group",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "custom:meridian-large-button",
+              "entity": "input_boolean.bedroom_night_mode",
+              "name": "Sleep Sounds",
+              "icon": "mdi:waves",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-large-button",
+              "entity": "switch.tp_link_power_strip_6e3f_dehumidifier",
+              "name": "Dehumidifier",
+              "icon": "mdi:air-humidifier",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "custom:meridian-dock",
+              "photos": "camera.album_slideshow_family_bedroom",
+              "idle": 300,
+              "weather": "weather.forecast_home",
+              "night": "binary_sensor.bedroom_dark",
+              "voice": "bedroom",
+              "voice_satellite": "assist_satellite.bedroom_echo_va",
+              "clock": "bedroom",
+              "nowplaying": "media_player.bedroom_echo",
+              "nowplaying_return": 40,
+              "scheme": "sun.sun",
+              "washer": {
+                "entity": "input_select.washing_machine",
+                "started": "input_datetime.washing_machine_started",
+                "alert": "input_boolean.washing_machine_alert"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "path": "media",
+      "title": "Media",
+      "icon": "mdi:music",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-media",
+              "speakers": [
+                {
+                  "name": "Bedroom Echo",
+                  "icon": "mdi:speaker-wireless",
+                  "entities": [
+                    "media_player.bedroom_echo"
+                  ],
+                  "ma": "media_player.bedroom_echo",
+                  "auto": true
+                },
+                {
+                  "name": "Living Room Amp",
+                  "icon": "mdi:speaker",
+                  "entities": [
+                    "media_player.living_room_amp",
+                    "media_player.living_room_amp_2"
+                  ],
+                  "ma": "media_player.living_room_amp_2",
+                  "auto": false
+                },
+                {
+                  "name": "En Suite HomePod",
+                  "icon": "mdi:speaker-wireless",
+                  "entities": [
+                    "media_player.homepod_mini_kitchen_2",
+                    "media_player.homepod_mini_kitchen"
+                  ],
+                  "ma": "media_player.homepod_mini_kitchen_2",
+                  "auto": false
+                },
+                {
+                  "name": "Guest HomePod",
+                  "icon": "mdi:speaker-wireless",
+                  "entities": [
+                    "media_player.guest_bedroom_homepod_mini_2"
+                  ],
+                  "ma": "media_player.guest_bedroom_homepod_mini_2",
+                  "auto": false
+                }
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-playlists",
+              "playlists": "sensor.tablet_playlists",
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
+            },
+            {
+              "type": "custom:meridian-dock"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "path": "climate",
+      "title": "Climate",
+      "icon": "mdi:thermometer",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-large-sensor",
+              "entity": "sensor.air_quality_monitor_temperature_2",
+              "icon": "mdi:thermometer",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              },
+              "unit": "°",
+              "popup": {
+                "title": "Temperature",
+                "icon": "mdi:thermometer",
+                "sections": [
+                  {
+                    "type": "multigraph",
+                    "name": "Last 24 hours",
+                    "hours": 24,
+                    "unit": "°",
+                    "valid": [
+                      5,
+                      45
+                    ],
+                    "series": [
+                      {
+                        "entity": "sensor.air_quality_monitor_temperature_2",
+                        "name": "Bedroom",
+                        "color": "#f39a43"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-large-sensor",
+              "entity": "sensor.air_quality_monitor_pm2_5_2",
+              "icon": "mdi:blur",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              },
+              "unit": "",
+              "popup": {
+                "title": "Fine dust (PM2.5)",
+                "icon": "mdi:blur",
+                "sections": [
+                  {
+                    "type": "multigraph",
+                    "name": "Last 24 hours",
+                    "hours": 24,
+                    "unit": "",
+                    "valid": [
+                      0,
+                      1000
+                    ],
+                    "series": [
+                      {
+                        "entity": "sensor.air_quality_monitor_pm2_5_2",
+                        "name": "Bedroom",
+                        "color": "#3f8f63"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-large-sensor",
+              "entity": "sensor.air_quality_monitor_humidity_2",
+              "icon": "mdi:water-percent",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              },
+              "popup": {
+                "title": "Humidity",
+                "icon": "mdi:water-percent",
+                "sections": [
+                  {
+                    "type": "multigraph",
+                    "name": "Last 24 hours",
+                    "hours": 24,
+                    "unit": "%",
+                    "valid": [
+                      1,
+                      100
+                    ],
+                    "series": [
+                      {
+                        "entity": "sensor.air_quality_monitor_humidity_2",
+                        "name": "Bedroom",
+                        "color": "#3f86f2"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-large-sensor",
+              "entity": "sensor.air_quality_monitor_voc_index_2",
+              "icon": "mdi:air-filter",
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              },
+              "unit": "",
+              "popup": {
+                "title": "Air quality (VOC)",
+                "icon": "mdi:air-filter",
+                "sections": [
+                  {
+                    "type": "multigraph",
+                    "name": "Last 24 hours",
+                    "hours": 24,
+                    "unit": "",
+                    "valid": [
+                      1,
+                      500
+                    ],
+                    "series": [
+                      {
+                        "entity": "sensor.air_quality_monitor_voc_index_2",
+                        "name": "Bedroom",
+                        "color": "#8e5cf0"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "custom:meridian-dock"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "path": "calendar",
+      "title": "Calendar",
+      "icon": "mdi:calendar-month-outline",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-calendar",
+              "view": "date",
+              "calendars": [
+                {
+                  "entity": "calendar.p_c",
+                  "color": "#e5484d"
+                }
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "custom:meridian-calendar",
+              "view": "whats_on",
+              "calendars": [
+                {
+                  "entity": "calendar.p_c",
+                  "color": "#e5484d"
+                }
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
+            },
+            {
+              "type": "custom:meridian-dock"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

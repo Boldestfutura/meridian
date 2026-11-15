@@ -138,10 +138,8 @@ input_select dialog, where someone on the Echo had set it back to running by mis
   - MA fetches local files from HA's **tailnet** address (`http://100.108.150.25:8123/local/...`).
     Keep a plain space in the URL: `%20` shows up in the title. Sol can't reach the VM's LAN IP.
 
-**Phone Show** `ha-show-native` (`shownative.py`)
-- Uses the phone's rooms, scenes and pop-ups from `showphone.py`. If a room changes, edit
-  `ROOMS`/`SCENES` there. The live layout is hand-edited, so patch it by key; deploy only
-  writes it while it still matches `.deployed/shownative.json`.
+**Phone Show** `ha-show-native` (`dashboards/ha-show-native.json`)
+- Edited in HA only; patch it by key, then `python3 tools/live_sync.py pull` and commit.
 - The Kitchen media tile is the Kitchen Display MA player, not the Nest Hub (live layout
   patched 2026-11-13).
 

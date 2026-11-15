@@ -110,7 +110,7 @@ An agent cannot do these. Wait until Cameron says all three are done.
 ## Step 5: deploy
 
 - Bump `VERSION` in `show.py` and `www/overlook-show.js`, then
-  `./deploy.py show shownative` (see `docs/DASHBOARDS.md`).
+  `./deploy.py show` (see `docs/DASHBOARDS.md`).
 - Reload the Nest Hub's cast so it picks up the new card.
 
 ## Verify by using it, not by screenshot
