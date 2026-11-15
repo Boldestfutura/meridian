@@ -201,3 +201,22 @@ shell_command:
   norish_favourite: "python3 /config/scripts/norish_fav.py {{ recipe }} {{ favourite }}"
   norish_plan: "python3 /config/scripts/norish_plan.py {{ date }} {{ recipe }}"
   plex_art: "python3 /config/scripts/plex_art.py {{ title | base64_encode }}"
+
+# Meridian weather page: next-hour rain from Pirate Weather (the URL, key included, is in secrets.yaml)
+rest:
+  - resource: !secret pirate_weather_url
+    scan_interval: 300
+    sensor:
+      - name: "Rain next hour"
+        unique_id: pirate_weather_minutely
+        icon: mdi:weather-rainy
+        value_template: '{{ value_json.minutely.summary | default("") | truncate(250) }}'
+        json_attributes_path: "$.minutely"
+        json_attributes:
+          - data
+
+# 61 points every 5 minutes is not worth keeping in history
+recorder:
+  exclude:
+    entities:
+      - sensor.rain_next_hour
