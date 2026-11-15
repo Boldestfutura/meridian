@@ -190,6 +190,7 @@ deploy.py  ha_ws.py    CLI and a minimal websocket client
 dashboards/            the dashboards edited in HA's own editor, as HA holds them
 ha_config/             automations and sensors the dashboards rely on (repo copies)
 device/echo/           Echo Show 5 mute button
+device/iphone/         Scriptable home-screen countdown widget (artwork, live-ticking timer)
 tools/                 weather icon generator, Norish sync, headless-browser driver;
                        tools/ha/ runs on HA (Norish meal plan, Plex art for the TV tile)
 ```
