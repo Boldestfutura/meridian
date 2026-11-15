@@ -1502,12 +1502,6 @@
             },
             {
               "type": "custom:meridian-tile",
-              "entity": "switch.tp_link_power_strip_6e3f_dehumidifier",
-              "name": "Dehumidifier",
-              "icon": "mdi:air-humidifier"
-            },
-            {
-              "type": "custom:meridian-tile",
               "entity": "light.mushroom_lamp",
               "name": "Mushroom Lamp",
               "icon": "mdi:lightbulb"
@@ -1523,6 +1517,12 @@
               "entity": "light.bedside_right",
               "name": "Bedside Right",
               "icon": "mdi:lightbulb"
+            },
+            {
+              "type": "custom:meridian-tile",
+              "entity": "switch.tp_link_power_strip_6e3f_dehumidifier",
+              "name": "Dehumidifier",
+              "icon": "mdi:air-humidifier"
             }
           ]
         },
