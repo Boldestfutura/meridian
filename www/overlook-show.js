@@ -15,7 +15,7 @@ import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tabl
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.1";
+const VERSION = "0.34.2";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -2167,6 +2167,9 @@ class OverlookShow extends LitElement {
   }
 
   // --- photos -------------------------------------------------------------
+  // a tap on the slideshow: the kitchen goes Home; the old bedside layout kept its dock over the photos
+  _photoTap() { if (!this._config.bedside) this._go("home"); }
+
   _photos() {
     const cam = this._st(this._config.photos);
     const pic = cam && cam.attributes.entity_picture;
@@ -2174,7 +2177,7 @@ class OverlookShow extends LitElement {
     const d = when ? new Date(when) : null;
     const album = cam && cam.attributes.album_title;
     return html`
-      <div class="photo" @click=${() => { if (!this._config.bedside) this._go("home"); }}>
+      <div class="photo" @click=${() => this._photoTap()}>
         ${pic ? html`<img src=${this._u(pic)} alt="">` : nothing}
         <div class="photo-shade"></div>
         <div class="photo-cap">
@@ -5009,6 +5012,9 @@ class MeridianEchoShell extends OverlookShow {
     const v = views.find((x) => x.path === seg[1]) || views[Number(seg[1])];
     return v ? (v.path || String(views.indexOf(v))) : null;
   }
+
+  // the Echo has no dock over the photos: a tap goes back to the view under them (or the first)
+  _photoTap() { this._go(this._viewNow() || (this._views()[0] || [])[0]); }
 
   // pages are views: "photos" is the full-screen layer, anything else navigates HA
   _go(page) {

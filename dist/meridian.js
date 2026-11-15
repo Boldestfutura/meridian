@@ -3423,7 +3423,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.1";
+var VERSION = "0.34.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5750,6 +5750,10 @@ var OverlookShow = class extends dt {
       </div>`;
   }
   // --- photos -------------------------------------------------------------
+  // a tap on the slideshow: the kitchen goes Home; the old bedside layout kept its dock over the photos
+  _photoTap() {
+    if (!this._config.bedside) this._go("home");
+  }
   _photos() {
     const cam = this._st(this._config.photos);
     const pic = cam && cam.attributes.entity_picture;
@@ -5757,9 +5761,7 @@ var OverlookShow = class extends dt {
     const d2 = when ? new Date(when) : null;
     const album = cam && cam.attributes.album_title;
     return Z`
-      <div class="photo" @click=${() => {
-      if (!this._config.bedside) this._go("home");
-    }}>
+      <div class="photo" @click=${() => this._photoTap()}>
         ${pic ? Z`<img src=${this._u(pic)} alt="">` : J}
         <div class="photo-shade"></div>
         <div class="photo-cap">
@@ -8663,6 +8665,10 @@ var MeridianEchoShell = class extends OverlookShow {
     const cfg = lovelaceConfig(), views = cfg && cfg.views || [];
     const v2 = views.find((x3) => x3.path === seg[1]) || views[Number(seg[1])];
     return v2 ? v2.path || String(views.indexOf(v2)) : null;
+  }
+  // the Echo has no dock over the photos: a tap goes back to the view under them (or the first)
+  _photoTap() {
+    this._go(this._viewNow() || (this._views()[0] || [])[0]);
   }
   // pages are views: "photos" is the full-screen layer, anything else navigates HA
   _go(page) {
