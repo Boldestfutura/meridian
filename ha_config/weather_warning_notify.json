@@ -1,0 +1,61 @@
+{
+  "id": "weather_warning_notify",
+  "alias": "Weather - Notify New BoM Warnings",
+  "description": "Phone alert when the Bureau issues a new warning for the district (sheep graziers skipped). Major warnings any time and time-sensitive; minor ones 7 am to 10 pm. Opens the Weather dashboard.",
+  "mode": "queued",
+  "triggers": [
+    {
+      "trigger": "state",
+      "entity_id": "sensor.bom_south_melbourne_warnings"
+    }
+  ],
+  "conditions": [
+    {
+      "condition": "template",
+      "value_template": "{{ trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable'] and trigger.to_state.state not in ['unknown', 'unavailable'] }}"
+    }
+  ],
+  "actions": [
+    {
+      "variables": {
+        "new": "{% set old = (trigger.from_state.attributes.warnings or []) | map(attribute='id') | list %}{% set skip = ['sheep_graziers_warning'] %}{% set ns = namespace(out=[]) %}{% for w in trigger.to_state.attributes.warnings or [] %}{% if w.id not in old and w.type not in skip and (w.warning_group_type == 'major' or 7 <= now().hour < 22) %}{% set ns.out = ns.out + [w] %}{% endif %}{% endfor %}{{ ns.out }}"
+      }
+    },
+    {
+      "condition": "template",
+      "value_template": "{{ new | count > 0 }}"
+    },
+    {
+      "action": "notify.mobile_app_camerons_iphone",
+      "continue_on_error": true,
+      "data": {
+        "title": "{{ new[0].short_title }}{{ ' and %d more' % (new | count - 1) if new | count > 1 else '' }}",
+        "message": "{{ new | map(attribute='title') | join('. ') }}. Tap for the forecast.",
+        "data": {
+          "tag": "weather-warning",
+          "group": "weather",
+          "url": "/ha-weather/now",
+          "push": {
+            "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
+          }
+        }
+      }
+    },
+    {
+      "action": "notify.mobile_app_paget_s_iphone",
+      "continue_on_error": true,
+      "data": {
+        "title": "{{ new[0].short_title }}{{ ' and %d more' % (new | count - 1) if new | count > 1 else '' }}",
+        "message": "{{ new | map(attribute='title') | join('. ') }}. Tap for the forecast.",
+        "data": {
+          "tag": "weather-warning",
+          "group": "weather",
+          "url": "/ha-weather/now",
+          "push": {
+            "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
+          }
+        }
+      }
+    }
+  ]
+}

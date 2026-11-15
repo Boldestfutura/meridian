@@ -13,8 +13,9 @@
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
+import { MeridianWeather } from "./weather.js";
 
-const VERSION = "0.33.3";
+const VERSION = "0.34.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5956,6 +5957,11 @@ class MeridianCountdown extends LitElement {
 }
 definePhone("countdown", MeridianCountdown);
 
+// the weather page (www/weather.js), with Meridian's fonts
+definePhone("weather", class extends MeridianWeather {
+  connectedCallback() { super.connectedCallback(); loadFonts(this.hass); }
+});
+
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-tile", name: "Meridian tile", description: "A light, switch, speaker, heat pump, plant, sensor or scene, with its own pop-up", preview: true },
@@ -5965,6 +5971,7 @@ if (BUILD === "phone" || BUILD === "all") window.customCards.push(
   { type: "meridian-favourites", name: "Meridian favourites", description: "Your most-used controls for this time of day, picked by Home Assistant", preview: true },
   { type: "meridian-edit-button", name: "Meridian edit button", description: "Hides the dashboard header and puts an Edit dashboard button at the bottom" },
   { type: "meridian-countdown", name: "Meridian countdown", description: "Counts down to a date and time, with artwork and big ticking digits" },
+  { type: "meridian-weather", name: "Meridian weather", description: "A full weather page in the iOS Weather layout: warnings, next-hour rain, hourly, daily, radar and detail tiles" },
   { type: "meridian-pip", name: "Meridian Pip", description: "Pip the sprout: a tamagotchi pet that lives on the house's sensors. Tap to open, three taps to pet" },
 );
 if (BUILD === "show" || BUILD === "all") window.customCards.push({ type: "overlook-show", name: "Overlook Show", description: "Full-screen kitchen display" });
