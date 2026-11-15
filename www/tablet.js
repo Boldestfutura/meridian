@@ -157,11 +157,41 @@ function dinnerCard(c) {
     </div>`;
 }
 
-// what's on: the TV with Plex's art and logo, or else whatever music is playing
+// A game being played, from `tablet_games`: [{name, entity, bg?, logo?}]. `entity` is a console's
+// media_player (PlayStation Network: playing, media_title, entity_picture = the game's art) or a
+// "Now playing" sensor whose state is the title (Steam, for the Bazzite PC). `bg` and `logo` are
+// image entities for wide art and a transparent logo (Steam's Library hero and Library logo).
+const OFF = ["off", "standby", "idle", "unknown", "unavailable", "none", "None", ""];
+function game(c) {
+  for (const g of c._config.tablet_games || []) {
+    const e = c._st(g.entity);
+    if (!e || OFF.includes(e.state)) continue;
+    const title = e.entity_id.startsWith("media_player.") ? e.attributes.media_title : e.state;
+    if (!title) continue;
+    const pic = (id) => { const i = id && c._st(id); return i && !OFF.includes(i.state) ? i.attributes.entity_picture : null; };
+    return { name: g.name, title, bg: pic(g.bg) || e.attributes.entity_picture || null, logo: pic(g.logo) };
+  }
+  return null;
+}
+function gameTile(g) {
+  return html`
+    <div class="card nowtile game">
+      <span class="now-lbl">Gaming · ${g.name}</span>
+      <span class="now-art ${g.bg ? "" : "none"}" style=${g.bg ? `background-image:url('${g.bg}')` : ""}>
+        ${g.logo ? html`<img class="now-logo" src=${g.logo} alt=${g.title}>`
+          : html`<span class="now-cap">${g.bg ? nothing : html`<ha-icon icon="mdi:controller"></ha-icon>`}<b>${g.title}</b></span>`}
+      </span>
+    </div>`;
+}
+
+// what's on: the TV with Plex's art and logo, a game (unless a video is actually playing), or else
+// whatever music is playing
 function nowTile(c) {
   const tvId = c._config.tablet_tv, tv = tvId && c._st(tvId);
   const ta = tv ? tv.attributes : {};
   const open = (id) => () => redraw(c, { _tPop: id });
+  const g = game(c);
+  if (g && !(tv && tv.state === "playing" && ta.media_title)) return gameTile(g);
   if (tv && ta.media_title && !["off", "standby"].includes(tv.state)) {
     const v = video(c, ta);
     return html`
@@ -701,6 +731,10 @@ export const TABLET_CSS = css`
     filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
   .tablet .now-cap { position:relative; z-index:1; margin:0 0 16px 18px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.6); }
   .tablet .now-cap b { font-family:var(--display); font-size:30px; letter-spacing:-0.02em; line-height:1.1; }
+  .tablet .now-art.none { background:linear-gradient(135deg, #1d2a4a, #3a1f4f); }
+  .tablet .now-art.none::after { display:none; }
+  .tablet .game .now-cap { display:flex; flex-direction:column; gap:6px; }
+  .tablet .game .now-cap ha-icon { --mdc-icon-size:34px; opacity:0.8; }
   .tablet .now-music { flex:1; min-height:0; display:flex; align-items:center; gap:18px; }
   .tablet .now-cover { height:100%; max-height:200px; aspect-ratio:1; border-radius:16px; background-size:cover; background-position:center; flex:none; box-shadow:var(--shadow); }
   .tablet .now-cover.none { display:grid; place-items:center; background:var(--inset); color:var(--muted); box-shadow:none; } .tablet .now-cover.none ha-icon { --mdc-icon-size:64px; }

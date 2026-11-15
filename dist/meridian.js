@@ -1183,10 +1183,36 @@ function dinnerCard(c2) {
       </div>
     </div>`;
 }
+var OFF = ["off", "standby", "idle", "unknown", "unavailable", "none", "None", ""];
+function game(c2) {
+  for (const g2 of c2._config.tablet_games || []) {
+    const e2 = c2._st(g2.entity);
+    if (!e2 || OFF.includes(e2.state)) continue;
+    const title = e2.entity_id.startsWith("media_player.") ? e2.attributes.media_title : e2.state;
+    if (!title) continue;
+    const pic = (id) => {
+      const i2 = id && c2._st(id);
+      return i2 && !OFF.includes(i2.state) ? i2.attributes.entity_picture : null;
+    };
+    return { name: g2.name, title, bg: pic(g2.bg) || e2.attributes.entity_picture || null, logo: pic(g2.logo) };
+  }
+  return null;
+}
+function gameTile(g2) {
+  return Z`
+    <div class="card nowtile game">
+      <span class="now-lbl">Gaming · ${g2.name}</span>
+      <span class="now-art ${g2.bg ? "" : "none"}" style=${g2.bg ? `background-image:url('${g2.bg}')` : ""}>
+        ${g2.logo ? Z`<img class="now-logo" src=${g2.logo} alt=${g2.title}>` : Z`<span class="now-cap">${g2.bg ? J : Z`<ha-icon icon="mdi:controller"></ha-icon>`}<b>${g2.title}</b></span>`}
+      </span>
+    </div>`;
+}
 function nowTile(c2) {
   const tvId = c2._config.tablet_tv, tv = tvId && c2._st(tvId);
   const ta = tv ? tv.attributes : {};
   const open = (id) => () => redraw(c2, { _tPop: id });
+  const g2 = game(c2);
+  if (g2 && !(tv && tv.state === "playing" && ta.media_title)) return gameTile(g2);
   if (tv && ta.media_title && !["off", "standby"].includes(tv.state)) {
     const v2 = video(c2, ta);
     return Z`
@@ -1738,6 +1764,10 @@ var TABLET_CSS = o`
     filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
   .tablet .now-cap { position:relative; z-index:1; margin:0 0 16px 18px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.6); }
   .tablet .now-cap b { font-family:var(--display); font-size:30px; letter-spacing:-0.02em; line-height:1.1; }
+  .tablet .now-art.none { background:linear-gradient(135deg, #1d2a4a, #3a1f4f); }
+  .tablet .now-art.none::after { display:none; }
+  .tablet .game .now-cap { display:flex; flex-direction:column; gap:6px; }
+  .tablet .game .now-cap ha-icon { --mdc-icon-size:34px; opacity:0.8; }
   .tablet .now-music { flex:1; min-height:0; display:flex; align-items:center; gap:18px; }
   .tablet .now-cover { height:100%; max-height:200px; aspect-ratio:1; border-radius:16px; background-size:cover; background-position:center; flex:none; box-shadow:var(--shadow); }
   .tablet .now-cover.none { display:grid; place-items:center; background:var(--inset); color:var(--muted); box-shadow:none; } .tablet .now-cover.none ha-icon { --mdc-icon-size:64px; }
@@ -3602,7 +3632,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.7";
+var VERSION = "0.34.8";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
