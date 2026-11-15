@@ -4,12 +4,15 @@
 // (small, medium or large) > Edit Widget > Script: this one.
 // The artwork is fetched once from Home Assistant over Tailscale and kept on the phone, so the
 // widget still draws when the phone is off the tailnet. Change ART to a new file name to refetch.
+// The lettering is Pricedown (Typodermic), installed on the phone as a font profile; without it
+// iOS falls back to the system font. The font is not in this repo: its licence forbids sharing it.
 
 const TARGET = new Date("2026-11-19T00:00:00+11:00");   // GTA VI, midnight in Melbourne
-const ART = "http://homeassistant.taild8548.ts.net:8123/local/gta6/gta6-hd.jpg";
+const ART = "http://homeassistant.taild8548.ts.net:8123/local/gta6/gta6-clean.jpg";
 const WHEN = "Thursday 19 November · 12:00 am";
 const DONE = "Out now";
 const HOT = new Color("#ffb35c"), WHITE = Color.white(), SHADE = "#1b0f30";
+const GTA = (size) => new Font("Pricedown-Black", size);
 
 async function artwork() {
   const fm = FileManager.local();
@@ -65,11 +68,12 @@ async function build() {
   w.backgroundImage = background(await artwork(), size[0], size[1]);
   w.setPadding(10, 14, 12, 14);
   w.url = "homeassistant://navigate/ha-show-native/home";
+  style(w.addText("GTA VI"), GTA(big * 0.32), WHITE);
   w.addSpacer();
 
   const now = new Date();
   if (now >= TARGET) {
-    style(w.addText(DONE), Font.heavyRoundedSystemFont(big * 0.7), HOT);
+    style(w.addText(DONE), GTA(big * 0.7), HOT);
     return w;
   }
   const days = Math.floor((TARGET - now) / 864e5);
@@ -78,20 +82,20 @@ async function build() {
   if (days > 0) {
     const row = w.addStack();
     row.bottomAlignContent();
-    style(row.addText(String(days)), Font.heavyRoundedSystemFont(big), HOT);
-    row.addSpacer(5);
+    style(row.addText(String(days)), GTA(big), HOT);
+    row.addSpacer(4);
     const unit = row.addStack();
     unit.layoutVertically();
-    style(unit.addText(days === 1 ? "DAY" : "DAYS"), Font.heavyRoundedSystemFont(big * 0.36), HOT);
+    style(unit.addText(days === 1 ? "DAY" : "DAYS"), GTA(big * 0.38), HOT);
     unit.addSpacer(big * 0.13);
   }
   const tick = w.addDate(dayEnds);
   tick.applyTimerStyle();
-  style(tick, Font.heavyRoundedSystemFont(days > 0 ? big * 0.44 : big * 0.8), days > 0 ? WHITE : HOT);
+  style(tick, GTA(days > 0 ? big * 0.48 : big * 0.8), days > 0 ? WHITE : HOT);
 
   if (family !== "small") {
     w.addSpacer(3);
-    style(w.addText(WHEN), Font.semiboldRoundedSystemFont(12), new Color("#ffffff", 0.8));
+    style(w.addText(WHEN), GTA(13), new Color("#ffffff", 0.8));
   }
   w.refreshAfterDate = dayEnds;                                        // redraw as the day count drops
   return w;
