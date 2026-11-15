@@ -99,11 +99,6 @@
                   }
                 },
                 {
-                  "entity": "weather.outdoor_south_melbourne",
-                  "name": "Weather",
-                  "weather": true
-                },
-                {
                   "entity": "input_select.washing_machine",
                   "name": "Washing",
                   "icon": "mdi:washing-machine",
@@ -1586,13 +1581,6 @@
                 "columns": "full",
                 "rows": 2
               }
-            },
-            {
-              "type": "custom:meridian-countdown",
-              "target": "2026-11-19T00:00:00+11:00",
-              "image": "/local/gta6/gta6.jpg",
-              "when": "Thursday 19 November · 12:00 am",
-              "done": "Out now"
             },
             {
               "type": "custom:meridian-edit-button"
