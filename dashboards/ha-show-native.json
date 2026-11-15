@@ -1570,6 +1570,11 @@
           "type": "grid",
           "cards": [
             {
+              "type": "custom:meridian-heading",
+              "name": "Pip",
+              "icon": "mdi:sprout"
+            },
+            {
               "type": "custom:meridian-pip",
               "prefix": "pip",
               "grid_options": {
