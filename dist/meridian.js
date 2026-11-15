@@ -1281,6 +1281,7 @@ function timerSheet(c2) {
   if (!c2._tTimer) return J;
   const id = `timer.${c2._config.clock}_timer`;
   const start = (m2) => {
+    c2._call("input_number", "set_value", { entity_id: `input_number.${c2._config.clock}_timer_length`, value: m2 * 60 });
     c2._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m2 / 60)).padStart(2, "0")}:${String(m2 % 60).padStart(2, "0")}:00` });
     redraw(c2, { _tTimer: false });
   };
@@ -3205,7 +3206,7 @@ function shakeDetector(onShake) {
 }
 
 // www/overlook-show.js
-var VERSION = "0.33.2";
+var VERSION = "0.33.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4024,7 +4025,8 @@ var OverlookShow = class extends dt {
     if (!c2 || !this.hass) return J;
     const tm = c2.timer, ts = tm ? tm.state : "idle";
     const length = c2.len ? Number(c2.len.state) || 0 : 0;
-    const total = length || (tm ? this._ckSecs(tm.attributes.duration) : 0);
+    const own = tm && (tm.state === "active" || tm.state === "paused") ? this._ckSecs(tm.attributes.duration) : 0;
+    const total = own || length;
     const ringing = c2.ring !== "Off";
     const dark = this._night() && !ringing;
     const cls = `screen ck ${dark ? "ck-night" : ""}`;

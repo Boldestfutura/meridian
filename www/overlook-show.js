@@ -14,7 +14,7 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 
-const VERSION = "0.33.2";
+const VERSION = "0.33.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -679,8 +679,11 @@ class OverlookShow extends LitElement {
     const c = this._ck();
     if (!c || !this.hass) return nothing;
     const tm = c.timer, ts = tm ? tm.state : "idle";
+    // a running or paused timer knows its own length; once it has rung, HA resets that, so the
+    // length helper (written by whatever started it) is the fallback for "Time's up" and Reset
     const length = c.len ? Number(c.len.state) || 0 : 0;
-    const total = length || (tm ? this._ckSecs(tm.attributes.duration) : 0);
+    const own = tm && (tm.state === "active" || tm.state === "paused") ? this._ckSecs(tm.attributes.duration) : 0;
+    const total = own || length;
     const ringing = c.ring !== "Off";
     // a dark bedroom keeps the night clock's red; a ringing screen is bright to wake you
     const dark = this._night() && !ringing;

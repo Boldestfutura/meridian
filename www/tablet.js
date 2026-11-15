@@ -255,6 +255,8 @@ function timerSheet(c) {
   if (!c._tTimer) return nothing;
   const id = `timer.${c._config.clock}_timer`;
   const start = (m) => {
+    // the length helper is what the timer screen's "of" and Reset use, as the voice timers set it
+    c._call("input_number", "set_value", { entity_id: `input_number.${c._config.clock}_timer_length`, value: m * 60 });
     c._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });
     redraw(c, { _tTimer: false });
   };
