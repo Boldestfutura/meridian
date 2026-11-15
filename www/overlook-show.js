@@ -15,7 +15,7 @@ import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tabl
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.4";
+const VERSION = "0.34.5";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5992,5 +5992,14 @@ window.addEventListener("keydown", (e) => {
   while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
   if (a && a.blur) a.blur();
 }, true);
+// HA gives the page a thin grey scrollbar, and the iPhone app draws it over the cards' edge.
+// Touch screens scroll with a finger anyway, so hide it there; a mouse keeps it.
+if (!document.getElementById("meridian-no-scrollbar")) {
+  const st = document.createElement("style");
+  st.id = "meridian-no-scrollbar";
+  st.textContent = "@media (pointer: coarse) { html, body { scrollbar-width: none; } "
+    + "html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; } }";
+  document.head.appendChild(st);
+}
 
 console.info(`%c ${BUILD === "phone" ? "meridian" : "overlook-show"} ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");

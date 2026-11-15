@@ -3423,7 +3423,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.4";
+var VERSION = "0.34.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -9741,6 +9741,12 @@ window.addEventListener("keydown", (e2) => {
   while (a2 && a2.shadowRoot && a2.shadowRoot.activeElement) a2 = a2.shadowRoot.activeElement;
   if (a2 && a2.blur) a2.blur();
 }, true);
+if (!document.getElementById("meridian-no-scrollbar")) {
+  const st2 = document.createElement("style");
+  st2.id = "meridian-no-scrollbar";
+  st2.textContent = "@media (pointer: coarse) { html, body { scrollbar-width: none; } html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; } }";
+  document.head.appendChild(st2);
+}
 console.info(`%c ${BUILD === "phone" ? "meridian" : "overlook-show"} ${VERSION} `, "background:#1d5cf0;color:#fff;border-radius:4px");
 /**
  * @license
