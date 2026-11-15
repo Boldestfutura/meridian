@@ -3,51 +3,53 @@
 // Set it up: Scriptable > + > paste this > name it; home screen > add a Scriptable widget
 // (small, medium or large) > Edit Widget > Script: this one.
 // The artwork is fetched once from Home Assistant over Tailscale and kept on the phone, so the
-// widget still draws when the phone is off the tailnet.
+// widget still draws when the phone is off the tailnet. Change ART to a new file name to refetch.
 
 const TARGET = new Date("2026-11-19T00:00:00+11:00");   // GTA VI, midnight in Melbourne
-const ART = "http://homeassistant.taild8548.ts.net:8123/local/gta6/gta6.jpg";
+const ART = "http://homeassistant.taild8548.ts.net:8123/local/gta6/gta6-hd.jpg";
 const WHEN = "Thursday 19 November · 12:00 am";
 const DONE = "Out now";
-const HOT = new Color("#ffb35c"), PINK = new Color("#ff6fae"), WHITE = Color.white(), SHADE = new Color("#1b0f30");
+const HOT = new Color("#ffb35c"), WHITE = Color.white(), SHADE = "#1b0f30";
 
 async function artwork() {
   const fm = FileManager.local();
-  const path = fm.joinPath(fm.documentsDirectory(), "countdown-art.jpg");
+  const path = fm.joinPath(fm.documentsDirectory(), "countdown-" + ART.split("/").pop());
   if (!fm.fileExists(path)) {
     try { fm.writeImage(path, await new Request(ART).loadImage()); } catch (e) { return null; }
   }
   return fm.readImage(path);
 }
 
-// the art, cropped to fill the widget, darkening into purple at the bottom where the numbers go
-function background(img, w, h) {
+// The art cropped to fill the widget at the screen's real pixel size, fading into purple at the
+// bottom where the numbers go. The fade is drawn one pixel row at a time so it has no seams.
+function background(img, wPt, hPt) {
+  const s = Device.screenScale();
+  const w = Math.round(wPt * s), h = Math.round(hPt * s);
   const dc = new DrawContext();
   dc.size = new Size(w, h);
   dc.opaque = true;
-  dc.respectScreenScale = true;
-  dc.setFillColor(SHADE);
+  dc.respectScreenScale = false;
+  dc.setFillColor(new Color(SHADE));
   dc.fillRect(new Rect(0, 0, w, h));
   if (img) {
     const k = Math.max(w / img.size.width, h / img.size.height);
     const iw = img.size.width * k, ih = img.size.height * k;
-    dc.drawImageInRect(img, new Rect((w - iw) / 2, 0, iw, ih));      // keep the top (logo, faces)
+    dc.drawImageInRect(img, new Rect((w - iw) / 2, (h - ih) * 0.2, iw, ih));
   }
-  const bands = 40;
-  for (let i = 0; i < bands; i++) {                                    // a gradient, band by band
-    const t = i / (bands - 1);
-    dc.setFillColor(new Color("#1b0f30", Math.min(0.92, Math.pow(t, 1.6) * 1.05)));
-    dc.fillRect(new Rect(0, h * (0.35 + 0.65 * t), w, h * 0.65 / bands + 1));
+  const top = Math.round(h * 0.42);
+  for (let y = top; y < h; y++) {
+    const t = (y - top) / (h - top);
+    dc.setFillColor(new Color(SHADE, Math.min(0.9, Math.pow(t, 1.4) * 0.95)));
+    dc.fillRect(new Rect(0, y, w, 1));
   }
   return dc.getImage();
 }
 
-function text(stack, s, font, color) {
-  const t = stack.addText(s);
+function style(t, font, color) {
   t.font = font;
   t.textColor = color;
-  t.shadowColor = new Color("#000000", 0.55);
-  t.shadowRadius = 4;
+  t.shadowColor = new Color("#000000", 0.6);
+  t.shadowRadius = 5;
   t.shadowOffset = new Point(0, 1);
   t.minimumScaleFactor = 0.6;
   t.lineLimit = 1;
@@ -56,46 +58,40 @@ function text(stack, s, font, color) {
 
 async function build() {
   const family = config.widgetFamily || "medium";
-  const size = { small: [400, 400], medium: [800, 380], large: [800, 840] }[family] || [800, 380];
-  const big = family === "small" ? 44 : family === "large" ? 84 : 58;
+  const size = { small: [170, 170], medium: [364, 170], large: [364, 382] }[family] || [364, 170];
+  const big = family === "small" ? 50 : family === "large" ? 84 : 60;
 
   const w = new ListWidget();
   w.backgroundImage = background(await artwork(), size[0], size[1]);
-  w.setPadding(12, 16, 14, 16);
+  w.setPadding(10, 14, 12, 14);
   w.url = "homeassistant://navigate/ha-show-native/home";
   w.addSpacer();
 
   const now = new Date();
   if (now >= TARGET) {
-    text(w, DONE, Font.heavySystemFont(big * 0.8), HOT);
+    style(w.addText(DONE), Font.heavyRoundedSystemFont(big * 0.7), HOT);
     return w;
   }
   const days = Math.floor((TARGET - now) / 864e5);
   const dayEnds = new Date(TARGET.getTime() - days * 864e5);          // when the day count drops
 
-  const row = w.addStack();
-  row.bottomAlignContent();
   if (days > 0) {
-    text(row, String(days), Font.heavyRoundedSystemFont(big), HOT);
-    row.addSpacer(6);
+    const row = w.addStack();
+    row.bottomAlignContent();
+    style(row.addText(String(days)), Font.heavyRoundedSystemFont(big), HOT);
+    row.addSpacer(5);
     const unit = row.addStack();
     unit.layoutVertically();
-    text(unit, days === 1 ? "DAY" : "DAYS", Font.heavySystemFont(big * 0.3), PINK);
-    unit.addSpacer(big * 0.14);
-    row.addSpacer(12);
+    style(unit.addText(days === 1 ? "DAY" : "DAYS"), Font.heavyRoundedSystemFont(big * 0.36), HOT);
+    unit.addSpacer(big * 0.13);
   }
-  const tick = row.addDate(dayEnds);
+  const tick = w.addDate(dayEnds);
   tick.applyTimerStyle();
-  tick.font = Font.boldMonospacedSystemFont(days > 0 ? big * 0.42 : big * 0.8);
-  tick.textColor = days > 0 ? WHITE : HOT;
-  tick.shadowColor = new Color("#000000", 0.55);
-  tick.shadowRadius = 4;
-  tick.minimumScaleFactor = 0.6;
-  tick.lineLimit = 1;
+  style(tick, Font.heavyRoundedSystemFont(days > 0 ? big * 0.44 : big * 0.8), days > 0 ? WHITE : HOT);
 
   if (family !== "small") {
-    w.addSpacer(2);
-    text(w, WHEN, Font.semiboldSystemFont(12), new Color("#ffffff", 0.8));
+    w.addSpacer(3);
+    style(w.addText(WHEN), Font.semiboldRoundedSystemFont(12), new Color("#ffffff", 0.8));
   }
   w.refreshAfterDate = dayEnds;                                        // redraw as the day count drops
   return w;
@@ -103,5 +99,5 @@ async function build() {
 
 const widget = await build();
 if (config.runsInWidget) Script.setWidget(widget);
-else await widget.presentMedium();
+else await widget.presentSmall();
 Script.complete();
