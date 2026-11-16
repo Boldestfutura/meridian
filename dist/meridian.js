@@ -3632,7 +3632,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.8";
+var VERSION = "0.34.9";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5178,7 +5178,7 @@ var OverlookShow = class extends dt {
     const hasT0 = t0 && !isNaN(t0);
     const p2 = this._st(w2.power), watts = p2 ? Number(p2.state) : NaN;
     const phase = isNaN(watts) ? "" : watts > 1e3 ? "Heating the water" : watts > 300 ? "Spinning" : watts > 40 ? "Washing" : watts > 5 ? "Filling or resting" : "Quiet";
-    const fin = new Date(new Date(e2.last_changed).getTime() - 5 * 6e4);
+    const fin = new Date(new Date(e2.last_changed).getTime() - 2 * 6e4);
     let chip, big, sub;
     if (st2 === "running") {
       chip = "Running";

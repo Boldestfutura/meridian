@@ -14,7 +14,7 @@
       "trigger": "numeric_state",
       "entity_id": "sensor.washing_machine_power",
       "below": 4,
-      "for": "00:05:00",
+      "for": "00:02:00",
       "id": "finish"
     },
     {
@@ -128,7 +128,7 @@
               "continue_on_error": true,
               "data": {
                 "title": "Washing's done",
-                "message": "Time to hang it out. {{ ((now().timestamp() - 300 - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
+                "message": "Time to hang it out. {{ ((now().timestamp() - 120 - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
                 "data": {
                   "tag": "washing",
                   "group": "washing",
@@ -146,7 +146,7 @@
               "continue_on_error": true,
               "data": {
                 "title": "Washing's done",
-                "message": "Time to hang it out. {{ ((now().timestamp() - 300 - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
+                "message": "Time to hang it out. {{ ((now().timestamp() - 120 - state_attr('input_datetime.washing_machine_started', 'timestamp') | float(0)) // 60) | int }} minute cycle.",
                 "data": {
                   "tag": "washing",
                   "group": "washing",

@@ -15,7 +15,7 @@ import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tabl
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.8";
+const VERSION = "0.34.9";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1381,8 +1381,8 @@ class OverlookShow extends LitElement {
     const p = this._st(w.power), watts = p ? Number(p.state) : NaN;
     const phase = isNaN(watts) ? "" : watts > 1000 ? "Heating the water" : watts > 300 ? "Spinning"
       : watts > 40 ? "Washing" : watts > 5 ? "Filling or resting" : "Quiet";
-    // done is set 5 minutes after the power drops, so the real finish is 5 minutes earlier
-    const fin = new Date(new Date(e.last_changed).getTime() - 5 * 60000);
+    // done is set 2 minutes after the power drops, so the real finish is 2 minutes earlier
+    const fin = new Date(new Date(e.last_changed).getTime() - 2 * 60000);
     let chip, big, sub;
     if (st === "running") {
       chip = "Running";
