@@ -124,8 +124,8 @@ grids (Now, Scenes, then one section per room), no Meridian cards, because the e
 and its slow WebView want something light. Its view theme is **Meridian Ink**
 (`themes/meridian-ink.yaml`): white ground, 2px black outlines, no shadows, on = black icon,
 off = grey. Picking Meridian Ink as the profile theme on the Boox turns HA's header white too.
-It signs in as the `boox` user; the app's default dashboard is a per-device setting (Profile →
-Dashboard on the Boox). Edited in HA's editor and pulled like the others.
+It signs in as the `boox` user, whose default dashboard (Profile → Appearance, stored per
+account) is set to Boox; everyone else falls through to the system default, ha-show-native. Edited in HA's editor and pulled like the others.
 
 ## Lock step
 
