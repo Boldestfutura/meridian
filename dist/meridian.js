@@ -3412,7 +3412,7 @@ function wxMorning(c2, opt) {
     <div class="screen mf" @pointerdown=${(ev) => ev.stopPropagation()}>
       <div class="mf-top">
         <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
-        <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+        <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
       </div>
       <div class="mf-main">
         <img src=${icon(cond, false)} alt="">
@@ -3424,10 +3424,13 @@ function wxMorning(c2, opt) {
         ${tile("mdi:weather-sunny-alert", "UV", uv ? `${uv}` : "\u2013", [fc("uv_category"), uvS && uvE ? `${clock(new Date(uvS))}\u2013${clock(new Date(uvE))}` : ""].filter(Boolean).join(" \xB7 "))}
         ${tile("mdi:weather-windy", "Wind", `${round(obs("wind_speed_kilometre"))} km/h`, [dir && `From the ${dir}`, gust != null && `gusts ${round(gust)}`].filter(Boolean).join(", "))}
       </div>
-      ${slots.length ? Z`<div class="mf-hours">${slots.map((f2) => {
+      <div class="mf-bottom">
+        ${slots.length ? Z`<div class="mf-hours">${slots.map((f2) => {
     const d2 = new Date(f2.datetime), p2 = f2.precipitation_probability || 0;
     return Z`<div><span>${hourLabel(d2)}</span><img src=${icon(f2.condition, d2.getHours() >= 20)} alt=""><b>${round(f2.temperature)}°</b><small>${p2 >= 20 ? `${p2}%` : ""}</small></div>`;
-  })}</div>` : J}
+  })}</div>` : Z`<div></div>`}
+        <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+      </div>
     </div>`;
 }
 var DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -3606,6 +3609,10 @@ var WX_CSS = o`
         background: linear-gradient(165deg, #bcd8f2 0%, #dfe9f1 45%, #f7ecdc 80%, #fbdcb8 100%); }
   .mf-top { display: flex; justify-content: space-between; align-items: center; gap: 3vw; }
   .mf-label { font-family: var(--display); font-weight: 800; font-size: 6.4vh; letter-spacing: -0.01em; white-space: nowrap; }
+  .mf-time { font-family: var(--display); font-weight: 800; font-size: 9vh; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; flex: none; }
+  /* the hours strip and Got it share the bottom row; the button matches the strip's height */
+  .mf-bottom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2vw; align-items: stretch; }
+  .mf-bottom .mf-btn { height: auto; min-height: 9.5vh; }
   .mf-btn { height: 9.5vh; padding: 0 3.4vh; border: 0; border-radius: 5vh; background: #14213a; color: #f7ecdc;
         display: flex; align-items: center; gap: 1.2vh; font-family: var(--display); font-weight: 700; font-size: 4.2vh; flex: none; }
   .mf-btn ha-icon { --mdc-icon-size: 4.6vh; }
@@ -3632,7 +3639,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.10";
+var VERSION = "0.34.11";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
