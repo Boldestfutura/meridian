@@ -9,7 +9,10 @@ Hold the clock for 1.5s to uncover HA itself (for edit mode).
 and saves this config.
 """
 
-VERSION = "0.34.8"
+# the card's own VERSION, so the resource URL can't fall behind a bump made only in the JS
+import os as _os, re as _re
+VERSION = _re.search(r'const VERSION = "([^"]+)"', open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                     "www/overlook-show.js")).read()).group(1)
 def air(suffix=""):
     """The four readings of one Air Quality Monitor ("" = kitchen, "_2" = bedroom)."""
     return [
