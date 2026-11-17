@@ -3414,7 +3414,7 @@ function wxMorning(c2, opt) {
         <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
-          <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+          <button class="mf-btn" @click=${dismiss}>Close</button>
         </div>
       </div>
       <div class="mf-main">
@@ -3610,8 +3610,9 @@ var WX_CSS = o`
   .mf-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 3vw; }
   .mf-label { font-family: var(--display); font-weight: 800; font-size: 6.4vh; letter-spacing: -0.01em; white-space: nowrap; }
   .mf-time { font-family: var(--display); font-weight: 800; font-size: 9vh; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; flex: none; }
-  /* top right: the time, Got it under it */
-  .mf-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1.6vh; flex: none; }
+  /* top right: the time, Close under it, as wide as the time */
+  .mf-side { display: flex; flex-direction: column; align-items: stretch; gap: 1.6vh; flex: none; }
+  .mf-side .mf-btn { justify-content: center; padding: 0 2.4vh; }
   .mf-btn { height: 9.5vh; padding: 0 3.4vh; border: 0; border-radius: 5vh; background: #14213a; color: #f7ecdc;
         display: flex; align-items: center; gap: 1.2vh; font-family: var(--display); font-weight: 700; font-size: 4.2vh; flex: none; }
   .mf-btn ha-icon { --mdc-icon-size: 4.6vh; }
@@ -3638,7 +3639,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.12";
+var VERSION = "0.34.13";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

@@ -100,7 +100,7 @@ export function wxAlert(c, opt) {
 
 // The morning forecast, full screen on the room screens before we head out. Option `morning: true`
 // (or {alert}): automation weather_morning_forecast turns input_boolean.morning_forecast on at 6 am
-// when someone's home and off at 10 am or when the house empties; Got it on any screen turns it
+// when someone's home and off at 10 am or when the house empties; Close on any screen turns it
 // off everywhere. Today's high and low, rain chance and amount, UV and cover-up times, wind, and
 // the day's temperatures at 9, 12, 3, 6 and 9. Under the washing and warning alerts and the
 // clocks, and never in a dark room, so it waits for the lights.
@@ -137,7 +137,7 @@ export function wxMorning(c, opt) {
         <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
-          <button class="mf-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
+          <button class="mf-btn" @click=${dismiss}>Close</button>
         </div>
       </div>
       <div class="mf-main">
@@ -320,8 +320,9 @@ export const WX_CSS = css`
   .mf-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 3vw; }
   .mf-label { font-family: var(--display); font-weight: 800; font-size: 6.4vh; letter-spacing: -0.01em; white-space: nowrap; }
   .mf-time { font-family: var(--display); font-weight: 800; font-size: 9vh; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; flex: none; }
-  /* top right: the time, Got it under it */
-  .mf-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1.6vh; flex: none; }
+  /* top right: the time, Close under it, as wide as the time */
+  .mf-side { display: flex; flex-direction: column; align-items: stretch; gap: 1.6vh; flex: none; }
+  .mf-side .mf-btn { justify-content: center; padding: 0 2.4vh; }
   .mf-btn { height: 9.5vh; padding: 0 3.4vh; border: 0; border-radius: 5vh; background: #14213a; color: #f7ecdc;
         display: flex; align-items: center; gap: 1.2vh; font-family: var(--display); font-weight: 700; font-size: 4.2vh; flex: none; }
   .mf-btn ha-icon { --mdc-icon-size: 4.6vh; }
