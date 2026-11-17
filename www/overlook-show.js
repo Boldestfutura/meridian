@@ -15,7 +15,7 @@ import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tabl
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 
-const VERSION = "0.34.9";
+const VERSION = "0.34.10";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -3342,6 +3342,8 @@ class OverlookShow extends LitElement {
     .tile-ico.tap { cursor: pointer; transition: transform 0.12s; }
     .tile-ico.tap:active { transform: scale(0.9); }
     .light-tile.on { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
+    /* plugs, switches and toggles fill like a lit light, in their own accent */
+    .tile.on:not(.light-tile) { background: color-mix(in srgb, var(--accent) 14%, var(--card)); }
     .ph-grid .player { padding: 12px; gap: 10px; border-radius: 20px; }
     .ph-grid .player-row { grid-template-columns: 40px 1fr; gap: 10px; }
     .ph-grid .player-row .round.play { position: absolute; width: 0; height: 0; overflow: hidden; }
@@ -3694,6 +3696,7 @@ class OverlookShow extends LitElement {
     .ptile .tile-name { font-size: 14px; line-height: 1.2; }
     .ptile .muted { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ptile.on .tile-ico { background: var(--warm); color: #fff; }
+    .ptile.on { background: color-mix(in srgb, var(--warm) 14%, var(--inset)); }
     .ptile.alert { background: color-mix(in srgb, var(--warm) 16%, var(--inset)); }
     .ptile.alert .tile-ico { color: var(--warm); }
     .ptile:active { transform: scale(0.98); }
