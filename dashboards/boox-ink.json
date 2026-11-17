@@ -1,0 +1,567 @@
+{
+  "title": "Boox",
+  "views": [
+    {
+      "title": "Home",
+      "path": "home",
+      "icon": "mdi:home",
+      "type": "sections",
+      "max_columns": 1,
+      "theme": "Meridian Ink",
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Now",
+              "icon": "mdi:clock-outline",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "weather.forecast_home",
+                  "name": "Outside",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:weather-partly-cloudy"
+                },
+                {
+                  "type": "button",
+                  "entity": "sensor.air_quality_monitor_temperature",
+                  "name": "Kitchen",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:thermometer"
+                },
+                {
+                  "type": "button",
+                  "entity": "sensor.air_quality_monitor_temperature_2",
+                  "name": "Bedroom",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:thermometer"
+                },
+                {
+                  "type": "button",
+                  "entity": "climate.living_room",
+                  "name": "Heat pump",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:air-conditioner"
+                },
+                {
+                  "type": "button",
+                  "entity": "sensor.guest_bedroom_temperature",
+                  "name": "Guest room",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:thermometer"
+                },
+                {
+                  "type": "button",
+                  "entity": "input_select.washing_machine",
+                  "name": "Washing",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": true,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  },
+                  "icon": "mdi:washing-machine"
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Scenes",
+              "icon": "mdi:palette-outline",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "script.goodnight",
+                  "name": "Goodnight",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "input_boolean.bedroom_night_mode",
+                  "name": "Night mode",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "input_boolean.guest_mode",
+                  "name": "Guest mode",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "script.heatpump_cool_30min",
+                  "name": "Cool 30 min",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "script.kitchen_dimmed",
+                  "name": "Kitchen dim",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "script.living_room_dimmed",
+                  "name": "Living dim",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "script.bedroom_dimmed",
+                  "name": "Bedroom dim",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "script.guest_bedroom_dimmed",
+                  "name": "Guest dim",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Kitchen",
+              "icon": "mdi:silverware-fork-knife",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "light.kitchen_lights",
+                  "name": "All lights",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.kitchen_light_2",
+                  "name": "Kitchen Light",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.bench_lamp",
+                  "name": "Bench Lamp",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Living Room",
+              "icon": "mdi:sofa",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "light.living_room",
+                  "name": "All lights",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.couch_lamp",
+                  "name": "Couch Lamp",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.tv_lamp",
+                  "name": "TV Lamp",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.corner_light",
+                  "name": "Corner Light",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "switch.smart_plug",
+                  "name": "Smart Plug",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Master Bedroom",
+              "icon": "mdi:bed-king",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "light.master_bedroom_lights",
+                  "name": "All lights",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.mushroom_lamp",
+                  "name": "Mushroom Lamp",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.bedside_left",
+                  "name": "Bedside Left",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "light.bedside_right",
+                  "name": "Bedside Right",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                },
+                {
+                  "type": "button",
+                  "entity": "switch.tp_link_power_strip_6e3f_dehumidifier",
+                  "name": "Dehumidifier",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Guest Bedroom",
+              "icon": "mdi:bed",
+              "heading_style": "title"
+            },
+            {
+              "type": "grid",
+              "columns": 3,
+              "square": true,
+              "cards": [
+                {
+                  "type": "button",
+                  "entity": "light.guest_bedroom_lamp",
+                  "name": "Guest Lamp",
+                  "show_name": true,
+                  "show_icon": true,
+                  "show_state": false,
+                  "icon_height": "44px",
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "grid_options": {
+                "columns": "full"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

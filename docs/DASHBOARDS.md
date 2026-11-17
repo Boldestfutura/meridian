@@ -117,6 +117,16 @@ off on 2026-11-04.
   then update Meridian cards in HACS. The Show screens' card goes straight to `/config/www`
   and never registers the Meridian cards, so the two can't clash.
 
+## Boox dashboard
+
+`boox-ink` is for the Boox Go 6 e-reader's HA app: plain HA button cards in 3-wide square
+grids (Now, Scenes, then one section per room), no Meridian cards, because the e-ink screen
+and its slow WebView want something light. Its view theme is **Meridian Ink**
+(`themes/meridian-ink.yaml`): white ground, 2px black outlines, no shadows, on = black icon,
+off = grey. Picking Meridian Ink as the profile theme on the Boox turns HA's header white too.
+It signs in as the `boox` user; the app's default dashboard is a per-device setting (Profile →
+Dashboard on the Boox). Edited in HA's editor and pulled like the others.
+
 ## Lock step
 
 The repo and the live HA are meant to match at all times:

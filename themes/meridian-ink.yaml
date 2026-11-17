@@ -1,0 +1,64 @@
+# Meridian Ink: black on white for e-ink screens (the Boox Go 6). No colour, no
+# shadows, no tints: cards are white squares with a thick black outline, and an
+# "on" thing is a solid black icon while "off" is grey, which reads at a glance on
+# a 16-grey panel. Used by the Boox dashboard (boox-ink) as its view theme; pick it
+# as the profile theme on the Boox itself to turn the header and sidebar white too.
+Meridian Ink:
+  # --- shape --------------------------------------------------------------
+  ha-card-border-radius: "14px"
+  ha-card-border-width: "2px"
+  ha-card-border-color: "#000000"
+  ha-card-box-shadow: "none"
+
+  # --- type ---------------------------------------------------------------
+  primary-font-family: "'Amazon Ember', system-ui, -apple-system, sans-serif"
+  paper-font-common-base_-_font-family: "'Amazon Ember', system-ui, sans-serif"
+  paper-font-body1_-_font-family: "'Amazon Ember', system-ui, sans-serif"
+
+  # --- ground and ink -----------------------------------------------------
+  primary-background-color: "#ffffff"
+  secondary-background-color: "#ffffff"
+  lovelace-background: "#ffffff"
+  card-background-color: "#ffffff"
+  ha-card-background: "#ffffff"
+  primary-text-color: "#000000"
+  secondary-text-color: "#333333"
+  disabled-text-color: "#777777"
+  divider-color: "#000000"
+  primary-color: "#000000"
+  accent-color: "#000000"
+  rgb-primary-color: "0, 0, 0"
+  rgb-accent-color: "0, 0, 0"
+  rgb-primary-text-color: "0, 0, 0"
+
+  # --- on is black, off is grey ------------------------------------------
+  state-icon-color: "#8a8a8a"
+  paper-item-icon-color: "#8a8a8a"
+  state-icon-active-color: "#000000"
+  paper-item-icon-active-color: "#000000"
+  state-active-color: "#000000"
+  state-inactive-color: "#8a8a8a"
+  state-light-active-color: "#000000"
+  state-switch-active-color: "#000000"
+  state-input_boolean-active-color: "#000000"
+  state-script-active-color: "#000000"
+  state-media_player-active-color: "#000000"
+  state-climate-cool-color: "#000000"
+  state-climate-heat-color: "#000000"
+  state-climate-heat_cool-color: "#000000"
+  state-climate-dry-color: "#000000"
+  state-climate-fan_only-color: "#000000"
+  state-climate-auto-color: "#000000"
+
+  # --- app chrome, so the header and sidebar match when it's the profile theme
+  app-header-background-color: "#ffffff"
+  app-header-text-color: "#000000"
+  app-header-border-bottom: "2px solid #000000"
+  sidebar-background-color: "#ffffff"
+  sidebar-text-color: "#000000"
+  sidebar-icon-color: "#000000"
+  sidebar-selected-text-color: "#000000"
+  sidebar-selected-icon-color: "#000000"
+  switch-checked-color: "#000000"
+  switch-checked-button-color: "#000000"
+  switch-checked-track-color: "#555555"
