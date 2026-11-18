@@ -1,0 +1,164 @@
+{
+  "id": "weather_phone_alerts",
+  "alias": "Weather - Phone Alerts",
+  "description": "Cameron's iPhone only. Every 15 min: thunderstorms in the next 3 h (severe), gusts 60+ km/h in the next 12 h (severe at 80+), a 33°+ day (before 5 pm, severe at 40+), 3° or colder in the next 18 h (from noon), and rain starting within the hour (Pirate Weather minutely). Plus new BoM warnings (major = severe). Non-severe alerts are held back 10 pm to 7 am; severe ones come any time as time-sensitive. Each kind repeats at most every 3 h (rain), 6 h (thunder) or 12 h (the rest); input_text.weather_alerts_sent remembers when each last went. Tapping opens the Weather dashboard.",
+  "mode": "queued",
+  "triggers": [
+    {
+      "trigger": "time_pattern",
+      "minutes": "/15",
+      "id": "check"
+    },
+    {
+      "trigger": "state",
+      "entity_id": "sensor.bom_south_melbourne_warnings",
+      "id": "warn"
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "variables": {
+        "quiet": "{{ now().hour < 7 or now().hour >= 22 }}"
+      }
+    },
+    {
+      "choose": [
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "warn"
+            },
+            {
+              "condition": "template",
+              "value_template": "{{ trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable'] and trigger.to_state.state not in ['unknown', 'unavailable'] }}"
+            }
+          ],
+          "sequence": [
+            {
+              "variables": {
+                "new": "{% set old = (trigger.from_state.attributes.warnings or []) | map(attribute='id') | list %}{% set ns = namespace(out=[]) %}{% for w in trigger.to_state.attributes.warnings or [] %}{% if w.id not in old and w.type != 'sheep_graziers_warning' and (w.warning_group_type == 'major' or not quiet) %}{% set ns.out = ns.out + [w] %}{% endif %}{% endfor %}{{ ns.out }}"
+              }
+            },
+            {
+              "condition": "template",
+              "value_template": "{{ new | count > 0 }}"
+            },
+            {
+              "action": "notify.mobile_app_camerons_iphone",
+              "continue_on_error": true,
+              "data": {
+                "title": "{{ new[0].short_title }}{{ ' and %d more' % (new | count - 1) if new | count > 1 else '' }}",
+                "message": "{{ new | map(attribute='title') | join('. ') }}.",
+                "data": {
+                  "tag": "weather-warning",
+                  "group": "weather",
+                  "url": "/ha-weather/weather",
+                  "push": {
+                    "interruption-level": "{{ 'time-sensitive' if new | selectattr('warning_group_type', 'eq', 'major') | list | count else 'active' }}"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "condition": "trigger",
+              "id": "check"
+            }
+          ],
+          "sequence": [
+            {
+              "action": "weather.get_forecasts",
+              "target": {
+                "entity_id": "weather.outdoor_south_melbourne_hourly"
+              },
+              "data": {
+                "type": "hourly"
+              },
+              "response_variable": "fh"
+            },
+            {
+              "action": "weather.get_forecasts",
+              "target": {
+                "entity_id": "weather.outdoor_south_melbourne"
+              },
+              "data": {
+                "type": "daily"
+              },
+              "response_variable": "fd"
+            },
+            {
+              "variables": {
+                "hourly": "{{ fh['weather.outdoor_south_melbourne_hourly'].forecast }}",
+                "daily": "{{ fd['weather.outdoor_south_melbourne'].forecast }}",
+                "minutely": "{{ state_attr('sensor.rain_next_hour', 'data') or [] }}"
+              }
+            },
+            {
+              "variables": {
+                "alerts": "{%- set ns = namespace(a=[]) -%}\n{%- set h0 = now().strftime('%Y-%m-%dT%H:00:00') -%}\n{%- set h3 = (now() + timedelta(hours=3)).strftime('%Y-%m-%dT%H:00:00') -%}\n{%- set h12 = (now() + timedelta(hours=12)).strftime('%Y-%m-%dT%H:00:00') -%}\n{%- set h18 = (now() + timedelta(hours=18)).strftime('%Y-%m-%dT%H:00:00') -%}\n{%- set soon = hourly | selectattr('datetime', '>=', h0) | selectattr('datetime', '<=', h3) | list -%}\n{%- set storm = soon | selectattr('condition', 'in', ['lightning', 'lightning-rainy']) | list -%}\n{%- if storm -%}\n  {%- set t = as_datetime(storm[0].datetime).strftime('%-I%p') | lower -%}\n  {%- set ns.a = ns.a + [{'key': 'thunder', 'severe': true, 'title': 'Thunderstorms on the way',\n       'message': 'Storms forecast ' ~ ('now' if storm[0].datetime == h0 else 'from about ' ~ t) ~ '. Bring things in and keep an eye on the radar.'}] -%}\n{%- endif -%}\n{%- set day = hourly | selectattr('datetime', '>=', h0) | selectattr('datetime', '<=', h12) | list -%}\n{%- set gusts = day | map(attribute='wind_gust_speed') | select('number') | list -%}\n{%- if gusts and gusts | max >= 60 -%}\n  {%- set peak = day | selectattr('wind_gust_speed', 'eq', gusts | max) | first -%}\n  {%- set ns.a = ns.a + [{'key': 'wind', 'severe': gusts | max >= 80, 'title': 'Strong winds',\n       'message': 'Gusts up to ' ~ (gusts | max | round) ~ ' km/h around ' ~ (as_datetime(peak.datetime).strftime('%-I%p') | lower) ~ '.'}] -%}\n{%- endif -%}\n{%- set today = daily | selectattr('datetime', 'search', now().strftime('%Y-%m-%d')) | first | default(none) -%}\n{%- if today and today.temperature is number and today.temperature >= 33 and now().hour < 17 -%}\n  {%- set ns.a = ns.a + [{'key': 'heat', 'severe': today.temperature >= 40, 'title': 'Hot day',\n       'message': 'Up to ' ~ (today.temperature | round) ~ '° today. Close the blinds early and keep the heat pump ready.'}] -%}\n{%- endif -%}\n{%- set night = hourly | selectattr('datetime', '>=', h0) | selectattr('datetime', '<=', h18) | list -%}\n{%- set temps = night | map(attribute='temperature') | select('number') | list -%}\n{%- if temps and temps | min <= 3 and now().hour >= 12 -%}\n  {%- set low = night | selectattr('temperature', 'eq', temps | min) | first -%}\n  {%- set ns.a = ns.a + [{'key': 'cold', 'severe': false, 'title': 'Cold night',\n       'message': 'Down to ' ~ (temps | min | round) ~ '° around ' ~ (as_datetime(low.datetime).strftime('%-I%p') | lower) ~ '. Frost is possible.'}] -%}\n{%- endif -%}\n{%- set m = minutely or [] -%}\n{%- if m and m[0].precipIntensity < 0.1 -%}\n  {%- set wet = m | selectattr('precipIntensity', '>=', 0.3) | selectattr('precipProbability', '>=', 0.5) | list -%}\n  {%- if wet -%}\n    {%- set mins = ((wet[0].time - now().timestamp()) / 60) | round | int -%}\n    {%- set ns.a = ns.a + [{'key': 'rain', 'severe': false, 'title': 'Rain soon',\n         'message': 'Rain starting ' ~ ('in the next few minutes' if mins < 5 else 'in about ' ~ mins ~ ' min') ~ ' (' ~ (wet[0].time | timestamp_custom('%-I:%M%p') | lower) ~ ').'}] -%}\n  {%- endif -%}\n{%- endif -%}\n{{ ns.a }}"
+              }
+            },
+            {
+              "variables": {
+                "sent": "{% set s = states('input_text.weather_alerts_sent') %}{{ s | from_json if s.startswith('{') else {} }}",
+                "gap": {
+                  "rain": 10800,
+                  "thunder": 21600,
+                  "wind": 43200,
+                  "heat": 43200,
+                  "cold": 43200
+                }
+              }
+            },
+            {
+              "variables": {
+                "due": "{% set ns = namespace(out=[]) %}{% for a in alerts %}{% if (a.severe or not quiet) and now().timestamp() - (sent.get(a.key, 0) | float(0)) > gap[a.key] %}{% set ns.out = ns.out + [a] %}{% endif %}{% endfor %}{{ ns.out }}"
+              }
+            },
+            {
+              "condition": "template",
+              "value_template": "{{ due | count > 0 }}"
+            },
+            {
+              "repeat": {
+                "for_each": "{{ due }}",
+                "sequence": [
+                  {
+                    "action": "notify.mobile_app_camerons_iphone",
+                    "continue_on_error": true,
+                    "data": {
+                      "title": "{{ repeat.item.title }}",
+                      "message": "{{ repeat.item.message }}",
+                      "data": {
+                        "tag": "weather-{{ repeat.item.key }}",
+                        "group": "weather",
+                        "url": "/ha-weather/weather",
+                        "push": {
+                          "interruption-level": "{{ 'time-sensitive' if repeat.item.severe else 'active' }}"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "action": "input_text.set_value",
+              "target": {
+                "entity_id": "input_text.weather_alerts_sent"
+              },
+              "data": {
+                "value": "{% set ns = namespace(d=dict(sent)) %}{% for a in due %}{% set ns.d = dict(ns.d, **{a.key: now().timestamp() | int}) %}{% endfor %}{{ ns.d | to_json }}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

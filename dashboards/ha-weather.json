@@ -1,0 +1,15 @@
+{
+  "title": "Weather",
+  "views": [
+    {
+      "title": "Weather",
+      "path": "weather",
+      "type": "panel",
+      "cards": [
+        {
+          "type": "custom:meridian-weather"
+        }
+      ]
+    }
+  ]
+}

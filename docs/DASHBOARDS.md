@@ -21,11 +21,12 @@ More screenshots in the [README](../README.md).
 | `www/weather.js` | the weather pop-up, imported by `overlook-show.js`: any tap on a `weather.*` entity without a pop-up of its own opens it (Kitchen Show Outside tile, Echo weather tiles; a status entry with `weather: true` makes a weather pill). Also the full-screen warning alert: room-screen option `warnings: true`, raised by `input_boolean.weather_warning_alert` (automation `weather_warning_notify`), Got it clears it everywhere, hidden in a dark room. And the morning forecast: option `morning: true`, raised by `input_boolean.morning_forecast` (automation `weather_morning_forecast`, 6 to 10 am while someone's home): today's high and low, rain, UV, wind and the day's temperatures. Data: the BoM integration and `sensor.rain_next_hour` |
 | `dist/meridian.js` | Meridian cards, built from the source by `deploy.py`; what HACS installs. Commit it |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
+| `www/weather-page.js` | `meridian-weather`, the full weather page on the Weather dashboard (`ha-weather`, in the sidebar; the iPhone weather widget opens it): next-hour rain, hourly with Conditions/Rain/Wind, 8 days, RainViewer radar over Esri's dark grey map, detail tiles. Imported by `overlook-show.js` |
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
 | `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`: rooms, scenes, status pills, calendars, recipes, and the tablet's own keys (`tablet_tv`, `tablet_players`, `tablet_quick`, `scheme`) |
 | `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `show.py` reads it |
-| `dashboards/*.json` | the Phone Show, Computer Show and Master Bedroom Echo Show, edited in HA's own editor, as HA holds them. Never edit these here: change HA, then pull |
+| `dashboards/*.json` | the Phone Show, Computer Show, Master Bedroom Echo Show, Weather and Boox, edited in HA's own editor, as HA holds them. Never edit these here: change HA, then pull |
 | `tools/live_sync.py` | keeps the repo and HA in lock step (below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
