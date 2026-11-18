@@ -205,6 +205,14 @@
    "icon": "mdi:account-voice",
    "min": 0,
    "mode": "text"
+  },
+  {
+   "id": "weather_alerts_sent",
+   "name": "Weather alerts sent",
+   "max": 255,
+   "icon": "mdi:weather-cloudy-alert",
+   "min": 0,
+   "mode": "text"
   }
  ],
  "timer": [
