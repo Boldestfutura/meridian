@@ -8,6 +8,11 @@
 // Keychain, never in this file. Then home screen > add a Scriptable widget (small or medium) >
 // Edit Widget > Script: Weather, When Interacting: Run Script.
 //
+// Away from home (more than 50 km, by the phone's own location) it shows Open-Meteo's forecast
+// for where you are instead, named by iOS, with the location arrow. That needs Scriptable's
+// location permission set to "While Using the App or Widgets" (Settings > Scriptable > Location),
+// and it works off the tailnet. At home, or without a location, it reads BoM through HA.
+//
 // iOS decides when widgets refresh. The script asks for every 15 minutes; in practice it is
 // every 15 to 30. The last good reading is kept on the phone, so the widget still draws off the
 // tailnet, with the time it was taken.
@@ -19,6 +24,7 @@ const HOURLY = "weather.outdoor_south_melbourne_hourly";
 const OPEN = "homeassistant://navigate/ha-weather/weather";
 const KEY = "ha-weather-widget-token";
 const CACHE = "weather-widget.json";
+const HOME = { lat: -37.83, lon: 144.953 }, AWAY_KM = 50;
 
 const LABEL = {
   "sunny": "Sunny", "clear-night": "Clear", "partlycloudy": "Partly Cloudy", "cloudy": "Cloudy", "fog": "Fog",
@@ -92,6 +98,42 @@ async function fetchWeather(t) {
   };
 }
 
+// ---- away: Open-Meteo for wherever the phone is ----------------------------------------------
+
+const WMO = (c) => c === 0 ? "sunny" : c <= 2 ? "partlycloudy" : c === 3 ? "cloudy" : c <= 48 ? "fog"
+  : [65, 82].includes(c) ? "pouring" : [66, 67].includes(c) ? "snowy-rainy" : (c >= 71 && c <= 77) || c === 85 || c === 86 ? "snowy"
+  : c >= 95 ? "lightning-rainy" : c >= 51 ? "rainy" : "cloudy";
+function km(a, b, c, d) {
+  const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+
+async function whereAmI() {
+  try { Location.setAccuracyToThreeKilometers(); return await Location.current(); } catch (e) { return null; }
+}
+
+async function fetchAway(l) {
+  const q = `latitude=${l.latitude.toFixed(3)}&longitude=${l.longitude.toFixed(3)}&timezone=auto&forecast_days=2`
+    + "&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code"
+    + "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset";
+  const r = new Request("https://api.open-meteo.com/v1/forecast?" + q);
+  r.timeoutInterval = 12;
+  const m = await r.loadJSON();
+  let place = "My Location";
+  try {
+    const g = (await Location.reverseGeocode(l.latitude, l.longitude))[0] || {};
+    place = g.locality || g.subAdministrativeArea || g.administrativeArea || g.country || place;
+  } catch (e) { /* keep "My Location" */ }
+  return {
+    taken: Date.now(), away: true, place,
+    temp: m.current.temperature_2m, cond: WMO(m.current.weather_code),
+    rise: m.daily.sunrise[0], set: m.daily.sunset[0],
+    hourly: m.hourly.time.map((t, i) => ({ datetime: t, condition: WMO(m.hourly.weather_code[i]), temperature: m.hourly.temperature_2m[i] })),
+    daily: m.daily.time.map((t, i) => ({ datetime: t + "T00:00", condition: WMO(m.daily.weather_code[i]),
+      temperature: m.daily.temperature_2m_max[i], templow: m.daily.temperature_2m_min[i] })),
+  };
+}
+
 function cache(data) {
   const fm = FileManager.local(), path = fm.joinPath(fm.documentsDirectory(), CACHE);
   if (data) { fm.writeString(path, JSON.stringify(data)); return data; }
@@ -156,11 +198,13 @@ function build(w, family) {
   left.layoutVertically();
   const place = left.addStack();
   place.centerAlignContent();
-  text(place, PLACE, Font.semiboldSystemFont(family === "small" ? 14 : 15));
-  place.addSpacer(3);
-  const arrow = place.addImage(SFSymbol.named("location.fill").image);
-  arrow.imageSize = new Size(9, 9);
-  arrow.tintColor = Color.white();
+  text(place, w.place || PLACE, Font.semiboldSystemFont(family === "small" ? 14 : 15));
+  if (w.away) {
+    place.addSpacer(3);
+    const arrow = place.addImage(SFSymbol.named("location.fill").image);
+    arrow.imageSize = new Size(9, 9);
+    arrow.tintColor = Color.white();
+  }
   text(left, deg(w.temp), Font.lightSystemFont(family === "small" ? 42 : 40));
 
   const stale = Date.now() - w.taken > 45 * 60e3;
@@ -215,9 +259,14 @@ function message(s) {
 
 const family = config.widgetFamily || "medium";
 const t = await token();
+const here = await whereAmI();
+const away = here && km(here.latitude, here.longitude, HOME.lat, HOME.lon) > AWAY_KM;
 let w = null;
-if (t) { try { w = cache(await fetchWeather(t)); } catch (e) { w = cache(); } }
-else w = cache();
+try {
+  if (away) w = cache(await fetchAway(here));
+  else if (t) w = cache(await fetchWeather(t));
+} catch (e) { /* fall back to the last reading */ }
+if (!w) w = cache();
 
 const widget = w ? build(w, family === "small" ? "small" : "medium")
                  : message(t ? "Can't reach Home Assistant" : "Open Scriptable and run Weather once");

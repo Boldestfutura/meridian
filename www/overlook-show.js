@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.34.15";
+const VERSION = "0.34.16";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -5979,8 +5979,41 @@ class MeridianCountdown extends LitElement {
 definePhone("countdown", MeridianCountdown);
 
 // the weather page (www/weather-page.js, the Weather dashboard), with Meridian's fonts
+// It hides HA's header like the Phone Show (back while editing), so it carries its own menu
+// button for HA's sidebar.
 definePhone("weather", class extends MeridianWeather {
-  connectedCallback() { super.connectedCallback(); loadFonts(this.hass); }
+  connectedCallback() {
+    super.connectedCallback();
+    loadFonts(this.hass);
+    this._hdr = setInterval(() => this._header(), 400);
+    this._header();
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._hdr);
+    styleHuiRoot(this._root, "");
+  }
+  _header() {
+    const r = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    if (r !== this._root) { styleHuiRoot(this._root, ""); this._root = r; }
+    this._editing = !!(r && r.lovelace && r.lovelace.editMode);
+    styleHuiRoot(r, this._editing ? "" : HIDE_HEADER);
+  }
+  render() {
+    const page = super.render();
+    if (page === nothing || this._editing) return page;
+    return html`<button class="menu" aria-label="Menu" @click=${() => {
+      fireHaptic("light");
+      this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
+    }}><ha-icon icon="mdi:menu"></ha-icon></button>${page}`;
+  }
+  static styles = [MeridianWeather.styles, css`
+    :host { position: relative; }
+    .menu { position: absolute; z-index: 2; top: 14px; left: max(12px, env(safe-area-inset-left, 0px)); width: 40px; height: 40px;
+            border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(16, 22, 38, 0.28);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .menu ha-icon { --mdc-icon-size: 22px; }
+    .menu:active { transform: scale(0.94); }`];
 });
 
 window.customCards = window.customCards || [];

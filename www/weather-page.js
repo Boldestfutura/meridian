@@ -8,6 +8,11 @@
 //
 // Data: the BoM integration (bremor/bureau_of_meteorology) for the forecast, observations, UV and
 // warnings, met.no's weather.forecast_home for pressure. Every entity can be changed in the config.
+//
+// Away from home: when the person signed in to HA is more than AWAY_KM from zone.home (their
+// phone's GPS, from the companion app), the page shows Open-Meteo's forecast for where they are
+// instead, named from the phone's geocoded-location sensor. No warnings or next-hour rain there
+// (those are BoM and Pirate Weather, fixed on home).
 import { LitElement, html, css, svg, nothing } from "./lit-all.min.js";
 
 const DEFAULTS = {
@@ -21,6 +26,18 @@ const DEFAULTS = {
   rain: "sensor.rain_next_hour",
   latitude: -37.83, longitude: 144.953,
 };
+
+const AWAY_KM = 50;
+
+// Open-Meteo's WMO weather codes as HA conditions
+const WMO = (c) => c === 0 ? "sunny" : c <= 2 ? "partlycloudy" : c === 3 ? "cloudy" : c <= 48 ? "fog"
+  : [65, 82].includes(c) ? "pouring" : [66, 67].includes(c) ? "snowy-rainy" : (c >= 71 && c <= 77) || c === 85 || c === 86 ? "snowy"
+  : c >= 95 ? "lightning-rainy" : c >= 51 ? "rainy" : "cloudy";
+const kmBetween = (a, b, c, d) => {
+  const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+};
+const uvWord = (u) => u == null ? "" : u < 3 ? "Low" : u < 6 ? "Moderate" : u < 8 ? "High" : u < 11 ? "Very High" : "Extreme";
 
 const LABEL = {
   "sunny": "Sunny", "clear-night": "Clear", "partlycloudy": "Partly cloudy", "cloudy": "Cloudy", "fog": "Fog",
@@ -67,8 +84,8 @@ const worldPx = (lat, lon, z) => {
 
 export class MeridianWeather extends LitElement {
   static get properties() {
-    return { hass: { attribute: false }, _daily: { state: true }, _hourly: { state: true }, _tab: { state: true },
-             _frames: { state: true }, _frame: { state: true } };
+    return { hass: { attribute: false }, _homeD: { state: true }, _homeH: { state: true }, _tab: { state: true },
+             _frames: { state: true }, _frame: { state: true }, _away: { state: true } };
   }
   static getStubConfig() { return {}; }
   setConfig(c) { this._config = Object.assign({}, DEFAULTS, c || {}); this._tab = this._tab || "conditions"; }
@@ -91,11 +108,64 @@ export class MeridianWeather extends LitElement {
     if (!this.hass || this._unsubD) return;
     const sub = (type, entity, set) => this.hass.connection.subscribeMessage((m) => set(m.forecast || []),
       { type: "weather/subscribe_forecast", forecast_type: type, entity_id: entity });
-    this._unsubD = sub("daily", this._config.weather, (f) => { this._daily = f; });
-    this._unsubH = sub("hourly", this._config.hourly, (f) => { this._hourly = f; });
+    this._unsubD = sub("daily", this._config.weather, (f) => { this._homeD = f; });
+    this._unsubH = sub("hourly", this._config.hourly, (f) => { this._homeH = f; });
   }
 
-  _st(id) { return this.hass && this.hass.states[id]; }
+  // ---- away from home: Open-Meteo for wherever the viewer's phone is --------------------------
+  willUpdate(changed) {
+    if (changed.has("hass") && this.hass) this._where();
+  }
+  _where() {
+    const h = this.hass, me = h.user && Object.values(h.states).find((s) => s.entity_id.startsWith("person.") && s.attributes.user_id === h.user.id);
+    const home = h.states["zone.home"], a = me && me.attributes, z = home && home.attributes;
+    const far = a && z && a.latitude != null && z.latitude != null && kmBetween(a.latitude, a.longitude, z.latitude, z.longitude) > AWAY_KM;
+    if (!far) { if (this._away) this._away = null; this._awayAt = null; return; }
+    // refetch after 15 minutes, or once they've moved 10 km
+    const last = this._awayAt;
+    if (last && Date.now() - last.t < 15 * 60e3 && kmBetween(last.lat, last.lon, a.latitude, a.longitude) < 10) return;
+    this._awayAt = { t: Date.now(), lat: a.latitude, lon: a.longitude };
+    const geo = a.source && h.states[`sensor.${a.source.split(".")[1]}_geocoded_location`];
+    const ga = geo ? geo.attributes : {};
+    const name = ga.Locality || ga["Sub Administrative Area"] || ga["Administrative Area"] || ga.Country || "Current location";
+    this._openMeteo(a.latitude, a.longitude, name).catch(() => { this._awayAt = null; });
+  }
+  async _openMeteo(lat, lon, name) {
+    const q = new URLSearchParams({ latitude: lat.toFixed(3), longitude: lon.toFixed(3), timezone: "auto", forecast_days: 8, wind_speed_unit: "kmh",
+      current: "temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure,precipitation",
+      hourly: "temperature_2m,weather_code,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max" });
+    const r = await (await fetch("https://api.open-meteo.com/v1/forecast?" + q)).json();
+    const c = r.current, H = r.hourly, D = r.daily, cfg = this._config;
+    const POINTS16 = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    const st = (state, attributes = {}) => ({ state: state == null ? "unknown" : String(state), attributes });
+    const obs = (k, v) => [`sensor.${cfg.observations}_${k}`, st(v)];
+    const fc = (k, v) => [`sensor.${cfg.forecast}_${k}_0`, st(v)];
+    const uv = D.uv_index_max[0];
+    const states = Object.fromEntries([
+      [cfg.weather, st(WMO(c.weather_code), { temperature: c.temperature_2m })],
+      [cfg.detail, st("", { pressure: c.surface_pressure })],
+      obs("temp", c.temperature_2m), obs("temp_feels_like", c.apparent_temperature), obs("humidity", c.relative_humidity_2m),
+      obs("dew_point", c.dew_point_2m), obs("wind_speed_kilometre", c.wind_speed_10m), obs("gust_speed_kilometre", c.wind_gusts_10m),
+      [`sensor.${cfg.observations}_wind_direction`, st(POINTS16[Math.round(c.wind_direction_10m / 22.5) % 16])],
+      fc("astronomical_sunrise_time", D.sunrise[0]), fc("astronomical_sunset_time", D.sunset[0]),
+      fc("uv_max_index", uv == null ? null : Math.round(uv)), fc("uv_category", uvWord(uv)),
+      fc("rain_chance", D.precipitation_probability_max[0]), obs("rain_since_9am", D.precipitation_sum[0]),
+    ]);
+    this._away = { name, lat, lon, states,
+      hourly: H.time.map((t, i) => ({ datetime: t, condition: WMO(H.weather_code[i]), temperature: H.temperature_2m[i],
+        precipitation_probability: H.precipitation_probability[i], precipitation: H.precipitation[i],
+        wind_speed: H.wind_speed_10m[i], wind_gust_speed: H.wind_gusts_10m[i], wind_bearing: H.wind_direction_10m[i] })),
+      daily: D.time.map((t, i) => ({ datetime: t + "T00:00", condition: WMO(D.weather_code[i]), temperature: D.temperature_2m_max[i],
+        templow: D.temperature_2m_min[i], precipitation_probability: D.precipitation_probability_max[i], precipitation: D.precipitation_sum[i] })) };
+  }
+  get _daily() { return this._away ? this._away.daily : this._homeD; }
+  get _hourly() { return this._away ? this._away.hourly : this._homeH; }
+  _lat() { return this._away ? this._away.lat : this._config.latitude; }
+  _lon() { return this._away ? this._away.lon : this._config.longitude; }
+
+  // away, only Open-Meteo's made-up states count: nothing of home's leaks in
+  _st(id) { return this._away ? this._away.states[id] : this.hass && this.hass.states[id]; }
   _v(id) { const s = this._st(id); return s ? num(s.state) : null; }
   _obs(k) { return this._v(`sensor.${this._config.observations}_${k}`); }
   _fc(k) { const s = this._st(`sensor.${this._config.forecast}_${k}_0`); return s && !["unknown", "unavailable"].includes(s.state) ? s.state : null; }
@@ -165,7 +235,7 @@ export class MeridianWeather extends LitElement {
 
   _map() {
     const c = this._config, Z = 8;
-    const [px, py] = worldPx(c.latitude, c.longitude, Z);
+    const [px, py] = worldPx(this._lat(), this._lon(), Z);
     const tx = Math.floor(px / 256), ty = Math.floor(py / 256), x0 = tx - 2, y0 = ty - 1;
     const base = [], labels = [], esri = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_";
     for (let x = x0; x <= tx + 2; x++) for (let y = y0; y <= ty + 1; y++) {
@@ -202,8 +272,8 @@ export class MeridianWeather extends LitElement {
     const lo = Math.min(...[today.templow, this._obs("min_temp")].filter((v) => v != null));
     const short = this._fc("short_text");
     return html`<header>
-      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>Home</div>
-      <h1>${this._config.name}</h1>
+      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>${this._away ? "My location" : "Home"}</div>
+      <h1>${this._away ? this._away.name : this._config.name}</h1>
       <div class="big">${round(temp)}°</div>
       <div class="cond">${short ? short.replace(/\.$/, "") : LABEL[cond] || ""}</div>
       <div class="hl">H:${isFinite(hi) ? round(hi) : "–"}°  L:${isFinite(lo) ? round(lo) : "–"}°  ·  Feels like ${round(this._obs("temp_feels_like"))}°</div>
@@ -349,7 +419,7 @@ export class MeridianWeather extends LitElement {
           </svg></div>
         <div class="tn">${dir ? `From the ${dir}` : ""}</div>`)}
       ${tile("mdi:water", "Rain", html`
-        <div class="tv">${rain9 ?? "–"} mm</div><div class="tw">since 9 am</div>
+        <div class="tv">${rain9 ?? "–"} mm</div><div class="tw">${this._away ? "expected today" : "since 9 am"}</div>
         <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : ""}</div>`)}
       ${tile("mdi:water-percent", "Humidity", html`
         <div class="tv">${round(hum)}%</div>
@@ -383,7 +453,7 @@ export class MeridianWeather extends LitElement {
       ${this._days()}
       ${this._map()}
       ${this._tiles()}
-      <div class="foot">Bureau of Meteorology · Pirate Weather · met.no</div>
+      <div class="foot">${this._away ? "Open-Meteo" : "Bureau of Meteorology · Pirate Weather · met.no"}</div>
     </div>`;
   }
 

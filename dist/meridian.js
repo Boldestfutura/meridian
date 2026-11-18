@@ -3655,6 +3655,13 @@ var DEFAULTS = {
   latitude: -37.83,
   longitude: 144.953
 };
+var AWAY_KM = 50;
+var WMO = (c2) => c2 === 0 ? "sunny" : c2 <= 2 ? "partlycloudy" : c2 === 3 ? "cloudy" : c2 <= 48 ? "fog" : [65, 82].includes(c2) ? "pouring" : [66, 67].includes(c2) ? "snowy-rainy" : c2 >= 71 && c2 <= 77 || c2 === 85 || c2 === 86 ? "snowy" : c2 >= 95 ? "lightning-rainy" : c2 >= 51 ? "rainy" : "cloudy";
+var kmBetween = (a2, b2, c2, d2) => {
+  const r2 = Math.PI / 180, x3 = Math.sin((c2 - a2) * r2 / 2) ** 2 + Math.cos(a2 * r2) * Math.cos(c2 * r2) * Math.sin((d2 - b2) * r2 / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x3));
+};
+var uvWord = (u2) => u2 == null ? "" : u2 < 3 ? "Low" : u2 < 6 ? "Moderate" : u2 < 8 ? "High" : u2 < 11 ? "Very High" : "Extreme";
 var LABEL2 = {
   "sunny": "Sunny",
   "clear-night": "Clear",
@@ -3707,11 +3714,12 @@ var MeridianWeather = class extends dt {
   static get properties() {
     return {
       hass: { attribute: false },
-      _daily: { state: true },
-      _hourly: { state: true },
+      _homeD: { state: true },
+      _homeH: { state: true },
       _tab: { state: true },
       _frames: { state: true },
-      _frame: { state: true }
+      _frame: { state: true },
+      _away: { state: true }
     };
   }
   static getStubConfig() {
@@ -3749,14 +3757,110 @@ var MeridianWeather = class extends dt {
       { type: "weather/subscribe_forecast", forecast_type: type, entity_id: entity }
     );
     this._unsubD = sub("daily", this._config.weather, (f2) => {
-      this._daily = f2;
+      this._homeD = f2;
     });
     this._unsubH = sub("hourly", this._config.hourly, (f2) => {
-      this._hourly = f2;
+      this._homeH = f2;
     });
   }
+  // ---- away from home: Open-Meteo for wherever the viewer's phone is --------------------------
+  willUpdate(changed) {
+    if (changed.has("hass") && this.hass) this._where();
+  }
+  _where() {
+    const h2 = this.hass, me = h2.user && Object.values(h2.states).find((s2) => s2.entity_id.startsWith("person.") && s2.attributes.user_id === h2.user.id);
+    const home = h2.states["zone.home"], a2 = me && me.attributes, z2 = home && home.attributes;
+    const far = a2 && z2 && a2.latitude != null && z2.latitude != null && kmBetween(a2.latitude, a2.longitude, z2.latitude, z2.longitude) > AWAY_KM;
+    if (!far) {
+      if (this._away) this._away = null;
+      this._awayAt = null;
+      return;
+    }
+    const last = this._awayAt;
+    if (last && Date.now() - last.t < 15 * 6e4 && kmBetween(last.lat, last.lon, a2.latitude, a2.longitude) < 10) return;
+    this._awayAt = { t: Date.now(), lat: a2.latitude, lon: a2.longitude };
+    const geo = a2.source && h2.states[`sensor.${a2.source.split(".")[1]}_geocoded_location`];
+    const ga = geo ? geo.attributes : {};
+    const name = ga.Locality || ga["Sub Administrative Area"] || ga["Administrative Area"] || ga.Country || "Current location";
+    this._openMeteo(a2.latitude, a2.longitude, name).catch(() => {
+      this._awayAt = null;
+    });
+  }
+  async _openMeteo(lat, lon, name) {
+    const q2 = new URLSearchParams({
+      latitude: lat.toFixed(3),
+      longitude: lon.toFixed(3),
+      timezone: "auto",
+      forecast_days: 8,
+      wind_speed_unit: "kmh",
+      current: "temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure,precipitation",
+      hourly: "temperature_2m,weather_code,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max"
+    });
+    const r2 = await (await fetch("https://api.open-meteo.com/v1/forecast?" + q2)).json();
+    const c2 = r2.current, H2 = r2.hourly, D2 = r2.daily, cfg = this._config;
+    const POINTS16 = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    const st2 = (state, attributes = {}) => ({ state: state == null ? "unknown" : String(state), attributes });
+    const obs = (k2, v2) => [`sensor.${cfg.observations}_${k2}`, st2(v2)];
+    const fc = (k2, v2) => [`sensor.${cfg.forecast}_${k2}_0`, st2(v2)];
+    const uv = D2.uv_index_max[0];
+    const states = Object.fromEntries([
+      [cfg.weather, st2(WMO(c2.weather_code), { temperature: c2.temperature_2m })],
+      [cfg.detail, st2("", { pressure: c2.surface_pressure })],
+      obs("temp", c2.temperature_2m),
+      obs("temp_feels_like", c2.apparent_temperature),
+      obs("humidity", c2.relative_humidity_2m),
+      obs("dew_point", c2.dew_point_2m),
+      obs("wind_speed_kilometre", c2.wind_speed_10m),
+      obs("gust_speed_kilometre", c2.wind_gusts_10m),
+      [`sensor.${cfg.observations}_wind_direction`, st2(POINTS16[Math.round(c2.wind_direction_10m / 22.5) % 16])],
+      fc("astronomical_sunrise_time", D2.sunrise[0]),
+      fc("astronomical_sunset_time", D2.sunset[0]),
+      fc("uv_max_index", uv == null ? null : Math.round(uv)),
+      fc("uv_category", uvWord(uv)),
+      fc("rain_chance", D2.precipitation_probability_max[0]),
+      obs("rain_since_9am", D2.precipitation_sum[0])
+    ]);
+    this._away = {
+      name,
+      lat,
+      lon,
+      states,
+      hourly: H2.time.map((t3, i2) => ({
+        datetime: t3,
+        condition: WMO(H2.weather_code[i2]),
+        temperature: H2.temperature_2m[i2],
+        precipitation_probability: H2.precipitation_probability[i2],
+        precipitation: H2.precipitation[i2],
+        wind_speed: H2.wind_speed_10m[i2],
+        wind_gust_speed: H2.wind_gusts_10m[i2],
+        wind_bearing: H2.wind_direction_10m[i2]
+      })),
+      daily: D2.time.map((t3, i2) => ({
+        datetime: t3 + "T00:00",
+        condition: WMO(D2.weather_code[i2]),
+        temperature: D2.temperature_2m_max[i2],
+        templow: D2.temperature_2m_min[i2],
+        precipitation_probability: D2.precipitation_probability_max[i2],
+        precipitation: D2.precipitation_sum[i2]
+      }))
+    };
+  }
+  get _daily() {
+    return this._away ? this._away.daily : this._homeD;
+  }
+  get _hourly() {
+    return this._away ? this._away.hourly : this._homeH;
+  }
+  _lat() {
+    return this._away ? this._away.lat : this._config.latitude;
+  }
+  _lon() {
+    return this._away ? this._away.lon : this._config.longitude;
+  }
+  // away, only Open-Meteo's made-up states count: nothing of home's leaks in
   _st(id) {
-    return this.hass && this.hass.states[id];
+    return this._away ? this._away.states[id] : this.hass && this.hass.states[id];
   }
   _v(id) {
     const s2 = this._st(id);
@@ -3844,7 +3948,7 @@ var MeridianWeather = class extends dt {
   }
   _map() {
     const c2 = this._config, Z2 = 8;
-    const [px, py] = worldPx(c2.latitude, c2.longitude, Z2);
+    const [px, py] = worldPx(this._lat(), this._lon(), Z2);
     const tx = Math.floor(px / 256), ty = Math.floor(py / 256), x0 = tx - 2, y0 = ty - 1;
     const base = [], labels = [], esri = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_";
     for (let x3 = x0; x3 <= tx + 2; x3++) for (let y2 = y0; y2 <= ty + 1; y2++) {
@@ -3879,8 +3983,8 @@ var MeridianWeather = class extends dt {
     const lo = Math.min(...[today.templow, this._obs("min_temp")].filter((v2) => v2 != null));
     const short = this._fc("short_text");
     return Z`<header>
-      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>Home</div>
-      <h1>${this._config.name}</h1>
+      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>${this._away ? "My location" : "Home"}</div>
+      <h1>${this._away ? this._away.name : this._config.name}</h1>
       <div class="big">${round2(temp)}°</div>
       <div class="cond">${short ? short.replace(/\.$/, "") : LABEL2[cond] || ""}</div>
       <div class="hl">H:${isFinite(hi) ? round2(hi) : "\u2013"}°  L:${isFinite(lo) ? round2(lo) : "\u2013"}°  ·  Feels like ${round2(this._obs("temp_feels_like"))}°</div>
@@ -4024,7 +4128,7 @@ var MeridianWeather = class extends dt {
           </svg></div>
         <div class="tn">${dir ? `From the ${dir}` : ""}</div>`)}
       ${tile("mdi:water", "Rain", Z`
-        <div class="tv">${rain9 ?? "\u2013"} mm</div><div class="tw">since 9 am</div>
+        <div class="tv">${rain9 ?? "\u2013"} mm</div><div class="tw">${this._away ? "expected today" : "since 9 am"}</div>
         <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : ""}</div>`)}
       ${tile("mdi:water-percent", "Humidity", Z`
         <div class="tv">${round2(hum)}%</div>
@@ -4061,7 +4165,7 @@ var MeridianWeather = class extends dt {
       ${this._days()}
       ${this._map()}
       ${this._tiles()}
-      <div class="foot">Bureau of Meteorology · Pirate Weather · met.no</div>
+      <div class="foot">${this._away ? "Open-Meteo" : "Bureau of Meteorology \xB7 Pirate Weather \xB7 met.no"}</div>
     </div>`;
   }
   static styles = o`
@@ -4172,7 +4276,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.34.15";
+var VERSION = "0.34.16";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -10481,7 +10585,38 @@ definePhone("weather", class extends MeridianWeather {
   connectedCallback() {
     super.connectedCallback();
     loadFonts(this.hass);
+    this._hdr = setInterval(() => this._header(), 400);
+    this._header();
   }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._hdr);
+    styleHuiRoot(this._root, "");
+  }
+  _header() {
+    const r2 = this._root && this._root.isConnected ? this._root : findHuiRoot();
+    if (r2 !== this._root) {
+      styleHuiRoot(this._root, "");
+      this._root = r2;
+    }
+    this._editing = !!(r2 && r2.lovelace && r2.lovelace.editMode);
+    styleHuiRoot(r2, this._editing ? "" : HIDE_HEADER);
+  }
+  render() {
+    const page = super.render();
+    if (page === J || this._editing) return page;
+    return Z`<button class="menu" aria-label="Menu" @click=${() => {
+      fireHaptic("light");
+      this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
+    }}><ha-icon icon="mdi:menu"></ha-icon></button>${page}`;
+  }
+  static styles = [MeridianWeather.styles, o`
+    :host { position: relative; }
+    .menu { position: absolute; z-index: 2; top: 14px; left: max(12px, env(safe-area-inset-left, 0px)); width: 40px; height: 40px;
+            border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(16, 22, 38, 0.28);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .menu ha-icon { --mdc-icon-size: 22px; }
+    .menu:active { transform: scale(0.94); }`];
 });
 window.customCards = window.customCards || [];
 if (BUILD === "phone" || BUILD === "all") window.customCards.push(
