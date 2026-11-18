@@ -3639,7 +3639,7 @@ var WX_CSS = o`
 `;
 
 // www/overlook-show.js
-var VERSION = "0.34.13";
+var VERSION = "0.34.14";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7195,7 +7195,9 @@ var OverlookShow = class extends dt {
     .ph-hp .modes { grid-area: modes; height: 46px; margin: 0; gap: 8px; }
     .ph-hp .mode { background: var(--inset); border-radius: 14px; font-size: 13px; }
     .ph-hp .mode ha-icon { --mdc-icon-size: 19px; }
-    .phone .fav-scenes { margin: -10px -16px -18px; padding: 10px 16px 22px; overflow-x: auto; scrollbar-width: none;
+    /* a sideways scroller clips at its padding box, so it reserves the card shadow's full reach
+       (0 10px 30px: 20px up, 40px down) or the shadow ends in a hard line */
+    .phone .fav-scenes { margin: -20px -16px -38px; padding: 20px 16px 42px; overflow-x: auto; scrollbar-width: none;
                          scroll-snap-type: x proximity; scroll-padding: 0 16px; }
     .phone .fav-scenes::-webkit-scrollbar { display: none; }
     .phone .mini-scene { flex: none; width: 84px; height: 84px; padding: 9px 4px; scroll-snap-align: start;
@@ -7208,7 +7210,7 @@ var OverlookShow = class extends dt {
     .phone .fav-sq.lit ha-icon { background: var(--warm); color: #fff; }
     .phone .fav-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-bottom: 6px; }
     .phone .fav-grid .fav-sq { width: auto; height: auto; aspect-ratio: 1; min-width: 0; }
-    .phone .status { margin: -10px -16px -22px; padding: 10px 16px 24px; }
+    .phone .status { margin: -20px -16px -40px; padding: 20px 16px 42px; }
     .phone .tab { height: 40px; padding: 0 14px; font-size: 14px; gap: 6px; }
 
     /* phone calendar: dots in the grid, the list underneath does the talking */
