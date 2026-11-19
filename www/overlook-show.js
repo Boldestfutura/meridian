@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.34.18";
+const VERSION = "0.34.19";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -6041,20 +6041,17 @@ definePhone("weather", class extends MeridianWeather {
     this._editing = !!(r && r.lovelace && r.lovelace.editMode);
     styleHuiRoot(r, this._editing ? "" : HIDE_HEADER);
   }
-  render() {
-    const page = super.render();
-    if (page === nothing || this._editing) return page;
+  _menu() {
+    if (this._editing) return nothing;
     return html`<button class="menu" aria-label="Menu" @click=${() => {
       fireHaptic("light");
       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
-    }}><ha-icon icon="mdi:menu"></ha-icon></button>${page}`;
+    }}><ha-icon icon="mdi:menu"></ha-icon></button>`;
   }
   static styles = [MeridianWeather.styles, css`
-    :host { position: relative; }
-    .menu { position: absolute; z-index: 2; top: 14px; left: max(12px, env(safe-area-inset-left, 0px)); width: 40px; height: 40px;
-            border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(16, 22, 38, 0.28);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-    .menu ha-icon { --mdc-icon-size: 22px; }
+    .menu { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+            color: var(--muted); background: var(--card); box-shadow: var(--shadow); transition: transform 0.12s; }
+    .menu ha-icon { --mdc-icon-size: 20px; }
     .menu:active { transform: scale(0.94); }`];
 });
 

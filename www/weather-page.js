@@ -1,4 +1,4 @@
-// meridian-weather: a full weather page in the iOS Weather layout, drawn in Meridian's glass panels.
+// meridian-weather: a full weather page drawn in Meridian's own cards, section headings and tokens.
 //
 // Top to bottom: place, big temperature and condition; Bureau of Meteorology warnings; next-hour
 // rain (Pirate Weather minutely, sensor.rain_next_hour); the next 24 hours with Conditions / Rain /
@@ -233,11 +233,16 @@ export class MeridianWeather extends LitElement {
     return url;
   }
 
+  _dark() {
+    const a = this.getAttribute("scheme");
+    return a ? a === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
   _map() {
-    const c = this._config, Z = 8;
+    const Z = 8;
     const [px, py] = worldPx(this._lat(), this._lon(), Z);
     const tx = Math.floor(px / 256), ty = Math.floor(py / 256), x0 = tx - 2, y0 = ty - 1;
-    const base = [], labels = [], esri = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_";
+    const base = [], labels = [], esri = `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${this._dark() ? "Dark" : "Light"}_Gray_`;
     for (let x = x0; x <= tx + 2; x++) for (let y = y0; y <= ty + 1; y++) {
       const at = `left:${(x - x0) * 256}px;top:${(y - y0) * 256}px`;
       base.push(html`<img src="${esri}Base/MapServer/tile/${Z}/${y}/${x}" style=${at} alt="">`);
@@ -254,14 +259,18 @@ export class MeridianWeather extends LitElement {
       });
     }
     const f = this._frames && this._frames[this._frame];
-    return html`<div class="panel map">
-      <div class="lab"><ha-icon icon="mdi:radar"></ha-icon>Rain radar</div>
-      <div class="mapbox">
+    return html`${this._sec("mdi:radar", "Rain radar")}
+      <div class="card map"><div class="mapbox">
         <div class="tiles" style="transform:translate(${-(px - x0 * 256)}px, ${-(py - y0 * 256)}px)">${base}${radar}${labels}</div>
         <div class="home"></div>
         ${f ? html`<div class="stamp">${clock(new Date(f.time * 1000))}</div>` : nothing}
         <div class="credit">Esri, HERE, Garmin · RainViewer</div>
       </div></div>`;
+  }
+
+  // a section heading, as on the phone dashboard: icon, name, and anything on the right
+  _sec(icon, title, right = nothing) {
+    return html`<div class="sec"><ha-icon icon=${icon}></ha-icon><span>${title}</span>${right}</div>`;
   }
 
   // ---- sections ------------------------------------------------------------------------------
@@ -270,14 +279,20 @@ export class MeridianWeather extends LitElement {
     const today = (this._daily || [])[0] || {};
     const hi = Math.max(...[today.temperature, this._obs("max_temp")].filter((v) => v != null));
     const lo = Math.min(...[today.templow, this._obs("min_temp")].filter((v) => v != null));
-    const short = this._fc("short_text");
-    return html`<header>
-      <div class="here"><ha-icon icon="mdi:navigation-variant"></ha-icon>${this._away ? "My location" : "Home"}</div>
-      <h1>${this._away ? this._away.name : this._config.name}</h1>
-      <div class="big">${round(temp)}°</div>
+    const short = this._fc("short_text"), feels = this._obs("temp_feels_like");
+    return html`<div class="card hero">
+      <div class="here"><ha-icon icon=${this._away ? "mdi:navigation-variant" : "mdi:home-outline"}></ha-icon>
+        ${this._away ? html`${this._away.name}<span class="tag">My location</span>` : this._config.name}</div>
+      <div class="hero-main">
+        <div class="big" style="--t:${tempColour(temp ?? 18)}">${round(temp)}<span>°</span></div>
+        <img class="hero-ico" src=${this._icon(cond, night)} alt=""></div>
       <div class="cond">${short ? short.replace(/\.$/, "") : LABEL[cond] || ""}</div>
-      <div class="hl">H:${isFinite(hi) ? round(hi) : "–"}°  L:${isFinite(lo) ? round(lo) : "–"}°  ·  Feels like ${round(this._obs("temp_feels_like"))}°</div>
-    </header>`;
+      <div class="chips">
+        <span class="chip"><ha-icon icon="mdi:arrow-up"></ha-icon>${isFinite(hi) ? round(hi) : "–"}°</span>
+        <span class="chip"><ha-icon icon="mdi:arrow-down"></ha-icon>${isFinite(lo) ? round(lo) : "–"}°</span>
+        ${feels != null ? html`<span class="chip"><ha-icon icon="mdi:thermometer"></ha-icon>Feels ${round(feels)}°</span>` : nothing}
+      </div>
+    </div>`;
   }
 
   _warnings() {
@@ -286,10 +301,11 @@ export class MeridianWeather extends LitElement {
       const prod = String(w.id || "").split("_").pop();
       const until = w.expiry_time ? new Date(w.expiry_time) : null;
       const major = w.warning_group_type === "major";
-      return html`<a class="panel warn ${major ? "major" : ""}" href="https://www.bom.gov.au/products/${prod}.shtml" target="_blank" rel="noreferrer">
-        <div class="wt"><ha-icon icon="mdi:alert"></ha-icon>${w.short_title || w.title}</div>
-        <div class="wd">${w.title}${until ? html` Until ${DAY[until.getDay()]} ${clock(until)}.` : nothing}</div>
-        <div class="src">Bureau of Meteorology</div></a>`;
+      return html`<a class="card row warn ${major ? "major" : ""}" href="https://www.bom.gov.au/products/${prod}.shtml" target="_blank" rel="noreferrer">
+        <span class="ico"><ha-icon icon="mdi:alert"></ha-icon></span>
+        <span class="txt"><b>${w.short_title || w.title}</b>
+          <small>${w.title}${until ? html` Until ${DAY[until.getDay()]} ${clock(until)}.` : nothing}</small></span>
+        <ha-icon class="go" icon="mdi:chevron-right"></ha-icon></a>`;
     });
   }
 
@@ -298,15 +314,16 @@ export class MeridianWeather extends LitElement {
     const pts = ((s && s.attributes.data) || []).slice(0, 60);
     if (!pts.length) return nothing;
     const wet = pts.some((p) => p.precipProbability >= 0.15 && p.precipIntensity >= 0.05);
-    if (!wet) return html`<div class="panel slim"><ha-icon icon="mdi:weather-cloudy-clock"></ha-icon>No rain expected in the next hour</div>`;
+    if (!wet) return html`<div class="card row"><span class="ico"><ha-icon icon="mdi:umbrella-closed-variant"></ha-icon></span>
+      <span class="txt"><b>No rain in the next hour</b><small>Pirate Weather, minute by minute</small></span></div>`;
     const h = (i) => i <= 0 ? 0 : i <= 0.5 ? i / 0.5 / 3 : i <= 4 ? 1 / 3 + (i - 0.5) / 3.5 / 3 : 2 / 3 + Math.min(1, (i - 4) / 12) / 3;
     const top = Math.max(...pts.map((p) => p.precipProbability));
-    return html`<div class="panel">
-      <div class="nh-title">${(s.state || "Rain").replace(/\.$/, "")}</div>
-      <div class="nh-sub">Up to ${Math.round(top * 100)}% chance in the next hour</div>
+    return html`<div class="card pad">
+      <div class="row flat"><span class="ico on"><ha-icon icon="mdi:weather-pouring"></ha-icon></span>
+        <span class="txt"><b>${(s.state || "Rain").replace(/\.$/, "")}</b><small>Up to ${Math.round(top * 100)}% chance in the next hour</small></span></div>
       <div class="nh">
         <i class="g" style="bottom:33.3%"></i><i class="g" style="bottom:66.6%"></i>
-        ${pts.map((p) => html`<b style="height:${Math.max(2, h(p.precipIntensity) * 100)}%;opacity:${0.35 + 0.65 * p.precipProbability}"></b>`)}
+        ${pts.map((p) => html`<b style="height:${Math.max(3, h(p.precipIntensity) * 100)}%;opacity:${0.3 + 0.7 * p.precipProbability}"></b>`)}
       </div>
       <div class="ticks">${["Now", "10m", "20m", "30m", "40m", "50m"].map((t) => html`<span>${t}</span>`)}</div>
     </div>`;
@@ -324,25 +341,24 @@ export class MeridianWeather extends LitElement {
           if (x > d && x <= new Date(d.getTime() + 3600e3) && x > now) items.push({ kind: "s", d: x, what });
     });
     const tab = this._tab, nowT = this._obs("temp");
-    const tabs = [["conditions", "mdi:weather-partly-cloudy", "Conditions"], ["rain", "mdi:water", "Rain"], ["wind", "mdi:weather-windy", "Wind"]];
-    return html`<div class="panel">
-      <div class="hrhead">
-        <div><div class="lab big">${tabs.find((t) => t[0] === tab)[2]}</div>
-          <div class="hint">${tab === "rain" ? "Chance and amount" : tab === "wind" ? "Speed and gusts (km/h)" : "Temperature (°C)"}</div></div>
-        <div class="seg">${tabs.map(([k, ic]) => html`<button class=${tab === k ? "on" : ""} @click=${() => { this._tab = k; }}><ha-icon icon=${ic}></ha-icon></button>`)}</div>
-      </div>
+    const tabs = [["conditions", "mdi:thermometer", "Temperature"], ["rain", "mdi:water", "Rain"], ["wind", "mdi:weather-windy", "Wind"]];
+    const seg = html`<div class="seg">${tabs.map(([k, ic, name]) => html`<button class=${tab === k ? "on" : ""} aria-label=${name}
+      @click=${() => { this._tab = k; }}><ha-icon icon=${ic}></ha-icon></button>`)}</div>`;
+    return html`${this._sec("mdi:clock-outline", "Next 24 hours", seg)}
+      <div class="card hours-card">
+      <div class="hint">${tab === "rain" ? "Chance and amount" : tab === "wind" ? "Speed and gusts, km/h" : "Temperature, °C"}</div>
       <div class="hours">${items.map((it, i) => {
         if (it.kind === "s") return html`<div class="hr sun"><span>${clock(it.d).replace(" ", "")}</span>
-          <img src=${it.what === "Sunset" ? "/local/weather/partlycloudy.svg" : "/local/weather/sunny.svg"} alt=""><b>${it.what}</b></div>`;
-        const f = it.f, p = f.precipitation_probability || 0;
-        if (tab === "rain") return html`<div class="hr"><span>${it.label}</span>
-          <div class="rbar"><i style="height:${p}%"></i></div><b class="blue">${p}%</b><small>${f.precipitation || 0} mm</small></div>`;
-        if (tab === "wind") return html`<div class="hr"><span>${it.label}</span>
+          <ha-icon class="sunico" icon=${it.what === "Sunset" ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up"}></ha-icon><b>${it.what}</b></div>`;
+        const f = it.f, p = f.precipitation_probability || 0, cls = i === 0 ? "hr now" : "hr";
+        if (tab === "rain") return html`<div class=${cls}><span>${it.label}</span>
+          <div class="rbar"><i style="height:${p}%"></i></div><b class="acc">${p}%</b><small>${f.precipitation || 0} mm</small></div>`;
+        if (tab === "wind") return html`<div class=${cls}><span>${it.label}</span>
           <ha-icon class="arrow" icon="mdi:navigation" style="transform:rotate(${bearing(f.wind_bearing) + 180}deg)"></ha-icon>
           <b>${round(f.wind_speed)}</b><small>${f.wind_gust_speed ? `gust ${round(f.wind_gust_speed)}` : ""}</small></div>`;
-        return html`<div class="hr"><span>${it.label}</span>
+        return html`<div class=${cls}><span>${it.label}</span>
           <img src=${this._icon(f.condition, this._night(it.d))} alt="">
-          <small class="blue">${p >= 20 ? `${p}%` : ""}</small><b>${round(i === 0 && nowT != null ? nowT : f.temperature)}°</b></div>`;
+          <b>${round(i === 0 && nowT != null ? nowT : f.temperature)}°</b><small class="acc">${p >= 20 ? `${p}%` : ""}</small></div>`;
       })}</div></div>`;
   }
 
@@ -352,8 +368,8 @@ export class MeridianWeather extends LitElement {
     const obs = [this._obs("min_temp"), this._obs("max_temp")].filter((v) => v != null);
     const lo = Math.min(...list.map((f) => f.templow ?? f.temperature), ...obs), hi = Math.max(...list.map((f) => f.temperature), ...obs);
     const span = Math.max(1, hi - lo), nowT = this._obs("temp");
-    return html`<div class="panel">
-      <div class="lab"><ha-icon icon="mdi:calendar-month"></ha-icon>${list.length}-day forecast</div>
+    return html`${this._sec("mdi:calendar-month-outline", "This week")}
+      <div class="card days">
       ${list.map((f, i) => {
         // today: the forecast's low is often tonight's, so take what's already been observed into account
         const d = new Date(f.datetime);
@@ -363,7 +379,8 @@ export class MeridianWeather extends LitElement {
         const dot = i === 0 && nowT != null ? Math.min(100, Math.max(0, (nowT - lo) / span * 100)) : null;
         return html`<div class="day">
           <span class="dn">${i === 0 ? "Today" : DAY[d.getDay()]}</span>
-          <span class="di"><img src=${this._icon(f.condition, false)} alt="">${p >= 20 ? html`<small class="blue">${p}%</small>` : nothing}</span>
+          <span class="di"><img src=${this._icon(f.condition, false)} alt=""></span>
+          <span class="dp">${p >= 20 ? html`<ha-icon icon="mdi:water"></ha-icon>${p}%` : nothing}</span>
           <span class="lo">${round(a)}°</span>
           <span class="range"><i style="left:${l}%;width:${w}%;background:linear-gradient(90deg, ${tempColour(a)}, ${tempColour(b)})"></i>
             ${dot != null ? html`<u style="left:${dot}%"></u>` : nothing}</span>
@@ -389,63 +406,67 @@ export class MeridianWeather extends LitElement {
     const curve = (x) => 30 - 22 * Math.sin(Math.PI * (x - r0) / (s0 - r0));
     const path = Array.from({ length: 49 }, (_, i) => { const x = i / 48; return `${i ? "L" : "M"}${x * 100},${x < r0 || x > s0 ? 30 + 6 * Math.sin(Math.PI * ((x < r0 ? x + 1 : x) - s0) / (1 + r0 - s0)) : curve(x)}`; }).join(" ");
     const sunY = nf < r0 || nf > s0 ? 30 + 6 * Math.sin(Math.PI * ((nf < r0 ? nf + 1 : nf) - s0) / (1 + r0 - s0)) : curve(nf);
-    const tile = (icon, label, body) => html`<div class="panel tile"><div class="lab"><ha-icon icon=${icon}></ha-icon>${label}</div>${body}</div>`;
-    return html`<div class="grid">
+    const tile = (icon, label, body, cls = "") => html`<div class="card tile ${cls}"><div class="th"><span class="ico sm"><ha-icon icon=${icon}></ha-icon></span>${label}</div>${body}</div>`;
+    return html`${this._sec("mdi:view-grid-outline", "Details")}
+      <div class="grid">
       ${tile("mdi:weather-sunny-alert", "UV index", html`
-        <div class="tv">${uv ?? "–"}</div><div class="tw">${uvCat || ""}</div>
+        <div class="tv">${uv ?? "–"}<small>${uvCat || ""}</small></div>
         <div class="uvbar"><u style="left:${Math.min(100, (uv || 0) / 11 * 100)}%"></u></div>
         <div class="tn">${uvS && uvE ? `Sun protection ${clock(new Date(uvS))} to ${clock(new Date(uvE))}.` : "Today's peak."}</div>`)}
       ${tile(nextSet ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up", nextSet ? "Sunset" : "Sunrise", html`
-        <div class="tv mid">${next ? clock(next) : "–"}</div>
-        <svg class="sunarc" viewBox="0 0 100 40" preserveAspectRatio="none">
-          <path d=${path} fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"></path>
-          <line x1="0" x2="100" y1="30" y2="30" stroke="currentColor" stroke-width=".5" opacity=".35"></line>
-          <circle cx=${nf * 100} cy=${sunY} r="2.6" fill="#fff"></circle></svg>
-        <div class="tn">${nextSet ? (rise ? `Sunrise: ${clock(rise)}` : "") : (set ? `Sunset: ${clock(set)}` : "")}</div>`)}
+        <div class="tv">${next ? clock(next) : "–"}</div>
+        <div class="arc"><svg class="sunarc" viewBox="0 0 100 40" preserveAspectRatio="none">
+          <path d=${path} fill="none" stroke="var(--track-strong)" stroke-width="1.4" vector-effect="non-scaling-stroke"></path>
+          <line x1="0" x2="100" y1="30" y2="30" stroke="var(--track)" stroke-width="1" vector-effect="non-scaling-stroke"></line></svg>
+        <i class="sundot" style="left:${nf * 100}%;top:${sunY / 40 * 100}%"></i></div>
+        <div class="tn">${nextSet ? (rise ? `Sunrise ${clock(rise)}` : "") : (set ? `Sunset ${clock(set)}` : "")}</div>`, "sun")}
       ${tile("mdi:thermometer", "Feels like", html`
-        <div class="tv">${round(feels)}°</div><div class="tw">Actual: ${round(temp)}°</div>
-        <div class="tn">${feels != null && temp != null ? (temp - feels >= 2 ? "Wind is making it feel cooler." : feels - temp >= 2 ? "Humidity is making it feel warmer." : "Similar to the actual temperature.") : ""}</div>`)}
+        <div class="tv">${round(feels)}°<small>Actual ${round(temp)}°</small></div>
+        <div class="tn">${feels != null && temp != null ? (temp - feels >= 2 ? "Wind is making it feel cooler." : feels - temp >= 2 ? "Humidity is making it feel warmer." : "Close to the actual temperature.") : ""}</div>`)}
       ${tile("mdi:weather-windy", "Wind", html`
         <div class="wind">
-          <div class="wnum"><div class="tv">${round(wind)}</div><div class="tw">km/h</div>
-            <div class="tn">${gust != null ? `Gusts ${round(gust)} km/h` : ""}</div></div>
+          <div class="wnum"><div class="tv">${round(wind)}<small>km/h</small></div>
+            <div class="tn">${gust != null ? `Gusts ${round(gust)}` : ""}${dir ? html`<br>From the ${dir}` : ""}</div></div>
           <svg class="compass" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"></circle>
-            ${Array.from({ length: 36 }, (_, i) => svg`<line x1="50" y1="8" x2="50" y2=${i % 9 ? 11 : 14} stroke="currentColor" stroke-width="1" opacity=".45" transform="rotate(${i * 10} 50 50)"></line>`)}
-            ${["N", "E", "S", "W"].map((p, i) => svg`<text x=${50 + 32 * Math.sin(i * Math.PI / 2)} y=${53 - 32 * Math.cos(i * Math.PI / 2)} text-anchor="middle" font-size="9" fill="currentColor" opacity=".7">${p}</text>`)}
+            <circle cx="50" cy="50" r="46" fill="var(--inset)"></circle>
+            ${Array.from({ length: 36 }, (_, i) => svg`<line x1="50" y1="8" x2="50" y2=${i % 9 ? 11 : 15} stroke="var(--track-strong)" stroke-width=${i % 9 ? 1 : 1.6} transform="rotate(${i * 10} 50 50)"></line>`)}
+            ${["N", "E", "S", "W"].map((p, i) => svg`<text x=${50 + 30 * Math.sin(i * Math.PI / 2)} y=${53.5 - 30 * Math.cos(i * Math.PI / 2)} text-anchor="middle" font-size="10" font-weight="700" fill="var(--muted)">${p}</text>`)}
             <g transform="rotate(${bearing(dir) + 180} 50 50)">
-              <line x1="50" y1="78" x2="50" y2="26" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></line>
-              <path d="M50 18 L56 30 L44 30 Z" fill="#fff"></path><circle cx="50" cy="80" r="3" fill="none" stroke="#fff" stroke-width="1.6"></circle></g>
-          </svg></div>
-        <div class="tn">${dir ? `From the ${dir}` : ""}</div>`)}
+              <line x1="50" y1="76" x2="50" y2="28" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"></line>
+              <path d="M50 18 L57 31 L43 31 Z" fill="var(--accent)"></path><circle cx="50" cy="78" r="3.5" fill="var(--card-solid)" stroke="var(--accent)" stroke-width="2"></circle></g>
+          </svg></div>`)}
       ${tile("mdi:water", "Rain", html`
-        <div class="tv">${rain9 ?? "–"} mm</div><div class="tw">${this._away ? "expected today" : "since 9 am"}</div>
-        <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : ""}</div>`)}
+        <div class="tv">${rain9 ?? "–"}<small>mm ${this._away ? "expected today" : "since 9 am"}</small></div>
+        <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : chance ? `${chance}% chance today.` : ""}</div>`)}
       ${tile("mdi:water-percent", "Humidity", html`
         <div class="tv">${round(hum)}%</div>
-        <div class="tn">${dew != null ? `The dew point is ${round(dew)}° right now.` : ""}</div>`)}
+        <div class="meter"><i style="width:${Math.min(100, hum || 0)}%"></i></div>
+        <div class="tn">${dew != null ? `Dew point ${round(dew)}°.` : ""}</div>`)}
       ${tile("mdi:gauge", "Pressure", html`
         <svg class="gauge" viewBox="0 0 100 62">
-          ${Array.from({ length: 41 }, (_, i) => { const a = -120 + i * 6; return svg`<line x1="50" y1="8" x2="50" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".4" transform="rotate(${a} 50 54)"></line>`; })}
-          ${pres != null ? svg`<line x1="50" y1="5" x2="50" y2="17" stroke="#fff" stroke-width="3" stroke-linecap="round" transform="rotate(${Math.max(-120, Math.min(120, (pres - 1013) * 4))} 50 54)"></line>` : nothing}
-          <text x="50" y="50" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">${pres != null ? Math.round(pres) : "–"}</text>
-          <text x="50" y="61" text-anchor="middle" font-size="7.5" fill="currentColor" opacity=".7">hPa</text></svg>`)}
+          ${Array.from({ length: 41 }, (_, i) => { const a = -120 + i * 6; return svg`<line x1="50" y1="8" x2="50" y2=${i % 5 ? 13 : 15} stroke="var(--track-strong)" stroke-width="1.3" transform="rotate(${a} 50 54)"></line>`; })}
+          ${pres != null ? svg`<line x1="50" y1="4" x2="50" y2="18" stroke="var(--accent)" stroke-width="3.2" stroke-linecap="round" transform="rotate(${Math.max(-120, Math.min(120, (pres - 1013) * 4))} 50 54)"></line>` : nothing}
+          <text x="50" y="49" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">${pres != null ? Math.round(pres) : "–"}</text>
+          <text x="50" y="60" text-anchor="middle" font-size="8" fill="var(--muted)">hPa</text></svg>`)}
       ${tile("mdi:moon-waxing-crescent", "Moon", html`
         <div class="moonrow"><svg class="moon" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="40" fill="#2b3346"></circle>
+          <circle cx="50" cy="50" r="40" fill="var(--moon-dark)"></circle>
           <path d=${(() => { const k = Math.cos(m.phase * 2 * Math.PI) * 40, waxing = m.phase < 0.5;
-            return `M50 10 A40 40 0 0 ${waxing ? 1 : 0} 50 90 A${Math.abs(k)} 40 0 0 ${(k > 0) === waxing ? 0 : 1} 50 10 Z`; })()} fill="#e9ecf4"></path></svg>
-          <div><div class="tw strong">${m.name}</div><div class="tn">${m.lit}% lit</div></div></div>`)}
+            return `M50 10 A40 40 0 0 ${waxing ? 1 : 0} 50 90 A${Math.abs(k)} 40 0 0 ${(k > 0) === waxing ? 0 : 1} 50 10 Z`; })()} fill="var(--moon-lit)"></path></svg>
+          <div><div class="tw">${m.name}</div><div class="tn flat">${m.lit}% lit</div></div></div>`)}
       ${fire ? tile("mdi:fire", "Fire danger", html`<div class="tv mid">${fire}</div><div class="tn">CFA rating for the district.</div>`) : nothing}
     </div>`;
   }
 
+  // the phone build puts its sidebar button here
+  _menu() { return nothing; }
+
   render() {
     if (!this.hass || !this._config) return nothing;
-    const w = this._st(this._config.weather), cond = w ? w.state : "cloudy", night = this._night();
-    const sky = night ? (["rainy", "pouring", "lightning", "lightning-rainy", "cloudy", "fog"].includes(cond) ? "night-grey" : "night")
-      : ["rainy", "pouring", "lightning", "lightning-rainy"].includes(cond) ? "rain" : ["cloudy", "fog"].includes(cond) ? "grey" : "clear";
-    return html`<div class="page sky-${sky}">
+    const w = this._st(this._config.weather), cond = w ? w.state : "cloudy", night = this._night(), now = new Date();
+    return html`<div class="page">
+      <div class="top">${this._menu()}<div><h1>Weather</h1>
+        <div class="date">${now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div></div></div>
       ${this._hero(cond, night)}
       ${this._warnings()}
       ${this._nextHour()}
@@ -458,108 +479,157 @@ export class MeridianWeather extends LitElement {
   }
 
   static styles = css`
-    :host { display: block; --display: "Amazon Ember Display", "Amazon Ember", system-ui, sans-serif;
-            --body: "Amazon Ember", system-ui, sans-serif; --ink: #f4f7ff; --muted: rgba(235, 241, 255, 0.66);
-            --panel: rgba(16, 22, 38, 0.34); --edge: rgba(255, 255, 255, 0.10); --blue: #7cc4ff; }
+    :host { display: block; background: #e4ecf9;
+      --bg: linear-gradient(165deg, #f4f7fd, #e4ecf9); --card: rgba(255, 255, 255, 0.78); --card-solid: #fff; --card-edge: rgba(255, 255, 255, 0.95);
+      --inset: #eef3fb; --ink: #142038; --muted: #6c7891; --accent: #1d5cf0; --accent-soft: rgba(29, 92, 240, 0.12);
+      --warm: #f39a43; --danger: #e5484d; --track: #dbe5f5; --track-strong: #b9c6db;
+      --moon-dark: #c9d4e6; --moon-lit: #fdf6e3;
+      --shadow: 0 1px 2px rgba(22, 42, 84, 0.04), 0 10px 30px rgba(22, 42, 84, 0.07);
+      --display: "Amazon Ember Display", "Amazon Ember", system-ui, sans-serif; --body: "Amazon Ember", system-ui, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      :host(:not([scheme="light"])) { background: #121827;
+        --bg: linear-gradient(165deg, #0b0f18, #121827); --card: rgba(29, 35, 50, 0.82); --card-solid: #1d2332; --card-edge: rgba(255, 255, 255, 0.05);
+        --inset: rgba(255, 255, 255, 0.05); --ink: #eef2fb; --muted: #8e99b0; --accent: #6b9bff; --accent-soft: rgba(107, 155, 255, 0.16);
+        --track: rgba(255, 255, 255, 0.1); --track-strong: rgba(255, 255, 255, 0.22);
+        --moon-dark: #2b3346; --moon-lit: #e9ecf4; --shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+    }
+    :host([scheme="dark"]) { background: #121827;
+      --bg: linear-gradient(165deg, #0b0f18, #121827); --card: rgba(29, 35, 50, 0.82); --card-solid: #1d2332; --card-edge: rgba(255, 255, 255, 0.05);
+      --inset: rgba(255, 255, 255, 0.05); --ink: #eef2fb; --muted: #8e99b0; --accent: #6b9bff; --accent-soft: rgba(107, 155, 255, 0.16);
+      --track: rgba(255, 255, 255, 0.1); --track-strong: rgba(255, 255, 255, 0.22);
+      --moon-dark: #2b3346; --moon-lit: #e9ecf4; --shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
     * { box-sizing: border-box; }
     button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    .page { min-height: 100vh; color: var(--ink); font-family: var(--body);
-            padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
+    .page { min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--body);
+            padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
             display: flex; flex-direction: column; gap: 12px; }
-    :host { background: #3d4a63; }
-    .sky-clear { background: linear-gradient(180deg, #2f6fd0 0%, #5b9ae6 45%, #8bbcef 100%); }
-    .sky-grey { background: linear-gradient(180deg, #4d5b74 0%, #6b7a93 50%, #8693a8 100%); }
-    .sky-rain { background: linear-gradient(180deg, #37455e 0%, #4f5d76 45%, #66748c 100%); }
-    .sky-night { background: linear-gradient(180deg, #0a1230 0%, #18245a 55%, #27366e 100%); }
-    .sky-night-grey { background: linear-gradient(180deg, #141a2a 0%, #222b40 55%, #2f3a52 100%); }
     .page > * { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; }
-    header { text-align: center; padding: 18px 0 22px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
-    .here { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-    .here ha-icon { --mdc-icon-size: 13px; transform: rotate(45deg); }
-    h1 { margin: 2px 0 0; font-family: var(--display); font-size: 32px; font-weight: 500; letter-spacing: -0.01em; }
-    .big { font-family: var(--display); font-size: 104px; font-weight: 200; line-height: 1; margin: 2px 0 2px 26px; letter-spacing: -0.04em; }
-    .cond { font-size: 20px; font-weight: 600; }
-    .hl { margin-top: 4px; font-size: 16px; font-weight: 500; color: var(--ink); white-space: pre; }
-    .panel { display: block; background: var(--panel); border: 1px solid var(--edge); border-radius: 22px; padding: 12px 14px;
-             backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); color: inherit; text-decoration: none; }
-    .lab { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
-    .lab ha-icon { --mdc-icon-size: 14px; }
-    .lab.big { display: block; font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--ink); }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 1px; }
-    .warn .wt { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; color: #ffd37a; }
-    .warn.major .wt { color: #ff8a7a; }
-    .warn .wt ha-icon { --mdc-icon-size: 18px; }
-    .warn .wd { font-size: 14px; margin-top: 4px; line-height: 1.35; }
-    .warn .src { font-size: 11px; color: var(--muted); margin-top: 6px; }
-    .slim { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
-    .slim ha-icon { --mdc-icon-size: 18px; color: var(--muted); }
-    .nh-title { font-family: var(--display); font-size: 18px; font-weight: 700; }
-    .nh-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
-    .nh { position: relative; height: 74px; margin-top: 12px; display: flex; align-items: flex-end; gap: 1.5px; }
-    .nh .g { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(255, 255, 255, 0.16); }
-    .nh b { flex: 1; background: var(--blue); border-radius: 2px 2px 0 0; min-width: 0; }
+    .top { display: flex; align-items: center; gap: 12px; padding: 0 4px 2px; }
+    h1 { margin: 0; font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+    .date { font-size: 14px; color: var(--muted); margin-top: 1px; }
+
+    .card { display: block; background: var(--card); border: 1px solid var(--card-edge); border-radius: 26px; box-shadow: var(--shadow);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: inherit; text-decoration: none; }
+    .pad { padding: 14px 16px; }
+    .sec { display: flex; align-items: center; gap: 9px; padding: 0 4px; min-height: 40px; margin-top: 8px;
+           font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .sec > ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+    .sec + .card, .sec + .grid { margin-top: -4px; }
+
+    /* round icon wells, as on the dashboard's tiles */
+    .ico { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: var(--inset); color: var(--muted); display: grid; place-items: center; }
+    .ico ha-icon { --mdc-icon-size: 22px; }
+    .ico.on { background: var(--accent); color: #fff; }
+    .ico.sm { width: 30px; height: 30px; }
+    .ico.sm ha-icon { --mdc-icon-size: 17px; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+    .row.flat { padding: 0; }
+    .txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .txt b { font-size: 15px; font-weight: 600; }
+    .txt small { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+    .go { --mdc-icon-size: 20px; color: var(--muted); }
+    .warn { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
+    .warn .ico { background: var(--warm); color: #fff; }
+    .warn.major { background: color-mix(in srgb, var(--danger) 14%, var(--card)); }
+    .warn.major .ico { background: var(--danger); }
+
+    .hero { padding: 16px 18px 18px; }
+    .here { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; }
+    .here ha-icon { --mdc-icon-size: 18px; color: var(--muted); }
+    .tag { margin-left: 4px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; }
+    .hero-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .big { font-family: var(--display); font-size: 92px; font-weight: 300; line-height: 1; letter-spacing: -0.05em; margin: 8px 0 4px -4px; }
+    .big span { font-weight: 200; color: var(--t); }
+    .hero-ico { width: 104px; height: 104px; margin-right: -8px; }
+    .cond { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 13px 0 10px; border-radius: 999px;
+            background: var(--inset); font-size: 14px; font-weight: 600; }
+    .chip ha-icon { --mdc-icon-size: 16px; color: var(--muted); }
+
+    .nh { position: relative; height: 70px; margin-top: 14px; display: flex; align-items: flex-end; gap: 1.5px; }
+    .nh .g { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--track); }
+    .nh b { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-width: 0; }
     .ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); }
     .ticks span:first-child { color: var(--ink); font-weight: 700; }
-    .hrhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .hrhead > div:first-child { text-align: left; }
-    .seg { display: flex; background: rgba(255, 255, 255, 0.10); border-radius: 999px; padding: 3px; gap: 2px; }
-    .seg button { width: 38px; height: 28px; border-radius: 999px; display: grid; place-items: center; color: var(--muted); }
-    .seg button.on { background: rgba(255, 255, 255, 0.92); color: #26324a; }
-    .seg ha-icon { --mdc-icon-size: 17px; }
-    .hours { display: flex; overflow-x: auto; gap: 4px; margin: 12px -14px 0; padding: 0 14px 4px; scrollbar-width: none; }
+
+    .seg { margin-left: auto; display: flex; gap: 6px; }
+    .seg button { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
+                  background: var(--card); box-shadow: var(--shadow); transition: transform 0.12s; }
+    .seg button.on { background: var(--accent); color: #fff; }
+    .seg button:active { transform: scale(0.92); }
+    .seg ha-icon { --mdc-icon-size: 19px; }
+    .hours-card { padding: 12px 0 10px; }
+    .hint { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 18px; }
+    .hours { display: flex; overflow-x: auto; gap: 2px; margin-top: 8px; padding: 0 10px 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
     .hours::-webkit-scrollbar { display: none; }
-    .hr { flex: 0 0 auto; min-width: 50px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .hr span { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .hr { flex: 0 0 auto; min-width: 54px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px; border-radius: 18px; }
+    .hr.now { background: var(--accent-soft); }
+    .hr.now span { color: var(--accent); }
+    .hr span { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
     .hr img { width: 30px; height: 30px; }
-    .hr b { font-size: 17px; font-weight: 600; }
+    .hr b { font-size: 17px; font-weight: 700; }
     .hr small { font-size: 11px; font-weight: 700; min-height: 13px; color: var(--muted); white-space: nowrap; }
-    .hr.sun b { font-size: 12px; font-weight: 600; }
-    .blue { color: var(--blue) !important; }
-    .rbar { width: 20px; height: 44px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); display: flex; align-items: flex-end; overflow: hidden; }
-    .rbar i { display: block; width: 100%; background: var(--blue); }
-    .arrow { --mdc-icon-size: 24px; height: 30px; display: grid; place-items: center; }
-    .day { display: grid; grid-template-columns: 54px 46px 34px 1fr 34px; align-items: center; gap: 8px; padding: 9px 0;
-           border-top: 1px solid rgba(255, 255, 255, 0.10); font-size: 17px; font-weight: 600; }
-    .day:nth-of-type(1) { border-top: 0; }
-    .lab + .day { border-top: 0; margin-top: 4px; }
-    .di { display: flex; flex-direction: column; align-items: center; }
-    .di img { width: 28px; height: 28px; }
-    .di small { font-size: 11px; font-weight: 700; margin-top: -2px; }
+    .hr.sun b { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .sunico { --mdc-icon-size: 26px; color: var(--warm); height: 30px; display: grid; place-items: center; }
+    .acc { color: var(--accent) !important; }
+    .rbar { width: 18px; height: 44px; border-radius: 9px; background: var(--track); display: flex; align-items: flex-end; overflow: hidden; }
+    .rbar i { display: block; width: 100%; background: var(--accent); border-radius: 9px; }
+    .arrow { --mdc-icon-size: 24px; height: 30px; display: grid; place-items: center; color: var(--accent); }
+
+    .days { padding: 4px 16px; }
+    .day { display: grid; grid-template-columns: 50px 30px 42px 30px 1fr 30px; align-items: center; gap: 6px; padding: 10px 0;
+           border-top: 1px solid var(--track); font-size: 16px; font-weight: 600; }
+    .day:first-child { border-top: 0; }
+    .di img { width: 30px; height: 30px; display: block; }
+    .dp { display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--accent); }
+    .dp ha-icon { --mdc-icon-size: 13px; }
     .lo { color: var(--muted); text-align: right; }
     .hi { text-align: right; }
-    .range { position: relative; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.22); }
+    .range { position: relative; height: 6px; border-radius: 3px; background: var(--track); }
     .range i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
-    .range u { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fff;
-               box-shadow: 0 0 0 2px rgba(20, 28, 48, 0.6); }
-    .mapbox { position: relative; height: 300px; margin-top: 10px; border-radius: 14px; overflow: hidden; background: #1a1d24; }
+    .range u { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--card-solid);
+               box-shadow: 0 0 0 2.5px var(--ink); }
+
+    .map { padding: 6px; }
+    .mapbox { position: relative; height: 300px; border-radius: 20px; overflow: hidden; background: var(--inset); }
     .tiles { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
     .tiles img.rad { width: 512px; height: 512px; opacity: 0; transition: opacity 0.25s; image-rendering: auto; }
     .tiles img.rad.on { opacity: 0.85; }
     .tiles img.lbl { opacity: 0.9; }
-    .home { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
-            background: #3d8bff; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }
-    .stamp { position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700;
-             background: rgba(0, 0, 0, 0.5); }
-    .credit { position: absolute; right: 8px; bottom: 6px; font-size: 9px; color: rgba(255, 255, 255, 0.55); }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .tile { min-height: 158px; display: flex; flex-direction: column; min-width: 0; }
-    .tv { font-family: var(--display); font-size: 34px; font-weight: 500; margin-top: 6px; line-height: 1.05; }
-    .tv.mid { font-size: 26px; }
-    .tw { font-size: 16px; font-weight: 600; margin-top: 2px; }
-    .tw.strong { font-size: 17px; }
-    .tn { font-size: 13px; margin-top: auto; padding-top: 8px; line-height: 1.3; color: var(--ink); }
-    .uvbar { position: relative; height: 5px; border-radius: 3px; margin-top: 10px;
+    .home { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+            background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 6px var(--accent-soft), 0 1px 6px rgba(0, 0, 0, 0.3); }
+    .stamp { position: absolute; left: 10px; top: 10px; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700;
+             background: var(--card); color: var(--ink); box-shadow: var(--shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .credit { position: absolute; right: 10px; bottom: 7px; font-size: 9px; color: var(--muted); }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tile { position: relative; min-height: 156px; display: flex; flex-direction: column; min-width: 0; padding: 12px 14px 14px; border-radius: 22px; }
+    .th { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .tv { font-family: var(--display); font-size: 32px; font-weight: 600; margin-top: 10px; line-height: 1.05; letter-spacing: -0.02em;
+          display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 6px; }
+    .tv small { font-family: var(--body); font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .tv.mid { font-size: 24px; }
+    .tw { font-size: 16px; font-weight: 600; }
+    .tn { font-size: 13px; margin-top: auto; padding-top: 8px; line-height: 1.3; color: var(--muted); }
+    .tn.flat { margin-top: 2px; padding-top: 0; }
+    .uvbar { position: relative; height: 6px; border-radius: 3px; margin-top: 12px;
              background: linear-gradient(90deg, #5ad06a, #f2d14a, #f39a43, #ef5a4a, #b05ad6); }
-    .uvbar u { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #fff;
-               box-shadow: 0 0 0 2px rgba(20, 28, 48, 0.55); }
-    .sunarc { width: 100%; height: 46px; margin-top: 6px; color: #fff; }
-    .wind { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .wnum .tn { margin-top: 4px; padding-top: 0; }
-    .compass { width: 82px; height: 82px; flex: 0 0 auto; color: #fff; }
-    .gauge { width: 100%; max-width: 150px; margin: 8px auto 0; color: #fff; display: block; }
-    .moonrow { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-    .moon { width: 64px; height: 64px; flex: 0 0 auto; }
-    .foot { text-align: center; font-size: 11px; color: var(--muted); padding-top: 4px; }
+    .uvbar u, .sundot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--card-solid);
+               box-shadow: 0 0 0 2.5px var(--ink); }
+    .meter { height: 6px; border-radius: 3px; margin-top: 12px; background: var(--track); overflow: hidden; }
+    .meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+    .arc { position: relative; height: 44px; margin-top: 8px; }
+    .sunarc { width: 100%; height: 100%; display: block; overflow: visible; }
+    .sundot { background: var(--warm); box-shadow: 0 0 0 3px var(--card-solid), 0 0 12px var(--warm); }
+    .wind { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; flex: 1; }
+    .wnum { display: flex; flex-direction: column; align-self: stretch; }
+    .wnum .tv { flex-direction: column; align-items: flex-start; }
+    .compass { width: 80px; height: 80px; flex: 0 0 auto; margin-top: 10px; }
+    .gauge { width: 100%; max-width: 150px; margin: 10px auto 0; display: block; }
+    .moonrow { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 10px; }
+    .moon { width: 60px; height: 60px; flex: 0 0 auto; }
+    .foot { text-align: center; font-size: 11px; color: var(--muted); padding-top: 6px; }
   `;
 }
