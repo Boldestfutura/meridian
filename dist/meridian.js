@@ -4346,7 +4346,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.34.19";
+var VERSION = "0.34.21";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4992,7 +4992,8 @@ var OverlookShow = class extends dt {
   _pgMove(e2) {
     const s2 = this._pg;
     if (!s2) return;
-    const dx = e2.clientX - s2.x, dy = e2.clientY - s2.y;
+    let dx = e2.clientX - s2.x;
+    const dy = e2.clientY - s2.y;
     if (s2.dead) {
       if (!s2.col) return;
       const t3 = performance.now();
@@ -5018,11 +5019,24 @@ var OverlookShow = class extends dt {
       if (Math.abs(dx) < 10) return;
       s2.on = true;
       s2.track.classList.add("dragging");
+      if (s2.row) s2.row.style.scrollSnapType = "none";
     }
     s2.dx = dx;
     if (s2.row) {
-      s2.row.scrollLeft = s2.left - dx;
-      return;
+      const max = s2.row.scrollWidth - s2.row.clientWidth, want = s2.left - dx, t3 = performance.now();
+      s2.vx = (e2.clientX - (s2.lx ?? s2.x)) / Math.max(1, t3 - (s2.ltx ?? t3 - 16));
+      s2.lx = e2.clientX;
+      s2.ltx = t3;
+      s2.row.scrollLeft = Math.max(0, Math.min(max, want));
+      const over = want < 0 ? -want : want > max ? max - want : 0;
+      if (!over) {
+        if (s2.pdx) {
+          s2.pdx = 0;
+          s2.track.style.transform = this._pgPos(0);
+        }
+        return;
+      }
+      s2.pdx = dx = over;
     }
     const pages = this._swipePages(), i2 = pages.indexOf(this._page);
     const edge = i2 === 0 && dx > 0 || i2 === pages.length - 1 && dx < 0;
@@ -5053,9 +5067,17 @@ var OverlookShow = class extends dt {
       return;
     }
     s2.track.classList.remove("dragging");
-    if (s2.row) return;
+    if (s2.row) {
+      s2.row.style.scrollSnapType = "";
+      if (!s2.pdx) {
+        if (!cancel && performance.now() - s2.ltx < 80) s2.row.scrollBy({ left: -s2.vx * 220, behavior: "smooth" });
+        else s2.row.scrollBy({ left: 0, behavior: "smooth" });
+        return;
+      }
+    }
+    const dx = s2.row ? s2.pdx : s2.dx;
     const pages = this._swipePages(), i2 = pages.indexOf(this._page);
-    const to = s2.dx < -Math.min(70, s2.w / 8) ? i2 + 1 : s2.dx > Math.min(70, s2.w / 8) ? i2 - 1 : i2;
+    const to = dx < -Math.min(70, s2.w / 8) ? i2 + 1 : dx > Math.min(70, s2.w / 8) ? i2 - 1 : i2;
     const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
     s2.track.style.transform = this._pgPos(0, next);
     this._busyUntil = performance.now() + 380;
@@ -5073,7 +5095,7 @@ var OverlookShow = class extends dt {
       <div class="sw-track" style="width:${pages.length * 100}%;transform:${this._pgPos()}"
            @pointerdown=${(e2) => this._pgDown(e2)} @pointermove=${(e2) => this._pgMove(e2)}
            @pointerup=${() => this._pgUp()} @pointercancel=${() => {
-      if (this._pg && this._pg.on) this._pg.dx = 0;
+      if (this._pg && this._pg.on) this._pg.dx = this._pg.pdx = 0;
       this._pgUp(true);
     }}
            @dragstart=${(e2) => e2.preventDefault()}>
@@ -8393,15 +8415,17 @@ var OverlookShow = class extends dt {
     .screen.swipe { grid-template-columns: minmax(0, 1fr); }
     /* touch-action only reaches down to the nearest scroll container. Rooms' lights column scrolls,
        so a sideways drag that starts on it went to the browser, which cancelled the swipe: only the
-       chips and the corners turned the page. pan-y all the way down, except in the rows that scroll
-       sideways by themselves. :where() keeps it below any element's own touch-action */
+       chips and the corners turned the page. pan-y all the way down. :where() keeps it below any element's own touch-action */
     :where(.sw-page, .sw-page *) { touch-action: pan-y; }
-    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status),
-    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status) * { touch-action: auto; }
+    /* the rows that scroll sideways (quick actions, the recipe shelf) are pan-y too: the swipe code
+       scrolls them itself, and hands the drag on to the page once a row reaches its end */
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
                 transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .sw-track.dragging { transition: none; }
     .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
+    /* no frosted glass on the sliding pages: the cards sit on a plain gradient, so the blur shows
+       nothing, but re-blurring 20-odd cards every frame of a slide held the tablet to 60 fps */
+    .sw-page, .sw-page * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
     .tablet.swipe .m-rec { width: 100%; }
     .sw-dots { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2; display: flex; justify-content: center;
                gap: 2px; pointer-events: none; }

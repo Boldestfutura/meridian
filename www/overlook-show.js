@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.34.19";
+const VERSION = "0.34.21";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -536,7 +536,8 @@ class OverlookShow extends LitElement {
   _pgMove(e) {
     const s = this._pg;
     if (!s) return;
-    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    let dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
     if (s.dead) {
       // A vertical drag. The browser should be scrolling the column and cancel this pointer; if
       // moves keep arriving it isn't (the kitchen display's WebView only scrolled from the gaps
@@ -558,9 +559,18 @@ class OverlookShow extends LitElement {
       if (Math.abs(dx) < 10) return;
       s.on = true;
       s.track.classList.add("dragging");
+      if (s.row) s.row.style.scrollSnapType = "none";
     }
     s.dx = dx;
-    if (s.row) { s.row.scrollLeft = s.left - dx; return; }
+    if (s.row) {
+      // the row scrolls under the finger; once it runs out, the rest of the drag turns the page
+      const max = s.row.scrollWidth - s.row.clientWidth, want = s.left - dx, t = performance.now();
+      s.vx = (e.clientX - (s.lx ?? s.x)) / Math.max(1, t - (s.ltx ?? t - 16)); s.lx = e.clientX; s.ltx = t;
+      s.row.scrollLeft = Math.max(0, Math.min(max, want));
+      const over = want < 0 ? -want : want > max ? max - want : 0;
+      if (!over) { if (s.pdx) { s.pdx = 0; s.track.style.transform = this._pgPos(0); } return; }
+      s.pdx = dx = over;
+    }
     const pages = this._swipePages(), i = pages.indexOf(this._page);
     const edge = (i === 0 && dx > 0) || (i === pages.length - 1 && dx < 0);
     s.track.style.transform = this._pgPos(edge ? dx / 3 : dx);       // rubber band at the ends
@@ -583,9 +593,18 @@ class OverlookShow extends LitElement {
       return;
     }
     s.track.classList.remove("dragging");
-    if (s.row) return;
+    if (s.row) {
+      // let the row coast and settle on its snap points
+      s.row.style.scrollSnapType = "";
+      if (!s.pdx) {
+        if (!cancel && performance.now() - s.ltx < 80) s.row.scrollBy({ left: -s.vx * 220, behavior: "smooth" });
+        else s.row.scrollBy({ left: 0, behavior: "smooth" });
+        return;
+      }
+    }
+    const dx = s.row ? s.pdx : s.dx;
     const pages = this._swipePages(), i = pages.indexOf(this._page);
-    const to = s.dx < -Math.min(70, s.w / 8) ? i + 1 : s.dx > Math.min(70, s.w / 8) ? i - 1 : i;
+    const to = dx < -Math.min(70, s.w / 8) ? i + 1 : dx > Math.min(70, s.w / 8) ? i - 1 : i;
     const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
     // slide first and switch pages after: the switch redraws all four pages, which on the
     // tablet takes 20-120 ms and would stall the slide at its start
@@ -602,7 +621,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="sw-track" style="width:${pages.length * 100}%;transform:${this._pgPos()}"
            @pointerdown=${(e) => this._pgDown(e)} @pointermove=${(e) => this._pgMove(e)}
-           @pointerup=${() => this._pgUp()} @pointercancel=${() => { if (this._pg && this._pg.on) this._pg.dx = 0; this._pgUp(true); }}
+           @pointerup=${() => this._pgUp()} @pointercancel=${() => { if (this._pg && this._pg.on) this._pg.dx = this._pg.pdx = 0; this._pgUp(true); }}
            @dragstart=${(e) => e.preventDefault()}>
         ${pages.map((p) => html`<main class="page sw-page" style="width:${(100 / pages.length).toFixed(4)}%"
           aria-hidden=${p === this._page ? "false" : "true"}>${tabletPage(this, p)}</main>`)}
@@ -3870,15 +3889,17 @@ class OverlookShow extends LitElement {
     .screen.swipe { grid-template-columns: minmax(0, 1fr); }
     /* touch-action only reaches down to the nearest scroll container. Rooms' lights column scrolls,
        so a sideways drag that starts on it went to the browser, which cancelled the swipe: only the
-       chips and the corners turned the page. pan-y all the way down, except in the rows that scroll
-       sideways by themselves. :where() keeps it below any element's own touch-action */
+       chips and the corners turned the page. pan-y all the way down. :where() keeps it below any element's own touch-action */
     :where(.sw-page, .sw-page *) { touch-action: pan-y; }
-    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status),
-    :where(.sw-page) :where(.h2-qa, .pl-row, .shelf-row, .status) * { touch-action: auto; }
+    /* the rows that scroll sideways (quick actions, the recipe shelf) are pan-y too: the swipe code
+       scrolls them itself, and hands the drag on to the page once a row reaches its end */
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
                 transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .sw-track.dragging { transition: none; }
     .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
+    /* no frosted glass on the sliding pages: the cards sit on a plain gradient, so the blur shows
+       nothing, but re-blurring 20-odd cards every frame of a slide held the tablet to 60 fps */
+    .sw-page, .sw-page * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
     .tablet.swipe .m-rec { width: 100%; }
     .sw-dots { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2; display: flex; justify-content: center;
                gap: 2px; pointer-events: none; }
