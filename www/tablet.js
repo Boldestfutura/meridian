@@ -905,10 +905,10 @@ export const TABLET_CSS = css`
   .tablet .spk-v { font-weight:700; color:var(--accent); text-align:right; font-variant-numeric:tabular-nums; }
   .tablet .spk-eqc { display:flex; justify-content:center; }
   .tablet .eqb { display:flex; align-items:flex-end; gap:3px; height:18px; }
-  .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:40%; animation:eqb 1.6s ease-in-out infinite alternate; }
+  .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:100%; transform-origin:50% 100%; transform:scaleY(0.4); animation:eqb 1.6s ease-in-out infinite alternate; }
   .tablet .eqb i:nth-child(1) { animation-duration:1.5s; } .tablet .eqb i:nth-child(2) { animation-duration:1.15s; animation-delay:-0.6s; }
   .tablet .eqb i:nth-child(3) { animation-duration:1.8s; animation-delay:-1.1s; }
-  @keyframes eqb { 0% { height:20%; } 35% { height:90%; } 60% { height:45%; } 100% { height:75%; } }
+  @keyframes eqb { 0% { transform:scaleY(0.2); } 35% { transform:scaleY(0.9); } 60% { transform:scaleY(0.45); } 100% { transform:scaleY(0.75); } }   /* transform, not height: no layout per frame */
   .tablet .m-pl { flex:1; min-height:0; overflow:hidden; }
 
   /* recipes: one screen, no page scroll; the shelf below the planner swipes sideways */

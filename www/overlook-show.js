@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.34.16";
+const VERSION = "0.34.18";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -247,6 +247,30 @@ class OverlookShow extends LitElement {
     }, wait * 1000);
   }
 
+  // HA sends a new hass for every sensor tick, and a full redraw of the strip costs the tablet a
+  // few frames. While a finger is down, the strip is settling or a list is scrolling, hold those
+  // back and catch up once it's still. Anything else (a page change, a sheet) draws at once.
+  shouldUpdate(changed) {
+    if (changed.size === 1 && changed.has("hass") && this._busy()) {
+      if (!this._held) { this._held = true; this._heldOld = changed.get("hass"); this._catchUp(); }
+      return false;
+    }
+    return true;
+  }
+  _busy() { return !!this._pg || performance.now() < (this._busyUntil || 0); }
+  _catchUp() {
+    const tick = () => {
+      if (this._busy()) { setTimeout(tick, 120); return; }
+      this._held = false;
+      this.requestUpdate("hass", this._heldOld);
+    };
+    setTimeout(tick, 120);
+  }
+  firstUpdated() {
+    // native scrolling (the pages' columns, the shelves) runs off the main thread; keep it there
+    this.shadowRoot.addEventListener("scroll", () => { this._busyUntil = performance.now() + 250; }, { capture: true, passive: true });
+  }
+
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
     if (changed.has("hass") && this._drag) this._settle();
@@ -448,6 +472,9 @@ class OverlookShow extends LitElement {
     return this.hass.callService(domain, service, data);
   }
   _go(page) {
+    // anything else sending the screen somewhere overrides a swipe that is still settling
+    clearTimeout(this._goT);
+    this._goNext = null;
     // swiping: a page that isn't on the strip (a voice "show me the climate") opens the one that
     // holds it instead
     const sw = this._swipePages();
@@ -493,12 +520,14 @@ class OverlookShow extends LitElement {
     if (!s || this._config.phone || this._config.bedside) return null;
     return Array.isArray(s) ? s : ["media", "home", "rooms", "recipes"];
   }
-  _pgPos(dx = 0) {
-    const pages = this._swipePages(), i = Math.max(0, pages.indexOf(this._page));
+  _pgPos(dx = 0, page = this._page) {
+    const pages = this._swipePages(), i = Math.max(0, pages.indexOf(page));
     return `translateX(calc(${(-i * 100 / pages.length).toFixed(4)}% + ${dx}px))`;
   }
   _pgDown(e) {
     if (e.button > 0) return;
+    // a page still settling from the last swipe: make it the current one before this drag starts
+    if (this._goNext) this._go(this._goNext);
     const row = e.composedPath().find((n) => n instanceof HTMLElement && n.scrollWidth > n.clientWidth + 1
       && /(auto|scroll)/.test(getComputedStyle(n).overflowX));
     this._pg = { x: e.clientX, y: e.clientY, dx: 0, on: false, dead: false, row, left: row ? row.scrollLeft : 0,
@@ -558,8 +587,16 @@ class OverlookShow extends LitElement {
     const pages = this._swipePages(), i = pages.indexOf(this._page);
     const to = s.dx < -Math.min(70, s.w / 8) ? i + 1 : s.dx > Math.min(70, s.w / 8) ? i - 1 : i;
     const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
-    if (next !== this._page) { fireHaptic("light"); this._go(next); }
-    s.track.style.transform = this._pgPos();
+    // slide first and switch pages after: the switch redraws all four pages, which on the
+    // tablet takes 20-120 ms and would stall the slide at its start
+    s.track.style.transform = this._pgPos(0, next);
+    this._busyUntil = performance.now() + 380;
+    if (next !== this._page) {
+      fireHaptic("light");
+      this._goNext = next;
+      clearTimeout(this._goT);
+      this._goT = setTimeout(() => { if (this._goNext === next) this._go(next); }, 340);
+    }
   }
   _pgStrip(pages) {
     return html`
@@ -3502,7 +3539,7 @@ class OverlookShow extends LitElement {
     /* timer: the time left as a panel filling the screen from the left; the content sits over it */
     .ck-fillmode { grid-template-rows: 1fr auto; }
     .ck-fillmode > :not(.ck-fill) { position: relative; z-index: 1; }
-    .ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ck-hot); transition: width 1s linear; }
+    .ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ck-hot); }
     .ck-fillmode .ck-label { color: var(--ck-ink); }
     .ck-fillmode .ck-of { color: inherit; opacity: 0.7; }
     /* smoked glass: dark, blurred, readable over the orange and over the black */
@@ -3770,14 +3807,19 @@ class OverlookShow extends LitElement {
     /* the wavy playback bar (wave() in tablet.js) */
     .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); display: flex; align-items: center; gap: 5px; height: var(--wv-h); }
     .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
-            transition: width 1s linear, height 0.3s; }
+            transition: height 0.3s; }
     .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
-    .wv.on i { height: 100%; border-radius: 0;
+    /* Playing: the wave is drawn on a strip one wavelength wider than the fill and slid along it.
+       A moving transform costs the GPU nothing; the old moving mask-position repainted every frame,
+       and the old 1 s width transition re-laid out the whole dashboard every frame. */
+    .wv.on i { height: 100%; border-radius: 0; position: relative; overflow: hidden; background: none; }
+    .wv.on i::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--wv-len)); right: 0;
+      background: var(--wv-c, var(--accent)); will-change: transform;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
               mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
       animation: wv-drift 2s linear infinite; }
-    @keyframes wv-drift { to { -webkit-mask-position: var(--wv-len) 50%; mask-position: var(--wv-len) 50%; } }
-    @media (prefers-reduced-motion: reduce) { .wv.on i { animation: none; } }
+    @keyframes wv-drift { to { transform: translateX(var(--wv-len)); } }
+    @media (prefers-reduced-motion: reduce) { .wv.on i::before { animation: none; } }
     .pp-times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
                 font-variant-numeric: tabular-nums; color: var(--muted); }
     .round.small.power-on { color: var(--accent); }

@@ -1938,10 +1938,10 @@ var TABLET_CSS = o`
   .tablet .spk-v { font-weight:700; color:var(--accent); text-align:right; font-variant-numeric:tabular-nums; }
   .tablet .spk-eqc { display:flex; justify-content:center; }
   .tablet .eqb { display:flex; align-items:flex-end; gap:3px; height:18px; }
-  .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:40%; animation:eqb 1.6s ease-in-out infinite alternate; }
+  .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:100%; transform-origin:50% 100%; transform:scaleY(0.4); animation:eqb 1.6s ease-in-out infinite alternate; }
   .tablet .eqb i:nth-child(1) { animation-duration:1.5s; } .tablet .eqb i:nth-child(2) { animation-duration:1.15s; animation-delay:-0.6s; }
   .tablet .eqb i:nth-child(3) { animation-duration:1.8s; animation-delay:-1.1s; }
-  @keyframes eqb { 0% { height:20%; } 35% { height:90%; } 60% { height:45%; } 100% { height:75%; } }
+  @keyframes eqb { 0% { transform:scaleY(0.2); } 35% { transform:scaleY(0.9); } 60% { transform:scaleY(0.45); } 100% { transform:scaleY(0.75); } }   /* transform, not height: no layout per frame */
   .tablet .m-pl { flex:1; min-height:0; overflow:hidden; }
 
   /* recipes: one screen, no page scroll; the shelf below the planner swipes sideways */
@@ -4276,7 +4276,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.34.16";
+var VERSION = "0.34.18";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4581,6 +4581,39 @@ var OverlookShow = class extends dt {
       this._npHidden = false;
     }, wait * 1e3);
   }
+  // HA sends a new hass for every sensor tick, and a full redraw of the strip costs the tablet a
+  // few frames. While a finger is down, the strip is settling or a list is scrolling, hold those
+  // back and catch up once it's still. Anything else (a page change, a sheet) draws at once.
+  shouldUpdate(changed) {
+    if (changed.size === 1 && changed.has("hass") && this._busy()) {
+      if (!this._held) {
+        this._held = true;
+        this._heldOld = changed.get("hass");
+        this._catchUp();
+      }
+      return false;
+    }
+    return true;
+  }
+  _busy() {
+    return !!this._pg || performance.now() < (this._busyUntil || 0);
+  }
+  _catchUp() {
+    const tick = () => {
+      if (this._busy()) {
+        setTimeout(tick, 120);
+        return;
+      }
+      this._held = false;
+      this.requestUpdate("hass", this._heldOld);
+    };
+    setTimeout(tick, 120);
+  }
+  firstUpdated() {
+    this.shadowRoot.addEventListener("scroll", () => {
+      this._busyUntil = performance.now() + 250;
+    }, { capture: true, passive: true });
+  }
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
     if (changed.has("hass") && this._drag) this._settle();
@@ -4820,6 +4853,8 @@ var OverlookShow = class extends dt {
     return this.hass.callService(domain, service, data);
   }
   _go(page) {
+    clearTimeout(this._goT);
+    this._goNext = null;
     const sw = this._swipePages();
     if (sw && page !== "photos" && !sw.includes(page)) {
       page = { climate: "rooms", controls: "rooms", music: "media" }[page] || "home";
@@ -4864,12 +4899,13 @@ var OverlookShow = class extends dt {
     if (!s2 || this._config.phone || this._config.bedside) return null;
     return Array.isArray(s2) ? s2 : ["media", "home", "rooms", "recipes"];
   }
-  _pgPos(dx = 0) {
-    const pages = this._swipePages(), i2 = Math.max(0, pages.indexOf(this._page));
+  _pgPos(dx = 0, page = this._page) {
+    const pages = this._swipePages(), i2 = Math.max(0, pages.indexOf(page));
     return `translateX(calc(${(-i2 * 100 / pages.length).toFixed(4)}% + ${dx}px))`;
   }
   _pgDown(e2) {
     if (e2.button > 0) return;
+    if (this._goNext) this._go(this._goNext);
     const row = e2.composedPath().find((n2) => n2 instanceof HTMLElement && n2.scrollWidth > n2.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n2).overflowX));
     this._pg = {
       x: e2.clientX,
@@ -4951,11 +4987,16 @@ var OverlookShow = class extends dt {
     const pages = this._swipePages(), i2 = pages.indexOf(this._page);
     const to = s2.dx < -Math.min(70, s2.w / 8) ? i2 + 1 : s2.dx > Math.min(70, s2.w / 8) ? i2 - 1 : i2;
     const next = pages[Math.max(0, Math.min(pages.length - 1, to))];
+    s2.track.style.transform = this._pgPos(0, next);
+    this._busyUntil = performance.now() + 380;
     if (next !== this._page) {
       fireHaptic("light");
-      this._go(next);
+      this._goNext = next;
+      clearTimeout(this._goT);
+      this._goT = setTimeout(() => {
+        if (this._goNext === next) this._go(next);
+      }, 340);
     }
-    s2.track.style.transform = this._pgPos();
   }
   _pgStrip(pages) {
     return Z`
@@ -7951,7 +7992,7 @@ var OverlookShow = class extends dt {
     /* timer: the time left as a panel filling the screen from the left; the content sits over it */
     .ck-fillmode { grid-template-rows: 1fr auto; }
     .ck-fillmode > :not(.ck-fill) { position: relative; z-index: 1; }
-    .ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ck-hot); transition: width 1s linear; }
+    .ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ck-hot); }
     .ck-fillmode .ck-label { color: var(--ck-ink); }
     .ck-fillmode .ck-of { color: inherit; opacity: 0.7; }
     /* smoked glass: dark, blurred, readable over the orange and over the black */
@@ -8219,14 +8260,19 @@ var OverlookShow = class extends dt {
     /* the wavy playback bar (wave() in tablet.js) */
     .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); display: flex; align-items: center; gap: 5px; height: var(--wv-h); }
     .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
-            transition: width 1s linear, height 0.3s; }
+            transition: height 0.3s; }
     .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
-    .wv.on i { height: 100%; border-radius: 0;
+    /* Playing: the wave is drawn on a strip one wavelength wider than the fill and slid along it.
+       A moving transform costs the GPU nothing; the old moving mask-position repainted every frame,
+       and the old 1 s width transition re-laid out the whole dashboard every frame. */
+    .wv.on i { height: 100%; border-radius: 0; position: relative; overflow: hidden; background: none; }
+    .wv.on i::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--wv-len)); right: 0;
+      background: var(--wv-c, var(--accent)); will-change: transform;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
               mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
       animation: wv-drift 2s linear infinite; }
-    @keyframes wv-drift { to { -webkit-mask-position: var(--wv-len) 50%; mask-position: var(--wv-len) 50%; } }
-    @media (prefers-reduced-motion: reduce) { .wv.on i { animation: none; } }
+    @keyframes wv-drift { to { transform: translateX(var(--wv-len)); } }
+    @media (prefers-reduced-motion: reduce) { .wv.on i::before { animation: none; } }
     .pp-times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
                 font-variant-numeric: tabular-nums; color: var(--muted); }
     .round.small.power-on { color: var(--accent); }
