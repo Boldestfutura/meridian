@@ -1,6 +1,6 @@
 {
+  "id": "voice_house_check",
   "alias": "Voice: House Check",
-  "mode": "parallel",
   "description": "Questions about the house, answered without changing anything: who's home, is Cameron/Paget home, is the door/window open, is anything still on, how's the air in the house, do the plants need water. Added 2026-11-09.",
   "triggers": [
     {
@@ -28,6 +28,7 @@
       "command": [
         "is the [front] door (open|closed|shut)",
         "did I (leave|shut|close) the [front] door [open]",
+        "is the guest [bedroom] window (open|closed|shut)",
         "is the window (open|closed|shut)"
       ],
       "id": "door"
@@ -108,7 +109,7 @@
           ],
           "sequence": [
             {
-              "set_conversation_response": "{% if 'window' in s %}{% set e = 'binary_sensor.window_sensor' %}{% set w = 'window' %}{% else %}{% set e = 'binary_sensor.door_sensor' %}{% set w = 'door' %}{% endif %}{% set st = states(e) %}{% if st == 'on' %}The {{ w }} is open{% set since = (now() - states[e].last_changed).total_seconds() // 60 %}{{ ', and has been for ' ~ (since | int) ~ ' minutes' if 1 < since < 180 else '' }}.{% elif st == 'off' %}The {{ w }} is closed.{% else %}I can't tell, the {{ w }} sensor isn't responding.{% endif %}"
+              "set_conversation_response": "{% if 'guest' in s %}{% set e = 'binary_sensor.guest_bedroom_window' %}{% set w = 'guest bedroom window' %}{% elif 'window' in s %}{% set e = 'binary_sensor.window_sensor' %}{% set w = 'window' %}{% else %}{% set e = 'binary_sensor.door_sensor' %}{% set w = 'door' %}{% endif %}{% set st = states(e) %}{% if st == 'on' %}The {{ w }} is open{% set since = (now() - states[e].last_changed).total_seconds() // 60 %}{{ ', and has been for ' ~ (since | int) ~ ' minutes' if 1 < since < 180 else '' }}.{% elif st == 'off' %}The {{ w }} is closed.{% else %}I can't tell, the {{ w }} sensor isn't responding.{% endif %}{% if 'window' in s and 'guest' not in s and is_state('binary_sensor.guest_bedroom_window', 'on') %} The guest bedroom window is open.{% endif %}"
             }
           ]
         },
@@ -154,5 +155,5 @@
       ]
     }
   ],
-  "id": "voice_house_check"
+  "mode": "parallel"
 }
