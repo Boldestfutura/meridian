@@ -29,6 +29,9 @@
         "is the [front] door (open|closed|shut)",
         "did I (leave|shut|close) the [front] door [open]",
         "is the guest [bedroom] window (open|closed|shut)",
+        "is the (left|right) [master] bedroom window (open|closed|shut)",
+        "are the [master] bedroom windows (open|closed|shut)",
+        "is the [master] bedroom window (open|closed|shut)",
         "is the window (open|closed|shut)"
       ],
       "id": "door"
@@ -109,7 +112,7 @@
           ],
           "sequence": [
             {
-              "set_conversation_response": "{% if 'guest' in s %}{% set e = 'binary_sensor.guest_bedroom_window' %}{% set w = 'guest bedroom window' %}{% elif 'window' in s %}{% set e = 'binary_sensor.window_sensor' %}{% set w = 'window' %}{% else %}{% set e = 'binary_sensor.door_sensor' %}{% set w = 'door' %}{% endif %}{% set st = states(e) %}{% if st == 'on' %}The {{ w }} is open{% set since = (now() - states[e].last_changed).total_seconds() // 60 %}{{ ', and has been for ' ~ (since | int) ~ ' minutes' if 1 < since < 180 else '' }}.{% elif st == 'off' %}The {{ w }} is closed.{% else %}I can't tell, the {{ w }} sensor isn't responding.{% endif %}{% if 'window' in s and 'guest' not in s and is_state('binary_sensor.guest_bedroom_window', 'on') %} The guest bedroom window is open.{% endif %}"
+              "set_conversation_response": "{% set L = 'binary_sensor.master_bedroom_left_window' %}{% set R = 'binary_sensor.master_bedroom_right_window' %}{% if 'bedroom' in s and 'guest' not in s and 'left' not in s and 'right' not in s %}{% set l = states(L) %}{% set r = states(R) %}{% if l == 'off' and r == 'off' %}Both bedroom windows are closed.{% elif l == 'on' and r == 'on' %}Both bedroom windows are open.{% elif l == 'on' and r == 'off' %}The left bedroom window is open, the right one is closed.{% elif l == 'off' and r == 'on' %}The right bedroom window is open, the left one is closed.{% else %}I can't tell, one of the bedroom window sensors isn't responding.{% endif %}{% else %}{% if 'guest' in s %}{% set e = 'binary_sensor.guest_bedroom_window' %}{% set w = 'guest bedroom window' %}{% elif 'left' in s %}{% set e = L %}{% set w = 'left bedroom window' %}{% elif 'right' in s %}{% set e = R %}{% set w = 'right bedroom window' %}{% elif 'window' in s %}{% set e = 'binary_sensor.window_sensor' %}{% set w = 'window' %}{% else %}{% set e = 'binary_sensor.door_sensor' %}{% set w = 'door' %}{% endif %}{% set st = states(e) %}{% if st == 'on' %}The {{ w }} is open{% set since = (now() - states[e].last_changed).total_seconds() // 60 %}{{ ', and has been for ' ~ (since | int) ~ ' minutes' if 1 < since < 180 else '' }}.{% elif st == 'off' %}The {{ w }} is closed.{% else %}I can't tell, the {{ w }} sensor isn't responding.{% endif %}{% if 'window' in s and 'bedroom' not in s %}{% set ns = namespace(o=[]) %}{% for e2, n2 in [('binary_sensor.guest_bedroom_window','guest bedroom window'),(L,'left bedroom window'),(R,'right bedroom window')] %}{% if is_state(e2, 'on') %}{% set ns.o = ns.o + [n2] %}{% endif %}{% endfor %}{% if ns.o %} The {{ ns.o | join(' and the ') }} {{ 'is' if ns.o | count == 1 else 'are' }} open.{% endif %}{% endif %}{% endif %}"
             }
           ]
         },
