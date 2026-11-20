@@ -1,0 +1,37 @@
+{
+ "id": "kitchen_wake_log",
+ "alias": "Kitchen wake log",
+ "description": "Logs every Kitchen Display wake that produced speech to the logbook: what speech-to-text heard and what was playing nearby (TV, PS5, amp, kitchen music). VACA never reports assist_satellite 'listening', so it triggers on sensor.kitchen_tablet_va_stt changing (a repeat of the identical phrase, or a wake with no speech, is not logged). Used with the silent 'Kitchen Wake Log' assistant (Ollama agent with no control, replies '.', which Kokoro refuses to speak, so nothing plays). Started 2026-11-21.",
+ "mode": "queued",
+ "max": 10,
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "sensor.kitchen_tablet_va_stt",
+   "not_from": [
+    "unavailable"
+   ],
+   "not_to": [
+    "unavailable",
+    "unknown",
+    ""
+   ]
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "variables": {
+    "playing": "{% set p = namespace(l=[]) %}{% for e, n in [('media_player.living_room','Apple TV'),('media_player.living_room_playstation_5','PS5'),('media_player.living_room_amp','Amp'),('media_player.living_room_amp_2','Amp (MA)'),('media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player','Kitchen music')] %}{% if states(e) in ['playing','on'] %}{% set p.l = p.l + [n] %}{% endif %}{% endfor %}{{ p.l | join(', ') if p.l else 'nothing' }}"
+   }
+  },
+  {
+   "action": "logbook.log",
+   "data": {
+    "name": "Kitchen wake",
+    "entity_id": "assist_satellite.kitchen_tablet_va",
+    "message": "{{ states('select.kitchen_tablet_va_wake_word') }} @ {{ states('number.kitchen_tablet_va_wake_word_threshold') }} | {{ states('select.kitchen_tablet_va_assistant') }} | heard: \"{{ trigger.to_state.state }}\" | playing: {{ playing }}"
+   }
+  }
+ ]
+}
