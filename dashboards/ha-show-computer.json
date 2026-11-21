@@ -99,8 +99,8 @@
                   }
                 },
                 {
-                  "entity": "binary_sensor.door_sensor",
-                  "name": "Door open",
+                  "entity": "binary_sensor.doors_and_windows",
+                  "name": "Doors/windows open",
                   "icon": "mdi:door-open",
                   "tone": "warn",
                   "popup": {
@@ -109,75 +109,58 @@
                     "sections": [
                       {
                         "type": "tiles",
-                        "title": null,
+                        "title": "Open now",
                         "items": [
                           {
                             "entity": "binary_sensor.door_sensor",
                             "name": "Door",
-                            "icon": "mdi:door-open"
+                            "icon": "mdi:door-open",
+                            "when": {
+                              "entity": "binary_sensor.door_sensor",
+                              "state": "on"
+                            }
                           },
                           {
                             "entity": "binary_sensor.window_sensor",
                             "name": "Window",
-                            "icon": "mdi:window-open"
+                            "icon": "mdi:window-open-variant",
+                            "when": {
+                              "entity": "binary_sensor.window_sensor",
+                              "state": "on"
+                            }
                           },
                           {
                             "entity": "binary_sensor.guest_bedroom_window",
                             "name": "Guest window",
-                            "icon": "mdi:window-open"
+                            "icon": "mdi:window-open-variant",
+                            "when": {
+                              "entity": "binary_sensor.guest_bedroom_window",
+                              "state": "on"
+                            }
                           },
                           {
                             "entity": "binary_sensor.master_bedroom_left_window",
                             "name": "Bedroom left window",
-                            "icon": "mdi:window-open"
+                            "icon": "mdi:window-open-variant",
+                            "when": {
+                              "entity": "binary_sensor.master_bedroom_left_window",
+                              "state": "on"
+                            }
                           },
                           {
                             "entity": "binary_sensor.master_bedroom_right_window",
                             "name": "Bedroom right window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "sensor.door_sensor_battery",
-                            "name": "Door battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.window_sensor_battery",
-                            "name": "Window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.guest_bedroom_window_battery",
-                            "name": "Guest window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_left_window_battery",
-                            "name": "Bedroom left window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_right_window_battery",
-                            "name": "Bedroom right window battery",
-                            "icon": "mdi:battery"
+                            "icon": "mdi:window-open-variant",
+                            "when": {
+                              "entity": "binary_sensor.master_bedroom_right_window",
+                              "state": "on"
+                            }
                           }
                         ]
-                      }
-                    ]
-                  }
-                },
-                {
-                  "entity": "binary_sensor.window_sensor",
-                  "name": "Window open",
-                  "icon": "mdi:window-open-variant",
-                  "tone": "warn",
-                  "popup": {
-                    "title": "Doors & Windows",
-                    "icon": "mdi:door-open",
-                    "sections": [
+                      },
                       {
                         "type": "tiles",
-                        "title": null,
+                        "title": "All",
                         "items": [
                           {
                             "entity": "binary_sensor.door_sensor",
@@ -203,235 +186,6 @@
                             "entity": "binary_sensor.master_bedroom_right_window",
                             "name": "Bedroom right window",
                             "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "sensor.door_sensor_battery",
-                            "name": "Door battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.window_sensor_battery",
-                            "name": "Window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.guest_bedroom_window_battery",
-                            "name": "Guest window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_left_window_battery",
-                            "name": "Bedroom left window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_right_window_battery",
-                            "name": "Bedroom right window battery",
-                            "icon": "mdi:battery"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                },
-                {
-                  "entity": "binary_sensor.guest_bedroom_window",
-                  "name": "Guest window open",
-                  "icon": "mdi:window-open-variant",
-                  "tone": "warn",
-                  "popup": {
-                    "title": "Doors & Windows",
-                    "icon": "mdi:door-open",
-                    "sections": [
-                      {
-                        "type": "tiles",
-                        "title": null,
-                        "items": [
-                          {
-                            "entity": "binary_sensor.door_sensor",
-                            "name": "Door",
-                            "icon": "mdi:door-open"
-                          },
-                          {
-                            "entity": "binary_sensor.window_sensor",
-                            "name": "Window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.guest_bedroom_window",
-                            "name": "Guest window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_left_window",
-                            "name": "Bedroom left window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_right_window",
-                            "name": "Bedroom right window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "sensor.door_sensor_battery",
-                            "name": "Door battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.window_sensor_battery",
-                            "name": "Window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.guest_bedroom_window_battery",
-                            "name": "Guest window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_left_window_battery",
-                            "name": "Bedroom left window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_right_window_battery",
-                            "name": "Bedroom right window battery",
-                            "icon": "mdi:battery"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                },
-                {
-                  "entity": "binary_sensor.master_bedroom_left_window",
-                  "name": "Bedroom left window open",
-                  "icon": "mdi:window-open-variant",
-                  "tone": "warn",
-                  "popup": {
-                    "title": "Doors & Windows",
-                    "icon": "mdi:door-open",
-                    "sections": [
-                      {
-                        "type": "tiles",
-                        "title": null,
-                        "items": [
-                          {
-                            "entity": "binary_sensor.door_sensor",
-                            "name": "Door",
-                            "icon": "mdi:door-open"
-                          },
-                          {
-                            "entity": "binary_sensor.window_sensor",
-                            "name": "Window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.guest_bedroom_window",
-                            "name": "Guest window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_left_window",
-                            "name": "Bedroom left window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_right_window",
-                            "name": "Bedroom right window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "sensor.door_sensor_battery",
-                            "name": "Door battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.window_sensor_battery",
-                            "name": "Window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.guest_bedroom_window_battery",
-                            "name": "Guest window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_left_window_battery",
-                            "name": "Bedroom left window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_right_window_battery",
-                            "name": "Bedroom right window battery",
-                            "icon": "mdi:battery"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                },
-                {
-                  "entity": "binary_sensor.master_bedroom_right_window",
-                  "name": "Bedroom right window open",
-                  "icon": "mdi:window-open-variant",
-                  "tone": "warn",
-                  "popup": {
-                    "title": "Doors & Windows",
-                    "icon": "mdi:door-open",
-                    "sections": [
-                      {
-                        "type": "tiles",
-                        "title": null,
-                        "items": [
-                          {
-                            "entity": "binary_sensor.door_sensor",
-                            "name": "Door",
-                            "icon": "mdi:door-open"
-                          },
-                          {
-                            "entity": "binary_sensor.window_sensor",
-                            "name": "Window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.guest_bedroom_window",
-                            "name": "Guest window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_left_window",
-                            "name": "Bedroom left window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "binary_sensor.master_bedroom_right_window",
-                            "name": "Bedroom right window",
-                            "icon": "mdi:window-open"
-                          },
-                          {
-                            "entity": "sensor.door_sensor_battery",
-                            "name": "Door battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.window_sensor_battery",
-                            "name": "Window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.guest_bedroom_window_battery",
-                            "name": "Guest window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_left_window_battery",
-                            "name": "Bedroom left window battery",
-                            "icon": "mdi:battery"
-                          },
-                          {
-                            "entity": "sensor.master_bedroom_right_window_battery",
-                            "name": "Bedroom right window battery",
-                            "icon": "mdi:battery"
                           }
                         ]
                       }
