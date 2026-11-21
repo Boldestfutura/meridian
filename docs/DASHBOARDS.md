@@ -173,7 +173,7 @@ change in HA, pull and commit; after any change here, deploy, then check. Pull n
   bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the corner opens
   HA's standard dialog.
 - **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet.
-- **Idle:** the Kitchen Display's idle is Kiosk Satellite's screensaver since 2026-11-21 (photos 6am-9pm, then the clock; set in KS, not show.py). `idle`/`photos` still drive the Echo-style photo page on screens that set them. Not while a recipe is open: with swiping, idle brings the open recipe back instead, and swiping away keeps it open.
+- **Idle:** the Kitchen Display's idle is Kiosk Satellite's screensaver since 2026-11-21 (Immich photos 6am-9pm, then the clock, with split Now Playing; set in KS, not show.py). `idle`/`photos` still drive the Echo-style photo page on screens that set them. Not while a recipe is open: with swiping, idle brings the open recipe back instead, and swiping away keeps it open.
   A tap on the photos goes back to Home.
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.

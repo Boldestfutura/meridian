@@ -71,17 +71,23 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
     the kitchen voice-music target and the Kitchen room media tile.
   - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
-    now): after 90 s, the Family album (a KS camera view of `camera.album_slideshow_family`) from
-    6am, the Clock from 9pm (KS's own screensaver schedule). KS's night mode turns the clock red
-    under 3 lx. Widgets don't draw over the camera mode.
+    now): after 90 s, KS's Immich mode (the Family album straight from Immich, KS's own API key)
+    from 6am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
+    `screensaver.mode`**: change the schedule entry, not the mode. KS's night mode turns the clock
+    red under 3 lx and hides the widgets. Widgets (set in KS): small clock, weather, calendar
+    `calendar.p_c`. A calendar entry needs `name` and `on` as well as `entity` and `color`, or its
+    badge shows "?". Camera Streams mode draws no widgets.
+  - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
+    (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
+  - KS is Android's home app. The "default home app" and "access all device logs" dialogs pause
+    KS and freeze its screen until dismissed; READ_LOGS is granted, so the logs one is gone.
   - Timers: KS's own (voice and Main's presets, via `ks_timers`). See Voice timers below.
     Alarms still use the helpers `input_datetime.kitchen_alarm_time`, `input_boolean.kitchen_alarm`,
     `input_select.kitchen_ringing`; `voice_clock_ring` rings the kitchen with a repeating KS announce.
-  - `binary_sensor.kitchen_dark` reads `sensor.kitchen_display_ambient_light` (same sensor and
-    scale as VACA's light level).
+  - `binary_sensor.kitchen_dark` was deleted 2026-11-21 (nothing used it once KS handled night);
+    the light level is `sensor.kitchen_display_ambient_light`.
   - A card change needs KS to reload: `button.kitchen_display_restart_app`, or the admin API's
-    `restartApp` command. Android asks "access all device logs?" after each KS start; answer
-    Don't allow. No WebView devtools; the admin API's `evalJs` command runs JS in the page.
+    `restartApp` command. No WebView devtools; the admin API's `evalJs` command runs JS in the page.
   - ADB is Wireless debugging (paired with luna), so the port changes on every boot:
     `adb mdns services` finds it. No HA ADB watchdog like the Echo's.
   - The WebView keeps old JS for a URL it has seen: bump `VERSION` on every deploy.
@@ -147,7 +153,7 @@ input_select dialog, where someone on the Echo had set it back to running by mis
   HA by hand. The old full-screen Show config is in `~/.config/ha/ha-show-computer.before-native-2026-11-10.json`.
 
 **Photos.** Each screen has its own `album_slideshow` camera of the Immich Family album
-(`camera.album_slideshow_family` for the kitchen and Hub, `camera.album_slideshow_family_bedroom`
+(`camera.album_slideshow_family`, no longer shown anywhere since the kitchen moved to KS's own Immich mode on 2026-11-21, and `camera.album_slideshow_family_bedroom`
 for the Echo). One camera has one current photo, so sharing one made both screens show the same
 picture. A new photo screen needs its own entry.
 
