@@ -82,6 +82,11 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     badge shows "?". Camera Streams mode draws no widgets.
   - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
+  - `kitchen-morning` (Kitchen Morning, not in the sidebar): just the Meridian morning forecast,
+    for KS's Home Assistant Dashboard screensaver (`screensaver.dashboard_view`
+    `/kitchen-morning/morning`). Meant for the 5:30 slot in place of Weather Mood, once KS's
+    widgets can be switched off for it (`switch.kitchen_display_screensaver_widgets`): KS draws
+    widgets over every mode and they cover the forecast's title and time.
   - Weather questions get KS's weather card (the forecast panel beside the answer). It comes from
     the HA integration **Voice Satellite LLM Tools** (KS's author, `custom_components/
     voice_satellite_llm_tools`, installed by hand since HACS isn't installed), entry Weather

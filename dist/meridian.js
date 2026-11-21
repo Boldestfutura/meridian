@@ -3264,7 +3264,7 @@ function wxMorning(c2, opt) {
   if (!opt || !c2.hass) return J;
   const o2 = Object.assign({}, MORNING, typeof opt === "object" ? opt : {});
   const a2 = c2.hass.states[o2.alert];
-  if (!a2 || a2.state !== "on" || c2._night()) return J;
+  if (!o2.always && (!a2 || a2.state !== "on") || c2._night()) return J;
   const feed = c2.__wxFeed || (c2.__wxFeed = new WeatherFeed(c2));
   feed.touch(c2.hass);
   const st2 = (id) => c2.hass.states[id];
@@ -3300,7 +3300,7 @@ function wxMorning(c2, opt) {
         <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
-          <button class="mf-btn" @click=${dismiss}>Close</button>
+          ${o2.always ? J : Z`<button class="mf-btn" @click=${dismiss}>Close</button>`}
         </div>
       </div>
       <div class="mf-main">
@@ -4232,7 +4232,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.35.1";
+var VERSION = "0.35.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

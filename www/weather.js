@@ -103,7 +103,9 @@ export function wxAlert(c, opt) {
 // when someone's home and off at 10 am or when the house empties; Close on any screen turns it
 // off everywhere. Today's high and low, rain chance and amount, UV and cover-up times, wind, and
 // the day's temperatures at 9, 12, 3, 6 and 9. Under the washing and warning alerts and the
-// clocks, and never in a dark room, so it waits for the lights.
+// clocks, and never in a dark room, so it waits for the lights. `morning: {always: true}` shows it
+// whatever the helper says and drops Close: the Kitchen Morning dashboard, Kiosk Satellite's
+// screensaver from 5:30 to 7:30.
 export const MORNING = { alert: "input_boolean.morning_forecast" };
 const COND_OF = { sunny: "sunny", clear: "sunny", mostly_sunny: "partlycloudy", partly_cloudy: "partlycloudy", cloudy: "cloudy",
   hazy: "fog", haze: "fog", fog: "fog", light_rain: "rainy", rain: "pouring", shower: "rainy", light_shower: "rainy",
@@ -113,7 +115,7 @@ export function wxMorning(c, opt) {
   if (!opt || !c.hass) return nothing;
   const o = Object.assign({}, MORNING, typeof opt === "object" ? opt : {});
   const a = c.hass.states[o.alert];
-  if (!a || a.state !== "on" || c._night()) return nothing;
+  if ((!o.always && (!a || a.state !== "on")) || c._night()) return nothing;
   const feed = c.__wxFeed || (c.__wxFeed = new WeatherFeed(c));
   feed.touch(c.hass);
   const st = (id) => c.hass.states[id];
@@ -137,7 +139,7 @@ export function wxMorning(c, opt) {
         <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
-          <button class="mf-btn" @click=${dismiss}>Close</button>
+          ${o.always ? nothing : html`<button class="mf-btn" @click=${dismiss}>Close</button>`}
         </div>
       </div>
       <div class="mf-main">
