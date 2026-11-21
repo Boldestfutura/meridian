@@ -1,0 +1,36 @@
+{
+ "id": "ks_bedroom_morning_widgets",
+ "alias": "Bedroom Echo morning weather screen",
+ "description": "KS's Weather Mood is the Echo's screensaver 6:30-8:00 (screensaver.schedule, set in KS). It draws its own clock and weather, so the corner widgets go off for those 90 minutes, and KS's At a glance row (today's BoM forecast, rain chance, rain mm, UV) comes on. The row is global with no HA switch, so it goes through rest_command.ks_bedroom_settings. Same as ks_kitchen_morning_widgets, which runs 5:30-8:00.",
+ "mode": "single",
+ "triggers": [
+  {
+   "trigger": "time",
+   "at": "06:30:00",
+   "id": "off"
+  },
+  {
+   "trigger": "time",
+   "at": "08:00:00",
+   "id": "on"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "action": "switch.turn_{{ trigger.id }}",
+   "target": {
+    "entity_id": "switch.bedroom_echo_screensaver_widgets"
+   }
+  },
+  {
+   "action": "rest_command.ks_bedroom_settings",
+   "continue_on_error": true,
+   "data": {
+    "settings": {
+     "screensaver.glance_enabled": "{{ trigger.id == 'off' }}"
+    }
+   }
+  }
+ ]
+}

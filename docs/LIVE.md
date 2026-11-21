@@ -128,8 +128,11 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     Claude, wake word Okay Nabu (microWakeWord). Remote admin `http://192.168.1.133:2324`
     (password and API token in `~/.config/ks/`, never in this repo). Start page
     `master-bedroom-echo-show/controls`.
-  - Idle is KS's screensaver: after 300 s, Immich (Family album, no captions: they push the
-    weather widget off this small screen) from 6am, the clock from 9pm, red under 5 lx.
+  - Idle is KS's screensaver: after 300 s, Weather Mood 6:30-8am (same glance row as the
+    kitchen; `ks_bedroom_morning_widgets` turns the widgets off and the row on through
+    `rest_command.ks_bedroom_settings`, token `ks_bedroom_auth`), Immich (Family album, no
+    captions: they push the weather widget off this small screen) from 8am, the clock from 9pm,
+    red under 5 lx.
     Same widgets as the kitchen. KS's full-screen Now Playing is OFF here: it has no night
     exception and would cover the night clock with Sleep Sounds all night.
   - Brightness is KS's adaptive brightness (5% at 5 lx or less, 80% from 300 lx); Android's

@@ -230,3 +230,10 @@ rest_command:
       Authorization: !secret ks_kitchen_auth
     content_type: application/json
     payload: "{{ settings | to_json }}"
+  ks_bedroom_settings:
+    url: http://192.168.1.133:2324/api/settings
+    method: PATCH
+    headers:
+      Authorization: !secret ks_bedroom_auth
+    content_type: application/json
+    payload: "{{ settings | to_json }}"
