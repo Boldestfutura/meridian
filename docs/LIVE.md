@@ -117,8 +117,27 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   are in `/config/.plex.json` (mode 600), never in the repo.
 
 **Master Bedroom Echo Show** `master-bedroom-echo-show` (Echo Show 5 2nd gen, 788x394): Meridian screen cards (`meridian-dock`, large button, large sensor, calendar, media, playlists), edited in HA. Replaced Bedroom Show (`ha-show-bedroom`) on 2026-11-10; the `bedside` options below now live on its `meridian-dock`
-- Runs in the View Assist Companion app (VACA), which is also the voice satellite. Device
-  setup: `docs/tasks/echo-show-bedroom.md`. A card change reaches it only after VACA restarts.
+- Runs in **Kiosk Satellite** since 2026-11-21 (KS 2026.11.23 armeabi-v7a, on R0rt1z2's
+  LineageOS 18.1, not KS's own Echo image, so no echo cancellation for the wake word over loud
+  music). VACA (`com.msp1974.vacompanion`) and SendSpin Player (`com.sendspindroid`) are disabled
+  (`pm disable-user`), not uninstalled. KS is the Android home app.
+  - HA: ESPHome device "Bedroom Echo", node `ks-bedroom-echo`, area Bedroom, entities
+    `*.bedroom_echo_*`; satellite `assist_satellite.bedroom_echo_assist_satellite`, pipeline
+    Claude, wake word Okay Nabu (microWakeWord). Remote admin `http://192.168.1.133:2324`
+    (password and API token in `~/.config/ks/`, never in this repo). Start page
+    `master-bedroom-echo-show/controls`.
+  - Idle is KS's screensaver: after 300 s, Immich (Family album, no captions: they push the
+    weather widget off this small screen) from 6am, the clock from 9pm, red under 5 lx.
+    Same widgets as the kitchen. KS's full-screen Now Playing is OFF here: it has no night
+    exception and would cover the night clock with Sleep Sounds all night.
+  - Brightness is KS's adaptive brightness (5% at 5 lx or less, 80% from 300 lx); Android's
+    own auto brightness is off and `automation.master_bedroom_echo_brightness` is turned off.
+  - `binary_sensor.bedroom_dark` now reads `sensor.bedroom_echo_ambient_light` (Pip and the
+    climate alert still use it). The dock lost `photos` and `night` (KS's now).
+  - Timers are KS's own (`ks` variable: bedroom); alarms ring through KS's repeating announce
+    and still turn Sleep Sounds off first. During Sleep Sounds the wake word drops to
+    Slightly sensitive (`bedroom_echo_night_wake_threshold.json`).
+  - A card change needs KS to reload (`restartApp` on the admin API).
 - **Night mode (2026-11-05):** `automation.master_bedroom_sleep_sounds_overnight` (repo copy
   `ha_config/bedroom_night.json`) turns `input_boolean.bedroom_night_mode` on 9pm-7:30am while
   anyone (or guest mode) is home, including on arrival inside the window.
@@ -127,8 +146,9 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Brightness: `ha_config/bedroom_brightness.json`.
   - Artwork: `TRACK_ART` in overlook-show.js maps the title `Stream Sounds` to
     `/config/www/sounds/stream.svg` (repo copy `www/sounds/stream.svg`, copied up by hand).
-- **Echo as a speaker:** SendSpin Player (`com.sendspindroid`) connects it to Music Assistant as
-  `media_player.bedroom_echo`, its only media player. The old bedroom HomePod moved to the guest
+- **Echo as a speaker:** KS's built-in Sendspin player, `media_player.bedroom_echo` in Music
+  Assistant (renamed from `_2` on 2026-11-21; the old SendSpin app's entity is now
+  `media_player.bedroom_echo_sendspindroid`). The old bedroom HomePod moved to the guest
   bedroom on 2026-11-05: `media_player.guest_bedroom_homepod_mini` (AirPlay) and `_2` (MA).
 - **En Suite HomePod:** the old kitchen HomePod moved to En Suite on 2026-11-13. Entity IDs stay
   `media_player.homepod_mini_kitchen` (AirPlay) and `_2` (MA); HA friendly names, device names and
@@ -244,11 +264,10 @@ the room). Sentence triggers in `automation.voice_timers_and_alarms`
 satellite where no dashboard can see them. The satellite's area picks the helpers:
 `timer.<area>_timer`, `input_number.<area>_timer_length` (seconds, for Reset),
 `input_datetime.<area>_alarm_time`, `input_boolean.<area>_alarm` and
-`input_select.<area>_ringing` (Off / Timer / Alarm). `bedroom` and `kitchen` have them; areas with a Kiosk Satellite (the `ks` variable: kitchen) use the kiosk's own timers instead (`esphome.ks_kitchen_display_vs_*`, empty `timer_id` = the only timer), and only alarms use the helpers; typed Assist with
+`input_select.<area>_ringing` (Off / Timer / Alarm). `bedroom` and `kitchen` have them; areas with a Kiosk Satellite (the `ks` variable: kitchen, bedroom) use the kiosk's own timers instead (`esphome.<node>_vs_*`, sensors `sensor.<node minus ks_>_vs_timers` / `_vs_next_timer`, empty `timer_id` = the only timer), and only alarms use the helpers; typed Assist with
 no device uses the bedroom. `automation.voice_timers_and_alarms_ringing`
-(`voice_clock_ring.json`) rings the Echo through VACA's `switch.bedroom_echo_va_alarm` (its
-alarm volume), brightens a dark screen, turns Sleep Sounds off for an alarm, and stops after
-10 minutes. Setting ringing back to Off silences it and puts the brightness back.
+(`voice_clock_ring.json`) rings both kiosks with a repeating KS announce (room key `ks`),
+turns Sleep Sounds off for a bedroom alarm, and stops after 10 minutes. Setting ringing back to Off silences it and puts the brightness back.
 `script.voice_clock_snooze` (`voice_clock_snooze.json`) moves the alarm on 9 minutes.
 
 The Show card shows it with option `clock: <area>` (Bedroom Show only): a running or ringing

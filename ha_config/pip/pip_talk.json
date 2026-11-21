@@ -7,7 +7,7 @@
       "trigger": "state",
       "entity_id": [
         "assist_satellite.kitchen_display_assist_satellite",
-        "assist_satellite.bedroom_echo_va"
+        "assist_satellite.bedroom_echo_assist_satellite"
       ],
       "to": "processing"
     }

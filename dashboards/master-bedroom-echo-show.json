@@ -48,12 +48,10 @@
             },
             {
               "type": "custom:meridian-dock",
-              "photos": "camera.album_slideshow_family_bedroom",
               "idle": 300,
               "weather": "weather.forecast_home",
-              "night": "binary_sensor.bedroom_dark",
               "voice": "bedroom",
-              "voice_satellite": "assist_satellite.bedroom_echo_va",
+              "voice_satellite": "assist_satellite.bedroom_echo_assist_satellite",
               "clock": "bedroom",
               "nowplaying": "media_player.bedroom_echo",
               "nowplaying_return": 40,
