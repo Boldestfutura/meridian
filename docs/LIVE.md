@@ -71,14 +71,26 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
     the kitchen voice-music target and the Kitchen room media tile.
   - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
-    now): after 90 s, KS's Immich mode (the Family album straight from Immich, KS's own API key)
-    from 6am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
+    now): after 90 s, KS's Weather Mood (animated sky, `screensaver.weather_entity` BoM South
+    Melbourne; its own clock and high/low are off because the widgets already show them) from
+    5:30am, KS's Immich mode (the Family album straight from Immich, KS's own API key) from
+    7:30am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
     `screensaver.mode`**: change the schedule entry, not the mode. KS's night mode turns the clock
-    red under 3 lx and hides the widgets. Widgets (set in KS): small clock, weather, calendar
+    red under 3 lx and hides the widgets. Widgets apply to every mode (set in KS): small clock,
+    weather (`weather.outdoor_south_melbourne`), calendar
     `calendar.p_c`. A calendar entry needs `name` and `on` as well as `entity` and `color`, or its
     badge shows "?". Camera Streams mode draws no widgets.
   - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
+  - Weather questions get KS's weather card (the forecast panel beside the answer). It comes from
+    the HA integration **Voice Satellite LLM Tools** (KS's author, `custom_components/
+    voice_satellite_llm_tools`, installed by hand since HACS isn't installed), entry Weather
+    Forecast: daily `weather.outdoor_south_melbourne`, hourly `weather.forecast_home` (BoM's
+    hourly times have no timezone and the tool reads them as UTC, 11 hours out). Its API
+    "Voice Satellite: Weather Forecast" is ticked on the Claude agent. To let the agent get the
+    question: automations `assist_weather_forecast` and `assist_rain_forecast` are OFF, and
+    `weather.forecast_home` is no longer exposed to Assist (HA's built-in "what's the weather"
+    intent answered first, text only). Needs `voice.overlay_mode` full: docked shows no results.
   - KS is Android's home app. The "default home app" and "access all device logs" dialogs pause
     KS and freeze its screen until dismissed; READ_LOGS is granted, so the logs one is gone.
   - Timers: KS's own (voice and Main's presets, via `ks_timers`). See Voice timers below.
