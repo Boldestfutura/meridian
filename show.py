@@ -44,14 +44,13 @@ KITCHEN_SCENES = [
 
 CARD = {
     "type": "custom:overlook-show",
-    "photos": "camera.album_slideshow_family",
     "weather": "weather.forecast_home",
     "idle": 90,
     "lights": [
         {"entity": "light.kitchen_lights", "name": "Kitchen Lights", "icon": "mdi:lightbulb-group"},
     ],
     "climate": "climate.living_room",
-    "voice_satellite": "assist_satellite.kitchen_tablet_va",
+    "voice_satellite": "assist_satellite.kitchen_display_assist_satellite",
     # each speaker lists its plain entity first, then the Music Assistant one
     "speakers": [
         {"name": "Living Room Amp", "icon": "mdi:speaker",
@@ -61,8 +60,8 @@ CARD = {
          "entities": ["media_player.homepod_mini_kitchen_2", "media_player.homepod_mini_kitchen"],
          "ma": "media_player.homepod_mini_kitchen_2"},
         {"name": "Kitchen Display", "icon": "mdi:tablet",
-         "entities": ["media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player"],
-         "ma": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "auto": False},
+         "entities": ["media_player.kitchen_display_5"],
+         "ma": "media_player.kitchen_display_5", "auto": False},
         {"name": "Bedroom Echo", "icon": "mdi:speaker-wireless",
          "entities": ["media_player.bedroom_echo"],
          "ma": "media_player.bedroom_echo", "auto": False},
@@ -93,7 +92,7 @@ CARD = {
          "lights": [{"entity": "light.kitchen_light_2", "name": "Kitchen Light", "icon": "mdi:ceiling-light"},
                     {"entity": "light.bench_lamp", "name": "Bench Lamp", "icon": "mdi:lamp"}],
          "sensors": air(),
-         "media": [{"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+         "media": [{"entity": "media_player.kitchen_display_5",
                     "name": "Kitchen Display", "icon": "mdi:tablet"}],
          "scenes": KITCHEN_SCENES},
         {"name": "Living Room", "icon": "mdi:sofa", "group": "light.living_room", "climate": "climate.living_room",
@@ -159,9 +158,7 @@ CARD.update({
     "tablet": True,
     # no dock: swipe between Media | Home | Rooms | Recipes (each room's climate is on Rooms)
     "swipe": ["media", "home", "rooms", "recipes"],
-    # idle: the time, weather, who's home and what's next over the darkened slideshow
-    "photo_clock": True,
-    "night": "binary_sensor.kitchen_dark",
+    # idle, photos and the night clock are Kiosk Satellite's screensaver (its own settings, not here)
     # the washing machine bubble beside the clock (input_select kept by automation washing_machine)
     "washer": {"entity": "input_select.washing_machine", "started": "input_datetime.washing_machine_started",
                "alert": "input_boolean.washing_machine_alert"},
@@ -170,6 +167,7 @@ CARD.update({
     # the day's forecast full screen in the morning (input_boolean.morning_forecast, automation weather_morning_forecast)
     "morning": True,
     "clock": "kitchen",                       # timer.kitchen_timer behind the Timer button
+    "ks_timers": "ks_kitchen_display",        # Main's timer presets start the kiosk's own timers
     "tablet_tv": "media_player.living_room",  # its Plex art comes from /local/nowplaying
     # a game being played takes the TV tile (PS5 via PlayStation Network, the Bazzite PC via Steam)
     "tablet_games": [
@@ -183,7 +181,7 @@ CARD.update({
         {"entity": "media_player.living_room_amp_2", "name": "Living Room Amp", "icon": "mdi:speaker",
          "follows": "media_player.living_room"},
         {"entity": "media_player.homepod_mini_kitchen_2", "name": "En Suite HomePod", "icon": "mdi:speaker-wireless"},
-        {"entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player", "name": "Kitchen Display", "icon": "mdi:tablet"},
+        {"entity": "media_player.kitchen_display_5", "name": "Kitchen Display", "icon": "mdi:tablet"},
         {"entity": "media_player.bedroom_echo", "name": "Bedroom Echo", "icon": "mdi:speaker-wireless"},
         {"entity": "media_player.guest_bedroom_homepod_mini_2", "name": "Guest HomePod", "icon": "mdi:speaker-wireless"},
     ],

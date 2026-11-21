@@ -1193,7 +1193,7 @@
             },
             {
               "type": "custom:meridian-tile",
-              "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+              "entity": "media_player.kitchen_display_5",
               "name": "Kitchen Display",
               "icon": "mdi:tablet",
               "popup": {
@@ -1202,14 +1202,14 @@
                 "sections": [
                   {
                     "type": "player",
-                    "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player"
+                    "entity": "media_player.kitchen_display_5"
                   }
                 ]
               },
               "visibility": [
                 {
                   "condition": "state",
-                  "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+                  "entity": "media_player.kitchen_display_5",
                   "state_not": "unavailable"
                 }
               ]

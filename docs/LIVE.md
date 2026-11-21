@@ -57,26 +57,33 @@ deploy them.
 
 **Kitchen Show** `ha-show` (`show.py`, view `show`): the tablet pages in `www/tablet.js`. Shown on
 the kitchen display and cast to the Nest Hub since 2026-11-11. Since 0.32.0 (2026-11-13) both swipe between
-Media | Home | Rooms | Recipes with no dock (Climate lives in Rooms) and go idle to the photo clock. Hub Show (`ha-show-hub`), Kitchen
+Media | Home | Rooms | Recipes with no dock (Climate lives in Rooms) and go idle to the photo clock (KS's screensaver since 2026-11-21). Hub Show (`ha-show-hub`), Kitchen
 Tablet Show (`kitchen-tablet-show`) and View Assist (`view-assist`) were deleted that day;
 backups in `~/.config/ha/*.deleted-2026-11-11.json`.
-- **Tablet:** ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS. Runs in VACA 0.14.1 (the
-  Android home app), device "Kitchen Display VA" in area Kitchen, entities `*.kitchen_tablet_va_*`.
-  Pipeline Claude, wake word Alexa (microWakeWord, 6.5). Camera permission denied and its entity
-  disabled.
-  - VACA's start page is the integration option `default_dashboard` (`ha-show/show`), not a
-    user's default panel. Change it through the integration's options flow.
-  - Music: VACA's SendSpin output is enabled. Music Assistant creates
-    `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player`, device "Kitchen
-    Display" in area Kitchen. It is the kitchen voice-music target and the Kitchen room media
-    tile.
-  - Timers and alarms: helpers `timer.kitchen_timer`, `input_datetime.kitchen_alarm_time`,
-    `input_boolean.kitchen_alarm`, `input_select.kitchen_ringing`, `input_number.kitchen_timer_length`;
-    `voice_clock_ring` has a `kitchen` room.
+- **Tablet:** ALLDOCUBE iPlay 80 mini Turbo, Android 16, 1280x800 CSS. Since 2026-11-21 it runs
+  **Kiosk Satellite** (KS 2026.11.23, `me.jxl.kiosk_satellite`), which replaced VACA. VACA is
+  disabled (`pm disable-user`), not uninstalled, as a rollback until about 2026-11-28.
+  - HA sees KS as an ESPHome device: "Kitchen Display", node `ks-kitchen-display`, area Kitchen,
+    entities `*.kitchen_display_*` (106). Satellite `assist_satellite.kitchen_display_assist_satellite`,
+    pipeline Claude, wake word Okay Nabu (microWakeWord, moderately), stop word on.
+  - Settings live in KS, not HA: its remote admin is `http://192.168.1.73:2324` (password and API
+    token in `~/.config/ks/`, never in this repo). Start page `ha-show/show`.
+  - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
+    the kitchen voice-music target and the Kitchen room media tile.
+  - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
+    now): after 90 s, the Family album (a KS camera view of `camera.album_slideshow_family`) from
+    6am, the Clock from 9pm (KS's own screensaver schedule). KS's night mode turns the clock red
+    under 3 lx. Widgets don't draw over the camera mode.
+  - Timers: KS's own (voice and Main's presets, via `ks_timers`). See Voice timers below.
+    Alarms still use the helpers `input_datetime.kitchen_alarm_time`, `input_boolean.kitchen_alarm`,
+    `input_select.kitchen_ringing`; `voice_clock_ring` rings the kitchen with a repeating KS announce.
+  - `binary_sensor.kitchen_dark` reads `sensor.kitchen_display_ambient_light` (same sensor and
+    scale as VACA's light level).
+  - A card change needs KS to reload: `button.kitchen_display_restart_app`, or the admin API's
+    `restartApp` command. Android asks "access all device logs?" after each KS start; answer
+    Don't allow. No WebView devtools; the admin API's `evalJs` command runs JS in the page.
   - ADB is Wireless debugging (paired with luna), so the port changes on every boot:
     `adb mdns services` finds it. No HA ADB watchdog like the Echo's.
-  - The white bar at the left edge is Android's gesture handle (natural portrait bottom). It
-    can't be hidden without a kiosk app, which would break VACA's voice. Left as it is.
   - The WebView keeps old JS for a URL it has seen: bump `VERSION` on every deploy.
 - **Nest Hub**: retired 2026-11-14. Its cast keep-alive automation was removed on 2026-11-15.
   - **Never use a card that loads images by relative URL here.** The cast receiver runs at
@@ -107,11 +114,10 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   same webhook, with `"room": "En Suite"` in the body, sets `sensor.en_suite_temperature` and
   `sensor.en_suite_humidity`; a body without a room still goes to the guest room.
 
-**Renamed 2026-11-14: the tablet is the Kitchen Display.** Device and entity *names* say Kitchen
-Display (VACA "Kitchen Display VA", the MA player "Kitchen Display", the companion app "Kitchen
-Display App"); the Nest Hub is now "Kitchen Nest Hub". Entity *IDs* are unchanged
-(`*.kitchen_tablet_va_*`, `media_player.kitchen_display` is still the Hub): 195 of them, wired into
-VACA and the automations. The voice glow (`voice_satellite`) shows on the tablet and never on a Cast
+**Renamed 2026-11-14: the tablet is the Kitchen Display.** The Nest Hub is "Kitchen Nest Hub"
+(`media_player.kitchen_display` is still the Hub). The old VACA entities (`*.kitchen_tablet_va_*`)
+went unavailable when Kiosk Satellite took over on 2026-11-21; the automations and dashboards use
+the KS ones (`*.kitchen_display_*`). The voice glow (`voice_satellite`) shows on the tablet and never on a Cast
 receiver (`CrKey` in the user agent), so the Hub showing the same dashboard stays dark.
 
 **Washing machine plug (2026-11-14).** Tapo P110M, in HA twice: the TP-Link integration (device
@@ -215,7 +221,7 @@ the room). Sentence triggers in `automation.voice_timers_and_alarms`
 satellite where no dashboard can see them. The satellite's area picks the helpers:
 `timer.<area>_timer`, `input_number.<area>_timer_length` (seconds, for Reset),
 `input_datetime.<area>_alarm_time`, `input_boolean.<area>_alarm` and
-`input_select.<area>_ringing` (Off / Timer / Alarm). Only `bedroom` has them; typed Assist with
+`input_select.<area>_ringing` (Off / Timer / Alarm). `bedroom` and `kitchen` have them; areas with a Kiosk Satellite (the `ks` variable: kitchen) use the kiosk's own timers instead (`esphome.ks_kitchen_display_vs_*`, empty `timer_id` = the only timer), and only alarms use the helpers; typed Assist with
 no device uses the bedroom. `automation.voice_timers_and_alarms_ringing`
 (`voice_clock_ring.json`) rings the Echo through VACA's `switch.bedroom_echo_va_alarm` (its
 alarm volume), brightens a dark screen, turns Sleep Sounds off for an alarm, and stops after
@@ -250,8 +256,8 @@ kitchen" / "on the kitchen display" / "in the en suite" / "on the amp" / "in the
 are matched loosely against the library (`get_library`, so spoken names need not be exact),
 the rest with `music_assistant.search`; a bare name takes an exact artist, then song, then
 album, then the top artist. Speakers are the MA players: bedroom `media_player.bedroom_echo`,
-kitchen `media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player` (the Kitchen
-Display), en suite `media_player.homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest
+kitchen `media_player.kitchen_display_5` (the Kitchen
+Display's KS Sendspin player), en suite `media_player.homepod_mini_kitchen_2`, amp `living_room_amp_2`, guest
 `guest_bedroom_homepod_mini_2`. "In the kitchen" and "on the kitchen display" both pick the
 tablet; "in the en suite" picks the moved HomePod.
 Pause, skip and volume are HA's built-in media intents (bare "pause" goes through the timer

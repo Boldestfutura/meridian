@@ -14,7 +14,7 @@ Python files say which entities go where on each screen.
 
 | dashboard | screen | layout |
 |---|---|---|
-| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800 | five pages (`www/tablet.js`): Home (calendar, shopping list, timer, heat pump, scenes, room lights), Rooms, Climate, Media, Recipes; idles to photos |
+| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800 | five pages (`www/tablet.js`): Home (calendar, shopping list, timer, heat pump, scenes, room lights), Rooms, Climate, Media, Recipes; idle is Kiosk Satellite's screensaver |
 | **Master Bedroom Echo Show** `master-bedroom-echo-show` | Echo Show 5, 788x394 | built from the Meridian screen cards in HA's editor: photos and a clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1920x1080, beside HA's sidebar | the whole house on one page, built from Meridian cards in HA's editor: large weather, heat pump and speaker tiles, 2x tiles under each room heading |
 | **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |

@@ -193,12 +193,16 @@ function sceneTiles(c) {
     .map((q) => x2(c._sceneBtn(q, true)));
 }
 
-// the kitchen timer's presets, beside the shopping list. Once one starts, the full-screen timer
-// (the clock layer in overlook-show.js) takes over until it is stopped, so this only ever shows idle.
+// the kitchen timer's presets, beside the shopping list. With `ks_timers` (a Kiosk Satellite's
+// ESPHome node, e.g. ks_kitchen_display) they start the kiosk's own timers, which show and ring on
+// the kiosk; otherwise timer.<clock>_timer, and the full-screen timer (the clock layer in
+// overlook-show.js) takes over until it is stopped, so this only ever shows idle.
 function timerCard(c) {
+  const ks = c._config.ks_timers;
   const id = c._config.clock && `timer.${c._config.clock}_timer`;
-  if (!id || !c._st(id)) return nothing;
+  if (!ks && (!id || !c._st(id))) return nothing;
   const start = (m) => {
+    if (ks) return c._call("esphome", `${ks}_vs_start_timer`, { name: "", hours: Math.floor(m / 60), minutes: m % 60, seconds: 0 });
     // the length helper is what the full-screen timer's "of" and Reset use, as the voice timers set it
     c._call("input_number", "set_value", { entity_id: `input_number.${c._config.clock}_timer_length`, value: m * 60 });
     c._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });

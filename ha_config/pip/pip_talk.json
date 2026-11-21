@@ -2,12 +2,11 @@
   "id": "pip_talk",
   "alias": "Pip - Talked To",
   "description": "Talking to either voice screen counts as attention for Pip (input_datetime.pip_last_talk).",
-  "mode": "single",
   "triggers": [
     {
       "trigger": "state",
       "entity_id": [
-        "assist_satellite.kitchen_tablet_va",
+        "assist_satellite.kitchen_display_assist_satellite",
         "assist_satellite.bedroom_echo_va"
       ],
       "to": "processing"
@@ -24,5 +23,6 @@
         "timestamp": "{{ now().timestamp() }}"
       }
     }
-  ]
+  ],
+  "mode": "single"
 }

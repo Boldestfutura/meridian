@@ -1212,9 +1212,11 @@ function sceneTiles(c2) {
   return (c2._config.tablet_quick || []).filter((q2) => q2.entity && /^(scene|script)\./.test(q2.entity) && c2._st(q2.entity)).map((q2) => x2(c2._sceneBtn(q2, true)));
 }
 function timerCard(c2) {
+  const ks2 = c2._config.ks_timers;
   const id = c2._config.clock && `timer.${c2._config.clock}_timer`;
-  if (!id || !c2._st(id)) return J;
+  if (!ks2 && (!id || !c2._st(id))) return J;
   const start = (m2) => {
+    if (ks2) return c2._call("esphome", `${ks2}_vs_start_timer`, { name: "", hours: Math.floor(m2 / 60), minutes: m2 % 60, seconds: 0 });
     c2._call("input_number", "set_value", { entity_id: `input_number.${c2._config.clock}_timer_length`, value: m2 * 60 });
     c2._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m2 / 60)).padStart(2, "0")}:${String(m2 % 60).padStart(2, "0")}:00` });
   };
@@ -4230,7 +4232,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.35.0";
+var VERSION = "0.35.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

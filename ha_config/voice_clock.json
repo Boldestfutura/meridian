@@ -1,8 +1,7 @@
 {
  "id": "voice_clock_voice",
  "alias": "Voice Timers and Alarms",
- "description": "Timers and alarms by voice for any Assist satellite whose area has the four helpers timer.<area>_timer, input_datetime.<area>_alarm_time, input_boolean.<area>_alarm and input_select.<area>_ringing, plus input_number.<area>_timer_length for the Show card's Reset (bedroom only so far; typed Assist with no device uses the bedroom). Sentence triggers win over HA's built-in timer intents, which keep timers on the satellite where no screen can see them. Ringing, snooze and the screen overlay are in \"Voice Timers and Alarms - Ringing\" and the Show card (option `clock`).",
- "mode": "parallel",
+ "description": "Timers and alarms by voice for any Assist satellite whose area has the four helpers timer.<area>_timer, input_datetime.<area>_alarm_time, input_boolean.<area>_alarm and input_select.<area>_ringing, plus input_number.<area>_timer_length for the Show card's Reset (bedroom only so far; typed Assist with no device uses the bedroom). Sentence triggers win over HA's built-in timer intents, which keep timers on the satellite where no screen can see them. Ringing, snooze and the screen overlay are in \"Voice Timers and Alarms - Ringing\" and the Show card (option `clock`). Areas with a Kiosk Satellite (the `ks` variable: kitchen) use the kiosk's own timers instead (esphome.<node>_vs_* actions); alarms there still use the helpers.",
  "triggers": [
   {
    "trigger": "conversation",
@@ -106,7 +105,8 @@
     "alarm_time": "input_datetime.{{ area }}_alarm_time",
     "armed": "input_boolean.{{ area }}_alarm",
     "ringing": "input_select.{{ area }}_ringing",
-    "length": "input_number.{{ area }}_timer_length"
+    "length": "input_number.{{ area }}_timer_length",
+    "ks": "{{ {'kitchen': 'ks_kitchen_display'}.get(area, '') }}"
    }
   },
   {
@@ -127,6 +127,188 @@
   },
   {
    "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "template",
+       "value_template": "{{ ks != '' }}"
+      },
+      {
+       "condition": "trigger",
+       "id": [
+        "timer_set",
+        "timer_cancel",
+        "timer_pause",
+        "timer_resume",
+        "timer_left"
+       ]
+      }
+     ],
+     "sequence": [
+      {
+       "choose": [
+        {
+         "conditions": [
+          {
+           "condition": "trigger",
+           "id": "timer_set"
+          }
+         ],
+         "sequence": [
+          {
+           "variables": {
+            "secs": "{%- set W = {'a':1,'an':1,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,'sixty':60,'ninety':90} -%}\n{%- set t = ((trigger.slots.duration | default('')) | lower | replace('-', ' ') | regex_replace('[^a-z0-9.: ]', ' ')) -%}\n{%- set ns = namespace(out=[], prev=none) -%}\n{%- for w in t.split() -%}\n  {%- if w in W -%}\n    {%- set v = W[w] -%}\n    {%- if ns.prev is not none and ns.prev >= 20 and ns.prev % 10 == 0 and v < 10 -%}\n      {%- set ns.out = ns.out[:-1] + [(ns.prev + v) | string] -%}{%- set ns.prev = none -%}\n    {%- else -%}{%- set ns.out = ns.out + [v | string] -%}{%- set ns.prev = v -%}{%- endif -%}\n  {%- else -%}{%- set ns.out = ns.out + [w] -%}{%- set ns.prev = none -%}{%- endif -%}\n{%- endfor -%}\n{%- set s = ns.out | join(' ') -%}\n{%- set s = s | regex_replace('\\\\b(1 )?quarter (of )?(an |1 )?hour', '15 minutes') | regex_replace('\\\\b1 half (an|1) hour', '30 minutes') | regex_replace('\\\\bhalf (an|1) hour', '30 minutes') | regex_replace('\\\\bhalf (a|1) minute', '30 seconds') -%}\n{%- set s = s | regex_replace('(\\\\d+(?:\\\\.\\\\d+)?) and (1|a) half (hours?|hrs?|minutes?|mins?)', '\\\\1.5 \\\\3') | regex_replace('(\\\\d+) (hours?|hrs?|minutes?|mins?) and (1|a) half', '\\\\1.5 \\\\2') -%}\n{%- set ns2 = namespace(sec=0) -%}\n{%- for m in s | regex_findall('(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*(hours?|hrs?|h\\\\b|minutes?|mins?|m\\\\b|seconds?|secs?|s\\\\b)') -%}\n  {%- set n = m[0] | float -%}\n  {%- set u = m[1][0] -%}\n  {%- set ns2.sec = ns2.sec + n * (3600 if u == 'h' else 60 if u == 'm' else 1) -%}\n{%- endfor -%}\n{{ ns2.sec | int }}"
+           }
+          },
+          {
+           "if": [
+            {
+             "condition": "template",
+             "value_template": "{{ secs | int(0) < 1 }}"
+            }
+           ],
+           "then": [
+            {
+             "set_conversation_response": "Sorry, I didn't catch how long."
+            },
+            {
+             "stop": "no duration"
+            }
+           ]
+          },
+          {
+           "action": "esphome.{{ ks }}_vs_start_timer",
+           "data": {
+            "name": "",
+            "hours": "{{ (secs | int) // 3600 }}",
+            "minutes": "{{ ((secs | int) % 3600) // 60 }}",
+            "seconds": "{{ (secs | int) % 60 }}"
+           }
+          },
+          {
+           "set_conversation_response": "{% macro say(s) %}{% set h = s // 3600 %}{% set m = (s % 3600) // 60 %}{% set x = s % 60 %}{% set p = [] %}{% if h %}{% set p = p + [h ~ ' hour' ~ ('s' if h != 1 else '')] %}{% endif %}{% if m %}{% set p = p + [m ~ ' minute' ~ ('s' if m != 1 else '')] %}{% endif %}{% if x %}{% set p = p + [x ~ ' second' ~ ('s' if x != 1 else '')] %}{% endif %}{{ p | join(' and ') if p | count < 3 else p[:2] | join(', ') ~ ' and ' ~ p[2] }}{% endmacro %}Timer set for {{ say(secs | int) | trim }}."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "trigger",
+           "id": "timer_cancel"
+          }
+         ],
+         "sequence": [
+          {
+           "if": [
+            {
+             "condition": "template",
+             "value_template": "{{ states('sensor.kitchen_display_vs_timers') | int(0) > 0 }}"
+            }
+           ],
+           "then": [
+            {
+             "action": "esphome.{{ ks }}_vs_cancel_timer",
+             "data": {
+              "timer_id": ""
+             }
+            },
+            {
+             "set_conversation_response": "Timer cancelled."
+            }
+           ],
+           "else": [
+            {
+             "set_conversation_response": "There's no timer running."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "trigger",
+           "id": "timer_pause"
+          }
+         ],
+         "sequence": [
+          {
+           "if": [
+            {
+             "condition": "template",
+             "value_template": "{{ states('sensor.kitchen_display_vs_timers') | int(0) > 0 }}"
+            }
+           ],
+           "then": [
+            {
+             "action": "esphome.{{ ks }}_vs_pause_timer",
+             "data": {
+              "timer_id": ""
+             }
+            },
+            {
+             "set_conversation_response": "Timer paused."
+            }
+           ],
+           "else": [
+            {
+             "set_conversation_response": "There's no timer running."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "trigger",
+           "id": "timer_resume"
+          }
+         ],
+         "sequence": [
+          {
+           "if": [
+            {
+             "condition": "template",
+             "value_template": "{{ states('sensor.kitchen_display_vs_timers') | int(0) > 0 }}"
+            }
+           ],
+           "then": [
+            {
+             "action": "esphome.{{ ks }}_vs_resume_timer",
+             "data": {
+              "timer_id": ""
+             }
+            },
+            {
+             "set_conversation_response": "Timer resumed."
+            }
+           ],
+           "else": [
+            {
+             "set_conversation_response": "There's no paused timer."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "trigger",
+           "id": "timer_left"
+          }
+         ],
+         "sequence": [
+          {
+           "set_conversation_response": "{% macro say(s) %}{% set h = s // 3600 %}{% set m = (s % 3600) // 60 %}{% set x = s % 60 %}{% set p = [] %}{% if h %}{% set p = p + [h ~ ' hour' ~ ('s' if h != 1 else '')] %}{% endif %}{% if m %}{% set p = p + [m ~ ' minute' ~ ('s' if m != 1 else '')] %}{% endif %}{% if x %}{% set p = p + [x ~ ' second' ~ ('s' if x != 1 else '')] %}{% endif %}{{ p | join(' and ') if p | count < 3 else p[:2] | join(', ') ~ ' and ' ~ p[2] }}{% endmacro %}{% set f = states('sensor.kitchen_display_vs_next_timer') %}{% if f not in ['unknown','unavailable',''] %}{% set s = ((as_datetime(f) - now()).total_seconds()) | round(0) | int %}{{ say(s) | trim }} left.{% elif states('sensor.kitchen_display_vs_timers') | int(0) > 0 %}The timer is paused.{% else %}There's no timer running.{% endif %}"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
     {
      "conditions": [
       {
@@ -492,6 +674,25 @@
          "conditions": [
           {
            "condition": "template",
+           "value_template": "{{ ks != '' and states('sensor.kitchen_display_vs_timers') | int(0) > 0 and states('sensor.kitchen_display_vs_next_timer') not in ['unknown','unavailable'] }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "esphome.{{ ks }}_vs_cancel_timer",
+           "data": {
+            "timer_id": ""
+           }
+          },
+          {
+           "set_conversation_response": "Timer cancelled."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
            "value_template": "{{ states(ringing) == 'Timer' }}"
           }
          ],
@@ -605,6 +806,25 @@
          "conditions": [
           {
            "condition": "template",
+           "value_template": "{{ ks != '' and states('sensor.kitchen_display_vs_timers') | int(0) > 0 and states('sensor.kitchen_display_vs_next_timer') not in ['unknown','unavailable'] }}"
+          }
+         ],
+         "sequence": [
+          {
+           "action": "esphome.{{ ks }}_vs_pause_timer",
+           "data": {
+            "timer_id": ""
+           }
+          },
+          {
+           "set_conversation_response": "Timer paused."
+          }
+         ]
+        },
+        {
+         "conditions": [
+          {
+           "condition": "template",
            "value_template": "{{ states(ringing) == 'Timer' }}"
           }
          ],
@@ -701,5 +921,6 @@
     }
    ]
   }
- ]
+ ],
+ "mode": "parallel"
 }

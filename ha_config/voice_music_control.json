@@ -1,6 +1,6 @@
 {
+  "id": "voice_music_control",
   "alias": "Voice: Music Control",
-  "mode": "parallel",
   "description": "Music on the speaker in the room you spoke to (or the one playing): what's playing, turn it up/down (3% steps like the buttons), skip, pause. 'Play ...' is Voice Music. Added 2026-11-09.",
   "triggers": [
     {
@@ -62,7 +62,7 @@
         "here": "{% set a = area_id(trigger.device_id) if trigger.device_id else 'bedroom' %}{{ a if a in ['bedroom','kitchen','en_suite','living_room','guest_bedroom'] else 'bedroom' }}",
         "players": {
           "bedroom": "media_player.bedroom_echo",
-          "kitchen": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+          "kitchen": "media_player.kitchen_display_5",
           "en_suite": "media_player.homepod_mini_kitchen_2",
           "living_room": "media_player.living_room_amp_2",
           "guest_bedroom": "media_player.guest_bedroom_homepod_mini_2"
@@ -180,5 +180,5 @@
       ]
     }
   ],
-  "id": "voice_music_control"
+  "mode": "parallel"
 }

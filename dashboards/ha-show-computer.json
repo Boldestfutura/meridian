@@ -1528,7 +1528,7 @@
             },
             {
               "type": "custom:meridian-large-tile",
-              "entity": "media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player",
+              "entity": "media_player.kitchen_display_5",
               "kind": "media_small"
             },
             {

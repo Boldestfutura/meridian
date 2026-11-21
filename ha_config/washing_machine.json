@@ -187,7 +187,7 @@
                   "action": "assist_satellite.announce",
                   "continue_on_error": true,
                   "target": {
-                    "entity_id": "assist_satellite.kitchen_tablet_va"
+                    "entity_id": "assist_satellite.kitchen_display_assist_satellite"
                   },
                   "data": {
                     "message": "The washing's done.",

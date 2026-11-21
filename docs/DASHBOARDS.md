@@ -60,6 +60,7 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
 - Rooms with `swipe`: lights and scenes on the left; on the right, one now-playing tile (the
   room's playing speaker, else one with something queued; the Nest Hub showing this dashboard
   doesn't count), then Climate, then Plugs & plants as rows.
+- `ks_timers` (a Kiosk Satellite ESPHome node, e.g. `ks_kitchen_display`): Main's timer presets start the kiosk's own timers instead of `timer.<clock>_timer`. The kitchen uses it.
 - `photo_clock`: when idle, the slideshow at full brightness with the weather and clock in the top right corner, the day and date ("Friday 13") under them, then the next event
   (darkened). A new photo fades in over the last. A tap goes back to Home.
 - `night` (an input_boolean; the kitchen uses `input_boolean.bedroom_night_mode`, 9pm-7:30am
@@ -85,7 +86,7 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
    lives in the Python. Run `python3 tools/live_sync.py` first: if HA's ha-show has a change
    the Python lacks, deploy would undo it.
 4. **Reload the devices that keep the page open.** The Echo needs its View Assist Companion
-   app restarted (`docs/tasks/echo-show-bedroom.md`). The Kitchen Display reloads with `button.kitchen_tablet_va_refresh`.
+   app restarted (`docs/tasks/echo-show-bedroom.md`). The Kitchen Display (Kiosk Satellite) reloads with `button.kitchen_display_restart_app`.
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 and 1024x600 (the compact layout), every page
    - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every view (since 0.33.0 it swipes between views with page dots, no dock) (Meridian screen cards, edited in HA, not by deploy.py)
@@ -172,7 +173,7 @@ change in HA, pull and commit; after any change here, deploy, then check. Pull n
   bulbs that do colour), and for groups each bulb with its own on/off. ⋯ in the corner opens
   HA's standard dialog.
 - **Get back to normal HA (edit mode, sidebar):** hold the clock 1.5 s on the tablet.
-- **Idle:** the tablet and Hub go to photos after 90 seconds (`idle` in show.py; the Echo has its own). Not while a recipe is open: with swiping, idle brings the open recipe back instead, and swiping away keeps it open.
+- **Idle:** the Kitchen Display's idle is Kiosk Satellite's screensaver since 2026-11-21 (photos 6am-9pm, then the clock; set in KS, not show.py). `idle`/`photos` still drive the Echo-style photo page on screens that set them. Not while a recipe is open: with swiping, idle brings the open recipe back instead, and swiping away keeps it open.
   A tap on the photos goes back to Home.
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.
