@@ -127,36 +127,6 @@ function popPlayer(c) {
 
 // ---------------------------------------------------------------- Home
 
-function dinnerCard(c) {
-  c._loadLib();
-  const L = c._lib, now = new Date(), h = now.getHours(), key = ymd(now);
-  const greet = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  // one pick per day: the same date gives the same recipe, so it changes at midnight, not on every redraw
-  const seed = (salt) => { let x = 2166136261; for (const ch of key + salt) x = Math.imul(x ^ ch.charCodeAt(0), 16777619); return x >>> 0; };
-  const sug = [];
-  if (L && L.recipes) {
-    const planned = (c._tPlan || {})[key];
-    const others = Object.keys(L.recipes).filter((id) => !L.favorites.includes(id) && L.recipes[id].img).sort();
-    const favs = L.favorites.filter((id) => L.recipes[id]);
-    if (planned && L.recipes[planned]) sug.push([planned, "Tonight"]);
-    else if (others.length) sug.push([others[seed("try") % others.length], "Nothing planned · try"]);
-    if (favs.length) sug.push([favs[seed("fav") % favs.length], "Favourite"]);
-  }
-  const open = (id) => { c._go("recipes"); c._openRecipe(id); };
-  return html`
-    <div class="card dinner">
-      <div class="dn-hello">${greet},<br>what's for<br><b>dinner tonight?</b></div>
-      <div class="dn-rule"></div>
-      <div class="dn-stack">
-        ${sug.map(([id, label], i) => { const r = L.recipes[id];
-          return html`<button class="dn-card d${i}" @click=${() => open(id)}>
-            <span class="dn-t"><small>${label}</small><b>${r.n}</b>${r.t ? html`<small>${r.t} min</small>` : nothing}</span>
-            <span class="dn-img" style="background-image:url('${c._img(id)}')"></span></button>`; })}
-        <button class="dn-plan" @click=${() => c._go("recipes")}><ha-icon icon="mdi:calendar-plus"></ha-icon>Plan the week</button>
-      </div>
-    </div>`;
-}
-
 // A game being played, from `tablet_games`: [{name, entity, bg?, logo?}]. `entity` is a console's
 // media_player (PlayStation Network: playing, media_title, entity_picture = the game's art) or a
 // "Now playing" sensor whose state is the title (Steam, for the Bazzite PC). `bg` and `logo` are
@@ -173,58 +143,10 @@ function game(c) {
   }
   return null;
 }
-function gameTile(g) {
-  return html`
-    <div class="card nowtile game">
-      <span class="now-lbl">Gaming · ${g.name}</span>
-      <span class="now-art ${g.bg ? "" : "none"}" style=${g.bg ? `background-image:url('${g.bg}')` : ""}>
-        ${g.logo ? html`<img class="now-logo" src=${g.logo} alt=${g.title}>`
-          : html`<span class="now-cap">${g.bg ? nothing : html`<ha-icon icon="mdi:controller"></ha-icon>`}<b>${g.title}</b></span>`}
-      </span>
-    </div>`;
-}
-
-// what's on: the TV with Plex's art and logo, a game (unless a video is actually playing), or else
-// whatever music is playing
-function nowTile(c) {
-  const tvId = c._config.tablet_tv, tv = tvId && c._st(tvId);
-  const ta = tv ? tv.attributes : {};
-  const open = (id) => () => redraw(c, { _tPop: id });
-  const g = game(c);
-  if (g && !(tv && tv.state === "playing" && ta.media_title)) return gameTile(g);
-  if (tv && ta.media_title && !["off", "standby"].includes(tv.state)) {
-    const v = video(c, ta);
-    return html`
-      <button class="card nowtile" @click=${open(tvId)}>
-        <span class="now-lbl">TV &amp; Video${ta.app_name ? html` · ${ta.app_name}` : nothing}</span>
-        <span class="now-art" style="background-image:url('${(v && v.bg) || ta.entity_picture}')">
-          ${v && v.logo ? html`<img class="now-logo" src=${v.logo}>`
-            : html`<span class="now-cap"><b>${v ? v.name : ta.media_title}</b></span>`}
-        </span>
-      </button>`;
-  }
-  const m = players(c).find((p) => p.entity !== tvId && live(c, p.entity));
-  if (m) {
-    const a = c._st(m.entity).attributes;
-    return html`
-      <button class="card nowtile mus" @click=${open(m.entity)}>
-        <span class="now-lbl">Music · ${m.name}</span>
-        <span class="now-music">${a.entity_picture ? html`<span class="now-cover" style="background-image:url('${a.entity_picture}')"></span>`
-          : html`<span class="now-cover none"><ha-icon icon=${m.icon}></ha-icon></span>`}
-          <span class="now-text"><b>${a.media_title}</b><span>${a.media_artist || ""}</span></span></span>
-      </button>`;
-  }
-  return html`
-    <button class="card nowtile idle" @click=${() => c._go("media")}>
-      <span class="now-lbl">TV &amp; Video</span>
-      <span class="now-empty"><ha-icon icon="mdi:television-play"></ha-icon>Nothing playing</span>
-    </button>`;
-}
-
 function shoppingTile(c) {
   const items = c._todo || [];
   return html`
-    <div class="card shop2"><div class="card-title">Shopping list</div>
+    <div class="card rm-card shop2"><div class="card-title">Shopping list</div>
       ${items.length ? html`<div class="sh2-list">${items.map((i) => c._tEdit === i.uid ? editRow(c, i) : html`
           <div class="sh2-i">
             <button class="box" title="Tick off" @click=${() => c._call("todo", "update_item", { entity_id: c._config.todo, item: i.uid, status: "completed" })}></button>
@@ -265,48 +187,67 @@ function editRow(c, i) {
     </form>`;
 }
 
-function quickRow(c) {
-  const go = (id) => {
-    const d = id.split(".")[0];
-    c._call(d, ["script", "scene"].includes(d) ? "turn_on" : "toggle", { entity_id: id });
-  };
-  const timer = c._config.clock && c._st(`timer.${c._config.clock}_timer`);
-  return html`
-    <div class="h2-qa">
-      ${(c._config.tablet_quick || []).map((q) => { if (q.timer) return timer ? html`<button class="qa2 ${timer.state !== "idle" ? "on" : ""}" @click=${() => redraw(c, { _tTimer: true })}>
-          <span class="qa2-ico"><ha-icon icon="mdi:timer-outline"></ha-icon></span><span>Timer</span></button>` : nothing;
-        const e = c._st(q.entity), on = e && e.state === "on";
-        return e ? html`<button class="qa2 ${on ? "on" : ""}" @click=${() => go(q.entity)}>
-          <span class="qa2-ico"><ha-icon icon=${q.icon}></ha-icon></span><span>${q.name}</span></button>` : nothing; })}
-    </div>`;
+// the scenes and scripts from `tablet_quick`, as Rooms-style tiles
+function sceneTiles(c) {
+  return (c._config.tablet_quick || []).filter((q) => q.entity && /^(scene|script)\./.test(q.entity) && c._st(q.entity))
+    .map((q) => x2(c._sceneBtn(q, true)));
 }
 
-function timerSheet(c) {
-  if (!c._tTimer) return nothing;
-  const id = `timer.${c._config.clock}_timer`;
+// the kitchen timer's presets, beside the shopping list. Once one starts, the full-screen timer
+// (the clock layer in overlook-show.js) takes over until it is stopped, so this only ever shows idle.
+function timerCard(c) {
+  const id = c._config.clock && `timer.${c._config.clock}_timer`;
+  if (!id || !c._st(id)) return nothing;
   const start = (m) => {
-    // the length helper is what the timer screen's "of" and Reset use, as the voice timers set it
+    // the length helper is what the full-screen timer's "of" and Reset use, as the voice timers set it
     c._call("input_number", "set_value", { entity_id: `input_number.${c._config.clock}_timer_length`, value: m * 60 });
     c._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });
-    redraw(c, { _tTimer: false });
   };
   return html`
-    <div class="scrim" @click=${() => redraw(c, { _tTimer: false })}>
-      <div class="sheet card t-timer" @click=${(ev) => ev.stopPropagation()}>
-        <div class="card-title">Kitchen timer</div>
-        <div class="tm-grid">${TIMER_MINUTES.map((m) => html`
-          <button class="tm-btn" @click=${() => start(m)}><b>${m < 60 ? m : 1}</b><span>${m < 60 ? "min" : "hour"}</span></button>`)}</div>
-      </div>
+    <div class="card rm-card hm-timer"><div class="card-title">Timer</div>
+      <div class="tm-grid">${TIMER_MINUTES.map((m) => html`
+        <button class="tm-btn" @click=${() => start(m)}><b>${m < 60 ? m : 1}</b><span>${m < 60 ? "min" : "hour"}</span></button>`)}</div>
     </div>`;
 }
 
-// the next week, grouped by day, two columns
+// Main's header bubbles, in the room chips' shape: where each of us is, then only when needed the
+// washing machine, the lowest battery (while "Battery low" is on) and the other `status` alerts
+function homeBubbles(c) {
+  const st = c._config.status || [];
+  const people = st.filter((x) => x.person).map((x) => {
+    const e = c._st(x.entity);
+    if (!e) return nothing;
+    const home = e.state === "home", where = e.state === "not_home" ? "Away" : e.state;
+    return html`<button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => c._open(x.entity)}>
+      <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
+      <span>${x.name}</span><small>${home ? "Home" : where}</small></button>`;
+  });
+  // the washer only while it runs or is done, as everywhere else
+  const washer = c._washer();
+  // batteries only while "Battery low" is on, naming the lowest of the ones the Batteries pop-up lists
+  const low = st.find((x) => /battery/.test(x.entity));
+  const lowOn = low && (c._st(low.entity) || {}).state === (low.when || "on");
+  const bats = lowOn ? (((c._config.popups || {}).battery || {}).sections || []).flatMap((s) => s.items || [])
+    .map((t) => ({ name: t.name, v: num(c, t.entity) })).filter((t) => t.v != null).sort((a, b) => a.v - b.v) : [];
+  const battery = !lowOn ? nothing : html`<button class="tab st bad" @click=${() => c._open(low.entity)}>
+      <ha-icon icon=${low.icon}></ha-icon>${bats.length ? html`<span>${Math.round(bats[0].v)}%</span><small>${bats[0].name}</small>` : html`<span>${low.name}</span>`}</button>`;
+  const alerts = st.filter((x) => !x.person && !x.weather && x !== low).map((x) => {
+    const e = c._st(x.entity);
+    if (!e || e.state !== (x.when || "on")) return nothing;
+    const tap = x.toggle ? () => c._call("homeassistant", "toggle", { entity_id: x.entity }) : () => c._open(x.entity);
+    return html`<button class="tab st ${x.tone || "warn"}" @click=${tap}><ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`;
+  });
+  return html`<div class="status hm-bub">${people}${washer}${battery}${alerts}</div>`;
+}
+
+// the next week, grouped by day
 function calendar(c) {
   const n = new Date(), DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const tom = new Date(n); tom.setDate(n.getDate() + 1);
-  const dayName = (d) => d.toDateString() === n.toDateString() ? "Today" : d.toDateString() === tom.toDateString() ? "Tomorrow"
-    : d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" });
+  // every day gets its weekday and date; today and tomorrow say so first
+  const dayName = (d) => { const full = d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" });
+    return d.toDateString() === n.toDateString() ? `Today · ${full}` : d.toDateString() === tom.toDateString() ? `Tomorrow · ${full}` : full; };
   const out = [];
   let last = null, k = 0;
   for (const e of (c._events || []).filter((x) => c._d(x.end) > n).slice(0, 9)) {
@@ -316,28 +257,45 @@ function calendar(c) {
     out.push(html`<div class="td-ev" style="--c:${e.colour || EV_COLOURS[k++ % EV_COLOURS.length]}"><small>${time}</small><b>${e.summary}</b></div>`);
   }
   return html`
-    <div class="card today2">
+    <div class="card rm-card hm-cal">
       <div class="td-date"><div class="td-dm">${DAYS[n.getDay()]} <span>${MON[n.getMonth()]}</span></div><div class="td-n">${n.getDate()}</div></div>
       <div class="cl-list">${out.length ? out : html`<div class="muted">Nothing in the next week.</div>`}</div>
     </div>`;
 }
 
+// Main: the Rooms pieces split down the middle. Calendar and shopping list on the left; the heat
+// pump (the phone's tile), scenes and each room's light group on the right.
 function homePage(c) {
+  const n = new Date(), h = n.getHours();
+  const greet = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  // one tile per room: its light group, or its only light when it has no group (the guest room)
+  const groups = realRooms(c).map((r) => { const one = (r.lights || []).length === 1 ? r.lights[0].entity : null;
+    return r.group || one ? { entity: r.group || one, name: r.name, icon: r.icon } : null; }).filter(Boolean);
+  const on = groups.filter((l) => (c._st(l.entity) || {}).state === "on").length;
+  const hp = c._config.climate;
   return html`
-    <div class="m-home2">
-      ${dinnerCard(c)}
-      <div class="h2-right">
-        <div class="h2-top">${nowTile(c)}${shoppingTile(c)}</div>
-        ${quickRow(c)}
-        ${calendar(c)}
+    <div class="m-rooms m-home">
+      <div class="rm-chips hm-top"><div class="pg-hi">${greet}</div>${homeBubbles(c)}</div>
+      <div class="rm-body">
+        <div class="rm-side">${calendar(c)}<div class="hm-pair">${shoppingTile(c)}${timerCard(c)}</div></div>
+        <div class="rm-main">
+          ${hp && c._st(hp) ? html`<div class="card ph-hp hm-hp">${c._thermostat(hp)}</div>` : nothing}
+          ${sec("Scenes", nothing, sceneTiles(c), "sm")}
+          ${sec("Lights", html`<span class="rm-count">${on} on</span>
+              <button class="rm-off" @click=${() => c._call("light", "turn_off", { entity_id: groups.map((l) => l.entity) })}>All off</button>`,
+            groups.map((l) => x2(c._lightTile(l))))}
+        </div>
       </div>
     </div>
-    ${c._config.swipe ? nothing : html`${popPlayer(c)}${timerSheet(c)}`}`;
+    ${c._config.swipe ? nothing : popPlayer(c)}`;
 }
 
 // ---------------------------------------------------------------- Rooms
 
 const x2 = (t) => html`<div class="piece rt"><div class="ph-grid one x2">${t}</div></div>`;
+// a titled block of square tiles; "row" keeps them on one line that scrolls sideways
+const sec = (title, extra, tiles, kind = "") => tiles.length ? html`
+  <div class="rm-sec"><div class="rm-h">${title}${extra}</div><div class="rm-grid ${kind}">${tiles}</div></div>` : nothing;
 
 function roomHeatPump(c, id) {
   const e = c._st(id);
@@ -354,25 +312,34 @@ function roomHeatPump(c, id) {
 
 // one squircle "now playing" tile for the room: whichever of its speakers is playing, else the
 // first with something queued, else the first
-function roomNow(c, media) {
-  // the Nest Hub "plays" this dashboard while it shows it; that isn't music
-  const cast = (e) => e.attributes.app_name === "Home Assistant Lovelace" || /^Kitchen Show/.test(e.attributes.media_title || "");
-  const ps = media.map((m) => ({ m, e: c._st(m.entity) })).filter((x) => x.e)
-    .map((x) => cast(x.e) ? { m: x.m, e: { ...x.e, state: "idle", attributes: { ...x.e.attributes, media_title: null, entity_picture: null } } } : x);
-  const p = ps.find((x) => x.e.state === "playing") || ps.find((x) => c._title(x.e.attributes)) || ps[0];
-  if (!p) return nothing;
-  const { m, e } = p, a = e.attributes, pic = a.entity_picture, playing = e.state === "playing";
+// the Nest Hub "plays" this dashboard while it shows it; that isn't music
+const castSelf = (e) => e.attributes.app_name === "Home Assistant Lovelace" || /^Kitchen Show/.test(e.attributes.media_title || "");
+const quiet = (e) => castSelf(e) ? { ...e, state: "idle", attributes: { ...e.attributes, media_title: null, entity_picture: null } } : e;
+
+// one squircle "now playing" row: art, title, where it's playing, play/pause
+function npRow(c, m, e, opts = {}) {
+  const a = e.attributes, pic = a.entity_picture, playing = e.state === "playing";
   // Infuse sends "Show - S5 - E3 - Episode": show the show, with the episode underneath
   const ep = (a.media_title || "").match(/^(.+?)\s+-\s+(?:S\d+\s*\W\s*)?E\d+\s+-\s+(.+)$/);
   const title = ep ? ep[1] : c._title(a), sub = ep ? ep[2] : "";
+  const off = ["off", "standby", "unavailable"].includes(e.state);
   return html`
-    <div class="rm-np ${playing ? "on" : ""}">
+    <div class="rm-np ${playing ? "on" : ""} ${opts.sel ? "sel" : ""}" @click=${opts.pick || null}>
       ${pic ? html`<span class="rm-np-art" style="background-image:url('${pic}')"></span>`
         : html`<span class="rm-np-art ico"><ha-icon icon=${m.icon || "mdi:speaker"}></ha-icon></span>`}
-      <span class="rm-np-t"><b>${title || "Nothing playing"}</b><span>${[m.name, sub, title && !playing ? "Paused" : ""].filter(Boolean).join(" · ")}</span></span>
-      <button class="round small" @click=${() => c._call("media_player", "media_play_pause", { entity_id: m.entity })}>
+      <span class="rm-np-t"><b>${opts.name ? m.name : title || "Nothing playing"}</b>
+        <span>${(opts.name ? [title || (off ? "Off" : "Nothing playing"), sub] : [m.name, sub]).concat(title && !playing ? ["Paused"] : []).filter(Boolean).join(" · ")}</span></span>
+      ${opts.name && playing ? bars() : nothing}
+      <button class="round small" @click=${(ev) => { ev.stopPropagation(); c._call("media_player", "media_play_pause", { entity_id: m.entity }); }}>
         <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
     </div>`;
+}
+
+// the room's tile: whichever of its speakers is playing, else the first with something queued, else the first
+function roomNow(c, media) {
+  const ps = media.map((m) => ({ m, e: c._st(m.entity) })).filter((x) => x.e).map((x) => ({ m: x.m, e: quiet(x.e) }));
+  const p = ps.find((x) => x.e.state === "playing") || ps.find((x) => c._title(x.e.attributes)) || ps[0];
+  return p ? npRow(c, p.m, p.e) : nothing;
 }
 
 function roomsPage(c) {
@@ -381,8 +348,6 @@ function roomsPage(c) {
   if (!r) return nothing;
   const lights = (r.group ? [{ entity: r.group, name: `All ${r.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r.lights || []);
   const on = (r.lights || []).filter((l) => (c._st(l.entity) || {}).state === "on").length;
-  const sec = (title, extra, tiles) => tiles.length ? html`
-    <div class="rm-sec"><div class="rm-h">${title}${extra}</div><div class="rm-grid">${tiles}</div></div>` : nothing;
   const air = roomAir(r);
   const row = (t) => html`<div class="piece rw"><div class="ph-grid one">${t}</div></div>`;
   const plugs = [...(r.switches || []).map((s) => row(c._switchTile(s))), ...(r.plants || []).map((p) => row(c._plantTile(p)))];
@@ -393,10 +358,10 @@ function roomsPage(c) {
           <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}</div>
       <div class="rm-body">
         <div class="rm-main">
+          ${sec("Scenes", nothing, (r.scenes || []).map((s) => x2(c._sceneBtn(s, true))), "sm")}
           ${sec("Lights", html`<span class="rm-count">${on} on</span>
               <button class="rm-off" @click=${() => c._call("light", "turn_off", { entity_id: lights.map((l) => l.entity) })}>All off</button>`,
             lights.map((l) => x2(c._lightTile(l))))}
-          ${sec("Scenes", nothing, (r.scenes || []).map((s) => x2(c._sceneBtn(s, true))))}
         </div>
         <div class="rm-side">
           ${(r.media || []).length ? roomNow(c, r.media) : nothing}
@@ -472,38 +437,11 @@ function climatePage(c) {
 
 // ---------------------------------------------------------------- Media
 
-function hero(c, p) {
-  const e = c._st(p.entity), a = e.attributes, pic = a.entity_picture;
-  const v = p.entity === c._config.tablet_tv ? video(c, a) : null;
-  const app = a.app_name || a.source || "";
-  const top = html`
-    <div class="hero-top"><span class="hero-tag"><ha-icon icon=${p.icon}></ha-icon>${p.name}${app ? ` · ${app}` : ""}</span>
-      <span class="hero-state">${e.state === "playing" ? html`<ha-icon icon="mdi:equalizer"></ha-icon>Playing` : cap(e.state)}</span></div>`;
-  // TV and films: Plex's background with its logo bottom left, as on the Echo Hub
-  if (v) {
-    return html`
-      <div class="card hero vid"><div class="hero-bg" style="background-image:url('${v.bg || pic}')"></div>${top}
-        <div class="hero-text">
-          ${v.logo ? html`<img class="hero-logo" src=${v.logo}>` : nothing}
-          ${v.ep || !v.logo ? html`<div class="hero-title">${v.ep ? v.ep.t : v.name}</div>` : nothing}
-          ${v.ep ? html`<div class="hero-sub">${v.name} · ${v.ep.s ? `Season ${v.ep.s}, ` : ""}Episode ${v.ep.e}</div>` : nothing}
-        </div></div>`;
-  }
-  // music: the album cover beside the song and artist, over a blur of the cover
-  if (pic && (a.media_artist || a.media_album_name)) {
-    return html`
-      <div class="card hero mus"><div class="hero-bg" style="background-image:url('${pic}')"></div>${top}
-        <div class="mus-row"><span class="mus-cover" style="background-image:url('${pic}')"></span>
-          <div class="hero-text"><div class="hero-title">${a.media_title}</div><div class="hero-sub">${a.media_artist || ""}</div></div></div></div>`;
-  }
-  return html`
-    <div class="card hero ${pic ? "" : "noart"}"><div class="hero-bg" style=${pic ? `background-image:url('${pic}')` : ""}></div>${top}
-      <div class="hero-text"><div class="hero-title">${c._title(a) || (["off", "standby"].includes(e.state) ? "Off" : "Nothing playing")}</div>
-        ${c._artist(a) ? html`<div class="hero-sub">${c._artist(a)}</div>` : nothing}</div></div>`;
-}
-
-function controls(c, p) {
+// what the chosen player is doing: art, title, progress, transport and volume in one card
+function nowCard(c, p) {
   const e = c._st(p.entity), a = e.attributes, vid = volEntity(c, p.entity), va = (c._st(vid) || e).attributes;
+  const v = p.entity === c._config.tablet_tv ? video(c, a) : null;
+  const pic = (v && v.bg) || a.entity_picture, app = a.app_name || a.source || "";
   const mp = (svc) => c._call("media_player", svc, { entity_id: p.entity });
   const step = (d) => c._call("media_player", "volume_set", { entity_id: vid,
     volume_level: Math.min(1, Math.max(0, Math.round(((va.volume_level || 0) + d) * 100) / 100)) });
@@ -512,58 +450,55 @@ function controls(c, p) {
   if (e.state === "playing" && a.media_position_updated_at) pos += (Date.now() - new Date(a.media_position_updated_at).getTime()) / 1000;
   pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
   const t = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const title = v ? (v.ep ? v.ep.t : v.name) : c._title(a) || (["off", "standby"].includes(e.state) ? "Off" : "Nothing playing");
+  const sub = v ? (v.ep ? `${v.name} · ${v.ep.s ? `Season ${v.ep.s}, ` : ""}Episode ${v.ep.e}` : "") : c._artist(a) || "";
   return html`
-    <div class="card ctl2">
-      ${dur ? html`<div class="ctl2-prog"><span>${t(pos)}</span>${wave(pos / dur, e.state === "playing", "ctl2-track")}<span>${t(dur)}</span></div>` : nothing}
-      <div class="ctl2-row">
-        <button class="sp-pill" @click=${() => redraw(c, { _tPick: true })}><ha-icon icon=${p.icon}></ha-icon><span>${p.name}</span><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-        <div class="pp-ctrl ctl2-mid">
-          <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-          <button class="round play" @click=${() => mp("media_play_pause")}><ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
-          <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
-        ${va.volume_level != null ? html`<div class="ctl2-vol">
-          <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
-          <b>${Math.round(va.volume_level * 100)}%</b>
-          <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : html`<span></span>`}
+    <div class="card md-now ${v ? "vid" : ""}">
+      <span class="md-art ${pic ? "" : "none"}" style=${pic ? `background-image:url('${pic}')` : ""}>
+        ${v && v.logo ? html`<img class="md-logo" src=${v.logo} alt="">` : pic ? nothing : html`<ha-icon icon=${p.icon}></ha-icon>`}</span>
+      <div class="md-info">
+        <div class="md-tag"><ha-icon icon=${p.icon}></ha-icon>${p.name}${app ? ` · ${app}` : ""}${e.state === "playing" ? html`<span class="md-on">${bars()}Playing</span>` : nothing}</div>
+        <div class="md-title">${title}</div>
+        ${sub ? html`<div class="md-sub">${sub}</div>` : nothing}
+        ${dur ? html`<div class="ctl2-prog"><span>${t(pos)}</span>${wave(pos / dur, e.state === "playing", "ctl2-track")}<span>${t(dur)}</span></div>` : nothing}
+        <div class="md-row">
+          <div class="pp-ctrl ctl2-mid">
+            <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+            <button class="round play" @click=${() => mp("media_play_pause")}><ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
+            <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
+          ${va.volume_level != null ? html`<div class="ctl2-vol">
+            <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <b>${Math.round(va.volume_level * 100)}%</b>
+            <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : nothing}
+        </div>
       </div>
     </div>`;
 }
 
+// Media: laid out like a Rooms tab. The chosen player and the playlists on the left; every
+// speaker in the house down the right, tap one to control it.
 function mediaPage(c) {
   const ps = players(c);
   if (!ps.length) return nothing;
   const act = ps.find((p) => p.entity === c._tAct) || ps.find((p) => live(c, p.entity)) || ps[0];
-  const pick = (id) => redraw(c, { _tAct: id, _tPick: false });
-  const what = (e) => { const v = e.entity_id === c._config.tablet_tv && video(c, e.attributes);
-    return v && v.ep ? `${v.ep.t} · ${v.name}` : v ? v.name : what0(e); };
-  const what0 = (e) => c._title(e.attributes) ? c._title(e.attributes) + (c._artist(e.attributes) ? ` · ${c._artist(e.attributes)}` : "") : cap(e.state);
-  const pl = c._playlists();
+  const n = ps.filter((p) => live(c, p.entity)).length;
+  const pl = c._playlists(), g = game(c);
   return html`
-    <div class="m-media2">
-      <div class="m-col">${hero(c, act)}${controls(c, act)}</div>
-      <div class="m-col">
-        <div class="card spk-card"><div class="card-title">Playing around the house</div>
-          ${ps.map((p) => { const e = c._st(p.entity), a = e.attributes, vol = (c._st(volEntity(c, p.entity)) || e).attributes.volume_level;
-            return html`<button class="spk ${p === act ? "on" : ""}" @click=${() => pick(p.entity)}>
-              ${a.entity_picture ? html`<span class="spk-art" style="background-image:url('${a.entity_picture}')"></span>`
-                : html`<span class="spk-ico"><ha-icon icon=${p.icon}></ha-icon></span>`}
-              <span class="spk-t"><b>${p.name}</b><span>${what(e)}</span></span>
-              <span class="spk-v">${vol != null ? `${Math.round(vol * 100)}%` : ""}</span>
-              <span class="spk-eqc">${live(c, p.entity) ? bars() : nothing}</span></button>`; })}
+    <div class="m-rooms m-media">
+      <div class="rm-chips"><div class="pg-hi">Media${n ? html`<span class="rm-count">${n} playing</span>` : nothing}</div></div>
+      <div class="rm-body">
+        <div class="rm-main">
+          ${nowCard(c, act)}
+          ${pl === nothing ? nothing : html`<div class="rm-sec md-pl">${pl}</div>`}
         </div>
-        ${pl === nothing ? nothing : html`<div class="card bed-card bed-pl m-pl">${pl}</div>`}
+        <div class="rm-side">
+          <div class="rm-h">Around the house</div>
+          ${g ? html`<div class="rm-np on"><span class="rm-np-art" style=${g.bg ? `background-image:url('${g.bg}')` : ""}>${g.bg ? nothing : html`<ha-icon icon="mdi:controller"></ha-icon>`}</span>
+            <span class="rm-np-t"><b>${g.title}</b><span>Gaming · ${g.name}</span></span></div>` : nothing}
+          ${ps.map((p) => npRow(c, p, quiet(c._st(p.entity)), { name: true, sel: p === act, pick: () => redraw(c, { _tAct: p.entity }) }))}
+        </div>
       </div>
-    </div>
-    ${c._tPick ? html`
-      <div class="scrim" @click=${() => redraw(c, { _tPick: false })}>
-        <div class="sheet card" @click=${(ev) => ev.stopPropagation()}>
-          <div class="card-title">Control</div>
-          ${ps.map((p) => { const e = c._st(p.entity);
-            return html`<button class="sheet-row ${p === act ? "on" : ""}" @click=${() => pick(p.entity)}><ha-icon icon=${p.icon}></ha-icon>
-              <div class="sheet-text"><div class="sheet-name">${p.name}</div><div class="muted">${what(e)}</div></div>
-              ${p === act ? html`<ha-icon class="tick" icon="mdi:check"></ha-icon>` : nothing}</button>`; })}
-        </div>
-      </div>` : nothing}`;
+    </div>`;
 }
 
 // ---------------------------------------------------------------- Recipes
@@ -700,49 +635,20 @@ export function tabletPage(c, page = c._page) {
 // would slide with it and cover the whole strip. So the pages leave their sheets out and the card
 // draws them here, once, over the screen.
 export function tabletSheets(c) {
-  return html`${popPlayer(c)}${timerSheet(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
+  return html`${popPlayer(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
 }
 
 // everything under .tablet, so the other screens built from this card are untouched
 export const TABLET_CSS = css`
-  /* home */
-  .tablet .m-home2 { display:grid; grid-template-columns:360px minmax(0,1fr); gap:18px; height:100%; min-height:0; }
+  /* main: built from the rooms pieces below */
   .tablet .m-col { display:flex; flex-direction:column; gap:18px; min-height:0; min-width:0; }
-  .tablet .dinner { padding:30px 26px 22px; display:flex; flex-direction:column; min-height:0; }
-  .tablet .dn-hello { font-size:30px; line-height:1.2; letter-spacing:-0.01em; } .tablet .dn-hello b { color:var(--accent); font-weight:700; }
-  .tablet .dn-rule { height:1px; background:var(--track); margin:22px 10px; }
-  .tablet .dn-stack { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; }
-  .tablet .dn-card { border:0; font:inherit; text-align:left; color:#fff; border-radius:24px; padding:16px; display:grid; grid-template-columns:1fr 120px;
-    gap:12px; align-items:center; overflow:hidden; min-height:0; }
-  .tablet .dn-card.d0 { background:#1f6b5c; flex:1.3; } .tablet .dn-card.d1 { background:#284a7a; flex:1; }
-  .tablet .dn-img { align-self:stretch; border-radius:18px; background-size:cover; background-position:center; min-height:90px; }
-  .tablet .dn-t small { display:block; font-size:12px; opacity:0.8; }
-  .tablet .dn-t b { font-size:19px; line-height:1.15; margin:4px 0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-  .tablet .dn-plan { border:0; font:inherit; font-weight:700; color:var(--accent); background:var(--inset); border-radius:16px; height:48px;
-    display:flex; align-items:center; justify-content:center; gap:8px; flex:none; }
-  .tablet .h2-right { display:grid; grid-template-rows:1fr auto 1fr; gap:18px; min-height:0; min-width:0; }
-  .tablet .h2-top { display:grid; grid-template-columns:1.7fr 1fr; gap:18px; min-height:0; }
-  /* what's on: label over the art, the logo sitting bottom left on it (as the Echo Hub's TV & Video) */
-  .tablet .nowtile { border:0; font:inherit; color:var(--ink); text-align:left; padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; min-height:0; overflow:hidden; }
-  .tablet .now-lbl { font-size:13px; color:var(--muted); font-weight:700; }
-  .tablet .now-art { position:relative; flex:1; min-height:0; border-radius:18px; overflow:hidden; background-size:cover; background-position:center top; display:flex; align-items:flex-end; }
-  .tablet .now-art::after { content:""; position:absolute; inset:0; background:linear-gradient(200deg, transparent 45%, rgba(0,0,0,0.55)); }
-  .tablet .now-logo { position:relative; z-index:1; max-width:52%; max-height:46%; object-fit:contain; object-position:left bottom; margin:0 0 16px 18px;
-    filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
-  .tablet .now-cap { position:relative; z-index:1; margin:0 0 16px 18px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.6); }
-  .tablet .now-cap b { font-family:var(--display); font-size:30px; letter-spacing:-0.02em; line-height:1.1; }
-  .tablet .now-art.none { background:linear-gradient(135deg, #1d2a4a, #3a1f4f); }
-  .tablet .now-art.none::after { display:none; }
-  .tablet .game .now-cap { display:flex; flex-direction:column; gap:6px; }
-  .tablet .game .now-cap ha-icon { --mdc-icon-size:34px; opacity:0.8; }
-  .tablet .now-music { flex:1; min-height:0; display:flex; align-items:center; gap:18px; }
-  .tablet .now-cover { height:100%; max-height:200px; aspect-ratio:1; border-radius:16px; background-size:cover; background-position:center; flex:none; box-shadow:var(--shadow); }
-  .tablet .now-cover.none { display:grid; place-items:center; background:var(--inset); color:var(--muted); box-shadow:none; } .tablet .now-cover.none ha-icon { --mdc-icon-size:64px; }
-  .tablet .now-text { min-width:0; } .tablet .now-text b { display:block; font-family:var(--display); font-size:28px; line-height:1.1; letter-spacing:-0.02em; }
-  .tablet .now-text span { display:block; color:var(--muted); font-size:17px; margin-top:6px; }
-  .tablet .now-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--muted); font-weight:700; }
-  .tablet .now-empty ha-icon { --mdc-icon-size:40px; }
-  .tablet .shop2 { padding:16px 18px; display:flex; flex-direction:column; gap:6px; min-height:0; overflow:hidden; }
+  .tablet .pg-hi { display:flex; align-items:baseline; gap:12px; font-family:var(--display); font-weight:700; font-size:30px; letter-spacing:-0.02em; height:46px; }
+  .tablet .pg-hi > span:not(.rm-count) { font-family:inherit; font-size:17px; font-weight:600; color:var(--muted); letter-spacing:0; }
+  .tablet .pg-hi .rm-count { font-family:var(--font, inherit); align-self:center; letter-spacing:0; }
+  .tablet .rm-grid.row { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:calc((100% - 48px) / 5); overflow-x:auto; scrollbar-width:none;
+    overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scroll-padding:0 8px; padding:12px 8px; margin:-12px -8px; }
+  .tablet .rm-grid.row::-webkit-scrollbar { display:none; } .tablet .rm-grid.row > .rt { scroll-snap-align:start; }
+  .tablet .rm-card.shop2 { flex:0 1 auto; min-height:150px; max-height:300px; overflow:hidden; gap:6px; }
   .tablet .sh2-list { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; }
   .tablet .sh2-i { display:flex; align-items:center; gap:4px; font-size:18px; }
   .tablet .sh2-i .box { width:22px; height:22px; border-radius:7px; border:2px solid var(--muted); background:none; flex:none; padding:0; margin:5px 8px 5px 0; }
@@ -760,24 +666,42 @@ export const TABLET_CSS = css`
   .tablet .sh2-form { display:flex; gap:8px; flex:none; }
   .tablet .sh2-form input { flex:1; min-width:0; height:40px; border-radius:12px; border:0; background:var(--inset); color:var(--ink); font:inherit; padding:0 12px; }
   .tablet .sh2-form .add-go { border:0; border-radius:12px; padding:0 14px; font:inherit; font-weight:700; color:#fff; background:var(--accent); }
-  .tablet .h2-qa { display:grid; grid-auto-flow:column; grid-auto-columns:calc((100% - 72px) / 7); gap:12px; overflow-x:auto; scrollbar-width:none;
-    overscroll-behavior-x:contain; scroll-snap-type:x mandatory; padding:14px 6px; margin:-14px -6px; }
-  .tablet .h2-qa::-webkit-scrollbar { display:none; } .tablet .qa2 { scroll-snap-align:start; }
-  .tablet .qa2 { border:0; font:inherit; font-weight:700; font-size:13px; color:var(--ink); background:var(--card); box-shadow:var(--shadow); border-radius:20px;
-    height:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
-  .tablet .qa2-ico { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--inset); color:var(--muted); }
-  .tablet .qa2.on .qa2-ico { background:#f39a43; color:#fff; } .tablet .qa2.on { color:#f39a43; }
-  .tablet .today2 { display:grid; grid-template-columns:180px minmax(0,1fr); gap:10px; padding:18px 24px; min-height:0; overflow:hidden; align-items:center; }
-  .tablet .td-date { text-align:center; } .tablet .td-dm { font-weight:800; font-size:20px; letter-spacing:0.04em; } .tablet .td-dm span { color:var(--accent); }
-  .tablet .td-n { font-family:var(--display); font-weight:800; font-size:96px; line-height:0.95; letter-spacing:-0.04em; }
-  .tablet .cl-list { display:grid; grid-template-columns:1fr 1fr; column-gap:28px; row-gap:8px; align-content:center; min-width:0; }
-  .tablet .cl-day { grid-column:1 / -1; font-size:13px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
+  .tablet .hm-top { align-items:center; gap:18px; margin-right:250px; min-width:0; }
+  .tablet .hm-top .pg-hi { flex:none; }
+  .tablet .hm-bub { flex:1; min-width:0; padding:8px 8px 14px; margin:-8px -8px -14px; }
+  .tablet .hm-bub .tab small { font-weight:600; font-size:13px; color:var(--muted); }
+  .tablet .hm-bub .wm { margin:0; height:46px; box-sizing:border-box; flex:none; }
+  .tablet .rm-card.hm-cal { flex:1 1 0; min-height:150px; overflow:hidden; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:stretch; }
+  .tablet .td-date { align-self:center; text-align:center; }
+  .tablet .td-dm { font-weight:800; font-size:32px; letter-spacing:0.04em; }
+  .tablet .td-n { font-family:var(--display); font-weight:800; font-size:150px; line-height:0.95; letter-spacing:-0.04em; color:var(--accent); }
+  .tablet .hm-cal .cl-list { padding:4px 0 24px; -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 40px), transparent); mask-image:linear-gradient(to bottom, #000 calc(100% - 40px), transparent); }
+  .tablet .m-home .rm-body { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .tablet .m-home .rm-grid { grid-template-columns:repeat(4, minmax(0,1fr)); }
+  /* scene tiles, a size down from the lights: the same ~113px squares on Main and Rooms */
+  .tablet .rm-grid.sm { grid-template-columns:repeat(7, minmax(0,1fr)); gap:10px; }
+  .tablet .m-home .rm-grid.sm { grid-template-columns:repeat(5, minmax(0,1fr)); }
+  .tablet .rm-grid.sm .tile .tile-name { font-size:14px; line-height:1.2; white-space:normal; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .tablet .rm-grid.sm .tile .muted { display:none; }
+  .tablet .hm-hp { flex:none; padding:18px 20px; }
+  .tablet .hm-hp .thermo { gap:14px 12px; }
+  .tablet .hm-hp .pill-head { display:block; grid-area:head; } .tablet .hm-hp .thermo { grid-template-areas:"head head" "now target" "modes modes"; }
+  .tablet .hm-hp .pill-name { font-weight:700; font-size:17px; }
+  .tablet .hm-hp .hp-temp { font-size:52px; } .tablet .hm-hp .hp-mode { font-size:17px; }
+  .tablet .hm-hp .hp-step { width:56px; height:56px; border-radius:18px; } .tablet .hm-hp .hp-set { font-size:28px; min-width:72px; }
+  .tablet .hm-hp .modes { height:56px; } .tablet .hm-hp .mode { font-size:15px; border-radius:16px; }
+  .tablet .cl-list { display:flex; flex-direction:column; gap:8px; min-height:0; min-width:0; overflow-y:auto; scrollbar-width:none; }
+  .tablet .cl-day { font-size:13px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
   .tablet .td-ev { border-left:4px solid var(--c); padding-left:12px; min-width:0; }
   .tablet .td-ev small { display:block; font-size:12px; color:var(--c); font-weight:700; }
-  .tablet .td-ev b { display:block; font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tablet .td-ev b { display:block; font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tablet .sheet.t-pop { width:min(560px, 90vw); }
-  .tablet .sheet.t-timer { width:min(520px, 90vw); }
-  .tablet .tm-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:12px; }
+  .tablet .hm-pair { flex:none; height:290px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
+  .tablet .hm-pair > .rm-card { min-height:0; max-height:none; }
+  .tablet .hm-timer { overflow:hidden; }
+  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
+  .tablet .hm-timer .tm-btn { height:auto; border-radius:14px; }
+  .tablet .hm-timer .tm-btn b { font-size:22px; } .tablet .hm-timer .tm-btn span { font-size:11px; }
   .tablet .tm-btn { border:0; font:inherit; color:var(--ink); background:var(--inset); border-radius:20px; height:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .tablet .tm-btn b { font-family:var(--display); font-size:30px; line-height:1; } .tablet .tm-btn span { color:var(--muted); font-size:13px; font-weight:700; }
 
@@ -800,6 +724,8 @@ export const TABLET_CSS = css`
   .tablet .rm-np { flex:none; display:flex; align-items:center; gap:12px; padding:10px 12px 10px 10px; border-radius:22px;
     background:var(--card); box-shadow:var(--shadow); color:var(--ink); }
   .tablet .rm-np.on { background:color-mix(in srgb, var(--accent) 14%, var(--card)); }
+  .tablet .rm-np.sel { outline:3px solid var(--accent); outline-offset:-3px; }
+  .tablet .rm-np .eqb { flex:none; }
   .tablet .rm-np-art { width:52px; height:52px; flex:none; border-radius:14px; background:var(--inset) center/cover; display:grid; place-items:center; color:var(--muted); }
   .tablet .rm-np-art.ico ha-icon { --mdc-icon-size:24px; }
   .tablet .rm-np.on .rm-np-art.ico { color:var(--accent); }
@@ -859,57 +785,39 @@ export const TABLET_CSS = css`
     max-height:620px; border-radius:30px !important; margin:0 !important; }
   .tablet .pop-scrim .grabber { display:none; }
 
-  /* media */
-  .tablet .m-media2 { display:grid; grid-template-columns:1.45fr 1fr; gap:18px; height:100%; min-height:0; }
-  .tablet .hero { position:relative; overflow:hidden; flex:1; min-height:0; padding:22px 24px; display:flex; flex-direction:column; justify-content:space-between; color:#fff; border:0; background:#111; }
-  .tablet .hero-bg { position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat; }
-  .tablet .hero-bg::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%); }
-  .tablet .hero.noart .hero-bg { background:linear-gradient(140deg, #1f5eff, #8e5cf0); }
-  .tablet .hero.vid .hero-bg { background-position:center top; }
-  .tablet .hero.vid .hero-bg::after { background:linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%),
-    linear-gradient(90deg, rgba(0,0,0,0.45), rgba(0,0,0,0) 60%); }
-  .tablet .hero.mus .hero-bg { filter:blur(48px) saturate(1.4) brightness(0.65); transform:scale(1.3); }
-  .tablet .hero.mus .hero-bg::after { background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)); }
-  .tablet .hero-top, .tablet .hero-text, .tablet .mus-row { position:relative; z-index:1; }
-  .tablet .hero-top { display:flex; justify-content:space-between; align-items:center; }
-  .tablet .hero-tag, .tablet .hero-state { display:flex; align-items:center; gap:6px; font-weight:700; font-size:14px; background:rgba(0,0,0,0.35);
-    backdrop-filter:blur(12px); padding:7px 12px; border-radius:999px; }
-  .tablet .hero-tag ha-icon, .tablet .hero-state ha-icon { --mdc-icon-size:16px; }
-  .tablet .hero-title { font-family:var(--display); font-weight:700; font-size:44px; line-height:1.05; letter-spacing:-0.02em; text-shadow:0 2px 18px rgba(0,0,0,0.4); }
-  .tablet .hero-sub { font-size:18px; opacity:0.85; margin-top:6px; }
-  .tablet .hero-logo { display:block; max-width:55%; max-height:150px; object-fit:contain; object-position:left bottom; margin-bottom:14px;
-    filter:drop-shadow(0 2px 12px rgba(0,0,0,0.55)); }
-  .tablet .mus-row { flex:1; display:flex; align-items:center; gap:32px; min-height:0; padding-top:16px; }
-  .tablet .mus-cover { flex:none; height:min(100%, 420px); aspect-ratio:1; border-radius:20px; background-size:cover; background-position:center; box-shadow:0 18px 48px rgba(0,0,0,0.45); }
-  .tablet .mus-row .hero-text { min-width:0; }
-  .tablet .ctl2 { padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
+  /* media: one now-playing card, then the playlists; the speakers are rooms-style rows */
+  .tablet .m-media .rm-side > .rm-h { margin:4px 2px 0; }
+  .tablet .m-media .rm-np { cursor:pointer; }
+  .tablet .md-now { flex:none; display:grid; grid-template-columns:260px minmax(0,1fr); gap:24px; padding:18px; align-items:stretch; }
+  .tablet .md-now.vid { grid-template-columns:400px minmax(0,1fr); }
+  .tablet .md-art { position:relative; aspect-ratio:1; border-radius:22px; background:var(--inset) center/cover; display:flex; align-items:flex-end; overflow:hidden; color:var(--muted); }
+  .tablet .md-now.vid .md-art { aspect-ratio:16 / 10; align-self:center; background-position:center top; }
+  .tablet .md-art.none { justify-content:center; align-items:center; } .tablet .md-art.none ha-icon { --mdc-icon-size:72px; }
+  .tablet .md-logo { max-width:60%; max-height:40%; object-fit:contain; object-position:left bottom; margin:0 0 14px 16px; filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
+  .tablet .md-info { min-width:0; display:flex; flex-direction:column; justify-content:center; gap:10px; }
+  .tablet .md-tag { display:flex; align-items:center; gap:6px; font-weight:700; font-size:14px; color:var(--muted); } .tablet .md-tag ha-icon { --mdc-icon-size:18px; }
+  .tablet .md-on { margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--accent); }
+  .tablet .md-title { font-family:var(--display); font-weight:700; font-size:34px; line-height:1.1; letter-spacing:-0.02em;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .tablet .md-sub { font-size:17px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-4px; }
   .tablet .ctl2-prog { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
   .tablet .ctl2-track { flex:1; }
-  .tablet .ctl2-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; }
-  .tablet .sp-pill { justify-self:start; border:0; font:inherit; font-weight:700; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent);
-    height:52px; padding:0 14px; border-radius:999px; display:flex; align-items:center; gap:6px; max-width:100%; white-space:nowrap; }
-  .tablet .sp-pill span { overflow:hidden; text-overflow:ellipsis; }
-  .tablet .ctl2-mid { gap:18px !important; } .tablet .ctl2-mid .round.play { width:72px; height:72px; }
-  .tablet .ctl2-mid .round.play ha-icon { --mdc-icon-size:34px; } .tablet .ctl2-mid .round.small { width:52px; height:52px; }
-  .tablet .ctl2-vol { justify-self:end; display:flex; align-items:center; gap:10px; }
+  .tablet .md-row { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .tablet .ctl2-mid { gap:16px !important; } .tablet .ctl2-mid .round.play { width:68px; height:68px; }
+  .tablet .ctl2-mid .round.play ha-icon { --mdc-icon-size:32px; } .tablet .ctl2-mid .round.small { width:52px; height:52px; }
+  .tablet .ctl2-vol { display:flex; align-items:center; gap:10px; }
   .tablet .ctl2-vol b { min-width:44px; text-align:center; color:var(--accent); } .tablet .ctl2-vol .round.small { width:52px; height:52px; }
-  .tablet .spk-card { padding:18px 18px 10px; }
-  .tablet .spk { width:100%; border:0; font:inherit; color:var(--ink); background:transparent; display:grid; grid-template-columns:40px minmax(0,1fr) 48px 26px;
-    align-items:center; gap:12px; padding:9px 8px; border-radius:16px; text-align:left; }
-  .tablet .spk.on { background:color-mix(in srgb, var(--accent) 12%, transparent); }
-  .tablet .spk-ico { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--inset); color:var(--muted); flex:none; }
-  .tablet .spk.on .spk-ico { background:var(--accent); color:#fff; }
-  .tablet .spk-art { width:40px; height:40px; border-radius:10px; background-size:cover; background-position:center; flex:none; }
-  .tablet .spk-t { min-width:0; flex:1; } .tablet .spk-t b { display:block; font-size:15px; }
-  .tablet .spk-t span { display:block; color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tablet .spk-v { font-weight:700; color:var(--accent); text-align:right; font-variant-numeric:tabular-nums; }
-  .tablet .spk-eqc { display:flex; justify-content:center; }
+  .tablet .md-pl { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .tablet .md-pl .pl-title { font-weight:700; font-size:17px; margin:0 2px 8px; }
+  .tablet .md-pl .pl-row { height:auto; display:grid; grid-auto-flow:column; grid-auto-columns:calc((100% - 48px) / 5); gap:12px;
+    margin:-12px -8px; padding:12px 8px; scroll-padding:0 8px; scroll-snap-type:x mandatory; }
+  .tablet .md-pl .pl { height:auto; aspect-ratio:1; scroll-snap-align:start; border-radius:22px; }
+  .tablet .md-pl .pl-name { font-size:17px; left:14px; top:12px; }
   .tablet .eqb { display:flex; align-items:flex-end; gap:3px; height:18px; }
   .tablet .eqb i { width:4px; border-radius:2px; background:var(--accent); height:100%; transform-origin:50% 100%; transform:scaleY(0.4); animation:eqb 1.6s ease-in-out infinite alternate; }
   .tablet .eqb i:nth-child(1) { animation-duration:1.5s; } .tablet .eqb i:nth-child(2) { animation-duration:1.15s; animation-delay:-0.6s; }
   .tablet .eqb i:nth-child(3) { animation-duration:1.8s; animation-delay:-1.1s; }
   @keyframes eqb { 0% { transform:scaleY(0.2); } 35% { transform:scaleY(0.9); } 60% { transform:scaleY(0.45); } 100% { transform:scaleY(0.75); } }   /* transform, not height: no layout per frame */
-  .tablet .m-pl { flex:1; min-height:0; overflow:hidden; }
 
   /* recipes: one screen, no page scroll; the shelf below the planner swipes sideways */
   .tablet .m-rec { width:calc(100vw - 134px); min-width:0; height:100%; overflow:hidden; display:flex; flex-direction:column; gap:6px; padding-right:4px; }
@@ -951,19 +859,9 @@ export const TABLET_CSS = css`
 
   /* the Nest Hub (1024x600, cast): the same pages, tighter */
   @media (max-height: 680px) {
-    .tablet .m-home2, .tablet .m-cl2 { gap:12px; } .tablet .m-col, .tablet .h2-right, .tablet .h2-top, .tablet .rooms2 { gap:12px; }
-    .tablet .m-home2 { grid-template-columns:300px minmax(0,1fr); }
-    .tablet .dinner { padding:18px 16px 14px; } .tablet .dn-hello { font-size:22px; } .tablet .dn-rule { margin:12px 6px; }
-    .tablet .dn-stack { gap:8px; } .tablet .dn-card { padding:10px 12px; grid-template-columns:1fr 96px; border-radius:18px; }
-    .tablet .dn-t b { font-size:15px; } .tablet .dn-plan { height:40px; }
-    .tablet .h2-right { grid-template-rows:minmax(0,1fr) auto minmax(0,1fr); }
-    .tablet .nowtile { padding:10px 12px 12px; gap:6px; } .tablet .now-cap b, .tablet .now-text b { font-size:22px; }
-    .tablet .shop2 { padding:12px 14px; } .tablet .sh2-i { font-size:15px; padding:4px 0; }
-    .tablet .h2-qa { gap:8px; grid-auto-columns:calc((100% - 48px) / 7); } .tablet .qa2 { height:76px; font-size:11px; gap:5px; border-radius:16px; } .tablet .qa2-ico { width:34px; height:34px; }
-    .tablet .today2 { grid-template-columns:110px minmax(0,1fr); padding:12px 16px; align-items:start; }
-    .tablet .td-dm { font-size:14px; } .tablet .td-n { font-size:56px; }
-    .tablet .cl-list { align-content:start; row-gap:4px; column-gap:16px; } .tablet .cl-day { font-size:11px; margin-top:0; }
-    .tablet .td-ev small { font-size:11px; } .tablet .td-ev b { font-size:14px; }
+    .tablet .m-cl2, .tablet .m-col, .tablet .rooms2 { gap:12px; }
+    .tablet .sh2-i { font-size:15px; padding:4px 0; } .tablet .td-ev small { font-size:11px; } .tablet .td-ev b { font-size:14px; }
+    .tablet .md-now { grid-template-columns:180px minmax(0,1fr); gap:16px; padding:12px; } .tablet .md-title { font-size:26px; }
     .tablet .m-rooms { gap:10px; } .tablet .rm-body { grid-template-columns:minmax(0,1fr) 300px; gap:12px; }
     .tablet .rm-grid { grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
     .tablet .out2 { padding:14px 16px; gap:8px; } .tablet .out2-ico { width:52px; height:52px; } .tablet .out2-t { font-size:40px; }

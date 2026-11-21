@@ -38,15 +38,18 @@ The Show card has one full-screen layout, the Kitchen Show's pages in `www/table
 other dashboard is built from Meridian cards in HA's editor, from the same JS file.
 
 **Kitchen Show config keys** (`show.CARD`):
-- `tablet_quick`: the Home page's quick actions, in order, scrolling sideways seven at a time.
-  Each is `{entity, name, icon}`; `{timer: true}` puts the kitchen timer there.
-- `tablet_players`: the Media page's speakers. `volume` sends volume to another entity (the
-  Apple TV's goes to the amp); `follows` hides a player while the one it follows is on.
-- `tablet_tv`: the player whose Plex art fills the Home page's TV tile.
+- `tablet_quick`: the Home page's Scenes, in order. Only `scene.` and `script.` entries show;
+  each is `{entity, name, icon}`. The kitchen timer has its own card beside the shopping list.
+- `tablet_players`: the Media page's speakers, down its right side; tap one to control it.
+  `volume` sends volume to another entity (the Apple TV's goes to the amp); `follows` makes a
+  player on its TV input count as playing only while the one it follows is.
+- `tablet_tv`: the player whose Plex art and episode names the Media page's now-playing card uses.
+- `climate`: the heat pump on the Home page. `rooms[].group` (or a room's only light) gives Home its
+  light tiles; `status` people and alerts give the header bubbles.
 - `scheme`: `sun.sun` switches light and dark with sunrise and sunset.
 - `swipe`: a list of page ids (`["media", "home", "rooms", "recipes"]`) drops the dock. The
   pages sit side by side and a sideways drag moves between them, with dots along the bottom.
-  A drag that starts on a row that scrolls sideways (the quick actions, the recipe shelf) scrolls
+  A drag that starts on a row that scrolls sideways (the playlists, the recipe shelf) scrolls
   that row. A page that isn't in the list (a voice "show me the climate") opens the one that
   holds it: climate and controls go to Rooms, music to Media, anything else to Home.
   An up-and-down drag the browser doesn't scroll by itself (the tablet's WebView only did so

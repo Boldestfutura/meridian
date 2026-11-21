@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.34.21";
+const VERSION = "0.35.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1088,7 +1088,7 @@ class OverlookShow extends LitElement {
     return html`
       <div class="topright ${onPhoto ? "on-photo" : ""}"
            @pointerdown=${down} @pointerup=${up} @pointerleave=${up}>
-        ${this._washer()}
+        ${this._page === "home" && this._swipePages() ? nothing : this._washer()}
         ${cond ? html`${this._wxIcon(w.state, "wx")}
           <span class="temp">${this._deg(t)}</span>` : nothing}
         <span class="clock">${this._time(this._now)}</span>

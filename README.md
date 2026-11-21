@@ -14,7 +14,7 @@ Python files say which entities go where on each screen.
 
 | dashboard | screen | layout |
 |---|---|---|
-| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800 | five pages (`www/tablet.js`): Home (tonight's dinner, now playing, shopping list, quick actions, calendar), Rooms, Climate, Media, Recipes; idles to photos |
+| **Kitchen Show** `ha-show` | 8" kitchen display, 1280x800 | five pages (`www/tablet.js`): Home (calendar, shopping list, timer, heat pump, scenes, room lights), Rooms, Climate, Media, Recipes; idles to photos |
 | **Master Bedroom Echo Show** `master-bedroom-echo-show` | Echo Show 5, 788x394 | built from the Meridian screen cards in HA's editor: photos and a clock, bedroom controls, red night clock, voice timers and alarms |
 | **Computer Show** `ha-show-computer` | 1920x1080, beside HA's sidebar | the whole house on one page, built from Meridian cards in HA's editor: large weather, heat pump and speaker tiles, 2x tiles under each room heading |
 | **Phone Show** `ha-show-native` | 390 wide | ordinary HA sections built from Meridian cards, so HA's own editor works |
@@ -36,10 +36,13 @@ calendars, the shopping list, playlists and recipes in the browser before the pa
 ## Kitchen Show
 ![Kitchen Show, Home](docs/images/tablet-home.png)
 
-**Home** leads with tonight's dinner from the Norish meal plan (or a favourite to try), what is
-playing (for the TV, Plex's background art with the show's logo), the shopping list (tap the box
-to tick, the name to edit), a sideways row of quick actions and the week's calendar. Light by
-day, dark after sunset (`scheme: sun.sun`).
+**Home** is built from the Rooms page's pieces, split down the middle. Left: the calendar (a big
+day and date beside the week's events), then the shopping list (tap the box to tick, the name to
+edit) and the kitchen timer's presets. Right: the heat pump (the phone's tile), the scenes, and one
+light tile per room. Bubbles beside the greeting show where each person is, plus the washer, a low
+battery and other alerts only while they matter. **Media** is one now-playing card with the
+playlists under it and every speaker down the right. Light by day, dark after sunset
+(`scheme: sun.sun`).
 ![Kitchen Show, Home, dark](docs/images/tablet-home-dark.png)
 <p>
   <img src="docs/images/tablet-rooms.png" width="49%" alt="Kitchen Show, Rooms">
