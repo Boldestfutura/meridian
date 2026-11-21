@@ -80,7 +80,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     badge shows "?". Camera Streams mode draws no widgets.
   - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
-  - Morning, 5:30-7:30: `ks_kitchen_morning_widgets` (`ha_config/kitchen_morning_widgets.json`)
+  - Morning, 5:30-8:00: `ks_kitchen_morning_widgets` (`ha_config/kitchen_morning_widgets.json`)
     turns `switch.kitchen_display_screensaver_widgets` off at 5:30 and on at 8:00 (Weather Mood
     draws its own clock and weather), and turns KS's At a glance row on and off with it. The row is
     global with no HA switch, so it goes through `rest_command.ks_kitchen_settings` (PATCH
