@@ -1,0 +1,69 @@
+{
+ "id": "washing_alert_wakes_displays",
+ "alias": "Washing alert wakes the displays",
+ "description": "The washing alert (input_boolean.washing_machine_alert) is a full-screen Meridian overlay, and Kiosk Satellite's screensaver sits on top of the dashboard. While the alert is up, switch the KS screensaver off on the Kitchen Display, and on the bedroom Echo unless bedroom night mode is on; switch it back on when the alert clears. Added 2026-11-22.",
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "input_boolean.washing_machine_alert",
+   "to": "on",
+   "id": "on"
+  },
+  {
+   "trigger": "state",
+   "entity_id": "input_boolean.washing_machine_alert",
+   "to": "off",
+   "id": "off"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "choose": [
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "on"
+      }
+     ],
+     "sequence": [
+      {
+       "variables": {
+        "nodes": "{{ ['kitchen_display'] + ([] if is_state('input_boolean.bedroom_night_mode','on') else ['bedroom_echo']) }}"
+       }
+      },
+      {
+       "action": "switch.turn_off",
+       "continue_on_error": true,
+       "target": {
+        "entity_id": "{% set ns = namespace(l=[]) %}{% for n in nodes %}{% set ns.l = ns.l + ['switch.' ~ n ~ '_screensaver_active', 'switch.' ~ n ~ '_screensaver'] %}{% endfor %}{{ ns.l }}"
+       }
+      }
+     ]
+    },
+    {
+     "conditions": [
+      {
+       "condition": "trigger",
+       "id": "off"
+      }
+     ],
+     "sequence": [
+      {
+       "action": "switch.turn_on",
+       "continue_on_error": true,
+       "target": {
+        "entity_id": [
+         "switch.kitchen_display_screensaver",
+         "switch.bedroom_echo_screensaver"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "mode": "queued"
+}

@@ -1,7 +1,7 @@
 {
  "id": "ks_kitchen_morning_widgets",
  "alias": "Kitchen Display - Morning Widgets",
- "description": "Kiosk Satellite shows the Kitchen Morning dashboard (Meridian morning forecast) as its screensaver 5:30-7:30 am. KS widgets draw over every screensaver mode, so they go off for that slot and back on for the photos.",
+ "description": "Kiosk Satellite shows the Kitchen Morning dashboard (Meridian morning forecast) as its screensaver 5:30-7:30 am. KS widgets draw over every screensaver mode, so they go off for that slot and back on for the photos. It also shows KS's At a glance row (today's forecast, rain chance, rain mm, UV) only during the morning weather screen, through rest_command.ks_kitchen_settings, because the row is global and has no HA switch.",
  "triggers": [
   {
    "trigger": "time",
@@ -20,6 +20,15 @@
    "action": "switch.turn_{{ trigger.id }}",
    "target": {
     "entity_id": "switch.kitchen_display_screensaver_widgets"
+   }
+  },
+  {
+   "action": "rest_command.ks_kitchen_settings",
+   "continue_on_error": true,
+   "data": {
+    "settings": {
+     "screensaver.glance_enabled": "{{ trigger.id == 'off' }}"
+    }
    }
   }
  ],

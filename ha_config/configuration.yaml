@@ -220,3 +220,13 @@ recorder:
   exclude:
     entities:
       - sensor.rain_next_hour
+
+# Kitchen Display: change Kiosk Satellite settings from automations (the morning glance row). The token is in secrets.yaml.
+rest_command:
+  ks_kitchen_settings:
+    url: http://192.168.1.73:2324/api/settings
+    method: PATCH
+    headers:
+      Authorization: !secret ks_kitchen_auth
+    content_type: application/json
+    payload: "{{ settings | to_json }}"
