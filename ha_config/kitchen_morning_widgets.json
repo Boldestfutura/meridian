@@ -1,0 +1,27 @@
+{
+ "id": "ks_kitchen_morning_widgets",
+ "alias": "Kitchen Display - Morning Widgets",
+ "description": "Kiosk Satellite shows the Kitchen Morning dashboard (Meridian morning forecast) as its screensaver 5:30-7:30 am. KS widgets draw over every screensaver mode, so they go off for that slot and back on for the photos.",
+ "triggers": [
+  {
+   "trigger": "time",
+   "at": "05:30:00",
+   "id": "off"
+  },
+  {
+   "trigger": "time",
+   "at": "07:30:00",
+   "id": "on"
+  }
+ ],
+ "conditions": [],
+ "actions": [
+  {
+   "action": "switch.turn_{{ trigger.id }}",
+   "target": {
+    "entity_id": "switch.kitchen_display_screensaver_widgets"
+   }
+  }
+ ],
+ "mode": "single"
+}

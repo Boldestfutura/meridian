@@ -71,9 +71,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
     the kitchen voice-music target and the Kitchen room media tile.
   - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
-    now): after 90 s, KS's Weather Mood (animated sky, `screensaver.weather_entity` BoM South
-    Melbourne; its own clock and high/low are off because the widgets already show them) from
-    5:30am, KS's Immich mode (the Family album straight from Immich, KS's own API key) from
+    now): after 90 s, the Kitchen Morning dashboard (below) from 5:30am, KS's Immich mode (the Family album straight from Immich, KS's own API key) from
     7:30am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
     `screensaver.mode`**: change the schedule entry, not the mode. KS's night mode turns the clock
     red under 3 lx and hides the widgets. Widgets apply to every mode (set in KS): small clock,
@@ -84,9 +82,10 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
   - `kitchen-morning` (Kitchen Morning, not in the sidebar): just the Meridian morning forecast,
     for KS's Home Assistant Dashboard screensaver (`screensaver.dashboard_view`
-    `/kitchen-morning/morning`). Meant for the 5:30 slot in place of Weather Mood, once KS's
-    widgets can be switched off for it (`switch.kitchen_display_screensaver_widgets`): KS draws
-    widgets over every mode and they cover the forecast's title and time.
+    `/kitchen-morning/morning`), the 5:30-7:30 slot since 2026-11-21. KS draws widgets over
+    every mode and they covered the forecast's title and time, so `ks_kitchen_morning_widgets`
+    (`ha_config/kitchen_morning_widgets.json`) turns `switch.kitchen_display_screensaver_widgets`
+    off at 5:30 and on at 7:30.
   - Weather questions get KS's weather card (the forecast panel beside the answer). It comes from
     the HA integration **Voice Satellite LLM Tools** (KS's author, `custom_components/
     voice_satellite_llm_tools`, installed by hand since HACS isn't installed), entry Weather
