@@ -71,8 +71,8 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
     the kitchen voice-music target and the Kitchen room media tile.
   - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
-    now): after 90 s, KS's Weather Mood from 5:30am (big clock, weather bar with high/low, and the At a glance row of today's BoM forecast, rain chance, rain mm and UV), KS's Immich mode (the Family album straight from Immich, KS's own API key) from
-    7:30am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
+    now): after 90 s, KS's Weather Mood from 5:30 to 8am (big clock, weather bar with high/low, and the At a glance row of today's BoM forecast, rain chance, rain mm and UV), KS's Immich mode (the Family album straight from Immich, KS's own API key) from
+    8am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
     `screensaver.mode`**: change the schedule entry, not the mode. KS's night mode turns the clock
     red under 3 lx and hides the widgets. Widgets apply to every mode (set in KS): small clock,
     weather (`weather.outdoor_south_melbourne`), calendar
@@ -81,7 +81,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
   - Morning, 5:30-7:30: `ks_kitchen_morning_widgets` (`ha_config/kitchen_morning_widgets.json`)
-    turns `switch.kitchen_display_screensaver_widgets` off at 5:30 and on at 7:30 (Weather Mood
+    turns `switch.kitchen_display_screensaver_widgets` off at 5:30 and on at 8:00 (Weather Mood
     draws its own clock and weather), and turns KS's At a glance row on and off with it. The row is
     global with no HA switch, so it goes through `rest_command.ks_kitchen_settings` (PATCH
     `/api/settings`, token as `ks_kitchen_auth` in secrets.yaml). The `kitchen-morning` dashboard
