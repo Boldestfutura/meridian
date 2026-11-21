@@ -36,7 +36,7 @@
         "entity_id": "media_player.bedroom_echo"
        },
        "data": {
-        "volume_level": 0.09
+        "volume_level": 0.12
        },
        "continue_on_error": true
       },
