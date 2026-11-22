@@ -36,7 +36,7 @@ const AIRC = {
   voc: ["VOC", "#3f8f8a", "mdi:air-filter", "", (v) => v <= 150 ? "Good" : v <= 250 ? "Moderate" : "Poor"],
 };
 const EV_COLOURS = ["#9bd54a", "#2bb5e8", "#f08a3c", "#8e6cf0", "#e5484d"];
-const TIMER_MINUTES = [1, 5, 10, 30, 60];
+const TIMER_MINUTES = [1, 5, 10, 30, 45, 60];
 const TIMER_MAX = 180;   // the custom timer's slider, in minutes
 
 const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : "";
@@ -207,7 +207,7 @@ function startTimer(c, m) {
     duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });
 }
 
-// 1, 5 and 10 min on the top row, 30 min and 1 hour on the second, and a full-width
+// 1, 5 and 10 min on the top row, 30, 45 min and 1 hour on the second, and a full-width
 // "Choose your own" that opens the slider sheet (timerPick)
 function timerCard(c) {
   const id = c._config.clock && `timer.${c._config.clock}_timer`;
@@ -744,8 +744,7 @@ export const TABLET_CSS = css`
   .tablet .hm-pair { flex:none; height:290px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
   .tablet .hm-pair > .rm-card { min-height:0; max-height:none; }
   .tablet .hm-timer { overflow:hidden; }
-  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(6, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
-  .tablet .tm-grid > .tm-btn { grid-column:span 2; } .tablet .tm-grid > .tm-btn:nth-child(4), .tablet .tm-grid > .tm-btn:nth-child(5) { grid-column:span 3; }
+  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
   .tablet .tm-grid > .tm-own { grid-column:1 / -1; flex-direction:row; gap:10px; }
   .tablet .hm-timer .tm-own b { font-size:18px; } .tablet .tm-own ha-icon { --mdc-icon-size:24px; color:var(--accent); }
   .tablet .sheet.tm-pick { width:min(560px, 90vw); gap:14px; padding:24px 26px; }

@@ -1066,7 +1066,7 @@ var AIRC = {
   voc: ["VOC", "#3f8f8a", "mdi:air-filter", "", (v2) => v2 <= 150 ? "Good" : v2 <= 250 ? "Moderate" : "Poor"]
 };
 var EV_COLOURS = ["#9bd54a", "#2bb5e8", "#f08a3c", "#8e6cf0", "#e5484d"];
-var TIMER_MINUTES = [1, 5, 10, 30, 60];
+var TIMER_MINUTES = [1, 5, 10, 30, 45, 60];
 var TIMER_MAX = 180;
 var cap = (s2) => s2 ? s2[0].toUpperCase() + s2.slice(1) : "";
 var ymd = (d2) => `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
@@ -1761,8 +1761,7 @@ var TABLET_CSS = o`
   .tablet .hm-pair { flex:none; height:290px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
   .tablet .hm-pair > .rm-card { min-height:0; max-height:none; }
   .tablet .hm-timer { overflow:hidden; }
-  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(6, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
-  .tablet .tm-grid > .tm-btn { grid-column:span 2; } .tablet .tm-grid > .tm-btn:nth-child(4), .tablet .tm-grid > .tm-btn:nth-child(5) { grid-column:span 3; }
+  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
   .tablet .tm-grid > .tm-own { grid-column:1 / -1; flex-direction:row; gap:10px; }
   .tablet .hm-timer .tm-own b { font-size:18px; } .tablet .tm-own ha-icon { --mdc-icon-size:24px; color:var(--accent); }
   .tablet .sheet.tm-pick { width:min(560px, 90vw); gap:14px; padding:24px 26px; }
@@ -4796,7 +4795,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.4";
+var VERSION = "0.36.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
