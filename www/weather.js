@@ -375,4 +375,17 @@ export const WX_CSS = css`
   .screen.mf.ink-light { color: #f6f8fc; text-shadow: 0 0.3vh 2.4vh rgba(0, 10, 30, 0.35); }
   .screen.mf.ink-light .mf-tile, .screen.mf.ink-light .mf-hours { background: rgba(12, 22, 44, 0.28); border-color: rgba(255, 255, 255, 0.14); }
   .screen.mf.ink-light .mf-hours small { color: #9cc4ff; }
+  /* wide, short screens (the Echo, 2:1): a bigger time and hourly strip, a smaller hero to make room */
+  @media (min-aspect-ratio: 17/10) {
+    .screen.mf { gap: 2.2vh; padding: 4vh 4vw 4.5vh; }
+    .mf-time { font-size: 16vh; }
+    .mf-main img { height: 24vh; }
+    .mf-temps b { font-size: 21vh; }
+    .mf-hours { gap: 0.4vw; padding: 1.6vh 1vw; }
+    .mf-hours > div { gap: 0.5vh; }
+    .mf-hours span { font-size: 4.2vh; letter-spacing: -0.02em; }
+    .mf-hours img { height: 6.6vh; }
+    .mf-hours b { font-size: 6.2vh; letter-spacing: -0.02em; }
+    .mf-hours small { font-size: 3.3vh; }
+  }
 `;
