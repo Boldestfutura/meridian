@@ -208,7 +208,7 @@ function startTimer(c, m) {
 }
 
 // 1, 5 and 10 min on the top row, 30, 45 min and 1 hour on the second, and a full-width
-// "Choose your own" that opens the slider sheet (timerPick)
+// "Choose" that opens the slider sheet (timerPick)
 function timerCard(c) {
   const id = c._config.clock && `timer.${c._config.clock}_timer`;
   if (!c._config.ks_timers && (!id || !c._st(id))) return nothing;
@@ -217,7 +217,7 @@ function timerCard(c) {
       <div class="tm-grid">${TIMER_MINUTES.map((m) => html`
         <button class="tm-btn" @click=${() => startTimer(c, m)}><b>${m < 60 ? m : 1}</b><span>${m < 60 ? "min" : "hour"}</span></button>`)}
         <button class="tm-btn tm-own" @click=${() => redraw(c, { _tTimerPick: c._tTimerLast || 20 })}>
-          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose your own</b></button></div>
+          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose</b></button></div>
     </div>`;
 }
 

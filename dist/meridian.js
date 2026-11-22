@@ -1229,7 +1229,7 @@ function timerCard(c2) {
       <div class="tm-grid">${TIMER_MINUTES.map((m2) => Z`
         <button class="tm-btn" @click=${() => startTimer(c2, m2)}><b>${m2 < 60 ? m2 : 1}</b><span>${m2 < 60 ? "min" : "hour"}</span></button>`)}
         <button class="tm-btn tm-own" @click=${() => redraw(c2, { _tTimerPick: c2._tTimerLast || 20 })}>
-          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose your own</b></button></div>
+          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose</b></button></div>
     </div>`;
 }
 var tmLabel = (m2) => m2 < 60 ? [m2, m2 === 1 ? "minute" : "minutes"] : m2 % 60 ? [`${Math.floor(m2 / 60)}:${String(m2 % 60).padStart(2, "0")}`, "hours"] : [m2 / 60, m2 === 60 ? "hour" : "hours"];
@@ -4795,7 +4795,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.5";
+var VERSION = "0.36.6";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
