@@ -1066,7 +1066,8 @@ var AIRC = {
   voc: ["VOC", "#3f8f8a", "mdi:air-filter", "", (v2) => v2 <= 150 ? "Good" : v2 <= 250 ? "Moderate" : "Poor"]
 };
 var EV_COLOURS = ["#9bd54a", "#2bb5e8", "#f08a3c", "#8e6cf0", "#e5484d"];
-var TIMER_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
+var TIMER_MINUTES = [1, 5, 10, 30, 60];
+var TIMER_MAX = 180;
 var cap = (s2) => s2 ? s2[0].toUpperCase() + s2.slice(1) : "";
 var ymd = (d2) => `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
 var norm = (s2) => (s2 || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -1211,19 +1212,59 @@ function editRow(c2, i2) {
 function sceneTiles(c2) {
   return (c2._config.tablet_quick || []).filter((q2) => q2.entity && /^(scene|script)\./.test(q2.entity) && c2._st(q2.entity)).map((q2) => x2(c2._sceneBtn(q2, true)));
 }
-function timerCard(c2) {
+function startTimer(c2, m2) {
   const ks2 = c2._config.ks_timers;
+  if (ks2) return c2._call("esphome", `${ks2}_vs_start_timer`, { name: "", hours: Math.floor(m2 / 60), minutes: m2 % 60, seconds: 0 });
+  c2._call("input_number", "set_value", { entity_id: `input_number.${c2._config.clock}_timer_length`, value: m2 * 60 });
+  c2._call("timer", "start", {
+    entity_id: `timer.${c2._config.clock}_timer`,
+    duration: `${String(Math.floor(m2 / 60)).padStart(2, "0")}:${String(m2 % 60).padStart(2, "0")}:00`
+  });
+}
+function timerCard(c2) {
   const id = c2._config.clock && `timer.${c2._config.clock}_timer`;
-  if (!ks2 && (!id || !c2._st(id))) return J;
-  const start = (m2) => {
-    if (ks2) return c2._call("esphome", `${ks2}_vs_start_timer`, { name: "", hours: Math.floor(m2 / 60), minutes: m2 % 60, seconds: 0 });
-    c2._call("input_number", "set_value", { entity_id: `input_number.${c2._config.clock}_timer_length`, value: m2 * 60 });
-    c2._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m2 / 60)).padStart(2, "0")}:${String(m2 % 60).padStart(2, "0")}:00` });
-  };
+  if (!c2._config.ks_timers && (!id || !c2._st(id))) return J;
   return Z`
     <div class="card rm-card hm-timer"><div class="card-title">Timer</div>
       <div class="tm-grid">${TIMER_MINUTES.map((m2) => Z`
-        <button class="tm-btn" @click=${() => start(m2)}><b>${m2 < 60 ? m2 : 1}</b><span>${m2 < 60 ? "min" : "hour"}</span></button>`)}</div>
+        <button class="tm-btn" @click=${() => startTimer(c2, m2)}><b>${m2 < 60 ? m2 : 1}</b><span>${m2 < 60 ? "min" : "hour"}</span></button>`)}
+        <button class="tm-btn tm-own" @click=${() => redraw(c2, { _tTimerPick: c2._tTimerLast || 20 })}>
+          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose your own</b></button></div>
+    </div>`;
+}
+var tmLabel = (m2) => m2 < 60 ? [m2, m2 === 1 ? "minute" : "minutes"] : m2 % 60 ? [`${Math.floor(m2 / 60)}:${String(m2 % 60).padStart(2, "0")}`, "hours"] : [m2 / 60, m2 === 60 ? "hour" : "hours"];
+function timerPick(c2) {
+  const m2 = c2._tTimerPick;
+  if (!m2) return J;
+  const step = (v2) => v2 < 60 ? 1 : 5;
+  const set = (v2) => redraw(c2, { _tTimerPick: Math.max(1, Math.min(TIMER_MAX, v2)) });
+  const close = () => redraw(c2, { _tTimerPick: null });
+  const [n2, u2] = tmLabel(m2);
+  return Z`
+    <div class="scrim" @click=${close}>
+      <div class="sheet card tm-pick" @click=${(ev) => ev.stopPropagation()}>
+        <div class="card-title">Timer</div>
+        <div class="tm-read"><b>${n2}</b><span>${u2}</span></div>
+        <div class="tm-slide">
+          <button class="tm-step" aria-label="Less" @click=${() => set(m2 - step(m2 - 1))}><ha-icon icon="mdi:minus"></ha-icon></button>
+          <input type="range" min="1" max=${TIMER_MAX} step="1" .value=${String(m2)}
+            style="--p:${(m2 - 1) / (TIMER_MAX - 1) * 100}%"
+            @input=${(ev) => {
+    const v2 = +ev.target.value;
+    set(v2 < 60 ? v2 : Math.round(v2 / 5) * 5);
+  }}>
+          <button class="tm-step" aria-label="More" @click=${() => set(m2 + step(m2))}><ha-icon icon="mdi:plus"></ha-icon></button>
+        </div>
+        <div class="tm-ticks"><span>1 min</span><span>1 h</span><span>2 h</span><span>3 h</span></div>
+        <div class="tm-acts">
+          <button class="tm-cancel" @click=${close}>Cancel</button>
+          <button class="tm-go" @click=${() => {
+    startTimer(c2, m2);
+    redraw(c2, { _tTimerPick: null, _tTimerLast: m2 });
+  }}>
+            <ha-icon icon="mdi:play"></ha-icon>Start</button>
+        </div>
+      </div>
     </div>`;
 }
 function homeBubbles(c2) {
@@ -1658,7 +1699,7 @@ function tabletPage(c2, page = c2._page) {
   }
 }
 function tabletSheets(c2) {
-  return Z`${popPlayer(c2)}${c2._tDay && c2._lib && !c2._lib.error ? dayPicker(c2, c2._lib) : J}`;
+  return Z`${popPlayer(c2)}${timerPick(c2)}${c2._tDay && c2._lib && !c2._lib.error ? dayPicker(c2, c2._lib) : J}`;
 }
 var TABLET_CSS = o`
   /* main: built from the rooms pieces below */
@@ -1720,7 +1761,27 @@ var TABLET_CSS = o`
   .tablet .hm-pair { flex:none; height:290px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
   .tablet .hm-pair > .rm-card { min-height:0; max-height:none; }
   .tablet .hm-timer { overflow:hidden; }
-  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
+  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(6, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
+  .tablet .tm-grid > .tm-btn { grid-column:span 2; } .tablet .tm-grid > .tm-btn:nth-child(4), .tablet .tm-grid > .tm-btn:nth-child(5) { grid-column:span 3; }
+  .tablet .tm-grid > .tm-own { grid-column:1 / -1; flex-direction:row; gap:10px; }
+  .tablet .hm-timer .tm-own b { font-size:18px; } .tablet .tm-own ha-icon { --mdc-icon-size:24px; color:var(--accent); }
+  .tablet .sheet.tm-pick { width:min(560px, 90vw); gap:14px; padding:24px 26px; }
+  .tablet .tm-read { display:flex; align-items:baseline; justify-content:center; gap:12px; }
+  .tablet .tm-read b { font-family:var(--display); font-size:84px; font-weight:800; line-height:1; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; }
+  .tablet .tm-read span { font-size:22px; font-weight:700; color:var(--muted); }
+  .tablet .tm-slide { display:flex; align-items:center; gap:14px; }
+  .tablet .tm-step { flex:none; width:56px; height:56px; border-radius:50%; border:0; background:var(--inset); color:var(--ink); display:grid; place-items:center; }
+  .tablet .tm-step ha-icon { --mdc-icon-size:28px; }
+  .tablet .tm-slide input { flex:1; min-width:0; height:56px; margin:0; background:none; -webkit-appearance:none; appearance:none; touch-action:none; }
+  .tablet .tm-slide input::-webkit-slider-runnable-track { height:14px; border-radius:7px;
+    background:linear-gradient(90deg, var(--accent) var(--p), var(--inset) var(--p)); }
+  .tablet .tm-slide input::-webkit-slider-thumb { -webkit-appearance:none; width:40px; height:40px; margin-top:-13px; border-radius:50%;
+    background:#fff; box-shadow:0 2px 8px rgba(8, 14, 28, 0.3); border:3px solid var(--accent); }
+  .tablet .tm-ticks { display:flex; justify-content:space-between; padding:0 70px; margin-top:-8px; font-size:13px; font-weight:700; color:var(--muted); }
+  .tablet .tm-acts { display:grid; grid-template-columns:1fr 2fr; gap:12px; margin-top:4px; }
+  .tablet .tm-acts button { height:64px; border:0; border-radius:20px; font:inherit; font-size:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .tablet .tm-cancel { background:var(--inset); color:var(--ink); }
+  .tablet .tm-go { background:var(--accent); color:#fff; } .tablet .tm-go ha-icon { --mdc-icon-size:26px; }
   .tablet .hm-timer .tm-btn { height:auto; border-radius:14px; }
   .tablet .hm-timer .tm-btn b { font-size:22px; } .tablet .hm-timer .tm-btn span { font-size:11px; }
   .tablet .tm-btn { border:0; font:inherit; color:var(--ink); background:var(--inset); border-radius:20px; height:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -4735,7 +4796,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.3";
+var VERSION = "0.36.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

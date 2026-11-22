@@ -36,7 +36,8 @@ const AIRC = {
   voc: ["VOC", "#3f8f8a", "mdi:air-filter", "", (v) => v <= 150 ? "Good" : v <= 250 ? "Moderate" : "Poor"],
 };
 const EV_COLOURS = ["#9bd54a", "#2bb5e8", "#f08a3c", "#8e6cf0", "#e5484d"];
-const TIMER_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
+const TIMER_MINUTES = [1, 5, 10, 30, 60];
+const TIMER_MAX = 180;   // the custom timer's slider, in minutes
 
 const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : "";
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -197,20 +198,60 @@ function sceneTiles(c) {
 // ESPHome node, e.g. ks_kitchen_display) they start the kiosk's own timers, which show and ring on
 // the kiosk; otherwise timer.<clock>_timer, and the full-screen timer (the clock layer in
 // overlook-show.js) takes over until it is stopped, so this only ever shows idle.
-function timerCard(c) {
+function startTimer(c, m) {
   const ks = c._config.ks_timers;
+  if (ks) return c._call("esphome", `${ks}_vs_start_timer`, { name: "", hours: Math.floor(m / 60), minutes: m % 60, seconds: 0 });
+  // the length helper is what the full-screen timer's "of" and Reset use, as the voice timers set it
+  c._call("input_number", "set_value", { entity_id: `input_number.${c._config.clock}_timer_length`, value: m * 60 });
+  c._call("timer", "start", { entity_id: `timer.${c._config.clock}_timer`,
+    duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });
+}
+
+// 1, 5 and 10 min on the top row, 30 min and 1 hour on the second, and a full-width
+// "Choose your own" that opens the slider sheet (timerPick)
+function timerCard(c) {
   const id = c._config.clock && `timer.${c._config.clock}_timer`;
-  if (!ks && (!id || !c._st(id))) return nothing;
-  const start = (m) => {
-    if (ks) return c._call("esphome", `${ks}_vs_start_timer`, { name: "", hours: Math.floor(m / 60), minutes: m % 60, seconds: 0 });
-    // the length helper is what the full-screen timer's "of" and Reset use, as the voice timers set it
-    c._call("input_number", "set_value", { entity_id: `input_number.${c._config.clock}_timer_length`, value: m * 60 });
-    c._call("timer", "start", { entity_id: id, duration: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00` });
-  };
+  if (!c._config.ks_timers && (!id || !c._st(id))) return nothing;
   return html`
     <div class="card rm-card hm-timer"><div class="card-title">Timer</div>
       <div class="tm-grid">${TIMER_MINUTES.map((m) => html`
-        <button class="tm-btn" @click=${() => start(m)}><b>${m < 60 ? m : 1}</b><span>${m < 60 ? "min" : "hour"}</span></button>`)}</div>
+        <button class="tm-btn" @click=${() => startTimer(c, m)}><b>${m < 60 ? m : 1}</b><span>${m < 60 ? "min" : "hour"}</span></button>`)}
+        <button class="tm-btn tm-own" @click=${() => redraw(c, { _tTimerPick: c._tTimerLast || 20 })}>
+          <ha-icon icon="mdi:timer-cog-outline"></ha-icon><b>Choose your own</b></button></div>
+    </div>`;
+}
+
+const tmLabel = (m) => m < 60 ? [m, m === 1 ? "minute" : "minutes"]
+  : m % 60 ? [`${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`, "hours"] : [m / 60, m === 60 ? "hour" : "hours"];
+
+// the custom timer: a slider from 1 minute to 3 hours (1-minute steps to an hour, then 5), −/+ for
+// one step, Start. Remembers the last length.
+function timerPick(c) {
+  const m = c._tTimerPick;
+  if (!m) return nothing;
+  const step = (v) => v < 60 ? 1 : 5;
+  const set = (v) => redraw(c, { _tTimerPick: Math.max(1, Math.min(TIMER_MAX, v)) });
+  const close = () => redraw(c, { _tTimerPick: null });
+  const [n, u] = tmLabel(m);
+  return html`
+    <div class="scrim" @click=${close}>
+      <div class="sheet card tm-pick" @click=${(ev) => ev.stopPropagation()}>
+        <div class="card-title">Timer</div>
+        <div class="tm-read"><b>${n}</b><span>${u}</span></div>
+        <div class="tm-slide">
+          <button class="tm-step" aria-label="Less" @click=${() => set(m - step(m - 1))}><ha-icon icon="mdi:minus"></ha-icon></button>
+          <input type="range" min="1" max=${TIMER_MAX} step="1" .value=${String(m)}
+            style="--p:${((m - 1) / (TIMER_MAX - 1)) * 100}%"
+            @input=${(ev) => { const v = +ev.target.value; set(v < 60 ? v : Math.round(v / 5) * 5); }}>
+          <button class="tm-step" aria-label="More" @click=${() => set(m + step(m))}><ha-icon icon="mdi:plus"></ha-icon></button>
+        </div>
+        <div class="tm-ticks"><span>1 min</span><span>1 h</span><span>2 h</span><span>3 h</span></div>
+        <div class="tm-acts">
+          <button class="tm-cancel" @click=${close}>Cancel</button>
+          <button class="tm-go" @click=${() => { startTimer(c, m); redraw(c, { _tTimerPick: null, _tTimerLast: m }); }}>
+            <ha-icon icon="mdi:play"></ha-icon>Start</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -639,7 +680,7 @@ export function tabletPage(c, page = c._page) {
 // would slide with it and cover the whole strip. So the pages leave their sheets out and the card
 // draws them here, once, over the screen.
 export function tabletSheets(c) {
-  return html`${popPlayer(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
+  return html`${popPlayer(c)}${timerPick(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
 }
 
 // everything under .tablet, so the other screens built from this card are untouched
@@ -703,7 +744,27 @@ export const TABLET_CSS = css`
   .tablet .hm-pair { flex:none; height:290px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
   .tablet .hm-pair > .rm-card { min-height:0; max-height:none; }
   .tablet .hm-timer { overflow:hidden; }
-  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
+  .tablet .tm-grid { flex:1; display:grid; grid-template-columns:repeat(6, 1fr); grid-auto-rows:1fr; gap:8px; min-height:0; }
+  .tablet .tm-grid > .tm-btn { grid-column:span 2; } .tablet .tm-grid > .tm-btn:nth-child(4), .tablet .tm-grid > .tm-btn:nth-child(5) { grid-column:span 3; }
+  .tablet .tm-grid > .tm-own { grid-column:1 / -1; flex-direction:row; gap:10px; }
+  .tablet .hm-timer .tm-own b { font-size:18px; } .tablet .tm-own ha-icon { --mdc-icon-size:24px; color:var(--accent); }
+  .tablet .sheet.tm-pick { width:min(560px, 90vw); gap:14px; padding:24px 26px; }
+  .tablet .tm-read { display:flex; align-items:baseline; justify-content:center; gap:12px; }
+  .tablet .tm-read b { font-family:var(--display); font-size:84px; font-weight:800; line-height:1; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; }
+  .tablet .tm-read span { font-size:22px; font-weight:700; color:var(--muted); }
+  .tablet .tm-slide { display:flex; align-items:center; gap:14px; }
+  .tablet .tm-step { flex:none; width:56px; height:56px; border-radius:50%; border:0; background:var(--inset); color:var(--ink); display:grid; place-items:center; }
+  .tablet .tm-step ha-icon { --mdc-icon-size:28px; }
+  .tablet .tm-slide input { flex:1; min-width:0; height:56px; margin:0; background:none; -webkit-appearance:none; appearance:none; touch-action:none; }
+  .tablet .tm-slide input::-webkit-slider-runnable-track { height:14px; border-radius:7px;
+    background:linear-gradient(90deg, var(--accent) var(--p), var(--inset) var(--p)); }
+  .tablet .tm-slide input::-webkit-slider-thumb { -webkit-appearance:none; width:40px; height:40px; margin-top:-13px; border-radius:50%;
+    background:#fff; box-shadow:0 2px 8px rgba(8, 14, 28, 0.3); border:3px solid var(--accent); }
+  .tablet .tm-ticks { display:flex; justify-content:space-between; padding:0 70px; margin-top:-8px; font-size:13px; font-weight:700; color:var(--muted); }
+  .tablet .tm-acts { display:grid; grid-template-columns:1fr 2fr; gap:12px; margin-top:4px; }
+  .tablet .tm-acts button { height:64px; border:0; border-radius:20px; font:inherit; font-size:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .tablet .tm-cancel { background:var(--inset); color:var(--ink); }
+  .tablet .tm-go { background:var(--accent); color:#fff; } .tablet .tm-go ha-icon { --mdc-icon-size:26px; }
   .tablet .hm-timer .tm-btn { height:auto; border-radius:14px; }
   .tablet .hm-timer .tm-btn b { font-size:22px; } .tablet .hm-timer .tm-btn span { font-size:11px; }
   .tablet .tm-btn { border:0; font:inherit; color:var(--ink); background:var(--inset); border-radius:20px; height:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
