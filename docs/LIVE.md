@@ -71,7 +71,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Music: KS's built-in Sendspin player. Music Assistant creates `media_player.kitchen_display_5`,
     the kitchen voice-music target and the Kitchen room media tile.
   - Idle is KS's screensaver, not Meridian's (the card has no `photos`, `photo_clock` or `night`
-    now): after 90 s, KS's Weather Mood from 5:30 to 8am (big clock, weather bar with high/low, and the At a glance row of today's BoM forecast, rain chance, rain mm and UV), KS's Immich mode (the Family album straight from Immich, KS's own API key) from
+    now): after 90 s, KS's Home Assistant Dashboard mode from 5:30 to 8am showing the hidden `kitchen-weather/weather` dashboard (Meridian's morning forecast over the animated sky from `www/sky.js`; `screensaver.dashboard_view`), KS's Immich mode (the Family album straight from Immich, KS's own API key) from
     8am, the Clock from 9pm. **The schedule (`screensaver.schedule`) overrides
     `screensaver.mode`**: change the schedule entry, not the mode. KS's night mode turns the clock
     red under 3 lx and hides the widgets. Widgets apply to every mode (set in KS): small clock,
@@ -81,11 +81,12 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   - Now Playing is KS's (`sendspin.fullscreen`), split beside the photos
     (`sendspin.fullscreen_split`) with the queue (`sendspin.fullscreen_queue`).
   - Morning, 5:30-8:00: `ks_kitchen_morning_widgets` (`ha_config/kitchen_morning_widgets.json`)
-    turns `switch.kitchen_display_screensaver_widgets` off at 5:30 and on at 8:00 (Weather Mood
-    draws its own clock and weather), and turns KS's At a glance row on and off with it. The row is
-    global with no HA switch, so it goes through `rest_command.ks_kitchen_settings` (PATCH
-    `/api/settings`, token as `ks_kitchen_auth` in secrets.yaml). The `kitchen-morning` dashboard
-    (Meridian morning forecast) was the slot until 2026-11-22 and is no longer used.
+    turns `switch.kitchen_display_screensaver_widgets` off at 5:30 and on at 8:00 (the weather
+    dashboard has its own clock and forecast). KS's At a glance row is off for good
+    (`screensaver.glance_enabled` false, set in KS). `rest_command.ks_kitchen_settings` (PATCH
+    `/api/settings`, token as `ks_kitchen_auth` in secrets.yaml) is still defined but unused.
+    The slot was KS's Weather Mood 2026-11-22/23 and the `kitchen-morning` dashboard before that;
+    `kitchen-morning` is no longer used.
   - Washing alert: KS's screensaver covers the dashboard, so `washing_alert_wakes_displays`
     switches the screensaver off on the kitchen and the Echo (not in bedroom night mode) while
     `input_boolean.washing_machine_alert` is on.
@@ -128,9 +129,9 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     Claude, wake word Okay Nabu (microWakeWord). Remote admin `http://192.168.1.133:2324`
     (password and API token in `~/.config/ks/`, never in this repo). Start page
     `master-bedroom-echo-show/controls`.
-  - Idle is KS's screensaver: after 300 s, Weather Mood 6:30-8am (same glance row as the
-    kitchen; `ks_bedroom_morning_widgets` turns the widgets off and the row on through
-    `rest_command.ks_bedroom_settings`, token `ks_bedroom_auth`), Immich (Family album, no
+  - Idle is KS's screensaver: after 300 s, the hidden `echo-weather/weather` dashboard 6:30-8am
+    (KS's Home Assistant Dashboard mode, same card as `kitchen-weather` but laid out for 960x480;
+    `ks_bedroom_morning_widgets` turns the widgets off, glance row off in KS), Immich (Family album, no
     captions: they push the weather widget off this small screen) from 8am, the clock from 9pm,
     red under 5 lx.
     Same widgets as the kitchen. KS's full-screen Now Playing is OFF here: it has no night

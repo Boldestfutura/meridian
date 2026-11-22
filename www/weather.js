@@ -9,6 +9,7 @@
 // Data: the BoM integration (bremor/bureau_of_meteorology). Class names are wp-*: the Kitchen
 // Show's own weather already uses wx-*.
 import { html, css, nothing } from "./lit-all.min.js";
+import { skyIsDark } from "./sky.js";
 
 export const WX = {
   weather: "weather.outdoor_south_melbourne",
@@ -131,12 +132,20 @@ export function wxMorning(c, opt) {
   const dir = (st(`sensor.${WX.observations}_wind_direction`) || {}).state || "", gust = obs("gust_speed_kilometre");
   const now = new Date();
   const slots = (feed.hourly || []).filter((f) => { const d = new Date(f.datetime); return d > now && d.getDate() === now.getDate() && [9, 12, 15, 18, 21].includes(d.getHours()); }).slice(0, 5);
+  // `sky: true`: an animated sky behind it (www/sky.js), picked from today's BoM forecast, with
+  // Melbourne's extremes on top: frost (BoM says so, or 2° or colder now), a cold morning (5° or
+  // colder now), a heatwave (a high of 35° or more), smoke haze (BoM's hazy or dusty)
+  const desc = fc("icon_descriptor") || "", nowT = obs("temp");
+  const sky = o.sky ? skyMode(desc, cond, nowT, hi) : null;
+  const night = (st("sun.sun") || {}).state === "below_horizon";
+  const nowNote = sky && ["cold", "frost", "heat"].includes(sky) && nowT != null ? ` · ${round(nowT)}° now` : "";
   const dismiss = (ev) => { ev.stopPropagation(); c._call("input_boolean", "turn_off", { entity_id: o.alert }); };
   const tile = (ic, label, big, note) => html`<div class="mf-tile"><span class="mf-k"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small>${note}</small></div>`;
   return html`
-    <div class="screen mf" @pointerdown=${(ev) => ev.stopPropagation()}>
+    <div class="screen mf ${sky ? "sky" : ""} ${sky && skyIsDark(sky, night) ? "ink-light" : ""}" @pointerdown=${(ev) => ev.stopPropagation()}>
+      ${sky ? html`<meridian-sky .mode=${sky} .night=${night}></meridian-sky>` : nothing}
       <div class="mf-top">
-        <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
+        <div class="mf-label">Today's forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
           ${o.always ? nothing : html`<button class="mf-btn" @click=${dismiss}>Close</button>`}
@@ -144,7 +153,7 @@ export function wxMorning(c, opt) {
       </div>
       <div class="mf-main">
         <img src=${icon(cond, false)} alt="">
-        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` · low ${round(lo)}°` : ""}</span></div>
+        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` · low ${round(lo)}°` : ""}${nowNote}</span></div>
         <div class="mf-what">${short}</div>
       </div>
       <div class="mf-tiles">
@@ -158,7 +167,19 @@ export function wxMorning(c, opt) {
       })}</div>` : nothing}
     </div>`;
 }
-const DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const SKY_OF = { sunny: "sunny", clear: "sunny", mostly_sunny: "partly", partly_cloudy: "partly", cloudy: "cloudy",
+  light_rain: "rain", rain: "rain", shower: "rain", light_shower: "rain", heavy_shower: "rain", storm: "storm", cyclone: "storm",
+  fog: "fog", windy: "windy", hazy: "smoke", haze: "smoke", dusty: "smoke", frost: "frost", snow: "frost" };
+const SKY_OF_COND = { sunny: "sunny", "clear-night": "sunny", partlycloudy: "partly", cloudy: "cloudy", rainy: "rain", pouring: "rain",
+  lightning: "storm", "lightning-rainy": "storm", fog: "fog", windy: "windy", "windy-variant": "windy", snowy: "frost", hail: "storm" };
+function skyMode(desc, cond, nowT, hi) {
+  const base = SKY_OF[desc] || SKY_OF_COND[cond] || "cloudy";
+  if (["storm", "rain", "smoke"].includes(base)) return base;          // the weather itself wins
+  if (base === "frost" || (nowT != null && nowT <= 2)) return "frost";
+  if (nowT != null && nowT <= 5) return "cold";
+  if (hi != null && hi >= 35) return "heat";
+  return base;
+}
 
 // one section of the sheet; `c` is the card (hass, requestUpdate)
 export function wxSection(c, s) {
@@ -348,4 +369,10 @@ export const WX_CSS = css`
   .mf-hours img { height: min(5.4vh, 2.7vw); width: auto; }
   .mf-hours b { font-family: var(--display); font-weight: 800; font-size: min(4.4vh, 2.2vw); }
   .mf-hours small { font-weight: 700; font-size: min(3vh, 1.5vw); color: #2f6fd0; min-width: 0; }
+  /* over the animated sky: frosted-glass tiles, and white text when the sky is dark */
+  .screen.mf.sky .mf-tile, .screen.mf.sky .mf-hours { background: rgba(255, 255, 255, 0.42); border: 1px solid rgba(255, 255, 255, 0.45);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
+  .screen.mf.ink-light { color: #f6f8fc; text-shadow: 0 0.3vh 2.4vh rgba(0, 10, 30, 0.35); }
+  .screen.mf.ink-light .mf-tile, .screen.mf.ink-light .mf-hours { background: rgba(12, 22, 44, 0.28); border-color: rgba(255, 255, 255, 0.14); }
+  .screen.mf.ink-light .mf-hours small { color: #9cc4ff; }
 `;

@@ -2596,13 +2596,13 @@ function createPip() {
       put(cx + 1, my + 1, I2.MOUTH);
       put(cx + 2, my + 2, I2.MOUTH);
     } else if (st2 === "dizzy") {
-      const R2 = [[2, 0], [2, 1], [1, 2], [0, 2], [-1, 2], [-2, 1], [-2, 0], [-2, -1], [-1, -2], [0, -2], [1, -2], [2, -1]];
+      const R3 = [[2, 0], [2, 1], [1, 2], [0, 2], [-1, 2], [-2, 1], [-2, 0], [-2, -1], [-1, -2], [0, -2], [1, -2], [2, -1]];
       eyes((x3, y2, s2) => {
         const turn = Math.floor(t3 * 7) * s2, ox = x3 + 1, oy = y2 + 1;
-        R2.forEach(([a3, b3], i2) => {
+        R3.forEach(([a3, b3], i2) => {
           if (((i2 - turn) % 12 + 12) % 12 < 9) put(ox + a3, oy + b3, I2.EYE);
         });
-        const [a2, b2] = R2[((turn + 9) % 12 + 12) % 12];
+        const [a2, b2] = R3[((turn + 9) % 12 + 12) % 12];
         put(ox + Math.round(a2 / 2), oy + Math.round(b2 / 2), I2.EYE);
         put(ox, oy, I2.EYE);
       });
@@ -3033,13 +3033,13 @@ function createPip() {
     ctx.fill();
     ctx.drawImage(small, x3 + 9 * k2, y2 + 9 * k2, 448 * k2, 448 * k2);
     const dim = st2 === "asleep" ? 0.45 : st2 === "sleepy" ? 0.6 : 1, vals = stats || STATS[st2];
-    const R2 = 219 * k2, cxp = x3 + 233 * k2, cyp = y2 + 233 * k2;
+    const R3 = 219 * k2, cxp = x3 + 233 * k2, cyp = y2 + 233 * k2;
     [225, 315, 45, 135].forEach((mid, si) => {
       for (let s2 = 0; s2 < 10; s2++) {
         const a0 = (mid - 30 + s2 * 6 + 0.9) * Math.PI / 180, a1 = (mid - 30 + (s2 + 1) * 6 - 0.9) * Math.PI / 180;
         const filled = mid === 45 || mid === 135 ? 9 - s2 < Math.round(vals[si] * 10) : s2 < Math.round(vals[si] * 10);
         ctx.beginPath();
-        ctx.arc(cxp, cyp, R2, a0, a1);
+        ctx.arc(cxp, cyp, R3, a0, a1);
         ctx.strokeStyle = STAT_COL[si];
         ctx.globalAlpha = (filled ? 1 : 0.16) * dim;
         ctx.lineWidth = 7 * k2;
@@ -3120,6 +3120,442 @@ function shakeDetector(onShake) {
     }
   };
 }
+
+// www/sky.js
+var SKY = {
+  // [day, night] colours top and bottom, then cloud cover and the effects
+  sunny: { top: [[0.16, 0.45, 0.9], [0.03, 0.06, 0.16]], bot: [[0.66, 0.84, 0.99], [0.1, 0.14, 0.28]], cover: 0.2, dark: 0, speed: 0.03, sun: 1 },
+  partly: { top: [[0.3, 0.56, 0.9], [0.03, 0.06, 0.16]], bot: [[0.78, 0.87, 0.96], [0.1, 0.14, 0.28]], cover: 0.45, dark: 0.05, speed: 0.01, sun: 0.75 },
+  cloudy: { top: [[0.3, 0.48, 0.78], [0.05, 0.07, 0.13]], bot: [[0.74, 0.83, 0.94], [0.12, 0.14, 0.2]], cover: 0.74, dark: 0.12, speed: 8e-3, sun: 0.15 },
+  rain: { top: [[0.22, 0.3, 0.42], [0.04, 0.05, 0.1]], bot: [[0.45, 0.53, 0.64], [0.09, 0.11, 0.16]], cover: 0.9, dark: 0.4, speed: 0.014, fog: 0.1, rain: 1, wind: 0.25 },
+  storm: { top: [[0.07, 0.08, 0.13], [0.02, 0.03, 0.07]], bot: [[0.2, 0.22, 0.3], [0.06, 0.07, 0.11]], cover: 0.97, dark: 0.75, speed: 0.02, rain: 1.5, storm: 1, wind: 0.35 },
+  fog: { top: [[0.78, 0.81, 0.85], [0.1, 0.11, 0.15]], bot: [[0.9, 0.91, 0.92], [0.16, 0.17, 0.21]], cover: 0.35, dark: 0, speed: 4e-3, sun: 0.35, fog: 1 },
+  windy: { top: [[0.28, 0.52, 0.86], [0.03, 0.06, 0.16]], bot: [[0.74, 0.84, 0.95], [0.1, 0.14, 0.28]], cover: 0.5, dark: 0.06, speed: 0.05, sun: 0.6, wind: 1 },
+  cold: { top: [[0.5, 0.64, 0.84], [0.03, 0.06, 0.14]], bot: [[0.84, 0.89, 0.95], [0.1, 0.13, 0.24]], cover: 0.4, dark: 0.08, speed: 0.01, sun: 0.45, cold: 1 },
+  frost: { top: [[0.4, 0.6, 0.88], [0.03, 0.06, 0.14]], bot: [[0.86, 0.92, 0.98], [0.1, 0.13, 0.24]], cover: 0.08, dark: 0, speed: 0.01, sun: 0.7, fog: 0.15, cold: 0.6, frost: 1 },
+  heat: { top: [[0.3, 0.52, 0.86], [0.05, 0.06, 0.16]], bot: [[1, 0.84, 0.62], [0.3, 0.18, 0.16]], cover: 0.06, dark: 0, speed: 0.012, sun: 1, wind: 0.2, heat: 1 },
+  smoke: { top: [[0.5, 0.4, 0.32], [0.08, 0.05, 0.04]], bot: [[0.88, 0.62, 0.38], [0.22, 0.12, 0.07]], cover: 0.3, dark: 0.15, speed: 8e-3, smoke: 1 }
+};
+var KEYS = ["cover", "dark", "speed", "sun", "fog", "rain", "storm", "wind", "cold", "frost", "heat", "smoke"];
+var skyIsDark = (mode, night) => !!night || ["rain", "storm", "smoke"].includes(mode);
+var VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+var FS = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 R;uniform float t,cover,dark,speed,sun,fog,night,flash,wind,heat,smoke;uniform vec3 top,bot;
+float h(vec2 p){p=fract(p*vec2(.1031,.1030));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float v=0.,a=.5;mat2 m=mat2(1.6,1.2,-1.2,1.6);for(int i=0;i<6;i++){v+=a*n(p);p=m*p;a*=.5;}return v;}
+void main(){vec2 uv=gl_FragCoord.xy/R;uv.x+=heat*sin(uv.y*38.+t*3.2)*.005*smoothstep(.55,0.,uv.y);float A=R.x/R.y;vec2 q=vec2(uv.x*A,uv.y);
+ vec3 col=mix(bot,top,smoothstep(0.,1.,uv.y));
+ vec2 sp=vec2(A*.64,.86);float sd=length(q-sp);
+ if(night>.5){vec2 g=floor(q*140.);float s=h(g);float tw=.6+.4*sin(t*2.+s*40.);col+=vec3(1.)*step(.996,s)*tw*(1.-cover*.9);
+  col+=vec3(.95,.93,.85)*smoothstep(.075,.07,sd)*(1.-cover*.7)+vec3(.25,.28,.4)*exp(-sd*7.)*(1.-cover*.6);}
+ float pulse=1.+.1*sin(t*1.1)+.05*sin(t*2.7);
+ if(night<.5)col+=sun*(vec3(1.,.95,.8)*smoothstep(.07,.05,sd)*.9+vec3(1.,.86,.6)*exp(-sd*4.5)*.4*pulse);
+ float dr=t*speed*(1.+wind*2.);
+ vec2 cp=q*vec2(1.05,1.6)+vec2(dr,0.);vec2 wp=cp+fbm(cp*.5+t*.01)*.6;float c1=fbm(wp);
+ float cl=fbm(wp+vec2(.04,.09));float hl=clamp((c1-cl)*10.,-1.,1.);
+ float c2=fbm(q*vec2(2.2,3.)+vec2(dr*1.7,.3));
+ float th=1.-cover;float d1=smoothstep(th-.06,th+.2,c1);float d2=smoothstep(th,th+.3,c2)*.6;
+ float dens=clamp(d1+d2*(1.-d1),0.,1.);
+ vec3 lit=night>.5?vec3(.24,.27,.36):vec3(1.,1.,.99);vec3 shade=night>.5?vec3(.07,.08,.12):vec3(.46,.5,.6);
+ float L=clamp(.58-dark*.9+hl*1.05*(1.-dark*.85)-(c1-th)*.6,0.,1.);
+ vec3 cc=mix(shade,lit,L);
+ cc+=lit*smoothstep(.25,.9,hl)*.22*(1.-dark);
+ if(night<.5)cc+=sun*vec3(1.,.9,.7)*exp(-sd*2.5)*.3*(1.-dark);
+ col=mix(col,cc,dens*.95);
+ if(night<.5)col+=sun*vec3(1.,.9,.7)*exp(-sd*2.2)*.12*(1.-dens*.7)*(.8+.2*sin(t*.6));
+ col+=heat*(vec3(1.,.82,.55)*exp(-sd*1.8)*.28+vec3(1.,.75,.45)*smoothstep(.45,0.,uv.y)*.12);
+ float sh=fbm(vec2(q.x*.9+t*.015,q.y*2.2-t*.006));
+ col=mix(col,night>.5?vec3(.2,.11,.06):vec3(.80,.55,.33),smoke*clamp(.45+sh*.55,0.,1.));
+ col+=smoke*(1.-night)*vec3(1.,.32,.08)*smoothstep(.06,.045,sd)*.85;
+ float fb=fbm(vec2(q.x*1.2+t*.02,q.y*5.));col=mix(col,night>.5?vec3(.2,.21,.26):vec3(.93,.93,.94),fog*clamp(.35+fb*.7-uv.y*.35,0.,1.));
+ col+=flash*vec3(.55,.6,.75)*(.4+dens);
+ gl_FragColor=vec4(col,1.);}`;
+var lerp = (a2, b2, k2) => a2 + (b2 - a2) * k2;
+var R2 = Math.random;
+function makeBolt() {
+  const out = [];
+  function seg(x3, y2, len, ang, depth, w2) {
+    const pts = [[x3, y2]];
+    let cx = x3, cy = y2;
+    const steps = 10 + Math.floor(R2() * 6);
+    for (let i2 = 0; i2 < steps; i2++) {
+      ang += (R2() - 0.5) * 0.9;
+      cx += Math.sin(ang) * len / steps * 0.6;
+      cy += Math.cos(ang) * len / steps;
+      pts.push([cx, cy]);
+      if (depth < 2 && R2() < 0.18) out.push(...seg(cx, cy, len * 0.45, ang + (R2() < 0.5 ? -0.7 : 0.7), depth + 1, w2 * 0.55));
+    }
+    return [{ pts, w: w2 }];
+  }
+  out.unshift(...seg(0.15 + R2() * 0.7, -0.02, 0.62 + R2() * 0.25, (R2() - 0.5) * 0.4, 0, 1));
+  return { paths: out, a: 1 };
+}
+var MeridianSky = class extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: "open" });
+    root.innerHTML = `<style>:host{position:absolute;inset:0;display:block;overflow:hidden;z-index:-1;pointer-events:none}
+      canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.sky{filter:blur(2px);transform:scale(1.02)}
+      .flash{position:absolute;inset:0;background:#eef3ff;opacity:0}</style>
+      <canvas class="sky"></canvas><canvas class="fx"></canvas><div class="flash"></div>`;
+    this._sky = root.querySelector(".sky");
+    this._fx = root.querySelector(".fx");
+    this._flash = root.querySelector(".flash");
+    this._mode = "cloudy";
+    this._night = false;
+    this._cur = null;
+    this._flashV = 0;
+    this._nextBolt = 2;
+    this._bolt = null;
+  }
+  set mode(m2) {
+    this._mode = SKY[m2] ? m2 : "cloudy";
+  }
+  get mode() {
+    return this._mode;
+  }
+  set night(v2) {
+    this._night = !!v2;
+  }
+  get night() {
+    return this._night;
+  }
+  connectedCallback() {
+    this._ro = new ResizeObserver(() => this._size());
+    this._ro.observe(this);
+    this._vis = () => {
+      if (!document.hidden) this._loop();
+    };
+    document.addEventListener("visibilitychange", this._vis);
+    this._t0 = performance.now();
+    this._last = this._t0;
+    this._loop();
+  }
+  disconnectedCallback() {
+    cancelAnimationFrame(this._raf);
+    this._raf = null;
+    if (this._ro) this._ro.disconnect();
+    document.removeEventListener("visibilitychange", this._vis);
+  }
+  _size() {
+    const W2 = Math.round(this.clientWidth), H2 = Math.round(this.clientHeight);
+    if (!W2 || !H2 || W2 === this._W && H2 === this._H) return;
+    this._W = W2;
+    this._H = H2;
+    this._s = W2 / 1280;
+    if (!this._gl) this._initGL();
+    if (this._gl) {
+      this._sky.width = Math.max(1, W2 / 3 | 0);
+      this._sky.height = Math.max(1, H2 / 3 | 0);
+      this._gl.viewport(0, 0, this._sky.width, this._sky.height);
+    }
+    this._fx.width = W2;
+    this._fx.height = H2;
+    this._g = this._fx.getContext("2d");
+    this._particles();
+  }
+  _initGL() {
+    const gl = this._sky.getContext("webgl", { antialias: false });
+    if (!gl) return;
+    const sh = (t3, s2) => {
+      const o2 = gl.createShader(t3);
+      gl.shaderSource(o2, s2);
+      gl.compileShader(o2);
+      return o2;
+    };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return;
+    gl.useProgram(pr);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, "p");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    this._U = {};
+    for (const k2 of ["R", "t", "night", "flash", "top", "bot", ...KEYS]) this._U[k2] = gl.getUniformLocation(pr, k2);
+    this._gl = gl;
+  }
+  // everything on the 2D canvas, sized to the screen; the mist and frost are painted once
+  _particles() {
+    const W2 = this._W, H2 = this._H, s2 = this._s;
+    this._streaks = [...Array(Math.round(380 * s2))].map(() => ({ x: R2() * W2 * 1.15, y: R2() * H2, l: (14 + R2() * 22) * s2, v: (900 + R2() * 700) * s2, a: 0.12 + R2() * 0.3 }));
+    this._beads = [...Array(Math.round(150 * s2))].map(() => ({ x: R2() * W2, y: R2() * H2, r: (1.5 + R2() * R2() * 5) * s2, v: 0 }));
+    this._gusts = [...Array(24)].map(() => ({ x: R2() * W2, y: R2() * H2, l: (120 + R2() * 260) * s2, v: (500 + R2() * 500) * s2, a: 0.1 + R2() * 0.18 }));
+    this._ash = [...Array(Math.round(70 * s2 + 10))].map(() => ({ x: R2() * W2, y: R2() * H2, r: (0.8 + R2() * 1.8) * s2, vx: (8 + R2() * 14) * s2, vy: (4 + R2() * 8) * s2, p: R2() * 6 }));
+    this._mist = null;
+    this._frost = null;
+  }
+  _paintMist() {
+    const W2 = this._W, H2 = this._H, s2 = this._s, c2 = document.createElement("canvas");
+    c2.width = W2;
+    c2.height = H2;
+    const m2 = c2.getContext("2d");
+    const gr = m2.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.32, W2 / 2, H2 / 2, Math.hypot(W2, H2) * 0.55);
+    gr.addColorStop(0, "rgba(235,242,250,0)");
+    gr.addColorStop(1, "rgba(235,242,250,.62)");
+    m2.fillStyle = gr;
+    m2.fillRect(0, 0, W2, H2);
+    for (let i2 = 0; i2 < 260; i2++) {
+      const x3 = R2() * W2, y2 = R2() * H2, e2 = Math.min(x3, W2 - x3, y2, H2 - y2) / Math.min(W2, H2);
+      if (e2 > 0.22) continue;
+      const r2 = (6 + R2() * 26) * s2, g2 = m2.createRadialGradient(x3, y2, 0, x3, y2, r2);
+      g2.addColorStop(0, `rgba(245,249,255,${0.25 * (1 - e2 / 0.22)})`);
+      g2.addColorStop(1, "rgba(245,249,255,0)");
+      m2.fillStyle = g2;
+      m2.beginPath();
+      m2.arc(x3, y2, r2, 0, 7);
+      m2.fill();
+    }
+    return c2;
+  }
+  _paintFrost() {
+    const W2 = this._W, H2 = this._H, s2 = this._s, c2 = document.createElement("canvas");
+    c2.width = W2;
+    c2.height = H2;
+    const f2 = c2.getContext("2d");
+    f2.lineCap = "round";
+    const sparks = [], B2 = [[], [], [], []];
+    const fg = f2.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.38, W2 / 2, H2 / 2, Math.hypot(W2, H2) * 0.55);
+    fg.addColorStop(0, "rgba(240,247,255,0)");
+    fg.addColorStop(1, "rgba(240,247,255,.5)");
+    f2.fillStyle = fg;
+    f2.fillRect(0, 0, W2, H2);
+    function arm(x3, y2, a2, len, w2, d2) {
+      const n2 = 8 + Math.floor(R2() * 6);
+      for (let i2 = 0; i2 < n2; i2++) {
+        const nx = x3 + Math.cos(a2) * len / n2, ny = y2 + Math.sin(a2) * len / n2;
+        B2[d2].push(x3, y2, nx, ny);
+        if (d2 < 2) {
+          for (const sgn of [-1, 1]) if (R2() < 0.5) {
+            const bl = len * (0.2 + R2() * 0.18) * (1 - i2 / n2);
+            if (bl > 4 * s2) arm(nx, ny, a2 + sgn * (1 + R2() * 0.25), bl, w2 * 0.7, d2 + 1);
+          }
+        }
+        if (d2 < 2 && R2() < 0.05) sparks.push([nx, ny, R2() * 6]);
+        x3 = nx;
+        y2 = ny;
+        a2 += (R2() - 0.5) * 0.25;
+      }
+    }
+    for (const [cx, cy, ca] of [[0, 0, 0.8], [W2, 0, Math.PI - 0.8], [0, H2, -0.8], [W2, H2, Math.PI + 0.8]])
+      for (let i2 = 0; i2 < 9; i2++) arm(cx + (R2() - 0.5) * 60 * s2, cy + (R2() - 0.5) * 60 * s2, ca + (R2() - 0.5) * 1.4, (120 + R2() * 170) * s2, 1, 0);
+    for (let i2 = 0; i2 < 26; i2++) {
+      const side = i2 % 4, u2 = R2();
+      const [x3, y2, a2] = side === 0 ? [u2 * W2, 0, Math.PI / 2] : side === 1 ? [u2 * W2, H2, -Math.PI / 2] : side === 2 ? [0, u2 * H2, 0] : [W2, u2 * H2, Math.PI];
+      arm(x3, y2, a2 + (R2() - 0.5) * 0.9, (40 + R2() * 90) * s2, 0.8, 1);
+    }
+    B2.forEach((L2, d2) => {
+      f2.strokeStyle = `rgba(250,253,255,${[0.6, 0.45, 0.32, 0.25][d2]})`;
+      f2.lineWidth = Math.max(0.6, [1.8, 1.2, 0.8, 0.6][d2] * s2);
+      f2.beginPath();
+      for (let i2 = 0; i2 < L2.length; i2 += 4) {
+        f2.moveTo(L2[i2], L2[i2 + 1]);
+        f2.lineTo(L2[i2 + 2], L2[i2 + 3]);
+      }
+      f2.stroke();
+    });
+    this._sparks = sparks;
+    return c2;
+  }
+  _target() {
+    const p2 = SKY[this._mode], n2 = this._night ? 1 : 0, o2 = { top: p2.top[n2], bot: p2.bot[n2], night: n2 };
+    for (const k2 of KEYS) o2[k2] = p2[k2] || 0;
+    if (n2) {
+      o2.sun = 0;
+      o2.heat = 0;
+    }
+    return o2;
+  }
+  _loop() {
+    if (this._raf || !this.isConnected) return;
+    const step = (now) => {
+      this._raf = null;
+      if (!this.isConnected || document.hidden) return;
+      this._raf = requestAnimationFrame(step);
+      if (now - this._last < 30) return;
+      const dt2 = Math.min(0.1, (now - this._last) / 1e3);
+      this._last = now;
+      this._draw((now - this._t0) / 1e3, dt2);
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  _draw(t3, dt2) {
+    if (!this._W) this._size();
+    if (!this._W) return;
+    const tg = this._target();
+    if (!this._cur) this._cur = JSON.parse(JSON.stringify(tg));
+    const cur = this._cur, k2 = 1 - Math.pow(0.02, dt2);
+    for (const key of KEYS) cur[key] = lerp(cur[key], tg[key], k2);
+    for (const key of ["top", "bot"]) cur[key] = cur[key].map((v2, i2) => lerp(v2, tg[key][i2], k2));
+    cur.night = tg.night;
+    if (cur.storm > 0.5) {
+      this._nextBolt -= dt2;
+      if (this._nextBolt <= 0) {
+        this._bolt = makeBolt();
+        this._flashV = 1;
+        this._nextBolt = 3.5 + R2() * 6;
+        setTimeout(() => {
+          if (this._bolt) this._bolt.a = 0.25;
+        }, 90);
+        setTimeout(() => {
+          if (this._bolt) this._bolt.a = 1;
+          this._flashV = 0.8;
+        }, 170);
+      }
+    }
+    this._flashV *= Math.pow(4e-3, dt2);
+    if (this._bolt) {
+      this._bolt.a *= Math.pow(0.02, dt2);
+      if (this._bolt.a < 0.02) this._bolt = null;
+    }
+    const gl = this._gl, U2 = this._U;
+    if (gl) {
+      gl.uniform2f(U2.R, this._sky.width, this._sky.height);
+      gl.uniform1f(U2.t, t3);
+      for (const key of KEYS) if (U2[key]) gl.uniform1f(U2[key], cur[key]);
+      gl.uniform1f(U2.night, cur.night);
+      gl.uniform1f(U2.flash, this._flashV);
+      gl.uniform3fv(U2.top, cur.top);
+      gl.uniform3fv(U2.bot, cur.bot);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    this._flash.style.opacity = (this._flashV * 0.35).toFixed(3);
+    this._fx2d(cur, t3, dt2);
+  }
+  _fx2d(cur, t3, dt2) {
+    const g2 = this._g, W2 = this._W, H2 = this._H, s2 = this._s;
+    g2.clearRect(0, 0, W2, H2);
+    if (cur.cold > 0.02) {
+      this._mist = this._mist || this._paintMist();
+      g2.globalAlpha = Math.min(1, cur.cold) * (0.8 + 0.2 * Math.sin(t3 * 0.5));
+      g2.drawImage(this._mist, 0, 0);
+      g2.globalAlpha = 1;
+    }
+    if (cur.frost > 0.02) {
+      this._frost = this._frost || this._paintFrost();
+      g2.globalAlpha = Math.min(1, cur.frost);
+      g2.drawImage(this._frost, 0, 0);
+      g2.globalAlpha = 1;
+      if (!cur.night) for (const [x3, y2, p2] of this._sparks) {
+        const a2 = Math.max(0, Math.sin(t3 * 1.7 + p2 * 5)) ** 8 * cur.frost;
+        if (a2 < 0.05) continue;
+        g2.fillStyle = `rgba(255,255,255,${a2.toFixed(3)})`;
+        g2.beginPath();
+        g2.arc(x3, y2, 2.2 * s2, 0, 7);
+        g2.fill();
+        g2.fillRect(x3 - 7 * s2 * a2, y2 - 0.5, 14 * s2 * a2, 1);
+        g2.fillRect(x3 - 0.5, y2 - 7 * s2 * a2, 1, 14 * s2 * a2);
+      }
+    }
+    if (cur.smoke > 0.2) for (const m2 of this._ash) {
+      m2.x += m2.vx * dt2;
+      m2.y += m2.vy * dt2 + Math.sin(t3 + m2.p) * 3 * dt2 * s2;
+      if (m2.x > W2 + 5) {
+        m2.x = -5;
+        m2.y = R2() * H2;
+      }
+      if (m2.y > H2 + 5) m2.y = -5;
+      g2.fillStyle = `rgba(70,55,45,${(0.35 * cur.smoke).toFixed(3)})`;
+      g2.beginPath();
+      g2.arc(m2.x, m2.y, m2.r, 0, 7);
+      g2.fill();
+    }
+    if (cur.rain > 0.02) {
+      const n2 = Math.floor(this._streaks.length * Math.min(1, cur.rain / 1.5)), sl = 0.18 + cur.wind * 0.3;
+      g2.lineCap = "round";
+      g2.lineWidth = 1.5 * s2 + 0.3;
+      for (let i2 = 0; i2 < n2; i2++) {
+        const d2 = this._streaks[i2];
+        d2.y += d2.v * dt2;
+        d2.x -= d2.v * dt2 * sl;
+        if (d2.y > H2 + 20) {
+          d2.y = -30;
+          d2.x = R2() * W2 * 1.15;
+        }
+        if (d2.x < -40) d2.x += W2 * 1.15;
+        g2.strokeStyle = `rgba(${cur.night ? "190,205,235" : "230,238,250"},${(d2.a * Math.min(1, cur.rain)).toFixed(3)})`;
+        g2.beginPath();
+        g2.moveTo(d2.x, d2.y);
+        g2.lineTo(d2.x + d2.l * sl, d2.y - d2.l);
+        g2.stroke();
+      }
+      const al = Math.min(1, cur.rain), nb = Math.floor(this._beads.length * al);
+      for (let i2 = 0; i2 < nb; i2++) {
+        const b2 = this._beads[i2];
+        if (b2.v === 0 && b2.r > 4 * s2 && R2() < dt2 * 0.08) b2.v = (60 + R2() * 120) * s2;
+        if (b2.v > 0) {
+          b2.y += b2.v * dt2;
+          g2.strokeStyle = "rgba(220,230,245,.12)";
+          g2.lineWidth = b2.r * 0.8;
+          g2.beginPath();
+          g2.moveTo(b2.x, b2.y - b2.r * 6);
+          g2.lineTo(b2.x, b2.y);
+          g2.stroke();
+        }
+        if (b2.y > H2 + 10) {
+          b2.y = R2() * H2 * 0.6;
+          b2.x = R2() * W2;
+          b2.v = 0;
+          b2.r = (1.5 + R2() * R2() * 5) * s2;
+        }
+        const gr = g2.createRadialGradient(b2.x - b2.r * 0.3, b2.y - b2.r * 0.3, 0, b2.x, b2.y, b2.r);
+        gr.addColorStop(0, `rgba(255,255,255,${0.75 * al})`);
+        gr.addColorStop(0.45, `rgba(200,215,235,${0.25 * al})`);
+        gr.addColorStop(1, `rgba(20,30,50,${0.35 * al})`);
+        g2.fillStyle = gr;
+        g2.beginPath();
+        g2.arc(b2.x, b2.y, b2.r, 0, 7);
+        g2.fill();
+      }
+    }
+    if (cur.wind > 0.4) {
+      g2.lineWidth = 2 * s2;
+      for (const w2 of this._gusts) {
+        w2.x += w2.v * dt2 * cur.wind;
+        if (w2.x > W2 + 200) {
+          w2.x = -w2.l;
+          w2.y = R2() * H2;
+        }
+        const gr = g2.createLinearGradient(w2.x, 0, w2.x + w2.l, 0);
+        gr.addColorStop(0, "rgba(255,255,255,0)");
+        gr.addColorStop(0.5, `rgba(255,255,255,${(w2.a * (cur.wind - 0.4)).toFixed(3)})`);
+        gr.addColorStop(1, "rgba(255,255,255,0)");
+        g2.strokeStyle = gr;
+        g2.beginPath();
+        g2.moveTo(w2.x, w2.y);
+        g2.quadraticCurveTo(w2.x + w2.l / 2, w2.y - 10 * s2, w2.x + w2.l, w2.y);
+        g2.stroke();
+      }
+    }
+    const bolt = this._bolt;
+    if (bolt && bolt.a > 0) {
+      g2.save();
+      g2.lineCap = "round";
+      g2.lineJoin = "round";
+      for (const [blur, lw, col] of [[28, 9, "rgba(170,185,255,"], [10, 4, "rgba(220,228,255,"], [0, 1.8, "rgba(255,255,255,"]]) {
+        g2.shadowBlur = blur * s2;
+        g2.shadowColor = "rgba(180,195,255,.9)";
+        for (const br of bolt.paths) {
+          g2.lineWidth = lw * s2 * br.w;
+          g2.strokeStyle = col + (bolt.a * br.w).toFixed(3) + ")";
+          g2.beginPath();
+          br.pts.forEach(([x3, y2], i2) => i2 ? g2.lineTo(x3 * W2, y2 * H2) : g2.moveTo(x3 * W2, y2 * H2));
+          g2.stroke();
+        }
+      }
+      g2.restore();
+    }
+  }
+};
+if (!customElements.get("meridian-sky")) customElements.define("meridian-sky", MeridianSky);
 
 // www/weather.js
 var WX = {
@@ -3289,15 +3725,20 @@ function wxMorning(c2, opt) {
     const d2 = new Date(f2.datetime);
     return d2 > now && d2.getDate() === now.getDate() && [9, 12, 15, 18, 21].includes(d2.getHours());
   }).slice(0, 5);
+  const desc = fc("icon_descriptor") || "", nowT = obs("temp");
+  const sky = o2.sky ? skyMode(desc, cond, nowT, hi) : null;
+  const night = (st2("sun.sun") || {}).state === "below_horizon";
+  const nowNote = sky && ["cold", "frost", "heat"].includes(sky) && nowT != null ? ` \xB7 ${round(nowT)}\xB0 now` : "";
   const dismiss = (ev) => {
     ev.stopPropagation();
     c2._call("input_boolean", "turn_off", { entity_id: o2.alert });
   };
   const tile = (ic, label, big, note) => Z`<div class="mf-tile"><span class="mf-k"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small>${note}</small></div>`;
   return Z`
-    <div class="screen mf" @pointerdown=${(ev) => ev.stopPropagation()}>
+    <div class="screen mf ${sky ? "sky" : ""} ${sky && skyIsDark(sky, night) ? "ink-light" : ""}" @pointerdown=${(ev) => ev.stopPropagation()}>
+      ${sky ? Z`<meridian-sky .mode=${sky} .night=${night}></meridian-sky>` : J}
       <div class="mf-top">
-        <div class="mf-label">${DAY_LONG[now.getDay()]}'s forecast</div>
+        <div class="mf-label">Today's forecast</div>
         <div class="mf-side">
           <div class="mf-time">${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}</div>
           ${o2.always ? J : Z`<button class="mf-btn" @click=${dismiss}>Close</button>`}
@@ -3305,7 +3746,7 @@ function wxMorning(c2, opt) {
       </div>
       <div class="mf-main">
         <img src=${icon(cond, false)} alt="">
-        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` \xB7 low ${round(lo)}\xB0` : ""}</span></div>
+        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` \xB7 low ${round(lo)}\xB0` : ""}${nowNote}</span></div>
         <div class="mf-what">${short}</div>
       </div>
       <div class="mf-tiles">
@@ -3319,7 +3760,50 @@ function wxMorning(c2, opt) {
   })}</div>` : J}
     </div>`;
 }
-var DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var SKY_OF = {
+  sunny: "sunny",
+  clear: "sunny",
+  mostly_sunny: "partly",
+  partly_cloudy: "partly",
+  cloudy: "cloudy",
+  light_rain: "rain",
+  rain: "rain",
+  shower: "rain",
+  light_shower: "rain",
+  heavy_shower: "rain",
+  storm: "storm",
+  cyclone: "storm",
+  fog: "fog",
+  windy: "windy",
+  hazy: "smoke",
+  haze: "smoke",
+  dusty: "smoke",
+  frost: "frost",
+  snow: "frost"
+};
+var SKY_OF_COND = {
+  sunny: "sunny",
+  "clear-night": "sunny",
+  partlycloudy: "partly",
+  cloudy: "cloudy",
+  rainy: "rain",
+  pouring: "rain",
+  lightning: "storm",
+  "lightning-rainy": "storm",
+  fog: "fog",
+  windy: "windy",
+  "windy-variant": "windy",
+  snowy: "frost",
+  hail: "storm"
+};
+function skyMode(desc, cond, nowT, hi) {
+  const base = SKY_OF[desc] || SKY_OF_COND[cond] || "cloudy";
+  if (["storm", "rain", "smoke"].includes(base)) return base;
+  if (base === "frost" || nowT != null && nowT <= 2) return "frost";
+  if (nowT != null && nowT <= 5) return "cold";
+  if (hi != null && hi >= 35) return "heat";
+  return base;
+}
 function wxSection(c2, s2) {
   const feed = c2.__wxFeed || (c2.__wxFeed = new WeatherFeed(c2));
   feed.touch(c2.hass);
@@ -3522,6 +4006,12 @@ var WX_CSS = o`
   .mf-hours img { height: min(5.4vh, 2.7vw); width: auto; }
   .mf-hours b { font-family: var(--display); font-weight: 800; font-size: min(4.4vh, 2.2vw); }
   .mf-hours small { font-weight: 700; font-size: min(3vh, 1.5vw); color: #2f6fd0; min-width: 0; }
+  /* over the animated sky: frosted-glass tiles, and white text when the sky is dark */
+  .screen.mf.sky .mf-tile, .screen.mf.sky .mf-hours { background: rgba(255, 255, 255, 0.42); border: 1px solid rgba(255, 255, 255, 0.45);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
+  .screen.mf.ink-light { color: #f6f8fc; text-shadow: 0 0.3vh 2.4vh rgba(0, 10, 30, 0.35); }
+  .screen.mf.ink-light .mf-tile, .screen.mf.ink-light .mf-hours { background: rgba(12, 22, 44, 0.28); border-color: rgba(255, 255, 255, 0.14); }
+  .screen.mf.ink-light .mf-hours small { color: #9cc4ff; }
 `;
 
 // www/weather-page.js
@@ -4232,7 +4722,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.35.2";
+var VERSION = "0.36.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

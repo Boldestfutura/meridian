@@ -1,0 +1,22 @@
+{
+  "views": [
+    {
+      "title": "Weather",
+      "path": "weather",
+      "type": "panel",
+      "cards": [
+        {
+          "type": "custom:overlook-show",
+          "weather": "weather.forecast_home",
+          "tablet": true,
+          "scheme": "sun.sun",
+          "warnings": true,
+          "morning": {
+            "always": true,
+            "sky": true
+          }
+        }
+      ]
+    }
+  ]
+}

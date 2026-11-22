@@ -26,7 +26,7 @@ import deploy, ha_ws  # noqa: E402
 
 HOST = deploy.HOST
 TOKEN = open(os.path.expanduser(deploy.TOKEN_FILE)).read().strip()
-DASHBOARDS = ["ha-show-native", "ha-show-computer", "master-bedroom-echo-show", "ha-weather", "boox-ink", "kitchen-morning"]
+DASHBOARDS = ["ha-show-native", "ha-show-computer", "master-bedroom-echo-show", "ha-weather", "boox-ink", "kitchen-morning", "kitchen-weather", "echo-weather"]
 SCRIPT_IDS = {"voice_weather_script.json": "voice_weather_forecast"}   # where the file name isn't the id
 HELPER_DOMAINS = ["input_boolean", "input_select", "input_number", "input_datetime", "input_text",
                   "input_button", "timer", "counter", "schedule"]
