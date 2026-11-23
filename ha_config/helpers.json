@@ -21,6 +21,16 @@
    "icon": "mdi:thermometer-auto"
   },
   {
+   "id": "inspection_mode",
+   "name": "Inspection mode",
+   "icon": "mdi:home-search"
+  },
+  {
+   "id": "inspection_today",
+   "name": "Inspection today",
+   "icon": "mdi:calendar-search"
+  },
+  {
    "id": "kitchen_alarm",
    "name": "Kitchen Alarm",
    "icon": "mdi:alarm"
@@ -92,6 +102,24 @@
    "mode": "box",
    "unit_of_measurement": "s",
    "icon": "mdi:timer-cog-outline"
+  },
+  {
+   "id": "inspection_echo_volume",
+   "name": "Inspection Echo volume",
+   "min": 0.0,
+   "max": 100.0,
+   "step": 1.0,
+   "mode": "box",
+   "icon": "mdi:volume-high"
+  },
+  {
+   "id": "inspection_kitchen_volume",
+   "name": "Inspection kitchen volume",
+   "min": 0.0,
+   "max": 100.0,
+   "step": 1.0,
+   "mode": "box",
+   "icon": "mdi:volume-high"
   },
   {
    "id": "kitchen_timer_length",

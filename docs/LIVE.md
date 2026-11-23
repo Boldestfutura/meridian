@@ -238,6 +238,25 @@ default; HA's own pages and the Phone Show's sections view use it.
 - Nabu Casa is active. Alexa linking is **not** turned on yet; it's planned for when the
   Sonos Era 100 arrives, with a curated expose list.
 
+## Inspection mode (2026-11-23)
+
+For rental inspections. `automation.inspection_mode` (`ha_config/inspection_mode.json`) arms
+`input_boolean.inspection_today` by voice ("Alexa, we have an inspection today", "inspection
+mode"; "cancel the inspection" disarms) or from a `calendar.p_c` event with "inspection" in
+its title. On that day, once Cameron and Paget are both away (2 min), or when the inspection
+event starts while they are, `input_boolean.inspection_mode` goes on. On the Kitchen Display and
+the Echo it then: switches KS's Immich screensaver to the **Inspection** album (six Unsplash
+landscapes, captions off) through `rest_command.ks_*_settings`, turns the corner widgets and
+cameras off, mutes the mics (`switch.*_vs_mute`), sets `number.*_volume` to 0 (saved first in
+`input_number.inspection_*_volume`), starts the screensaver and turns Lockdown Mode on. KS's
+`lockdown.allow_screensaver` is on for both (set in KS), otherwise a locked screen shows the
+dashboard instead of the photos; taps do nothing, 7 fast taps unlock. The first of them home
+turns it off and restores everything (Family album, captions, volumes). Cameron's iPhone gets
+a notification both ways. The Inspection mode toggle works by hand too.
+`ks_*_morning_widgets` and `washing_alert_wakes_displays` do nothing while it is on.
+Album values must go to KS as a JSON *string*: HA turns template output that looks like a list
+into a list, which KS ignores, so the automation builds the settings dict with `| to_json`.
+
 ## Sleep Sounds (2026-11-07)
 
 `input_boolean.bedroom_night_mode` is shown as **Sleep Sounds** and is the one switch for the

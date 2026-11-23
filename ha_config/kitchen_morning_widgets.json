@@ -14,7 +14,13 @@
    "id": "on"
   }
  ],
- "conditions": [],
+ "conditions": [
+  {
+   "condition": "state",
+   "entity_id": "input_boolean.inspection_mode",
+   "state": "off"
+  }
+ ],
  "actions": [
   {
    "action": "switch.turn_{{ trigger.id }}",
