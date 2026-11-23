@@ -1293,15 +1293,15 @@ function secSection(c2, s2) {
       <span class="sec-name">${name}</span></div>`;
   };
   return Z`
-    ${insp ? Z`<div class="pop-grid">${c2._popTile({ entity: sec2.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : J}
-    <div class="pop-sub">Cameras</div>
-    <div class="sec-cams">${sec2.cameras.map(cam)}</div>
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
     ${open.length ? Z`<div class="pop-grid">${open.map((id) => c2._popTile({
     entity: id,
     name: nice(id),
     icon: /door/i.test(id) ? "mdi:door-open" : "mdi:window-open-variant"
-  }))}</div>` : Z`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}`;
+  }))}</div>` : Z`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}
+    ${insp ? Z`<div class="pop-grid">${c2._popTile({ entity: sec2.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : J}
+    <div class="pop-sub">Cameras</div>
+    <div class="sec-cams">${sec2.cameras.map(cam)}</div>`;
 }
 function homeBubbles(c2) {
   const st2 = c2._config.status || [];
@@ -4832,7 +4832,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.8";
+var VERSION = "0.36.9";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -8185,7 +8185,7 @@ var OverlookShow = class extends dt {
     .st.accent { background: var(--accent-soft); color: var(--accent); }
     .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
     .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
-    .sec-cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .sec-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
                background: #000; }
     .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }

@@ -285,14 +285,15 @@ export function secSection(c, s) {
       : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
       <span class="sec-name">${name}</span></div>`;
   };
+  // doors and windows first, then inspection mode while it is on, then the cameras side by side
   return html`
-    ${insp ? html`<div class="pop-grid">${c._popTile({ entity: sec.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : nothing}
-    <div class="pop-sub">Cameras</div>
-    <div class="sec-cams">${sec.cameras.map(cam)}</div>
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
     ${open.length ? html`<div class="pop-grid">${open.map((id) => c._popTile({ entity: id, name: nice(id),
       icon: /door/i.test(id) ? "mdi:door-open" : "mdi:window-open-variant" }))}</div>`
-      : html`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}`;
+      : html`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}
+    ${insp ? html`<div class="pop-grid">${c._popTile({ entity: sec.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : nothing}
+    <div class="pop-sub">Cameras</div>
+    <div class="sec-cams">${sec.cameras.map(cam)}</div>`;
 }
 
 // Main's header bubbles, in the room chips' shape: where each of us is, then only when needed the
