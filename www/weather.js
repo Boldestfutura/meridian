@@ -138,7 +138,6 @@ export function wxMorning(c, opt) {
   const desc = fc("icon_descriptor") || "", nowT = obs("temp");
   const sky = o.sky ? skyMode(desc, cond, nowT, hi) : null;
   const night = (st("sun.sun") || {}).state === "below_horizon";
-  const nowNote = sky && ["cold", "frost", "heat"].includes(sky) && nowT != null ? ` · ${round(nowT)}° now` : "";
   const dismiss = (ev) => { ev.stopPropagation(); c._call("input_boolean", "turn_off", { entity_id: o.alert }); };
   const tile = (ic, label, big, note) => html`<div class="mf-tile"><span class="mf-k"><ha-icon icon=${ic}></ha-icon>${label}</span><b>${big}</b><small>${note}</small></div>`;
   return html`
@@ -153,7 +152,8 @@ export function wxMorning(c, opt) {
       </div>
       <div class="mf-main">
         <img src=${icon(cond, false)} alt="">
-        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` · low ${round(lo)}°` : ""}${nowNote}</span></div>
+        <!-- the temperature now (BoM's observation; today's high if there is none), then the day's range -->
+        <div class="mf-temps"><b>${round(nowT ?? hi)}°</b><span>${[hi != null ? `High ${round(hi)}°` : "", lo != null ? `low ${round(lo)}°` : ""].filter(Boolean).join(" · ")}</span></div>
         <div class="mf-what">${short}</div>
       </div>
       <div class="mf-tiles">

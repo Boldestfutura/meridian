@@ -3870,7 +3870,6 @@ function wxMorning(c2, opt) {
   const desc = fc("icon_descriptor") || "", nowT = obs("temp");
   const sky = o2.sky ? skyMode(desc, cond, nowT, hi) : null;
   const night = (st2("sun.sun") || {}).state === "below_horizon";
-  const nowNote = sky && ["cold", "frost", "heat"].includes(sky) && nowT != null ? ` \xB7 ${round(nowT)}\xB0 now` : "";
   const dismiss = (ev) => {
     ev.stopPropagation();
     c2._call("input_boolean", "turn_off", { entity_id: o2.alert });
@@ -3888,7 +3887,8 @@ function wxMorning(c2, opt) {
       </div>
       <div class="mf-main">
         <img src=${icon(cond, false)} alt="">
-        <div class="mf-temps"><b>${round(hi)}°</b><span>High${lo != null ? ` \xB7 low ${round(lo)}\xB0` : ""}${nowNote}</span></div>
+        <!-- the temperature now (BoM's observation; today's high if there is none), then the day's range -->
+        <div class="mf-temps"><b>${round(nowT ?? hi)}°</b><span>${[hi != null ? `High ${round(hi)}\xB0` : "", lo != null ? `low ${round(lo)}\xB0` : ""].filter(Boolean).join(" \xB7 ")}</span></div>
         <div class="mf-what">${short}</div>
       </div>
       <div class="mf-tiles">
@@ -4877,7 +4877,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.37.3";
+var VERSION = "0.37.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
