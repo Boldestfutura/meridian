@@ -178,6 +178,17 @@ change in HA, pull and commit; after any change here, deploy, then check. Pull n
 - **Phone haptics** come from the HA companion app (the `haptic` event), so they only work
   inside the app, not in Safari.
 
+## Security pill
+
+A `status` entry with `security: true` (the kitchen in `show.py`, the phone and computer Shows
+in their live config) is always shown. Its entity is the `binary_sensor.doors_and_windows` group;
+the pill is green while every member is shut and `input_boolean.inspection_mode` is off, and
+orange otherwise, with "n open" (or "Inspection") beside the name. Its pop-up is built in
+`www/tablet.js` (`securityPopup` / `secSection`), not stored in the config: inspection mode while
+on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. A new door or window
+sensor only has to join the group. `security:` can also be an object that overrides `cameras` or
+`mode`.
+
 ## Traps
 
 - HA's history API returns **one day** unless you pass `end_time`. Graphs that stop short are

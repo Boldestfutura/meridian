@@ -255,6 +255,46 @@ function timerPick(c) {
     </div>`;
 }
 
+// The Security pill (`status` entry with `security:`): always shown. Its entity is the doors-and-windows
+// group; green while everything is shut and inspection mode is off, orange (warn) otherwise, with the
+// number open beside the name. Its pop-up is built here: inspection mode while on, the cameras, what is open.
+const SECURITY = { cameras: ["camera.kitchen_display", "camera.bedroom_echo"], mode: "input_boolean.inspection_mode" };
+export const securityOf = (x) => Object.assign({}, SECURITY, x.security === true ? {} : x.security);
+export const secOpen = (c, entity) => (((c._st(entity) || {}).attributes || {}).entity_id || [])
+  .filter((id) => (c._st(id) || {}).state === "on");
+export const securityPopup = (x) => ({ title: x.name || "Security", icon: x.icon || "mdi:shield-home",
+  sections: [{ type: "security", entity: x.entity, security: securityOf(x) }] });
+export function secPill(c, x) {
+  const n = secOpen(c, x.entity).length, insp = (c._st(securityOf(x).mode) || {}).state === "on";
+  return html`<button class="tab st sec ${n || insp ? "warn" : "ok"}" @click=${() => c._open(x.entity)}>
+    <ha-icon icon=${x.icon || "mdi:shield-home"}></ha-icon><span>${x.name || "Security"}</span>${n
+      ? html`<small>${n} open</small>` : insp ? html`<small>Inspection</small>` : nothing}</button>`;
+}
+// the pop-up's one section: c is the card, s the section built by securityPopup
+export function secSection(c, s) {
+  const sec = s.security, insp = (c._st(sec.mode) || {}).state === "on";
+  const open = secOpen(c, s.entity);
+  const nice = (id) => ((c._st(id) || {}).attributes.friendly_name || id).replace(/ sensor$/i, "");
+  const cam = (id) => {
+    const e = c._st(id);
+    const name = e ? e.attributes.friendly_name || id : id;
+    const tok = e && e.attributes.access_token;
+    const live = tok && !insp && !["unavailable", "unknown"].includes(e.state);
+    return html`<div class="sec-cam">${live
+      ? html`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>`
+      : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
+      <span class="sec-name">${name}</span></div>`;
+  };
+  return html`
+    ${insp ? html`<div class="pop-grid">${c._popTile({ entity: sec.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : nothing}
+    <div class="pop-sub">Cameras</div>
+    <div class="sec-cams">${sec.cameras.map(cam)}</div>
+    <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
+    ${open.length ? html`<div class="pop-grid">${open.map((id) => c._popTile({ entity: id, name: nice(id),
+      icon: /door/i.test(id) ? "mdi:door-open" : "mdi:window-open-variant" }))}</div>`
+      : html`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}`;
+}
+
 // Main's header bubbles, in the room chips' shape: where each of us is, then only when needed the
 // washing machine, the lowest battery (while "Battery low" is on) and the other `status` alerts
 function homeBubbles(c) {
@@ -277,6 +317,7 @@ function homeBubbles(c) {
   const battery = !lowOn ? nothing : html`<button class="tab st bad" @click=${() => c._open(low.entity)}>
       <ha-icon icon=${low.icon}></ha-icon>${bats.length ? html`<span>${Math.round(bats[0].v)}%</span><small>${bats[0].name}</small>` : html`<span>${low.name}</span>`}</button>`;
   const alerts = st.filter((x) => !x.person && !x.weather && x !== low).map((x) => {
+    if (x.security) return secPill(c, x);
     const e = c._st(x.entity);
     if (!e || e.state !== (x.when || "on")) return nothing;
     const tap = x.toggle ? () => c._call("homeassistant", "toggle", { entity_id: x.entity }) : () => c._open(x.entity);

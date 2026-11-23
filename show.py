@@ -78,9 +78,10 @@ CARD = {
     "status": [
         {"entity": "person.cameron", "name": "Cameron", "person": True},
         {"entity": "person.paget", "name": "Paget", "person": True},
-        # one pill for every door and window (group helper); its pop-up lists what is open, then all of them
-        {"entity": "binary_sensor.doors_and_windows", "name": "Doors/windows open", "icon": "mdi:door-open", "tone": "warn",
-         "popup": {"title": "Doors & Windows", "icon": "mdi:door-open", "sections": [{"type": "tiles", "title": "Open now", "items": [{"entity": "binary_sensor.door_sensor", "name": "Door", "icon": "mdi:door-open", "when": {"entity": "binary_sensor.door_sensor", "state": "on"}}, {"entity": "binary_sensor.window_sensor", "name": "Window", "icon": "mdi:window-open-variant", "when": {"entity": "binary_sensor.window_sensor", "state": "on"}}, {"entity": "binary_sensor.guest_bedroom_window", "name": "Guest window", "icon": "mdi:window-open-variant", "when": {"entity": "binary_sensor.guest_bedroom_window", "state": "on"}}, {"entity": "binary_sensor.master_bedroom_left_window", "name": "Bedroom left window", "icon": "mdi:window-open-variant", "when": {"entity": "binary_sensor.master_bedroom_left_window", "state": "on"}}, {"entity": "binary_sensor.master_bedroom_right_window", "name": "Bedroom right window", "icon": "mdi:window-open-variant", "when": {"entity": "binary_sensor.master_bedroom_right_window", "state": "on"}}]}, {"type": "tiles", "title": "All", "items": [{"entity": "binary_sensor.door_sensor", "name": "Door", "icon": "mdi:door-open"}, {"entity": "binary_sensor.window_sensor", "name": "Window", "icon": "mdi:window-open"}, {"entity": "binary_sensor.guest_bedroom_window", "name": "Guest window", "icon": "mdi:window-open"}, {"entity": "binary_sensor.master_bedroom_left_window", "name": "Bedroom left window", "icon": "mdi:window-open"}, {"entity": "binary_sensor.master_bedroom_right_window", "name": "Bedroom right window", "icon": "mdi:window-open"}]}]}},
+        # Security: always shown, green while every door and window is shut and inspection mode is off,
+        # orange with the number open otherwise; its pop-up (built in www/tablet.js) shows the two
+        # Frigate cameras and what is open
+        {"entity": "binary_sensor.doors_and_windows", "name": "Security", "icon": "mdi:shield-home", "security": True},
         {"entity": "update.home_assistant_operating_system_update", "name": "OS update", "icon": "mdi:package-up", "tone": "bad"},
         {"entity": "update.home_assistant_core_update", "name": "HA update", "icon": "mdi:home-assistant", "tone": "bad"},
         {"entity": "binary_sensor.any_device_battery_low", "name": "Battery low", "icon": "mdi:battery-alert-variant-outline", "tone": "bad"},

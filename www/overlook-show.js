@@ -11,12 +11,12 @@
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
-import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave } from "./tablet.js";
+import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, secPill, secSection, securityPopup } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.36.6";
+const VERSION = "0.36.8";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1201,6 +1201,7 @@ class OverlookShow extends LitElement {
             <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
             <span>${home ? x.name : `${x.name} away`}</span></button>`;
       }
+      if (x.security) return secPill(this, x);
       if (e.state !== (x.when || "on")) return nothing;
       const tap = x.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
         : () => this._open(x.entity);
@@ -1290,6 +1291,13 @@ class OverlookShow extends LitElement {
       this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __washer: washerPopup(w) }) });
       this._pop = "__washer";
       this._loadHistory(this._config.popups.__washer);
+      return;
+    }
+    const sec = (this._config.status || []).find((x) => x.security && x.entity === entityId);
+    if (sec) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __security: securityPopup(sec) }) });
+      this._pop = "__security";
       return;
     }
     const id = this._links()[entityId];
@@ -1419,6 +1427,7 @@ class OverlookShow extends LitElement {
     switch (s.type) {
       case "player": return html`${head}${this._popPlayer(s.entity)}`;
       case "washer": return this._popWasher(s.washer);
+      case "security": return secSection(this, s);
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
@@ -3161,6 +3170,18 @@ class OverlookShow extends LitElement {
     .st.bad { background: color-mix(in srgb, #e5484d 16%, var(--card)); color: color-mix(in srgb, #e5484d 80%, var(--ink)); }
     .st.cool { background: color-mix(in srgb, var(--cool) 16%, var(--card)); color: color-mix(in srgb, var(--cool) 80%, var(--ink)); }
     .st.accent { background: var(--accent-soft); color: var(--accent); }
+    .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
+    .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .sec-cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
+               background: #000; }
+    .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .sec-off { height: 100%; background: color-mix(in srgb, var(--ink) 8%, var(--card)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+               color: var(--muted); font-size: 13px; font-weight: 600; }
+    .sec-name { position: absolute; left: 10px; bottom: 10px; padding: 4px 10px; border-radius: 999px; font-size: 12px;
+                font-weight: 700; color: #fff; background: rgba(0, 0, 0, 0.45); }
+    .sec-none { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 16px; font-weight: 600;
+                color: #3f8f63; background: color-mix(in srgb, #3f8f63 12%, var(--card)); }
     .st.reading small { font-size: 12px; font-weight: 500; color: var(--muted); }
     /* the Nest Hub and the tablet: people, alerts and the four readings fit beside the clock without labels */
     .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
@@ -4048,6 +4069,8 @@ class OverlookPiece extends OverlookShow {
   _open(id) {
     const w = washerOf(this._config);
     if (id === w.entity) { overlay(this.hass).openPopup(washerPopup(w)); return; }
+    const sec = (this._config.status || []).find((x) => x.security && x.entity === id);
+    if (sec) { overlay(this.hass).openPopup(securityPopup(sec)); return; }
     const p = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
     if (p) overlay(this.hass).openPopup(p); else overlay(this.hass)._moreInfo(id);
   }

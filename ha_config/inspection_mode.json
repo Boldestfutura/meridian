@@ -1,8 +1,7 @@
 {
  "id": "inspection_mode",
  "alias": "Inspection mode",
- "description": "Rental inspection privacy for the Kitchen Display and the Bedroom Echo (both Kiosk Satellite). Armed for the day by voice ('Alexa, we have an inspection today' / 'inspection mode') or by an event on calendar.p_c with 'inspection' in its title. When Cameron and Paget are both out on that day (or an inspection event starts while they are), input_boolean.inspection_mode goes on: the Immich screensaver switches to the 'Inspection' album (nature photos, no captions), corner widgets off, cameras off, mics muted, volume 0, screensaver started and Lockdown Mode on (lockdown.allow_screensaver is true on both, set in KS). The first of them home turns it off and puts everything back (volumes from input_number.inspection_*_volume; a volume already at 0 is not saved over the last good one). The Inspection mode toggle also works by hand. Added 2026-11-23.",
- "mode": "queued",
+ "description": "Rental inspection privacy for the Kitchen Display and the Bedroom Echo (both Kiosk Satellite). Armed for the day by voice ('Alexa, we have an inspection today' / 'inspection mode') or by an event on calendar.p_c with 'inspection' in its title. When Cameron and Paget are both out on that day (or an inspection event starts while they are), input_boolean.inspection_mode goes on: the Immich screensaver switches to the 'Inspection' album (nature photos, no captions), corner widgets off, cameras off, mics muted, volume 0, screensaver started and Lockdown Mode on (lockdown.allow_screensaver is true on both, set in KS). The first of them home turns it off and puts everything back, restarting the screensaver so the Family photos load (volumes from input_number.inspection_*_volume; a volume already at 0 is not saved over the last good one). The Inspection mode toggle also works by hand. Added 2026-11-23.",
  "triggers": [
   {
    "trigger": "conversation",
@@ -74,21 +73,6 @@
   }
  ],
  "conditions": [],
- "variables": {
-  "nobody_home": "{{ not is_state('person.cameron', 'home') and not is_state('person.paget', 'home') }}",
-  "inspection_album": [
-   {
-    "id": "9adac809-6e7b-452b-be41-be1e4f7aa277",
-    "name": "Inspection"
-   }
-  ],
-  "family_album": [
-   {
-    "id": "4f88d973-4879-46a1-a44c-1b69b6439230",
-    "name": "Family"
-   }
-  ]
- },
  "actions": [
   {
    "choose": [
@@ -410,6 +394,31 @@
        }
       },
       {
+       "action": "switch.turn_off",
+       "continue_on_error": true,
+       "target": {
+        "entity_id": [
+         "switch.kitchen_display_screensaver_active",
+         "switch.bedroom_echo_screensaver_active"
+        ]
+       }
+      },
+      {
+       "delay": {
+        "seconds": 3
+       }
+      },
+      {
+       "action": "switch.turn_on",
+       "continue_on_error": true,
+       "target": {
+        "entity_id": [
+         "switch.kitchen_display_screensaver_active",
+         "switch.bedroom_echo_screensaver_active"
+        ]
+       }
+      },
+      {
        "action": "number.set_value",
        "continue_on_error": true,
        "target": {
@@ -453,5 +462,21 @@
     }
    ]
   }
- ]
+ ],
+ "mode": "queued",
+ "variables": {
+  "nobody_home": "{{ not is_state('person.cameron', 'home') and not is_state('person.paget', 'home') }}",
+  "inspection_album": [
+   {
+    "id": "9adac809-6e7b-452b-be41-be1e4f7aa277",
+    "name": "Inspection"
+   }
+  ],
+  "family_album": [
+   {
+    "id": "4f88d973-4879-46a1-a44c-1b69b6439230",
+    "name": "Family"
+   }
+  ]
+ }
 }

@@ -1267,6 +1267,42 @@ function timerPick(c2) {
       </div>
     </div>`;
 }
+var SECURITY = { cameras: ["camera.kitchen_display", "camera.bedroom_echo"], mode: "input_boolean.inspection_mode" };
+var securityOf = (x3) => Object.assign({}, SECURITY, x3.security === true ? {} : x3.security);
+var secOpen = (c2, entity) => (((c2._st(entity) || {}).attributes || {}).entity_id || []).filter((id) => (c2._st(id) || {}).state === "on");
+var securityPopup = (x3) => ({
+  title: x3.name || "Security",
+  icon: x3.icon || "mdi:shield-home",
+  sections: [{ type: "security", entity: x3.entity, security: securityOf(x3) }]
+});
+function secPill(c2, x3) {
+  const n2 = secOpen(c2, x3.entity).length, insp = (c2._st(securityOf(x3).mode) || {}).state === "on";
+  return Z`<button class="tab st sec ${n2 || insp ? "warn" : "ok"}" @click=${() => c2._open(x3.entity)}>
+    <ha-icon icon=${x3.icon || "mdi:shield-home"}></ha-icon><span>${x3.name || "Security"}</span>${n2 ? Z`<small>${n2} open</small>` : insp ? Z`<small>Inspection</small>` : J}</button>`;
+}
+function secSection(c2, s2) {
+  const sec2 = s2.security, insp = (c2._st(sec2.mode) || {}).state === "on";
+  const open = secOpen(c2, s2.entity);
+  const nice = (id) => ((c2._st(id) || {}).attributes.friendly_name || id).replace(/ sensor$/i, "");
+  const cam = (id) => {
+    const e2 = c2._st(id);
+    const name = e2 ? e2.attributes.friendly_name || id : id;
+    const tok = e2 && e2.attributes.access_token;
+    const live2 = tok && !insp && !["unavailable", "unknown"].includes(e2.state);
+    return Z`<div class="sec-cam">${live2 ? Z`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>` : Z`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
+      <span class="sec-name">${name}</span></div>`;
+  };
+  return Z`
+    ${insp ? Z`<div class="pop-grid">${c2._popTile({ entity: sec2.mode, name: "Inspection mode", icon: "mdi:shield-lock" })}</div>` : J}
+    <div class="pop-sub">Cameras</div>
+    <div class="sec-cams">${sec2.cameras.map(cam)}</div>
+    <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
+    ${open.length ? Z`<div class="pop-grid">${open.map((id) => c2._popTile({
+    entity: id,
+    name: nice(id),
+    icon: /door/i.test(id) ? "mdi:door-open" : "mdi:window-open-variant"
+  }))}</div>` : Z`<div class="sec-none"><ha-icon icon="mdi:check-circle-outline"></ha-icon>All shut</div>`}`;
+}
 function homeBubbles(c2) {
   const st2 = c2._config.status || [];
   const people = st2.filter((x3) => x3.person).map((x3) => {
@@ -1284,6 +1320,7 @@ function homeBubbles(c2) {
   const battery = !lowOn ? J : Z`<button class="tab st bad" @click=${() => c2._open(low.entity)}>
       <ha-icon icon=${low.icon}></ha-icon>${bats.length ? Z`<span>${Math.round(bats[0].v)}%</span><small>${bats[0].name}</small>` : Z`<span>${low.name}</span>`}</button>`;
   const alerts = st2.filter((x3) => !x3.person && !x3.weather && x3 !== low).map((x3) => {
+    if (x3.security) return secPill(c2, x3);
     const e2 = c2._st(x3.entity);
     if (!e2 || e2.state !== (x3.when || "on")) return J;
     const tap = x3.toggle ? () => c2._call("homeassistant", "toggle", { entity_id: x3.entity }) : () => c2._open(x3.entity);
@@ -4795,7 +4832,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.6";
+var VERSION = "0.36.8";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6157,6 +6194,7 @@ var OverlookShow = class extends dt {
             <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
             <span>${home ? x3.name : `${x3.name} away`}</span></button>`;
       }
+      if (x3.security) return secPill(this, x3);
       if (e2.state !== (x3.when || "on")) return J;
       const tap = x3.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : () => this._open(x3.entity);
       return Z`
@@ -6247,6 +6285,13 @@ var OverlookShow = class extends dt {
       this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __washer: washerPopup(w2) }) });
       this._pop = "__washer";
       this._loadHistory(this._config.popups.__washer);
+      return;
+    }
+    const sec2 = (this._config.status || []).find((x3) => x3.security && x3.entity === entityId);
+    if (sec2) {
+      fireHaptic("light");
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __security: securityPopup(sec2) }) });
+      this._pop = "__security";
       return;
     }
     const id = this._links()[entityId];
@@ -6383,6 +6428,8 @@ var OverlookShow = class extends dt {
         return Z`${head}${this._popPlayer(s2.entity)}`;
       case "washer":
         return this._popWasher(s2.washer);
+      case "security":
+        return secSection(this, s2);
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":
@@ -8136,6 +8183,18 @@ var OverlookShow = class extends dt {
     .st.bad { background: color-mix(in srgb, #e5484d 16%, var(--card)); color: color-mix(in srgb, #e5484d 80%, var(--ink)); }
     .st.cool { background: color-mix(in srgb, var(--cool) 16%, var(--card)); color: color-mix(in srgb, var(--cool) 80%, var(--ink)); }
     .st.accent { background: var(--accent-soft); color: var(--accent); }
+    .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
+    .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .sec-cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
+               background: #000; }
+    .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .sec-off { height: 100%; background: color-mix(in srgb, var(--ink) 8%, var(--card)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+               color: var(--muted); font-size: 13px; font-weight: 600; }
+    .sec-name { position: absolute; left: 10px; bottom: 10px; padding: 4px 10px; border-radius: 999px; font-size: 12px;
+                font-weight: 700; color: #fff; background: rgba(0, 0, 0, 0.45); }
+    .sec-none { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 16px; font-weight: 600;
+                color: #3f8f63; background: color-mix(in srgb, #3f8f63 12%, var(--card)); }
     .st.reading small { font-size: 12px; font-weight: 500; color: var(--muted); }
     /* the Nest Hub and the tablet: people, alerts and the four readings fit beside the clock without labels */
     .room { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(340px, 1fr); grid-template-rows: 1fr auto; gap: 16px; }
@@ -9027,6 +9086,11 @@ var OverlookPiece = class extends OverlookShow {
     const w2 = washerOf(this._config);
     if (id === w2.entity) {
       overlay(this.hass).openPopup(washerPopup(w2));
+      return;
+    }
+    const sec2 = (this._config.status || []).find((x3) => x3.security && x3.entity === id);
+    if (sec2) {
+      overlay(this.hass).openPopup(securityPopup(sec2));
       return;
     }
     const p2 = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);

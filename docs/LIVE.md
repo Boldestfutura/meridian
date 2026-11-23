@@ -256,6 +256,23 @@ a notification both ways. The Inspection mode toggle works by hand too.
 `ks_*_morning_widgets` and `washing_alert_wakes_displays` do nothing while it is on.
 Album values must go to KS as a JSON *string*: HA turns template output that looks like a list
 into a list, which KS ignores, so the automation builds the settings dict with `| to_json`.
+KS keeps the photo list it loaded, so turning it off also restarts the screensaver
+(`switch.*_screensaver_active` off, 3 s, on); without that the stock photos stayed up.
+
+## Cameras and Frigate (2026-11-23)
+
+The only cameras are the Kitchen Display's and the Echo's, served by Kiosk Satellite as RTSP
+on port 8554, path `/camera`, with auth (Kitchen 1280x720, Echo 640x480, 10 fps, no audio, date
+overlay). Frigate 0.18 runs on Sol (TrueNAS app `frigate`) and pulls both through go2rtc:
+continuous recording kept 7 days, motion 14, person alerts/detections and snapshots 30, on the
+HDD dataset `HDDs/Frigate`, which has **no snapshot task on purpose** (deleted footage must free
+space). Detection is OpenVINO on the CPU, people only. The Frigate config and every credential
+live outside this repo, on luna. HA gets events over MQTT: the **Mosquitto broker add-on** (with a
+`frigate` login) plus the Frigate custom component in `/config/custom_components/frigate`,
+copied by hand like the other custom components. Frigate reaches the broker over the tailnet,
+because Sol can't reach the VM's LAN address. Entities: `camera.kitchen_display` /
+`camera.bedroom_echo` and their `switch.*_detect` / `*_recordings`, plus the person sensors.
+Inspection mode turns the KS cameras off, so nothing records while the agent is in.
 
 ## Sleep Sounds (2026-11-07)
 
