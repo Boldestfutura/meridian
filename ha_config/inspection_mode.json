@@ -354,7 +354,7 @@
        "continue_on_error": true,
        "data": {
         "title": "Inspection mode on",
-        "message": "Smart displays are locked and showing nature photos; mics muted, cameras off, volume 0. Ends when one of you gets home."
+        "message": "Smart displays are locked."
        }
       }
      ]
