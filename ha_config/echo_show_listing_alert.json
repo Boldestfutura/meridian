@@ -1,0 +1,44 @@
+{
+ "id": "echo_show_listing_alert",
+ "alias": "Echo Show 8 listing alert",
+ "description": "Tells Cameron's phone when an Echo Show 8 1st or 2nd gen (or a Show 8 with no generation in its title) is newly listed at Cash Converters. sensor.echo_show_8_on_cash_converters runs tools/ha/cashconverters_echo.py every 30 minutes; a listing is new when its code wasn't in the sensor's previous list. Tapping the alert opens the listing. Added 2026-11-24.",
+ "triggers": [
+  {
+   "trigger": "state",
+   "entity_id": "sensor.echo_show_8_on_cash_converters"
+  }
+ ],
+ "conditions": [
+  {
+   "condition": "template",
+   "value_template": "{{ trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable'] and trigger.to_state.state not in ['unknown', 'unavailable'] }}"
+  }
+ ],
+ "actions": [
+  {
+   "variables": {
+    "old_codes": "{{ (trigger.from_state.attributes.listings or []) | map(attribute='code') | list }}",
+    "new": "{{ (trigger.to_state.attributes.listings or []) | rejectattr('code', 'in', old_codes) | list }}"
+   }
+  },
+  {
+   "repeat": {
+    "for_each": "{{ new[:5] }}",
+    "sequence": [
+     {
+      "action": "notify.mobile_app_camerons_iphone",
+      "continue_on_error": true,
+      "data": {
+       "title": "Echo Show 8 at Cash Converters",
+       "message": "{{ repeat.item.title }} ({{ repeat.item.gen ~ ' gen' if repeat.item.gen != 'unknown' else 'gen not stated' }}) ${{ '%.0f' | format(repeat.item.price) }}{{ (' + $' ~ repeat.item.postage ~ ' postage') if repeat.item.postage else '' }}, {{ repeat.item.store }}",
+       "data": {
+        "url": "{{ repeat.item.url }}"
+       }
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "mode": "queued"
+}

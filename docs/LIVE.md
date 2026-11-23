@@ -238,6 +238,16 @@ default; HA's own pages and the Phone Show's sections view use it.
 - Nabu Casa is active. Alexa linking is **not** turned on yet; it's planned for when the
   Sonos Era 100 arrives, with a curated expose list.
 
+## Echo Show 8 listing check (2026-11-24)
+
+`sensor.echo_show_8_on_cash_converters` (command_line, every 30 min) runs
+`tools/ha/cashconverters_echo.py`, which calls Cash Converters' own search API
+(`/c3api/search/results`) and keeps Show 8 listings that aren't a later model or an accessory:
+1st gen C7H6N3, 2nd gen A8H3N2, and Show 8s whose title gives no generation. 3rd gen R85SD6 and
+the 2025 model MD6NE4 are dropped. State = count; `listings` attribute has code, title, gen,
+price, condition, store, postage, url. The **Echo Show 8 listing alert** automation pushes each
+newly seen code to Cameron's iPhone (tap opens the listing). Disable that automation to stop it.
+
 ## Inspection mode (2026-11-23)
 
 For rental inspections. `automation.inspection_mode` (`ha_config/inspection_mode.json`) arms
