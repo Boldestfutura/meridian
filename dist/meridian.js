@@ -1050,7 +1050,7 @@ window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundl
 // www/tablet.js
 function wave(frac, playing, cls = "") {
   const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
-  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><s></s><b></b></div>`;
+  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><u></u><i></i><s></s><b></b></div>`;
 }
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
@@ -4877,7 +4877,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.37.5";
+var VERSION = "0.37.7";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -8919,25 +8919,32 @@ var OverlookShow = class extends dt {
     .pp-vol .round.small { width: 100%; height: 52px; border-radius: 16px; background: var(--card); }
     .pp-vol .round.small ha-icon { --mdc-icon-size: 24px; }
     .pp-prog { display: flex; flex-direction: column; gap: 6px; }
-    /* the wavy playback bar (wave() in tablet.js) */
-    .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); display: flex; align-items: center; gap: 5px; height: var(--wv-h); }
-    .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
-            transition: height 0.3s; }
-    .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
-    /* the playhead: an upright line where the wave meets the track, a little taller than the wave */
-    .wv s { flex: none; width: 4px; height: calc(var(--wv-h) + 6px); margin: -3px 0; border-radius: 999px;
-            background: var(--wv-c, var(--accent)); }
-    /* Playing: the wave is drawn on a strip one wavelength wider than the fill and slid along it.
-       A moving transform costs the GPU nothing; the old moving mask-position repainted every frame,
-       and the old 1 s width transition re-laid out the whole dashboard every frame. */
-    .wv.on i { height: 100%; border-radius: 0; position: relative; overflow: hidden; background: none; }
-    .wv.on i::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--wv-len)); right: 0;
+    /* the wavy playback bar (wave() in tablet.js). The played part is always a wave; it drifts
+       while playing and holds still when paused. The wave is drawn on a strip one wavelength wider
+       than the fill and slid along it (a moving transform costs the GPU nothing). The fill starts
+       one cap radius in, and <u>, a dot the stroke's width, rides up and down with the wave's
+       left end to round it off like the plain track; the right end runs into the playhead <s>. */
+    .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); --wv-r: calc(var(--wv-h) * 1.7 / 12);
+          position: relative; display: flex; align-items: center; height: var(--wv-h); }
+    .wv i { flex: none; width: max(0px, calc(var(--f) - var(--wv-r))); margin-left: var(--wv-r); height: 100%;
+            position: relative; overflow: hidden; }
+    .wv i::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--wv-len)); right: 0;
       background: var(--wv-c, var(--accent)); will-change: transform;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
               mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
-      animation: wv-drift 2s linear infinite; }
+      animation: wv-drift 2s linear infinite paused; }
+    /* 12% over the stroke's width so it also covers the cut end where the wave slopes */
+    .wv u { position: absolute; left: 0; top: 0; width: calc(var(--wv-r) * 2.24); height: calc(var(--wv-r) * 2.24);
+            margin: calc(var(--wv-r) * -0.12);
+            border-radius: 50%; background: var(--wv-c, var(--accent)); animation: wv-cap 2s linear infinite paused; }
+    .wv.on i::before, .wv.on u { animation-play-state: running; }
     @keyframes wv-drift { to { transform: translateX(var(--wv-len)); } }
-    @media (prefers-reduced-motion: reduce) { .wv.on i::before { animation: none; } }
+    @keyframes wv-cap { 0% { transform: translateY(calc(var(--wv-h) * 0.1750)); } 5% { transform: translateY(calc(var(--wv-h) * 0.1804)); } 10% { transform: translateY(calc(var(--wv-h) * 0.1986)); } 15% { transform: translateY(calc(var(--wv-h) * 0.2337)); } 20% { transform: translateY(calc(var(--wv-h) * 0.2883)); } 25% { transform: translateY(calc(var(--wv-h) * 0.3583)); } 30% { transform: translateY(calc(var(--wv-h) * 0.4284)); } 35% { transform: translateY(calc(var(--wv-h) * 0.4830)); } 40% { transform: translateY(calc(var(--wv-h) * 0.5180)); } 45% { transform: translateY(calc(var(--wv-h) * 0.5363)); } 50% { transform: translateY(calc(var(--wv-h) * 0.5417)); } 55% { transform: translateY(calc(var(--wv-h) * 0.5363)); } 60% { transform: translateY(calc(var(--wv-h) * 0.5180)); } 65% { transform: translateY(calc(var(--wv-h) * 0.4830)); } 70% { transform: translateY(calc(var(--wv-h) * 0.4284)); } 75% { transform: translateY(calc(var(--wv-h) * 0.3583)); } 80% { transform: translateY(calc(var(--wv-h) * 0.2883)); } 85% { transform: translateY(calc(var(--wv-h) * 0.2337)); } 90% { transform: translateY(calc(var(--wv-h) * 0.1986)); } 95% { transform: translateY(calc(var(--wv-h) * 0.1804)); } 100% { transform: translateY(calc(var(--wv-h) * 0.1750)); } }
+    @media (prefers-reduced-motion: reduce) { .wv i::before, .wv u { animation: none; } }
+    /* the playhead: an upright line where the wave meets the track, a little taller than the wave */
+    .wv s { flex: none; width: 4px; height: calc(var(--wv-h) + 6px); margin: -3px 5px -3px 0; border-radius: 999px;
+            background: var(--wv-c, var(--accent)); }
+    .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
     .pp-times { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
                 font-variant-numeric: tabular-nums; color: var(--muted); }
     .round.small.power-on { color: var(--accent); }

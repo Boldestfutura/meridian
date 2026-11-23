@@ -206,8 +206,11 @@ fixes it too. Sony only updates the time when a session ends.
 
 ## Playback bar
 
-`wave()` in `www/tablet.js`: the played part is the wave (flat when paused), an upright playhead
-line (`.wv s`, 4px, a little taller than the wave) marks the position, then the plain track.
+`wave()` in `www/tablet.js`: the played part is always a wave (it drifts while playing and holds
+still when paused), an upright playhead line (`.wv s`, 4px, a little taller than the wave) marks
+the position, then the plain track. The wave's left end is rounded by `.wv u`, a dot animated on
+the same 2 s cycle (`wv-cap` keyframes, generated from the wave's Bézier) so it rides up and down
+with the drifting wave; the right end runs into the playhead. Both animations pause together.
 
 ## Traps
 
