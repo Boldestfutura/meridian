@@ -11,12 +11,12 @@
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
-import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, secPill, secSection, securityPopup } from "./tablet.js";
+import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, secPill, secSection, securityPopup, camSection } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.36.9";
+const VERSION = "0.37.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1428,6 +1428,7 @@ class OverlookShow extends LitElement {
       case "player": return html`${head}${this._popPlayer(s.entity)}`;
       case "washer": return this._popWasher(s.washer);
       case "security": return secSection(this, s);
+      case "camera": return camSection(this, s);
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
@@ -3173,6 +3174,9 @@ class OverlookShow extends LitElement {
     .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
     .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .sec-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sec-cams.one { grid-template-columns: 1fr; }
+    .sec-cams.one .sec-cam { aspect-ratio: 16 / 9; }
+    .sec-cams.one .sec-name { display: none; }
     .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
                background: #000; }
     .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }

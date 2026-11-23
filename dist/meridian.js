@@ -1280,18 +1280,20 @@ function secPill(c2, x3) {
   return Z`<button class="tab st sec ${n2 || insp ? "warn" : "ok"}" @click=${() => c2._open(x3.entity)}>
     <ha-icon icon=${x3.icon || "mdi:shield-home"}></ha-icon><span>${x3.name || "Security"}</span>${n2 ? Z`<small>${n2} open</small>` : insp ? Z`<small>Inspection</small>` : J}</button>`;
 }
+function secCam(c2, id, insp) {
+  const e2 = c2._st(id);
+  const name = e2 ? e2.attributes.friendly_name || id : id;
+  const tok = e2 && e2.attributes.access_token;
+  const live2 = tok && !insp && !["unavailable", "unknown"].includes(e2.state);
+  return Z`<div class="sec-cam">${live2 ? Z`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>` : Z`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
+    <span class="sec-name">${name}</span></div>`;
+}
+var secName = (c2, id) => (((c2._st(id) || {}).attributes || {}).friendly_name || id).replace(/ sensor$/i, "").replace(/^master bedroom /i, "Bedroom ").replace(/^guest bedroom /i, "Guest ");
 function secSection(c2, s2) {
   const sec2 = s2.security, insp = (c2._st(sec2.mode) || {}).state === "on";
   const open = secOpen(c2, s2.entity);
-  const nice = (id) => ((c2._st(id) || {}).attributes.friendly_name || id).replace(/ sensor$/i, "");
-  const cam = (id) => {
-    const e2 = c2._st(id);
-    const name = e2 ? e2.attributes.friendly_name || id : id;
-    const tok = e2 && e2.attributes.access_token;
-    const live2 = tok && !insp && !["unavailable", "unknown"].includes(e2.state);
-    return Z`<div class="sec-cam">${live2 ? Z`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>` : Z`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
-      <span class="sec-name">${name}</span></div>`;
-  };
+  const nice = (id) => secName(c2, id);
+  const cam = (id) => secCam(c2, id, insp);
   return Z`
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
     ${open.length ? Z`<div class="pop-grid">${open.map((id) => c2._popTile({
@@ -1424,8 +1426,46 @@ function roomNow(c2, media) {
   const p2 = ps2.find((x3) => x3.e.state === "playing") || ps2.find((x3) => c2._title(x3.e.attributes)) || ps2[0];
   return p2 ? npRow(c2, p2.m, p2.e) : J;
 }
+function securityRoom(c2, x3) {
+  const cfg = securityOf(x3), insp = (c2._st(cfg.mode) || {}).state === "on";
+  const all = ((c2._st(x3.entity) || {}).attributes || {}).entity_id || [];
+  const open = all.filter((id) => (c2._st(id) || {}).state === "on").length;
+  const dw = (id) => {
+    const on = (c2._st(id) || {}).state === "on", door = /door/i.test(id);
+    const icon2 = door ? on ? "mdi:door-open" : "mdi:door-closed" : on ? "mdi:window-open-variant" : "mdi:window-closed-variant";
+    return x2(Z`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${() => c2._moreInfo(id)}>
+      <span class="tile-ico"><ha-icon icon=${icon2}></ha-icon></span>
+      <span class="tile-text"><span class="tile-name">${secName(c2, id)}</span><span class="muted">${on ? "Open" : "Shut"}</span></span></button>`);
+  };
+  const cam = (id) => x2(Z`<button class="card tile sec-camtile" @click=${() => openCam(c2, id)}>${secCam(c2, id, insp)}</button>`);
+  return Z`
+    <div class="rm-body sec-room">
+      <div class="rm-main">
+        ${sec("Doors & windows", Z`<span class="rm-count ${open ? "warn" : ""}">${open ? `${open} open` : "All shut"}</span>`, all.map(dw), "sm")}
+        ${sec("Cameras", insp ? Z`<span class="rm-count warn">Inspection mode</span>` : J, cfg.cameras.map(cam))}
+      </div>
+    </div>`;
+}
+function openCam(c2, id) {
+  const e2 = c2._st(id);
+  c2._config = Object.assign({}, c2._config, { popups: Object.assign({}, c2._config.popups, {
+    __camera: { title: e2 && e2.attributes.friendly_name || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] }
+  }) });
+  redraw(c2, { _pop: "__camera" });
+}
+var camSection = (c2, s2) => {
+  const insp = (c2._st(SECURITY.mode) || {}).state === "on";
+  return Z`<div class="sec-cams one">${secCam(c2, s2.entity, insp)}</div>`;
+};
 function roomsPage(c2) {
   const rooms = realRooms(c2);
+  const secX = (c2._config.status || []).find((x3) => x3.security);
+  const chips = Z`<div class="rm-chips">${rooms.map((x3) => Z`
+        <button class="tab ${x3.name === c2._tRoom || !c2._tRoom && x3 === rooms[0] ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: x3.name })}>
+          <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}${secX ? Z`
+        <button class="tab ${c2._tRoom === "__security" ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: "__security" })}>
+          <ha-icon icon=${secX.icon || "mdi:shield-home"}></ha-icon><span>${secX.name || "Security"}</span></button>` : J}</div>`;
+  if (secX && c2._tRoom === "__security") return Z`<div class="m-rooms">${chips}${securityRoom(c2, secX)}</div>`;
   const r2 = rooms.find((x3) => x3.name === c2._tRoom) || rooms[0];
   if (!r2) return J;
   const lights = (r2.group ? [{ entity: r2.group, name: `All ${r2.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r2.lights || []);
@@ -1435,9 +1475,7 @@ function roomsPage(c2) {
   const plugs = [...(r2.switches || []).map((s2) => row(c2._switchTile(s2))), ...(r2.plants || []).map((p2) => row(c2._plantTile(p2)))];
   return Z`
     <div class="m-rooms">
-      <div class="rm-chips">${rooms.map((x3) => Z`
-        <button class="tab ${x3 === r2 ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: x3.name })}>
-          <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}</div>
+      ${chips}
       <div class="rm-body">
         <div class="rm-main">
           ${sec("Scenes", J, (r2.scenes || []).map((s2) => x2(c2._sceneBtn(s2, true))), "sm")}
@@ -1779,6 +1817,13 @@ var TABLET_CSS = o`
   .tablet .m-home .rm-grid { grid-template-columns:repeat(4, minmax(0,1fr)); }
   /* scene tiles, a size down from the lights: the same ~113px squares on Main and Rooms */
   .tablet .rm-grid.sm { grid-template-columns:repeat(7, minmax(0,1fr)); gap:10px; }
+  .tablet .rm-body.sec-room { grid-template-columns:minmax(0,1fr); }
+  .tablet .sec-dw.open { background:color-mix(in srgb, var(--warm) 18%, var(--card)); }
+  .tablet .sec-dw.open .tile-ico { color:color-mix(in srgb, var(--warm) 80%, var(--ink)); }
+  .tablet .rm-count.warn { background:color-mix(in srgb, var(--warm) 18%, var(--card)); color:color-mix(in srgb, var(--warm) 75%, var(--ink)); }
+  .tablet .sec-camtile { padding:0; overflow:hidden; position:relative; }
+  .tablet .sec-camtile .sec-cam { position:absolute; inset:0; aspect-ratio:auto; border-radius:0; }
+  .tablet .sec-camtile .sec-cam img { object-fit:cover; }
   .tablet .m-home .rm-grid.sm { grid-template-columns:repeat(5, minmax(0,1fr)); }
   .tablet .rm-grid.sm .tile .tile-name { font-size:14px; line-height:1.2; white-space:normal; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .tablet .rm-grid.sm .tile .muted { display:none; }
@@ -4832,7 +4877,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.36.9";
+var VERSION = "0.37.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6430,6 +6475,8 @@ var OverlookShow = class extends dt {
         return this._popWasher(s2.washer);
       case "security":
         return secSection(this, s2);
+      case "camera":
+        return camSection(this, s2);
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":
@@ -8186,6 +8233,9 @@ var OverlookShow = class extends dt {
     .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
     .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .sec-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sec-cams.one { grid-template-columns: 1fr; }
+    .sec-cams.one .sec-cam { aspect-ratio: 16 / 9; }
+    .sec-cams.one .sec-name { display: none; }
     .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
                background: #000; }
     .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }

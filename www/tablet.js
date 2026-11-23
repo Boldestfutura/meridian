@@ -270,21 +270,26 @@ export function secPill(c, x) {
     <ha-icon icon=${x.icon || "mdi:shield-home"}></ha-icon><span>${x.name || "Security"}</span>${n
       ? html`<small>${n} open</small>` : insp ? html`<small>Inspection</small>` : nothing}</button>`;
 }
+// one camera's live feed (HA's MJPEG proxy), or why there is none
+function secCam(c, id, insp) {
+  const e = c._st(id);
+  const name = e ? e.attributes.friendly_name || id : id;
+  const tok = e && e.attributes.access_token;
+  const live = tok && !insp && !["unavailable", "unknown"].includes(e.state);
+  return html`<div class="sec-cam">${live
+    ? html`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>`
+    : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
+    <span class="sec-name">${name}</span></div>`;
+}
+// "Master Bedroom Left Window Sensor" -> "Bedroom Left Window", "Guest Bedroom Window" -> "Guest Window"
+const secName = (c, id) => (((c._st(id) || {}).attributes || {}).friendly_name || id)
+  .replace(/ sensor$/i, "").replace(/^master bedroom /i, "Bedroom ").replace(/^guest bedroom /i, "Guest ");
 // the pop-up's one section: c is the card, s the section built by securityPopup
 export function secSection(c, s) {
   const sec = s.security, insp = (c._st(sec.mode) || {}).state === "on";
   const open = secOpen(c, s.entity);
-  const nice = (id) => ((c._st(id) || {}).attributes.friendly_name || id).replace(/ sensor$/i, "");
-  const cam = (id) => {
-    const e = c._st(id);
-    const name = e ? e.attributes.friendly_name || id : id;
-    const tok = e && e.attributes.access_token;
-    const live = tok && !insp && !["unavailable", "unknown"].includes(e.state);
-    return html`<div class="sec-cam">${live
-      ? html`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>`
-      : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
-      <span class="sec-name">${name}</span></div>`;
-  };
+  const nice = (id) => secName(c, id);
+  const cam = (id) => secCam(c, id, insp);
   // doors and windows first, then inspection mode while it is on, then the cameras side by side
   return html`
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
@@ -429,8 +434,50 @@ function roomNow(c, media) {
   return p ? npRow(c, p.m, p.e) : nothing;
 }
 
+// the Rooms page's last chip: every door and window as scene-sized squares, then each camera as a
+// light-sized square with its live picture; tapping a camera opens it big in a pop-up
+function securityRoom(c, x) {
+  const cfg = securityOf(x), insp = (c._st(cfg.mode) || {}).state === "on";
+  const all = ((c._st(x.entity) || {}).attributes || {}).entity_id || [];
+  const open = all.filter((id) => (c._st(id) || {}).state === "on").length;
+  const dw = (id) => {
+    const on = (c._st(id) || {}).state === "on", door = /door/i.test(id);
+    const icon = door ? (on ? "mdi:door-open" : "mdi:door-closed") : (on ? "mdi:window-open-variant" : "mdi:window-closed-variant");
+    return x2(html`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${() => c._moreInfo(id)}>
+      <span class="tile-ico"><ha-icon icon=${icon}></ha-icon></span>
+      <span class="tile-text"><span class="tile-name">${secName(c, id)}</span><span class="muted">${on ? "Open" : "Shut"}</span></span></button>`);
+  };
+  const cam = (id) => x2(html`<button class="card tile sec-camtile" @click=${() => openCam(c, id)}>${secCam(c, id, insp)}</button>`);
+  return html`
+    <div class="rm-body sec-room">
+      <div class="rm-main">
+        ${sec("Doors & windows", html`<span class="rm-count ${open ? "warn" : ""}">${open ? `${open} open` : "All shut"}</span>`, all.map(dw), "sm")}
+        ${sec("Cameras", insp ? html`<span class="rm-count warn">Inspection mode</span>` : nothing, cfg.cameras.map(cam))}
+      </div>
+    </div>`;
+}
+
+// one camera big, in the same pop-up sheet as everything else
+function openCam(c, id) {
+  const e = c._st(id);
+  c._config = Object.assign({}, c._config, { popups: Object.assign({}, c._config.popups, {
+    __camera: { title: (e && e.attributes.friendly_name) || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] } }) });
+  redraw(c, { _pop: "__camera" });
+}
+export const camSection = (c, s) => {
+  const insp = (c._st(SECURITY.mode) || {}).state === "on";
+  return html`<div class="sec-cams one">${secCam(c, s.entity, insp)}</div>`;
+};
+
 function roomsPage(c) {
   const rooms = realRooms(c);
+  const secX = (c._config.status || []).find((x) => x.security);
+  const chips = html`<div class="rm-chips">${rooms.map((x) => html`
+        <button class="tab ${x.name === c._tRoom || (!c._tRoom && x === rooms[0]) ? "on" : ""}" @click=${() => redraw(c, { _tRoom: x.name })}>
+          <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}${secX ? html`
+        <button class="tab ${c._tRoom === "__security" ? "on" : ""}" @click=${() => redraw(c, { _tRoom: "__security" })}>
+          <ha-icon icon=${secX.icon || "mdi:shield-home"}></ha-icon><span>${secX.name || "Security"}</span></button>` : nothing}</div>`;
+  if (secX && c._tRoom === "__security") return html`<div class="m-rooms">${chips}${securityRoom(c, secX)}</div>`;
   const r = rooms.find((x) => x.name === c._tRoom) || rooms[0];
   if (!r) return nothing;
   const lights = (r.group ? [{ entity: r.group, name: `All ${r.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r.lights || []);
@@ -440,9 +487,7 @@ function roomsPage(c) {
   const plugs = [...(r.switches || []).map((s) => row(c._switchTile(s))), ...(r.plants || []).map((p) => row(c._plantTile(p)))];
   return html`
     <div class="m-rooms">
-      <div class="rm-chips">${rooms.map((x) => html`
-        <button class="tab ${x === r ? "on" : ""}" @click=${() => redraw(c, { _tRoom: x.name })}>
-          <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}</div>
+      ${chips}
       <div class="rm-body">
         <div class="rm-main">
           ${sec("Scenes", nothing, (r.scenes || []).map((s) => x2(c._sceneBtn(s, true))), "sm")}
@@ -767,6 +812,13 @@ export const TABLET_CSS = css`
   .tablet .m-home .rm-grid { grid-template-columns:repeat(4, minmax(0,1fr)); }
   /* scene tiles, a size down from the lights: the same ~113px squares on Main and Rooms */
   .tablet .rm-grid.sm { grid-template-columns:repeat(7, minmax(0,1fr)); gap:10px; }
+  .tablet .rm-body.sec-room { grid-template-columns:minmax(0,1fr); }
+  .tablet .sec-dw.open { background:color-mix(in srgb, var(--warm) 18%, var(--card)); }
+  .tablet .sec-dw.open .tile-ico { color:color-mix(in srgb, var(--warm) 80%, var(--ink)); }
+  .tablet .rm-count.warn { background:color-mix(in srgb, var(--warm) 18%, var(--card)); color:color-mix(in srgb, var(--warm) 75%, var(--ink)); }
+  .tablet .sec-camtile { padding:0; overflow:hidden; position:relative; }
+  .tablet .sec-camtile .sec-cam { position:absolute; inset:0; aspect-ratio:auto; border-radius:0; }
+  .tablet .sec-camtile .sec-cam img { object-fit:cover; }
   .tablet .m-home .rm-grid.sm { grid-template-columns:repeat(5, minmax(0,1fr)); }
   .tablet .rm-grid.sm .tile .tile-name { font-size:14px; line-height:1.2; white-space:normal; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .tablet .rm-grid.sm .tile .muted { display:none; }

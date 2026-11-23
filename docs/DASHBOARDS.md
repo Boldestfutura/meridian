@@ -189,6 +189,11 @@ on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. A
 sensor only has to join the group. `security:` can also be an object that overrides `cameras` or
 `mode`.
 
+On the Kitchen Display the same entry adds a **Security** chip after the rooms on the Rooms page
+(`securityRoom` in `www/tablet.js`): every door and window as scene-sized squares (orange when
+open), then each camera as a light-sized square with its live picture; tapping a camera opens it
+big in a pop-up (`openCam`, pop-up section type `camera`).
+
 ## Traps
 
 - HA's history API returns **one day** unless you pass `end_time`. Graphs that stop short are
