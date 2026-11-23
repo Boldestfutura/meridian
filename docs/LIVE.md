@@ -86,7 +86,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
     (`screensaver.glance_enabled` false, set in KS). `rest_command.ks_kitchen_settings` (PATCH
     `/api/settings`, token as `ks_kitchen_auth` in secrets.yaml) is still defined but unused.
     The slot was KS's Weather Mood 2026-11-22/23 and the `kitchen-morning` dashboard before that;
-    `kitchen-morning` is no longer used.
+    `kitchen-morning` was deleted 2026-11-24.
   - Washing alert: KS's screensaver covers the dashboard, so `washing_alert_wakes_displays`
     switches the screensaver off on the kitchen and the Echo (not in bedroom night mode) while
     `input_boolean.washing_machine_alert` is on.
@@ -149,7 +149,7 @@ backups in `~/.config/ha/*.deleted-2026-11-11.json`.
   anyone (or guest mode) is home, including on arrival inside the window.
   - The card shows a red clock on black while the room is dark (`binary_sensor.bedroom_dark`).
     A tap wakes it on Controls, and it goes back to the clock after 30s.
-  - Brightness: `ha_config/bedroom_brightness.json`.
+  - Brightness: the old VACA brightness automation was deleted 2026-11-24; KS handles the screen.
   - Artwork: `TRACK_ART` in overlook-show.js maps the title `Stream Sounds` to
     `/config/www/sounds/stream.svg` (repo copy `www/sounds/stream.svg`, copied up by hand).
 - **Echo as a speaker:** KS's built-in Sendspin player, `media_player.bedroom_echo` in Music
