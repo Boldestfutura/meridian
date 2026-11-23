@@ -332,6 +332,13 @@
                   "icon": "mdi:account-group",
                   "tone": "accent",
                   "toggle": true
+                },
+                {
+                  "entity": "sensor.gta_vi_play_time",
+                  "name": "GTA VI",
+                  "icon": "mdi:gamepad-variant",
+                  "count": true,
+                  "color": "#f2549b"
                 }
               ],
               "status_air": [

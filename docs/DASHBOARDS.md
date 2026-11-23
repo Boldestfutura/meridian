@@ -194,6 +194,21 @@ On the Kitchen Display the same entry adds a **Security** chip after the rooms o
 open), then each camera as a light-sized square with its live picture; tapping a camera opens it
 big in a pop-up (`openCam`, pop-up section type `camera`).
 
+## Count pills
+
+A `status` entry with `count: true` is always shown and drawn last, after the air readings: the
+entity's number (hours as "53h 45m" when its unit is `h`), the name in small type, and the whole
+pill tinted with `color`. The phone Show has one for GTA VI play time (`#f2549b`, the game's pink)
+on `sensor.gta_vi_play_time`, a command_line sensor in `configuration.yaml` that runs
+`tools/ha/psn_playtime.py` every 15 minutes. That script reads the PlayStation Network
+integration's NPSSO from `core.config_entries` and asks Sony's played-games list, so a PSN re-auth
+fixes it too. Sony only updates the time when a session ends.
+
+## Playback bar
+
+`wave()` in `www/tablet.js`: the played part is the wave (flat when paused), an upright playhead
+line (`.wv s`, 4px, a little taller than the wave) marks the position, then the plain track.
+
 ## Traps
 
 - HA's history API returns **one day** unless you pass `end_time`. Graphs that stop short are

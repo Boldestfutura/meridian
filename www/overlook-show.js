@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.37.4";
+const VERSION = "0.37.5";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1202,6 +1202,7 @@ class OverlookShow extends LitElement {
             <span>${home ? x.name : `${x.name} away`}</span></button>`;
       }
       if (x.security) return secPill(this, x);
+      if (x.count) return nothing;   // drawn after the readings, below
       if (e.state !== (x.when || "on")) return nothing;
       const tap = x.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
         : () => this._open(x.entity);
@@ -1225,7 +1226,18 @@ class OverlookShow extends LitElement {
           <span>${lo === hi ? lo : `${lo}–${hi}`}${x.unit != null ? x.unit : (e.attributes.unit_of_measurement || "")}</span>
           <small>${x.name}</small></button>`;
     });
-    return html`<div class="status">${pills}${air}</div>`;
+    // `count` pills come last and are always shown: a number in its own colour (GTA VI play time)
+    const counts = (this._config.status || []).filter((x) => x.count).map((x) => {
+      const e = this._st(x.entity);
+      const v = e ? Number(e.state) : NaN;
+      if (!isFinite(v)) return nothing;
+      const text = e.attributes.unit_of_measurement === "h"
+        ? `${Math.floor(v)}h${Math.round((v % 1) * 60) ? ` ${Math.round((v % 1) * 60)}m` : ""}` : `${Math.round(v)}`;
+      return html`
+        <button class="tab st count" style="--pill:${x.color || "var(--accent)"}" @click=${() => this._open(x.entity)}>
+          <ha-icon icon=${x.icon || e.attributes.icon}></ha-icon><span>${text}</span><small>${x.name}</small></button>`;
+    });
+    return html`<div class="status">${pills}${air}${counts}</div>`;
   }
 
   // tap does onTap, a still 500ms hold does onHold (see _lightTile for why it's this careful)
@@ -3173,6 +3185,8 @@ class OverlookShow extends LitElement {
     .st.accent { background: var(--accent-soft); color: var(--accent); }
     .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
     .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .st.count { background: color-mix(in srgb, var(--pill) 18%, var(--card)); color: color-mix(in srgb, var(--pill) 80%, var(--ink)); }
+    .st.count small { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .sec-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .sec-cams.one { grid-template-columns: 1fr; }
     .sec-cams.one .sec-cam { aspect-ratio: 16 / 9; }
@@ -3853,6 +3867,9 @@ class OverlookShow extends LitElement {
     .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
             transition: height 0.3s; }
     .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
+    /* the playhead: an upright line where the wave meets the track, a little taller than the wave */
+    .wv s { flex: none; width: 4px; height: calc(var(--wv-h) + 6px); margin: -3px 0; border-radius: 999px;
+            background: var(--wv-c, var(--accent)); }
     /* Playing: the wave is drawn on a strip one wavelength wider than the fill and slid along it.
        A moving transform costs the GPU nothing; the old moving mask-position repainted every frame,
        and the old 1 s width transition re-laid out the whole dashboard every frame. */

@@ -14,10 +14,11 @@
 import { html, css, nothing } from "./lit-all.min.js";
 
 // The playback bar: what has played is a sine wave that drifts while the track plays and
-// lies flat when paused; what is left is a plain line. CSS for .wv is in overlook-show.js.
+// lies flat when paused, an upright line marks where it's up to, and what is left is a plain
+// line. CSS for .wv is in overlook-show.js.
 export function wave(frac, playing, cls = "") {
   const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
-  return html`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><b></b></div>`;
+  return html`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><s></s><b></b></div>`;
 }
 
 export const TABLET_PAGES = [

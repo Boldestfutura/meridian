@@ -1050,7 +1050,7 @@ window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundl
 // www/tablet.js
 function wave(frac, playing, cls = "") {
   const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
-  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><b></b></div>`;
+  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><i></i><s></s><b></b></div>`;
 }
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
@@ -4877,7 +4877,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.37.4";
+var VERSION = "0.37.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6240,6 +6240,7 @@ var OverlookShow = class extends dt {
             <span>${home ? x3.name : `${x3.name} away`}</span></button>`;
       }
       if (x3.security) return secPill(this, x3);
+      if (x3.count) return J;
       if (e2.state !== (x3.when || "on")) return J;
       const tap = x3.toggle ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : () => this._open(x3.entity);
       return Z`
@@ -6261,7 +6262,16 @@ var OverlookShow = class extends dt {
           <span>${lo === hi ? lo : `${lo}\u2013${hi}`}${x3.unit != null ? x3.unit : e2.attributes.unit_of_measurement || ""}</span>
           <small>${x3.name}</small></button>`;
     });
-    return Z`<div class="status">${pills}${air}</div>`;
+    const counts = (this._config.status || []).filter((x3) => x3.count).map((x3) => {
+      const e2 = this._st(x3.entity);
+      const v2 = e2 ? Number(e2.state) : NaN;
+      if (!isFinite(v2)) return J;
+      const text = e2.attributes.unit_of_measurement === "h" ? `${Math.floor(v2)}h${Math.round(v2 % 1 * 60) ? ` ${Math.round(v2 % 1 * 60)}m` : ""}` : `${Math.round(v2)}`;
+      return Z`
+        <button class="tab st count" style="--pill:${x3.color || "var(--accent)"}" @click=${() => this._open(x3.entity)}>
+          <ha-icon icon=${x3.icon || e2.attributes.icon}></ha-icon><span>${text}</span><small>${x3.name}</small></button>`;
+    });
+    return Z`<div class="status">${pills}${air}${counts}</div>`;
   }
   // tap does onTap, a still 500ms hold does onHold (see _lightTile for why it's this careful)
   _tapHold(key, onTap, onHold) {
@@ -8232,6 +8242,8 @@ var OverlookShow = class extends dt {
     .st.accent { background: var(--accent-soft); color: var(--accent); }
     .st.ok { background: color-mix(in srgb, #3f8f63 16%, var(--card)); color: color-mix(in srgb, #3f8f63 80%, var(--ink)); }
     .st.sec small { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .st.count { background: color-mix(in srgb, var(--pill) 18%, var(--card)); color: color-mix(in srgb, var(--pill) 80%, var(--ink)); }
+    .st.count small { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .sec-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .sec-cams.one { grid-template-columns: 1fr; }
     .sec-cams.one .sec-cam { aspect-ratio: 16 / 9; }
@@ -8912,6 +8924,9 @@ var OverlookShow = class extends dt {
     .wv i { flex: none; width: var(--f); height: var(--wv-line); border-radius: 999px; background: var(--wv-c, var(--accent));
             transition: height 0.3s; }
     .wv b { flex: 1; min-width: 0; height: var(--wv-line); border-radius: 999px; background: var(--wv-t, var(--track)); }
+    /* the playhead: an upright line where the wave meets the track, a little taller than the wave */
+    .wv s { flex: none; width: 4px; height: calc(var(--wv-h) + 6px); margin: -3px 0; border-radius: 999px;
+            background: var(--wv-c, var(--accent)); }
     /* Playing: the wave is drawn on a strip one wavelength wider than the fill and slid along it.
        A moving transform costs the GPU nothing; the old moving mask-position repainted every frame,
        and the old 1 s width transition re-laid out the whole dashboard every frame. */

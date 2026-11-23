@@ -202,6 +202,23 @@ shell_command:
   norish_plan: "python3 /config/scripts/norish_plan.py {{ date }} {{ recipe }}"
   plex_art: "python3 /config/scripts/plex_art.py {{ title | base64_encode }}"
 
+# GTA VI play time, from Sony's played-games list (tools/ha/psn_playtime.py reads the PSN integration's NPSSO).
+# Sony updates it when a session ends, so it moves in steps.
+command_line:
+  - sensor:
+      name: "GTA VI play time"
+      unique_id: psn_gta_vi_play_time
+      command: 'python3 /config/scripts/psn_playtime.py "Grand Theft Auto VI"'
+      scan_interval: 900
+      command_timeout: 45
+      value_template: "{{ value_json.hours }}"
+      unit_of_measurement: h
+      state_class: total_increasing
+      icon: mdi:gamepad-variant
+      json_attributes:
+        - last_played
+        - title
+
 # Meridian weather page: next-hour rain from Pirate Weather (the URL, key included, is in secrets.yaml)
 rest:
   - resource: !secret pirate_weather_url
