@@ -20,7 +20,7 @@ MOOD = PRE + """{%- set temp = states('sensor.air_quality_monitor_temperature') 
 {%- set night = is_state('input_boolean.bedroom_night_mode', 'on') or (is_state('binary_sensor.bedroom_dark', 'on') and (h >= 22 or h < 6)) -%}
 {%- set atv = 'media_player.living_room' -%}
 {%- set speakers = ['media_player.living_room_amp_2', 'media_player.homepod_mini_kitchen_2', 'media_player.guest_bedroom_homepod_mini_2',
-    'media_player.bedroom_echo', 'media_player.vaca_alldocube_iplay80miniturbo_bef1_sendspin_player'] -%}
+    'media_player.bedroom_echo', 'media_player.kitchen_display_5'] -%}
 {%- if night -%}asleep
 {%- elif is_state(atv, 'playing') and not is_state_attr(atv, 'media_content_type', 'music') -%}tv
 {%- elif speakers | select('is_state', 'playing') | reject('is_state_attr', 'source', 'TV') | list | count

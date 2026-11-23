@@ -1,0 +1,56 @@
+{
+  "id": "frigate_presence_recording",
+  "alias": "Cameras record only when we're out",
+  "description": "Frigate records and detects on the Kitchen Display and Bedroom Echo cameras only while Cameron and Paget are both away and guest mode is off; otherwise recording and detection are off. Re-checked when anyone comes or goes, when guest mode changes, at HA start, and whenever Frigate turns a switch back on (a Frigate restart resets them from its config). Inspection mode turns the KS cameras off separately. Added 2026-11-24.",
+  "triggers": [
+    {
+      "trigger": "state",
+      "entity_id": [
+        "person.cameron",
+        "person.paget"
+      ]
+    },
+    {
+      "trigger": "state",
+      "entity_id": "input_boolean.guest_mode"
+    },
+    {
+      "trigger": "homeassistant",
+      "event": "start"
+    },
+    {
+      "trigger": "state",
+      "entity_id": [
+        "switch.kitchen_display_recordings",
+        "switch.bedroom_echo_recordings",
+        "switch.kitchen_display_detect",
+        "switch.bedroom_echo_detect"
+      ],
+      "to": "on"
+    }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "delay": {
+        "seconds": 2
+      }
+    },
+    {
+      "action": "{{ 'switch.turn_on' if out else 'switch.turn_off' }}",
+      "continue_on_error": true,
+      "target": {
+        "entity_id": [
+          "switch.kitchen_display_recordings",
+          "switch.bedroom_echo_recordings",
+          "switch.kitchen_display_detect",
+          "switch.bedroom_echo_detect"
+        ]
+      }
+    }
+  ],
+  "mode": "queued",
+  "variables": {
+    "out": "{{ not is_state('person.cameron','home') and not is_state('person.paget','home') and is_state('input_boolean.guest_mode','off') }}"
+  }
+}

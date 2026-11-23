@@ -273,6 +273,14 @@ copied by hand like the other custom components. Frigate reaches the broker over
 because Sol can't reach the VM's LAN address. Entities: `camera.kitchen_display` /
 `camera.bedroom_echo` and their `switch.*_detect` / `*_recordings`, plus the person sensors.
 Inspection mode turns the KS cameras off, so nothing records while the agent is in.
+`automation.cameras_record_only_when_we_re_out` (`ha_config/frigate_presence_recording.json`,
+2026-11-24) turns Frigate's recording and detection switches on only while Cameron and Paget are both
+away and guest mode is off, and off otherwise. It re-checks when a Frigate restart turns them back on.
+Footage runs about 29 GB a day while recording around the clock.
+
+VACA was removed 2026-11-24: both config entries, `/config/custom_components/vaca` (backup in
+`/backup/vaca-custom-component-2026-11-24.tgz`) and the companion app on both screens.
+Kiosk Satellite does everything VACA did.
 
 ## Sleep Sounds (2026-11-07)
 
