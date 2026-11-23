@@ -1,7 +1,7 @@
 {
  "id": "echo_show_listing_alert",
  "alias": "Echo Show 8 listing alert",
- "description": "Tells Cameron's phone when an Echo Show 8 1st or 2nd gen (or a Show 8 with no generation in its title) is newly listed at Cash Converters. sensor.echo_show_8_on_cash_converters runs tools/ha/cashconverters_echo.py every 30 minutes; a listing is new when its code wasn't in the sensor's previous list. Tapping the alert opens the listing. Added 2026-11-24.",
+ "description": "Tells Cameron's phone when an Echo Show 8 1st or 2nd gen (or a Show 8 with no generation in its title) is newly listed at Cash Converters. sensor.echo_show_8_on_cash_converters runs tools/ha/cashconverters_echo.py every 30 minutes; a listing is new when its code wasn't in the sensor's previous list. Tapping the alert, or its Open listing button, opens the listing. Added 2026-11-24.",
  "triggers": [
   {
    "trigger": "state",
@@ -32,7 +32,14 @@
        "title": "Echo Show 8 at Cash Converters",
        "message": "{{ repeat.item.title }} ({{ repeat.item.gen ~ ' gen' if repeat.item.gen != 'unknown' else 'gen not stated' }}) ${{ '%.0f' | format(repeat.item.price) }}{{ (' + $' ~ repeat.item.postage ~ ' postage') if repeat.item.postage else '' }}, {{ repeat.item.store }}",
        "data": {
-        "url": "{{ repeat.item.url }}"
+        "url": "{{ repeat.item.url }}",
+        "actions": [
+         {
+          "action": "URI",
+          "title": "Open listing",
+          "uri": "{{ repeat.item.url }}"
+         }
+        ]
        }
       }
      }
