@@ -264,7 +264,7 @@ KS keeps the photo list it loaded, so turning it off also restarts the screensav
 The only cameras are the Kitchen Display's and the Echo's, served by Kiosk Satellite as RTSP
 on port 8554, path `/camera`, with auth (Kitchen 1280x720, Echo 640x480, 10 fps, no audio, date
 overlay). Frigate 0.18 runs on Sol (TrueNAS app `frigate`) and pulls both through go2rtc:
-continuous recording kept 7 days, motion 14, person alerts/detections and snapshots 30, on the
+continuous recording kept 2 days, motion 4, detections 7, alerts and snapshots 30, on the
 HDD dataset `HDDs/Frigate`, which has **no snapshot task on purpose** (deleted footage must free
 space). Detection is OpenVINO on the CPU, people only. The Frigate config and every credential
 live outside this repo, on luna. HA gets events over MQTT: the **Mosquitto broker add-on** (with a
