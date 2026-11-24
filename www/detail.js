@@ -5,6 +5,7 @@
 // entity: where (person, device_tracker), update, climate, contact (door/window), switch (plugs), battery, number,
 // and a plain fallback. History comes from HA's history API into c._dhist["<id>|<hours>"].
 import { html, svg, css, nothing } from "./lit-all.min.js";
+import { count } from "./tablet.js";
 
 const AIR = {
   temperature: (v) => (v < 17 ? "Cool" : v > 25 ? "Warm" : "Comfortable"),
@@ -339,7 +340,7 @@ function number(c, e, s) {
   const col = which === "temperature" ? "#f39a43" : which === "humidity" || which === "moisture" ? "#3f86f2" : which === "pm25" ? "#3f8f63" : which === "voc" ? "#1fb39b" : "var(--accent)";
   return html`
     <div class="dt-hero dt-num" style="--dc:${col}">
-      <b>${isFinite(v) ? Math.round(v * 10) / 10 : "–"}<em>${unit.trim()}</em></b>
+      <b>${count(v, 1)}<em>${unit.trim()}</em></b>
       <span>${verdict || ""}</span><small>Updated ${ago(new Date(e.last_updated).getTime())}</small>
     </div>
     ${rangeTabs(c)}

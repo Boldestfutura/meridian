@@ -11,13 +11,13 @@
 // speaker picker and the idle return all need pointer handling and
 // local state, which button-card templates can't hold.
 import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
-import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, secPill, secSection, securityPopup, camSection } from "./tablet.js";
+import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, count, secPill, secSection, securityPopup, camSection } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.41.4";
+const VERSION = "0.42.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -146,6 +146,33 @@ const washerPopup = (w) => ({ title: "Washing machine", icon: "mdi:washing-machi
 let LAST_TAP = null;
 window.addEventListener("pointerdown", (ev) => { LAST_TAP = { x: ev.clientX, y: ev.clientY, t: performance.now() }; }, true);
 const REDUCED = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+// cards that copy the Echo shell's light/dark (OverlookPiece, EchoPiece), so a switch can redraw
+// them inside the same fade
+const SCHEME_FOLLOWERS = new Set();
+// light <-> dark as a cross-fade of the whole page (View Transitions), 1.6 s; screens whose
+// browser lacks it just switch
+function fadeScheme(apply) {
+  if (!document.startViewTransition || REDUCED()) { apply(); return; }
+  if (!document.getElementById("meridian-scheme-fade")) {
+    const st = document.createElement("style");
+    st.id = "meridian-scheme-fade";
+    st.textContent = "html.meridian-scheme-fade::view-transition-old(root), html.meridian-scheme-fade::view-transition-new(root)"
+      + " { animation-duration: 1.6s; animation-timing-function: ease-in-out; }";
+    document.head.appendChild(st);
+  }
+  const root = document.documentElement, mine = (fadeScheme.n = (fadeScheme.n || 0) + 1);
+  root.classList.add("meridian-scheme-fade");
+  try {
+    const vt = document.startViewTransition(async () => {
+      apply();
+      const live = [...SCHEME_FOLLOWERS].filter((f) => f.isConnected);
+      live.forEach((f) => f.requestUpdate());
+      await Promise.all(live.map((f) => f.updateComplete));
+    });
+    // only the latest fade takes the class off (a quick second switch skips the first one)
+    vt.finished.finally(() => { if (fadeScheme.n === mine) root.classList.remove("meridian-scheme-fade"); });
+  } catch (e) { root.classList.remove("meridian-scheme-fade"); apply(); }
+}
 
 class OverlookShow extends LitElement {
   static properties = {
@@ -218,6 +245,7 @@ class OverlookShow extends LitElement {
   }
 
   disconnectedCallback() {
+    SCHEME_FOLLOWERS.delete(this);
     super.disconnectedCallback();
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
@@ -302,8 +330,11 @@ class OverlookShow extends LitElement {
     if (changed.has("hass") && this._config.scheme) {
       const e = this._st(this._config.scheme);
       const dark = e ? ["below_horizon", "on", "dark"].includes(e.state) : null;
-      if (dark === null) this.removeAttribute("scheme");
-      else this.setAttribute("scheme", dark ? "dark" : "light");
+      const want = dark === null ? null : dark ? "dark" : "light";
+      const apply = () => { if (want === null) this.removeAttribute("scheme"); else this.setAttribute("scheme", want); };
+      // the first value lands as it is; a change after that (sunset, sunrise) fades across
+      if (want !== this.getAttribute("scheme")) { if (this._schemeSeen) fadeScheme(apply); else apply(); }
+      this._schemeSeen = true;
     }
     if (changed.has("hass") && this._config.clock) this._ckWatch();
     if (changed.has("hass") && this._config.nowplaying) this._npWatch();
@@ -1854,7 +1885,7 @@ class OverlookShow extends LitElement {
             <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a) ? html`<div class="media-artist">${this._artist(a)}</div>` : nothing}
           </div>
-          ${card ? (vol != null ? html`<span class="where-vol">${Math.round(vol * 100)}%</span>` : nothing)
+          ${card ? (vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing)
             : e.attributes.supported_features & 128 ? html`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
               <ha-icon icon="mdi:power"></ha-icon></button>` : nothing}
@@ -2057,7 +2088,7 @@ class OverlookShow extends LitElement {
     const step = (d) => () => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + d) * 100) / 100, 0, 1) });
     return html`
       <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
-        ${phone && showVol ? html`<span class="ph-vol">${pct}%</span>` : nothing}
+        ${phone && showVol ? html`<span class="ph-vol">${count(pct)}%</span>` : nothing}
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
           ${!phone && active && this._input(a) ? this._art(a, "small") : html`
           <div class="art small" style=${!phone && pic ? `background-image:url('${pic}')` : ""}>
@@ -2080,7 +2111,7 @@ class OverlookShow extends LitElement {
         ${showVol && !phone ? html`
           <div class="vol vol-pair vol-pct">
             <button class="round small" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <span class="where-vol">${pct}%</span>
+            <span class="where-vol">${count(pct)}%</span>
             <button class="round small" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${powerTile ? html`
@@ -2595,7 +2626,7 @@ class OverlookShow extends LitElement {
             <span>${sp.name}</span>
             <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
           </button>
-          ${vol != null ? html`<span class="where-vol">${Math.round(vol * 100)}%</span>` : nothing}
+          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing}
         </div>
         ${vol != null ? html`
           <div class="vol ${pair ? "vol-pair" : ""}">
@@ -2955,21 +2986,20 @@ class OverlookShow extends LitElement {
     const target = pending != null ? pending : a.temperature;
     const label = mode === "off" ? "Off" : mode === "heat_cool" ? "Auto"
       : mode[0].toUpperCase() + mode.slice(1).replace("_", " ");
-    const fmt = (t) => (t == null ? "–" : `${Math.round(t / step) * step}°`);
     const modes = [["heat", "Heat", "mdi:fire"], ["cool", "Cool", "mdi:snowflake"], ["off", "Off", "mdi:power"]]
       .filter(([m]) => (a.hvac_modes || []).includes(m));
     return html`
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
         <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => { if (this._links()[id]) this._open(id); }}>
-          <span class="hp-temp">${a.current_temperature != null ? `${Math.round(a.current_temperature * 10) / 10}°` : "–"}</span>
+          <span class="hp-temp">${count(a.current_temperature, 1)}${a.current_temperature != null ? "°" : ""}</span>
           <span class="hp-mode ${mode}">${label}</span>
           ${this._links()[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
             <ha-icon icon="mdi:minus"></ha-icon></button>
-          <div class="hp-set">${fmt(target)}</div>
+          <div class="hp-set">${target == null ? "–" : html`${count(Math.round(target / step) * step, step < 1 ? 1 : 0)}°`}</div>
           <button class="hp-step" title="Warmer" @click=${() => this._nudge(e, step)}>
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
@@ -4015,6 +4045,7 @@ class OverlookShow extends LitElement {
     .air-ico ha-icon { --mdc-icon-size: 22px; }
     .air-val { justify-self: end; font-family: var(--display); font-weight: 700; font-size: min(58px, 12vh); line-height: 1;
                letter-spacing: -0.03em; }
+    meridian-num { font-variant-numeric: tabular-nums; }
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
     .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
     .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
@@ -4344,6 +4375,7 @@ class OverlookPiece extends OverlookShow {
   }
 
   disconnectedCallback() {
+    SCHEME_FOLLOWERS.delete(this);
     LitElement.prototype.disconnectedCallback.call(this);
     PIECES--;
   }
@@ -4351,6 +4383,7 @@ class OverlookPiece extends OverlookShow {
   updated(changed) {
     this._markCut();
     // on a dock dashboard, follow the dock's light/dark (its `scheme` option) like the screen cards
+    SCHEME_FOLLOWERS.add(this);
     const sh = ECHO_SHELL, sch = sh && sh.isConnected && sh.getAttribute("scheme");
     if (sch) { if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch); }
     else if (this.hasAttribute("scheme")) this.removeAttribute("scheme");
@@ -5609,6 +5642,7 @@ class EchoPiece extends OverlookShow {
 
   updated(changed) {
     super.updated(changed);
+    SCHEME_FOLLOWERS.add(this);
     const s = ECHO_SHELL, sch = s && s.getAttribute("scheme");
     if (sch) { if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch); } else this.removeAttribute("scheme");
     if (this._picker) {
@@ -5720,7 +5754,7 @@ class MeridianLargeSensor extends EchoPiece {
     return html`
       <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x.entity)}>
         <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
-        <span class="air-val">${ok ? Math.round(v) : "–"}<small>${unit}</small></span>
+        <span class="air-val">${ok ? count(v) : "–"}<small>${unit}</small></span>
         <span class="air-name">${label}<span class="air-q">${ok ? verdict(v) : "No reading"}</span></span>
       </button>`;
   }
@@ -5891,7 +5925,7 @@ class MeridianLargeTile extends EchoPiece {
             <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a) || this._src(a) ? html`<div class="media-artist">${this._artist(a) || this._src(a)}</div>` : nothing}
           </div>
-          ${vol != null ? html`<span class="where-vol">${Math.round(vol * 100)}%</span>` : nothing}
+          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing}
         </div>
         ${dur ? wave(pos / dur, playing, "mini-track") : html`<div class="mini-track"></div>`}
         <div class="mini-row">

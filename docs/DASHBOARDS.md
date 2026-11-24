@@ -244,7 +244,16 @@ side of the chip that was tapped, 0.38 s) and the detail pop-ups' 24 hours / 7 d
 (`_zoomGraph`: the new graph starts stretched or squeezed so its last 24 hours sit where the old
 one drew them, then eases to its own scale, 0.52 s; it waits for the history to load). Tiles,
 scene squares, room light buttons and the Echo's control tiles fade their on/off colours over
-0.25 s instead of flipping. The tablet's centred pop-up CSS no longer pins
+0.25 s instead of flipping.
+
+Numbers that change count to their new value over 0.5 s instead of jumping: `count(v, dp)` in
+`www/tablet.js` renders `<meridian-num>` (heat pump reading and setpoint, volume percentages, air
+readings, the detail pop-up's big number). The first value shows at once.
+
+On the Kitchen Display and the Echo, the sunset and sunrise switch between light and dark is a
+1.6 s cross-fade of the whole page (`fadeScheme`, the browser's View Transitions); the cards that
+copy the Echo shell's scheme (`SCHEME_FOLLOWERS`) redraw inside the same fade. The first scheme
+after loading lands without one, and a browser without View Transitions just switches. The tablet's centred pop-up CSS no longer pins
 `transform: none !important`, which beat the animations (and a swipe-down now drags it first).
 
 A new door or window

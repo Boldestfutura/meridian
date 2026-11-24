@@ -74,6 +74,33 @@ class MeridianWave extends HTMLElement {
 }
 if (!customElements.get("meridian-wave")) customElements.define("meridian-wave", MeridianWave);
 
+// A number that counts to its new value (0.5 s, easing out) instead of jumping: temperatures,
+// volume, the heat pump setpoint, air readings. count(v, dp) rounds to dp decimals the way the
+// plain text did (19.5, 19, not 19.0); the first value shows at once.
+class MeridianNum extends HTMLElement {
+  set value(v) {
+    const to = Number(v), from = this._shown;
+    cancelAnimationFrame(this._raf);
+    if (from == null || !isFinite(from) || !isFinite(to) || from === to || !this.isConnected
+        || matchMedia("(prefers-reduced-motion: reduce)").matches) { this._put(to); return; }
+    const t0 = performance.now(), D = 500;
+    const tick = (t) => {
+      const k = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      this._put(k < 1 ? from + (to - from) * e : to);
+      if (k < 1) this._raf = requestAnimationFrame(tick);
+    };
+    this._raf = requestAnimationFrame(tick);
+  }
+  _put(v) {
+    this._shown = v;
+    const p = 10 ** (this.dp || 0);
+    this.textContent = isFinite(v) ? String(Math.round(v * p) / p) : "–";
+  }
+}
+if (!customElements.get("meridian-num")) customElements.define("meridian-num", MeridianNum);
+export const count = (v, dp = 0) => (v == null || !isFinite(Number(v)) ? "–"
+  : html`<meridian-num .dp=${dp} .value=${Number(v)}></meridian-num>`);
+
 export const TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -138,7 +165,7 @@ function airTile(c, x) {
   return html`
     <button class="card air-tile" style="--c:${colour}" @click=${() => c._open(x.entity)}>
       <span class="air-ico"><ha-icon icon=${icon}></ha-icon></span>
-      <span class="air-val">${v == null ? "–" : key === "temperature" ? Math.round(v * 10) / 10 : Math.round(v)}<small>${unit}</small></span>
+      <span class="air-val">${count(v, key === "temperature" ? 1 : 0)}<small>${unit}</small></span>
       <span class="air-name">${name}<span class="air-q">${v == null ? "No reading" : verdict(v)}</span></span>
     </button>`;
 }
@@ -684,7 +711,7 @@ function nowCard(c, p) {
             <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? html`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <b>${Math.round(va.volume_level * 100)}%</b>
+            <b>${count(Math.round(va.volume_level * 100))}%</b>
             <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : nothing}
         </div>
       </div>

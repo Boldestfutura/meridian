@@ -1125,6 +1125,30 @@ var MeridianWave = class extends HTMLElement {
   }
 };
 if (!customElements.get("meridian-wave")) customElements.define("meridian-wave", MeridianWave);
+var MeridianNum = class extends HTMLElement {
+  set value(v2) {
+    const to = Number(v2), from = this._shown;
+    cancelAnimationFrame(this._raf);
+    if (from == null || !isFinite(from) || !isFinite(to) || from === to || !this.isConnected || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this._put(to);
+      return;
+    }
+    const t0 = performance.now(), D2 = 500;
+    const tick = (t3) => {
+      const k2 = Math.min(1, (t3 - t0) / D2), e2 = 1 - Math.pow(1 - k2, 3);
+      this._put(k2 < 1 ? from + (to - from) * e2 : to);
+      if (k2 < 1) this._raf = requestAnimationFrame(tick);
+    };
+    this._raf = requestAnimationFrame(tick);
+  }
+  _put(v2) {
+    this._shown = v2;
+    const p2 = 10 ** (this.dp || 0);
+    this.textContent = isFinite(v2) ? String(Math.round(v2 * p2) / p2) : "\u2013";
+  }
+};
+if (!customElements.get("meridian-num")) customElements.define("meridian-num", MeridianNum);
+var count = (v2, dp = 0) => v2 == null || !isFinite(Number(v2)) ? "\u2013" : Z`<meridian-num .dp=${dp} .value=${Number(v2)}></meridian-num>`;
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -1186,7 +1210,7 @@ function airTile(c2, x3) {
   return Z`
     <button class="card air-tile" style="--c:${colour}" @click=${() => c2._open(x3.entity)}>
       <span class="air-ico"><ha-icon icon=${icon2}></ha-icon></span>
-      <span class="air-val">${v2 == null ? "\u2013" : key === "temperature" ? Math.round(v2 * 10) / 10 : Math.round(v2)}<small>${unit}</small></span>
+      <span class="air-val">${count(v2, key === "temperature" ? 1 : 0)}<small>${unit}</small></span>
       <span class="air-name">${name}<span class="air-q">${v2 == null ? "No reading" : verdict(v2)}</span></span>
     </button>`;
 }
@@ -1688,7 +1712,7 @@ function nowCard(c2, p2) {
             <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? Z`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <b>${Math.round(va.volume_level * 100)}%</b>
+            <b>${count(Math.round(va.volume_level * 100))}%</b>
             <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : J}
         </div>
       </div>
@@ -4508,19 +4532,19 @@ function onOff(c2, e2) {
   const list = hist(c2, e2.entity_id, 24);
   const t1 = Date.now(), t0 = t1 - 24 * 36e5;
   const segs = [];
-  let count = 0;
+  let count2 = 0;
   if (list) {
     const ch = [...list, { t: t1, s: e2.state }];
     ch.forEach((p2, i2) => {
       if (p2.s === "on" && i2 < ch.length - 1) segs.push([Math.max(p2.t, t0), ch[i2 + 1].t]);
-      if (p2.s === "on" && i2 > 0 && ch[i2 - 1].s !== "on") count++;
+      if (p2.s === "on" && i2 > 0 && ch[i2 - 1].s !== "on") count2++;
     });
   }
   const recent = (list || []).filter((p2, i2, a2) => i2 > 0 && p2.s !== a2[i2 - 1].s && ["on", "off"].includes(p2.s)).slice(-5).reverse();
   return {
     list,
     segs,
-    count,
+    count: count2,
     recent,
     total: segs.reduce((n2, [a2, b2]) => n2 + (b2 - a2), 0),
     line: Z`
@@ -4549,7 +4573,7 @@ function contact(c2, e2) {
 }
 function toggle(c2, e2, s2) {
   const on = e2.state === "on", dead = ["unavailable", "unknown"].includes(e2.state);
-  const { list, count, recent, total, line } = onOff(c2, e2);
+  const { list, count: count2, recent, total, line } = onOff(c2, e2);
   const sib = sameDevice(c2, e2.entity_id).map((k2) => c2._st(k2));
   const pw = sib.find((x3) => x3.attributes.device_class === "power");
   const en = sib.find((x3) => x3.attributes.device_class === "energy");
@@ -4561,7 +4585,7 @@ function toggle(c2, e2, s2) {
       <div><b>${dead ? "Unavailable" : on ? "On" : "Off"}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
       <i class="dt-sw"><u></u></i>
     </button>
-    <div class="pop-sub">Last 24 hours${list ? ` \xB7 on for ${dur(total)}${count ? `, switched on ${count} time${count === 1 ? "" : "s"}` : ""}` : ""}</div>
+    <div class="pop-sub">Last 24 hours${list ? ` \xB7 on for ${dur(total)}${count2 ? `, switched on ${count2} time${count2 === 1 ? "" : "s"}` : ""}` : ""}</div>
     ${line}
     ${pw || en ? rows([
     pw && ["mdi:flash-outline", "Using now", c2._fmt(pw)],
@@ -4607,7 +4631,7 @@ function number(c2, e2, s2) {
   const col = which === "temperature" ? "#f39a43" : which === "humidity" || which === "moisture" ? "#3f86f2" : which === "pm25" ? "#3f8f63" : which === "voc" ? "#1fb39b" : "var(--accent)";
   return Z`
     <div class="dt-hero dt-num" style="--dc:${col}">
-      <b>${isFinite(v2) ? Math.round(v2 * 10) / 10 : "\u2013"}<em>${unit.trim()}</em></b>
+      <b>${count(v2, 1)}<em>${unit.trim()}</em></b>
       <span>${verdict || ""}</span><small>Updated ${ago(new Date(e2.last_updated).getTime())}</small>
     </div>
     ${rangeTabs(c2)}
@@ -5439,7 +5463,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.41.4";
+var VERSION = "0.42.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5615,6 +5639,35 @@ window.addEventListener("pointerdown", (ev) => {
   LAST_TAP = { x: ev.clientX, y: ev.clientY, t: performance.now() };
 }, true);
 var REDUCED = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+var SCHEME_FOLLOWERS = /* @__PURE__ */ new Set();
+function fadeScheme(apply) {
+  if (!document.startViewTransition || REDUCED()) {
+    apply();
+    return;
+  }
+  if (!document.getElementById("meridian-scheme-fade")) {
+    const st2 = document.createElement("style");
+    st2.id = "meridian-scheme-fade";
+    st2.textContent = "html.meridian-scheme-fade::view-transition-old(root), html.meridian-scheme-fade::view-transition-new(root) { animation-duration: 1.6s; animation-timing-function: ease-in-out; }";
+    document.head.appendChild(st2);
+  }
+  const root = document.documentElement, mine = fadeScheme.n = (fadeScheme.n || 0) + 1;
+  root.classList.add("meridian-scheme-fade");
+  try {
+    const vt = document.startViewTransition(async () => {
+      apply();
+      const live2 = [...SCHEME_FOLLOWERS].filter((f2) => f2.isConnected);
+      live2.forEach((f2) => f2.requestUpdate());
+      await Promise.all(live2.map((f2) => f2.updateComplete));
+    });
+    vt.finished.finally(() => {
+      if (fadeScheme.n === mine) root.classList.remove("meridian-scheme-fade");
+    });
+  } catch (e2) {
+    root.classList.remove("meridian-scheme-fade");
+    apply();
+  }
+}
 var OverlookShow = class extends dt {
   static properties = {
     hass: { attribute: false },
@@ -5711,6 +5764,7 @@ var OverlookShow = class extends dt {
     if (this.hass) loadFonts(this.hass);
   }
   disconnectedCallback() {
+    SCHEME_FOLLOWERS.delete(this);
     super.disconnectedCallback();
     clearInterval(this._clock);
     clearTimeout(this._idleTimer);
@@ -5811,8 +5865,16 @@ var OverlookShow = class extends dt {
     if (changed.has("hass") && this._config.scheme) {
       const e2 = this._st(this._config.scheme);
       const dark = e2 ? ["below_horizon", "on", "dark"].includes(e2.state) : null;
-      if (dark === null) this.removeAttribute("scheme");
-      else this.setAttribute("scheme", dark ? "dark" : "light");
+      const want = dark === null ? null : dark ? "dark" : "light";
+      const apply = () => {
+        if (want === null) this.removeAttribute("scheme");
+        else this.setAttribute("scheme", want);
+      };
+      if (want !== this.getAttribute("scheme")) {
+        if (this._schemeSeen) fadeScheme(apply);
+        else apply();
+      }
+      this._schemeSeen = true;
     }
     if (changed.has("hass") && this._config.clock) this._ckWatch();
     if (changed.has("hass") && this._config.nowplaying) this._npWatch();
@@ -7518,7 +7580,7 @@ var OverlookShow = class extends dt {
             <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a2) ? Z`<div class="media-artist">${this._artist(a2)}</div>` : J}
           </div>
-          ${card ? vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J : e2.attributes.supported_features & 128 ? Z`
+          ${card ? vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J : e2.attributes.supported_features & 128 ? Z`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
               <ha-icon icon="mdi:power"></ha-icon></button>` : J}
         </div>
@@ -7718,7 +7780,7 @@ var OverlookShow = class extends dt {
     const step = (d2) => () => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + d2) * 100) / 100, 0, 1) });
     return Z`
       <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
-        ${phone && showVol ? Z`<span class="ph-vol">${pct}%</span>` : J}
+        ${phone && showVol ? Z`<span class="ph-vol">${count(pct)}%</span>` : J}
         <div class="player-row" @click=${() => {
       if (this._links()[id]) this._open(id);
     }}>
@@ -7743,7 +7805,7 @@ var OverlookShow = class extends dt {
         ${showVol && !phone ? Z`
           <div class="vol vol-pair vol-pct">
             <button class="round small" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <span class="where-vol">${pct}%</span>
+            <span class="where-vol">${count(pct)}%</span>
             <button class="round small" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : J}
         ${powerTile ? Z`
@@ -8257,7 +8319,7 @@ var OverlookShow = class extends dt {
             <span>${sp.name}</span>
             <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
           </button>
-          ${vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J}
+          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J}
         </div>
         ${vol != null ? Z`
           <div class="vol ${pair ? "vol-pair" : ""}">
@@ -8631,7 +8693,6 @@ var OverlookShow = class extends dt {
     const pending = this._drag && this._drag.id === e2.entity_id ? this._drag.temp : null;
     const target = pending != null ? pending : a2.temperature;
     const label = mode === "off" ? "Off" : mode === "heat_cool" ? "Auto" : mode[0].toUpperCase() + mode.slice(1).replace("_", " ");
-    const fmt = (t3) => t3 == null ? "\u2013" : `${Math.round(t3 / step) * step}\xB0`;
     const modes = [["heat", "Heat", "mdi:fire"], ["cool", "Cool", "mdi:snowflake"], ["off", "Off", "mdi:power"]].filter(([m2]) => (a2.hvac_modes || []).includes(m2));
     return Z`
       <div class="thermo">
@@ -8639,14 +8700,14 @@ var OverlookShow = class extends dt {
         <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => {
       if (this._links()[id]) this._open(id);
     }}>
-          <span class="hp-temp">${a2.current_temperature != null ? `${Math.round(a2.current_temperature * 10) / 10}\xB0` : "\u2013"}</span>
+          <span class="hp-temp">${count(a2.current_temperature, 1)}${a2.current_temperature != null ? "\xB0" : ""}</span>
           <span class="hp-mode ${mode}">${label}</span>
           ${this._links()[id] ? Z`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : J}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e2, -step)}>
             <ha-icon icon="mdi:minus"></ha-icon></button>
-          <div class="hp-set">${fmt(target)}</div>
+          <div class="hp-set">${target == null ? "\u2013" : Z`${count(Math.round(target / step) * step, step < 1 ? 1 : 0)}°`}</div>
           <button class="hp-step" title="Warmer" @click=${() => this._nudge(e2, step)}>
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
@@ -9697,6 +9758,7 @@ var OverlookShow = class extends dt {
     .air-ico ha-icon { --mdc-icon-size: 22px; }
     .air-val { justify-self: end; font-family: var(--display); font-weight: 700; font-size: min(58px, 12vh); line-height: 1;
                letter-spacing: -0.03em; }
+    meridian-num { font-variant-numeric: tabular-nums; }
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
     .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
     .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
@@ -10030,11 +10092,13 @@ var OverlookPiece = class extends OverlookShow {
     }
   }
   disconnectedCallback() {
+    SCHEME_FOLLOWERS.delete(this);
     dt.prototype.disconnectedCallback.call(this);
     PIECES--;
   }
   updated(changed) {
     this._markCut();
+    SCHEME_FOLLOWERS.add(this);
     const sh = ECHO_SHELL, sch = sh && sh.isConnected && sh.getAttribute("scheme");
     if (sch) {
       if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch);
@@ -11355,6 +11419,7 @@ var EchoPiece = class extends OverlookShow {
   }
   updated(changed) {
     super.updated(changed);
+    SCHEME_FOLLOWERS.add(this);
     const s2 = ECHO_SHELL, sch = s2 && s2.getAttribute("scheme");
     if (sch) {
       if (this.getAttribute("scheme") !== sch) this.setAttribute("scheme", sch);
@@ -11479,7 +11544,7 @@ var MeridianLargeSensor = class extends EchoPiece {
     return Z`
       <button class="card air-tile" style="--c:${colour}" @click=${() => this._open(x3.entity)}>
         <span class="air-ico"><ha-icon icon=${icon2}></ha-icon></span>
-        <span class="air-val">${ok ? Math.round(v2) : "\u2013"}<small>${unit}</small></span>
+        <span class="air-val">${ok ? count(v2) : "\u2013"}<small>${unit}</small></span>
         <span class="air-name">${label}<span class="air-q">${ok ? verdict(v2) : "No reading"}</span></span>
       </button>`;
   }
@@ -11671,7 +11736,7 @@ var MeridianLargeTile = class extends EchoPiece {
             <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a2) || this._src(a2) ? Z`<div class="media-artist">${this._artist(a2) || this._src(a2)}</div>` : J}
           </div>
-          ${vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J}
+          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J}
         </div>
         ${dur2 ? wave(pos / dur2, playing, "mini-track") : Z`<div class="mini-track"></div>`}
         <div class="mini-row">
