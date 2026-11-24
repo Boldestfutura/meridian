@@ -14,3 +14,4 @@ screenshots/
 *.otf
 *.eot
 .build/
+dist/*.gz
