@@ -4877,7 +4877,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.37.7";
+var VERSION = "0.37.9";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6365,6 +6365,7 @@ var OverlookShow = class extends dt {
     this._loadHistory(this._config.popups[id]);
   }
   async _loadHistory(p2) {
+    p2.sections.filter((s2) => s2.type === "game").forEach((s2) => this._loadGame(s2.entity));
     const graphs = p2.sections.filter((s2) => s2.type === "graph" || s2.type === "multigraph");
     if (!graphs.length) return;
     const series = graphs.flatMap((s2) => s2.series || [{ entity: s2.entity }]);
@@ -6487,6 +6488,8 @@ var OverlookShow = class extends dt {
         return secSection(this, s2);
       case "camera":
         return camSection(this, s2);
+      case "game":
+        return this._popGame(s2);
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":
@@ -6496,6 +6499,87 @@ var OverlookShow = class extends dt {
       default:
         return Z`${head}<div class="pop-grid">${(s2.items || []).map((x3) => this._popTile(x3))}</div>`;
     }
+  }
+  // play time per day for the last seven days, from the recorder's long-term statistics (the
+  // sensor is total_increasing, so a day's "change" is the hours played that day)
+  async _loadGame(id) {
+    const d0 = /* @__PURE__ */ new Date();
+    d0.setHours(0, 0, 0, 0);
+    d0.setDate(d0.getDate() - 6);
+    try {
+      const r2 = await this.hass.callWS({
+        type: "recorder/statistics_during_period",
+        start_time: d0.toISOString(),
+        statistic_ids: [id],
+        period: "day",
+        types: ["change"]
+      });
+      const byDay = {};
+      (r2[id] || []).forEach((x3) => {
+        byDay[new Date(x3.start).toDateString()] = Math.max(0, x3.change || 0);
+      });
+      const days = Array.from({ length: 7 }, (_2, i2) => {
+        const d2 = new Date(d0);
+        d2.setDate(d0.getDate() + i2);
+        return { d: d2, h: byDay[d2.toDateString()] || 0 };
+      });
+      this._game = Object.assign({}, this._game, { [id]: days });
+      this.requestUpdate();
+    } catch (e2) {
+      console.warn("overlook-show: game stats", e2);
+    }
+  }
+  // A game's pop-up (the GTA VI pill): cover art and total played, this week against the total,
+  // when it was last played, a bar per day for the last week, and the game's trophies
+  _popGame(s2) {
+    const e2 = this._st(s2.entity);
+    if (!e2) return J;
+    const a2 = e2.attributes, col = s2.color || "var(--accent)";
+    const hm = (h2) => {
+      const m2 = Math.round(h2 * 60);
+      return m2 < 60 ? `${m2}m` : `${Math.floor(m2 / 60)}h${m2 % 60 ? ` ${m2 % 60}m` : ""}`;
+    };
+    const total = Number(e2.state) || 0;
+    const days = (this._game || {})[s2.entity] || [];
+    const mon = /* @__PURE__ */ new Date();
+    mon.setHours(0, 0, 0, 0);
+    mon.setDate(mon.getDate() - (mon.getDay() + 6) % 7);
+    const week = days.filter((x3) => x3.d >= mon).reduce((n2, x3) => n2 + x3.h, 0);
+    const last = a2.last_played ? new Date(a2.last_played) : null;
+    const lastTxt = (() => {
+      if (!last || isNaN(last)) return "Not played yet";
+      const today = /* @__PURE__ */ new Date();
+      today.setHours(0, 0, 0, 0);
+      const ago = Math.round((today - new Date(last).setHours(0, 0, 0, 0)) / 864e5);
+      const day = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : ago < 7 ? last.toLocaleDateString(void 0, { weekday: "long" }) : last.toLocaleDateString(void 0, { day: "numeric", month: "short" });
+      return `${day}, ${this._ampm(last)}`;
+    })();
+    const max = Math.max(1, ...days.map((x3) => x3.h));
+    const tr = a2.trophies, grades = [["platinum", "#8fa8c8"], ["gold", "#d9a521"], ["silver", "#a7adb7"], ["bronze", "#c27a4a"]];
+    const got = tr ? grades.reduce((n2, [g2]) => n2 + ((tr.earned || {})[g2] || 0), 0) : 0;
+    const all = tr ? grades.reduce((n2, [g2]) => n2 + ((tr.defined || {})[g2] || 0), 0) : 0;
+    return Z`
+      <div class="gm" style="--gm:${col}">
+        <div class="gm-hero">
+          ${a2.image ? Z`<img class="gm-art" src=${a2.image} alt="">` : J}
+          <div class="gm-total"><b>${hm(total)}</b><span>played in total</span><small>Last played ${lastTxt}</small></div>
+        </div>
+        <div class="gm-stats">
+          <div><small>This week</small><b>${hm(week)}</b><span>of ${hm(total)}</span></div>
+          ${tr ? Z`<div><small>Trophies</small><b>${got}<i> of ${all}</i></b><span>${tr.progress ?? 0}% complete</span></div>` : J}
+        </div>
+        ${days.length ? Z`
+          <div class="pop-sub">Last 7 days</div>
+          <div class="gm-bars">${days.map((x3) => Z`
+            <div class="gm-day"><em>${x3.h ? hm(x3.h) : ""}</em><span><i style="height:${x3.h / max * 100}%"></i></span>
+              <small>${x3.d.toLocaleDateString(void 0, { weekday: "narrow" })}</small></div>`)}</div>` : J}
+        ${tr ? Z`
+          <div class="pop-sub">Trophies</div>
+          <div class="gm-prog"><i style="width:${tr.progress || 0}%"></i></div>
+          <div class="gm-trophies">${grades.map(([g2, c2]) => Z`
+            <div><p><ha-icon icon="mdi:trophy" style="color:${c2}"></ha-icon><b>${(tr.earned || {})[g2] || 0}</b><span>/${(tr.defined || {})[g2] || 0}</span></p>
+              <small>${g2[0].toUpperCase() + g2.slice(1)}</small></div>`)}</div>` : J}
+      </div>`;
   }
   // the washer pop-up: what it's doing now, how long, and Hung it out once it's done
   _popWasher(w2) {
@@ -8829,6 +8913,36 @@ var OverlookShow = class extends dt {
     .pop-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
                margin: 8px 4px 0; }
     .pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* a game's pop-up (_popGame): --gm is the pill's colour */
+    .gm { display: flex; flex-direction: column; gap: 12px; }
+    .gm-hero { display: flex; gap: 14px; align-items: center; padding: 12px; border-radius: 22px;
+               background: color-mix(in srgb, var(--gm) 14%, var(--card)); }
+    .gm-art { width: 92px; height: 92px; border-radius: 18px; object-fit: cover; flex: none; }
+    .gm-total { display: flex; flex-direction: column; min-width: 0; }
+    .gm-total b { font-size: 34px; line-height: 1.05; font-weight: 700; color: color-mix(in srgb, var(--gm) 85%, var(--ink)); }
+    .gm-total span { font-size: 14px; font-weight: 600; color: var(--muted); }
+    .gm-total small { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .gm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .gm-stats > div { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 18px; background: var(--card); }
+    .gm-stats small { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .gm-stats b { font-size: 24px; font-weight: 700; margin-top: 2px; }
+    .gm-stats b i { font-style: normal; font-size: 15px; font-weight: 600; color: var(--muted); }
+    .gm-stats span { font-size: 13px; color: var(--muted); }
+    .gm-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 12px; border-radius: 18px; background: var(--card); }
+    .gm-day { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .gm-day em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--muted); height: 13px; white-space: nowrap; }
+    .gm-day span { width: 100%; max-width: 26px; height: 80px; border-radius: 8px; background: var(--track);
+                   display: flex; align-items: flex-end; overflow: hidden; }
+    .gm-day span i { width: 100%; border-radius: 8px; background: var(--gm); min-height: 0; }
+    .gm-day small { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .gm-prog { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .gm-prog i { display: block; height: 100%; border-radius: 999px; background: var(--gm); }
+    .gm-trophies { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .gm-trophies > div { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 16px; background: var(--card); min-width: 0; }
+    .gm-trophies p { margin: 0; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .gm-trophies ha-icon { --mdc-icon-size: 18px; flex: none; }
+    .gm-trophies b { font-size: 18px; margin-left: 2px; } .gm-trophies span { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .gm-trophies small { font-size: 11px; font-weight: 600; color: var(--muted); }
     .wpop { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px 16px;
             border-radius: 22px; background: var(--inset); }
     .wpop-chip { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px;

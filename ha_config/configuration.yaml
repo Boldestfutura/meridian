@@ -218,6 +218,8 @@ command_line:
       json_attributes:
         - last_played
         - title
+        - image
+        - trophies
   # Echo Show 8 1st/2nd gen for sale at Cash Converters (tools/ha/cashconverters_echo.py); the
   # "Echo Show 8 listing alert" automation tells the phone about new ones
   - sensor:

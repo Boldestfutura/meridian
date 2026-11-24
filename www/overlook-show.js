@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.37.7";
+const VERSION = "0.37.9";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1326,6 +1326,7 @@ class OverlookShow extends LitElement {
   }
 
   async _loadHistory(p) {
+    p.sections.filter((s) => s.type === "game").forEach((s) => this._loadGame(s.entity));
     const graphs = p.sections.filter((s) => s.type === "graph" || s.type === "multigraph");
     if (!graphs.length) return;
     // a multigraph line can be an attribute (the heat pump's own reading); those need attributes in the history
@@ -1441,11 +1442,79 @@ class OverlookShow extends LitElement {
       case "washer": return this._popWasher(s.washer);
       case "security": return secSection(this, s);
       case "camera": return camSection(this, s);
+      case "game": return this._popGame(s);
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
       default: return html`${head}<div class="pop-grid">${(s.items || []).map((x) => this._popTile(x))}</div>`;
     }
+  }
+
+  // play time per day for the last seven days, from the recorder's long-term statistics (the
+  // sensor is total_increasing, so a day's "change" is the hours played that day)
+  async _loadGame(id) {
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0); d0.setDate(d0.getDate() - 6);
+    try {
+      const r = await this.hass.callWS({ type: "recorder/statistics_during_period", start_time: d0.toISOString(),
+        statistic_ids: [id], period: "day", types: ["change"] });
+      const byDay = {};
+      (r[id] || []).forEach((x) => { byDay[new Date(x.start).toDateString()] = Math.max(0, x.change || 0); });
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(d0); d.setDate(d0.getDate() + i);
+        return { d, h: byDay[d.toDateString()] || 0 };
+      });
+      this._game = Object.assign({}, this._game, { [id]: days });
+      this.requestUpdate();
+    } catch (e) { console.warn("overlook-show: game stats", e); }
+  }
+
+  // A game's pop-up (the GTA VI pill): cover art and total played, this week against the total,
+  // when it was last played, a bar per day for the last week, and the game's trophies
+  _popGame(s) {
+    const e = this._st(s.entity);
+    if (!e) return nothing;
+    const a = e.attributes, col = s.color || "var(--accent)";
+    const hm = (h) => { const m = Math.round(h * 60); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`; };
+    const total = Number(e.state) || 0;
+    const days = (this._game || {})[s.entity] || [];
+    // Monday starts the week
+    const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    const week = days.filter((x) => x.d >= mon).reduce((n, x) => n + x.h, 0);
+    const last = a.last_played ? new Date(a.last_played) : null;
+    const lastTxt = (() => {
+      if (!last || isNaN(last)) return "Not played yet";
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const ago = Math.round((today - new Date(last).setHours(0, 0, 0, 0)) / 86400000);
+      const day = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : ago < 7
+        ? last.toLocaleDateString(undefined, { weekday: "long" }) : last.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+      return `${day}, ${this._ampm(last)}`;
+    })();
+    const max = Math.max(1, ...days.map((x) => x.h));
+    const tr = a.trophies, grades = [["platinum", "#8fa8c8"], ["gold", "#d9a521"], ["silver", "#a7adb7"], ["bronze", "#c27a4a"]];
+    const got = tr ? grades.reduce((n, [g]) => n + ((tr.earned || {})[g] || 0), 0) : 0;
+    const all = tr ? grades.reduce((n, [g]) => n + ((tr.defined || {})[g] || 0), 0) : 0;
+    return html`
+      <div class="gm" style="--gm:${col}">
+        <div class="gm-hero">
+          ${a.image ? html`<img class="gm-art" src=${a.image} alt="">` : nothing}
+          <div class="gm-total"><b>${hm(total)}</b><span>played in total</span><small>Last played ${lastTxt}</small></div>
+        </div>
+        <div class="gm-stats">
+          <div><small>This week</small><b>${hm(week)}</b><span>of ${hm(total)}</span></div>
+          ${tr ? html`<div><small>Trophies</small><b>${got}<i> of ${all}</i></b><span>${tr.progress ?? 0}% complete</span></div>` : nothing}
+        </div>
+        ${days.length ? html`
+          <div class="pop-sub">Last 7 days</div>
+          <div class="gm-bars">${days.map((x) => html`
+            <div class="gm-day"><em>${x.h ? hm(x.h) : ""}</em><span><i style="height:${(x.h / max) * 100}%"></i></span>
+              <small>${x.d.toLocaleDateString(undefined, { weekday: "narrow" })}</small></div>`)}</div>` : nothing}
+        ${tr ? html`
+          <div class="pop-sub">Trophies</div>
+          <div class="gm-prog"><i style="width:${tr.progress || 0}%"></i></div>
+          <div class="gm-trophies">${grades.map(([g, c]) => html`
+            <div><p><ha-icon icon="mdi:trophy" style="color:${c}"></ha-icon><b>${(tr.earned || {})[g] || 0}</b><span>/${(tr.defined || {})[g] || 0}</span></p>
+              <small>${g[0].toUpperCase() + g.slice(1)}</small></div>`)}</div>` : nothing}
+      </div>`;
   }
 
   // the washer pop-up: what it's doing now, how long, and Hung it out once it's done
@@ -3772,6 +3841,36 @@ class OverlookShow extends LitElement {
     .pop-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
                margin: 8px 4px 0; }
     .pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* a game's pop-up (_popGame): --gm is the pill's colour */
+    .gm { display: flex; flex-direction: column; gap: 12px; }
+    .gm-hero { display: flex; gap: 14px; align-items: center; padding: 12px; border-radius: 22px;
+               background: color-mix(in srgb, var(--gm) 14%, var(--card)); }
+    .gm-art { width: 92px; height: 92px; border-radius: 18px; object-fit: cover; flex: none; }
+    .gm-total { display: flex; flex-direction: column; min-width: 0; }
+    .gm-total b { font-size: 34px; line-height: 1.05; font-weight: 700; color: color-mix(in srgb, var(--gm) 85%, var(--ink)); }
+    .gm-total span { font-size: 14px; font-weight: 600; color: var(--muted); }
+    .gm-total small { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .gm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .gm-stats > div { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 18px; background: var(--card); }
+    .gm-stats small { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .gm-stats b { font-size: 24px; font-weight: 700; margin-top: 2px; }
+    .gm-stats b i { font-style: normal; font-size: 15px; font-weight: 600; color: var(--muted); }
+    .gm-stats span { font-size: 13px; color: var(--muted); }
+    .gm-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 12px; border-radius: 18px; background: var(--card); }
+    .gm-day { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .gm-day em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--muted); height: 13px; white-space: nowrap; }
+    .gm-day span { width: 100%; max-width: 26px; height: 80px; border-radius: 8px; background: var(--track);
+                   display: flex; align-items: flex-end; overflow: hidden; }
+    .gm-day span i { width: 100%; border-radius: 8px; background: var(--gm); min-height: 0; }
+    .gm-day small { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .gm-prog { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .gm-prog i { display: block; height: 100%; border-radius: 999px; background: var(--gm); }
+    .gm-trophies { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .gm-trophies > div { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 16px; background: var(--card); min-width: 0; }
+    .gm-trophies p { margin: 0; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .gm-trophies ha-icon { --mdc-icon-size: 18px; flex: none; }
+    .gm-trophies b { font-size: 18px; margin-left: 2px; } .gm-trophies span { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .gm-trophies small { font-size: 11px; font-weight: 600; color: var(--muted); }
     .wpop { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px 16px;
             border-radius: 22px; background: var(--inset); }
     .wpop-chip { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px;

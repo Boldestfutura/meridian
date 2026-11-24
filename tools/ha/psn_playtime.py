@@ -7,8 +7,10 @@ Reads the NPSSO cookie the PlayStation Network integration already stores in
 /config/.storage/core.config_entries (so a re-auth there fixes this too), swaps it for an
 access token, and looks the title up in Sony's played-games list (/gamelist/v2), which is
 where the console's own "time played" comes from. Sony updates it after a session ends,
-not live. Prints {"hours": 12.5, "last_played": "...", "title": "..."}; hours is 0 if the
-game hasn't been played. Standard library only, so it runs in HA's own Python.
+not live. Prints {"hours": 12.5, "last_played": "...", "title": "...", "image": url,
+"trophies": {"progress": 10, "earned": {...}, "defined": {...}}}; hours is 0 if the game
+hasn't been played, trophies null if Sony's trophy list can't be read. Standard library
+only, so it runs in HA's own Python.
 """
 import base64, json, re, sys, urllib.parse, urllib.request
 
@@ -80,7 +82,25 @@ def main():
             break
     print(json.dumps({"hours": hours(found.get("playDuration")) if found else 0,
                       "last_played": (found or {}).get("lastPlayedDateTime"),
-                      "title": (found or {}).get("name")}))
+                      "title": (found or {}).get("name"),
+                      "image": (found or {}).get("imageUrl"),
+                      "trophies": trophies(tok, want)}))
+
+
+def trophies(tok, want):
+    # the game's own trophy list: earned and defined per grade, and Sony's progress percentage
+    try:
+        url = "https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles?limit=800"
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"Authorization": "Bearer " + tok}),
+                                    timeout=20) as r:
+            titles = json.load(r).get("trophyTitles", [])
+    except Exception:
+        return None
+    for t in titles:
+        if want in re.sub(r"[^a-z0-9]", "", (t.get("trophyTitleName") or "").lower()):
+            return {"progress": t.get("progress"), "earned": t.get("earnedTrophies"),
+                    "defined": t.get("definedTrophies")}
+    return None
 
 
 if __name__ == "__main__":

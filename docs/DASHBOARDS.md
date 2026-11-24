@@ -204,6 +204,13 @@ on `sensor.gta_vi_play_time`, a command_line sensor in `configuration.yaml` that
 integration's NPSSO from `core.config_entries` and asks Sony's played-games list, so a PSN re-auth
 fixes it too. Sony only updates the time when a session ends.
 
+Its pop-up is a `game` section (`_popGame`, `{"type": "game", "entity": ..., "color": ...}`):
+cover art and total, this week (from Monday) against the total, when it was last played, a bar per
+day for the last 7 days, and the game's trophies by grade with Sony's completion percentage. The
+days come from the recorder's long-term statistics (`recorder/statistics_during_period`, period
+day, type change), so they only start from 2026-11-24, when the sensor was made. The script also
+returns `image` (the game's art) and `trophies` (Sony's `/trophy/v1/users/me/trophyTitles`).
+
 ## Playback bar
 
 `wave()` in `www/tablet.js`: the played part is always a wave (it drifts while playing and holds
