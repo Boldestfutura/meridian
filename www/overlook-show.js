@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.38.0";
+const VERSION = "0.39.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1362,21 +1362,34 @@ class OverlookShow extends LitElement {
   _popSheet() {
     const p = this._config.popups[this._pop];
     if (!p) return nothing;
-    // a camera opened from the Security pop-up closes back to it
-    const close = () => {
+    // a camera opened from the Security pop-up closes back to it, shrinking into its tile;
+    // anything else slides away (now: the sheet has already been swiped off)
+    const close = (now) => {
       const back = this._pop === "__camera" && this._camBack;
       this._camBack = null;
-      this._pop = back || null;
+      if (!back) { this._closeSheet(() => { this._pop = null; }, now); return; }
+      const sheet = this.renderRoot.querySelector(".pop");
+      const cam = this._config.popups.__camera.sections[0].entity;
+      if (now && sheet) {
+        // swiped off: put the sheet back and slide the Security pop-up up again
+        sheet.style.transition = sheet.style.transform = "";
+        if (sheet.parentElement) sheet.parentElement.style.opacity = "";
+        this._pop = back;
+        this.updateComplete.then(() => this._sheetIn(sheet));
+        return;
+      }
+      this._morph(sheet && sheet.querySelector(".sec-cam"), () => { this._pop = back; },
+        `.sec-cam.tap[data-cam="${cam}"]`, true);
     };
     return html`
-      <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+      <div class="scrim pop-scrim ${this._closing ? "closing" : ""}" @click=${() => close()} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
         <div class="sheet pop" @click=${(ev) => ev.stopPropagation()}
              @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
           <div class="pop-head">
             <span class="pop-ico"><ha-icon icon=${p.icon}></ha-icon></span>
             <span class="pop-title">${p.title}</span>
-            <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
+            <button class="round small" title="Close" @click=${() => close()}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
           <div class="pop-body">${p.sections.map((s) => this._popSection(s))}</div>
         </div>
@@ -1429,9 +1442,84 @@ class OverlookShow extends LitElement {
       w.sheet.style.transform = "translateY(110%)";
       const scrim = w.sheet.parentElement;
       if (scrim) { scrim.style.transition = "opacity 0.22s"; scrim.style.opacity = "0"; }
-      setTimeout(() => w.close(), 200);
+      setTimeout(() => w.close(true), 200);
     } else {
       w.sheet.style.transform = "";
+    }
+  }
+
+  // Phone sheets slide down off the screen before they go (.closing on the scrim, 260 ms);
+  // elsewhere, with reduced motion, or after a swipe (now), they go at once.
+  _closeSheet(apply, now) {
+    const still = !this._config.phone || now || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still) { this._closing = false; apply(); this.requestUpdate(); return; }
+    if (this._closing) return;
+    this._closing = true;
+    this.requestUpdate();
+    setTimeout(() => { this._closing = false; apply(); this.requestUpdate(); }, 260);
+  }
+
+  // slide a sheet up from below the screen again (the CSS animation only runs when it's created)
+  _sheetIn(sheet) {
+    if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    sheet.animate([{ transform: "translateY(calc(100% + 40px))" }, { transform: "none" }],
+      { duration: 420, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+  }
+
+  // The pop-up morphs into its next shape: apply() swaps what it shows, the sheet's height eases
+  // from the old size to the new, and the picture grows out of (or back into) the tile that was
+  // tapped (FLIP: laid out at the end, transformed back to the start, then let go). back = the
+  // reverse trip, where the rest of the old view fades in around the tile.
+  async _morph(fromEl, apply, toSel, back = false) {
+    const sheet = fromEl && fromEl.closest(".pop");
+    if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      apply(); this.requestUpdate(); return;
+    }
+    const s0 = sheet.getBoundingClientRect(), f0 = fromEl.getBoundingClientRect();
+    // the current frame of the live picture, so the new one isn't black while its stream connects
+    let still = null;
+    try {
+      const img = fromEl.querySelector("img");
+      if (img && img.naturalWidth) {
+        const cv = document.createElement("canvas");
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext("2d").drawImage(img, 0, 0);
+        still = cv.toDataURL("image/jpeg", 0.8);
+      }
+    } catch (e) { /* a tainted canvas: no still, just black */ }
+    apply();
+    this.requestUpdate();
+    await this.updateComplete;
+    const to = sheet.querySelector(toSel);
+    const s1 = sheet.getBoundingClientRect();
+    const opt = { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" };
+    sheet.style.overflow = "hidden";
+    const grow = sheet.animate([{ height: `${s0.height}px` }, { height: `${s1.height}px` }], opt);
+    grow.finished.then(() => { sheet.style.overflow = ""; }, () => { sheet.style.overflow = ""; });
+    if (!to) return;
+    const t1 = to.getBoundingClientRect();
+    const toImg = to.querySelector("img");
+    if (still && toImg) {
+      toImg.style.background = `#000 url(${still}) center / contain no-repeat`;
+      toImg.addEventListener("load", () => { toImg.style.background = ""; }, { once: true });
+      setTimeout(() => { toImg.style.background = ""; }, 3000);
+    }
+    // the tile rides on the sheet's top edge while the height eases, so measure from it
+    const dx = f0.left - t1.left, dy = (f0.top - s0.top) - (t1.top - s1.top);
+    to.style.zIndex = "2";
+    to.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${f0.width / t1.width}, ${f0.height / t1.height})` },
+      { transformOrigin: "0 0", transform: "none" }], opt).finished.then(() => { to.style.zIndex = ""; }, () => {});
+    if (back) {
+      sheet.querySelectorAll(".pop-head, .pop-body > *").forEach((el) => {
+        if (el.contains(to)) return;
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
+      });
+      sheet.querySelectorAll(".sec-cam").forEach((el) => {
+        if (el !== to) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
+      });
+    } else {
+      sheet.querySelectorAll(".pop-head").forEach((el) =>
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 80, easing: "ease-out", fill: "backwards" }));
     }
   }
 
@@ -2428,9 +2516,9 @@ class OverlookShow extends LitElement {
   _speakerSheet() {
     const active = this._activeSpeaker();
     return html`
-      <div class="scrim" @click=${() => { this._picker = false; }} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+      <div class="scrim ${this._closing ? "closing" : ""}" @click=${() => this._closeSheet(() => { this._picker = false; })} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
         <div class="sheet card" @click=${(ev) => ev.stopPropagation()}
-             @touchstart=${(ev) => this._swStart(ev, () => { this._picker = false; })} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
+             @touchstart=${(ev) => this._swStart(ev, (now) => this._closeSheet(() => { this._picker = false; }, now))} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="card-title">Play on</div>
           ${this._speakers().map((s) => {
             const a = s.shown ? s.shown.attributes : {};
@@ -2543,14 +2631,14 @@ class OverlookShow extends LitElement {
     const at = clamp(lit ? pct : (this._last[id] || 50), 8, 96);
     const rgb = a.rgb_color;
     const members = Array.isArray(a.entity_id) ? a.entity_id.filter((m) => this._st(m)) : [];
-    const close = () => { this._light = null; };
+    const close = (now) => this._closeSheet(() => { this._light = null; }, now);
     // the lift that ends the hold arrives as a click on the scrim: don't let it close the sheet it opened
     const scrimClose = () => { if (performance.now() - (this._lightAt || 0) > 700) close(); };
     const full = () => { this._light = null; this._moreInfo(id); };
     const room = !!this._lightRoom;   // a room heading's hold: just the one slider and power
     const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
     return html`
-      <div class="scrim pop-scrim" @click=${scrimClose} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
+      <div class="scrim pop-scrim ${this._closing ? "closing" : ""}" @click=${scrimClose} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
         <div class="sheet pop lsheet ${this._config.phone || room ? "" : "two"} ${room ? "room" : ""}" @click=${(ev) => ev.stopPropagation()}
              @touchstart=${(ev) => this._swStart(ev, close)} @touchmove=${(ev) => this._swMove(ev)} @touchend=${() => this._swEnd()} @touchcancel=${() => this._swEnd(true)}>
           <div class="grabber"></div>
@@ -2558,7 +2646,7 @@ class OverlookShow extends LitElement {
             <span class="pop-ico ${lit ? "lit" : ""}"><ha-icon icon=${a.icon || "mdi:lightbulb"}></ha-icon></span>
             <span class="pop-title">${this._lightName(id)}<span class="lsheet-state ${lit ? "lit" : ""}"><span class="txt">${state}</span><span class="livetxt"></span></span></span>
             ${room ? nothing : html`<button class="round small" title="More settings" @click=${full}><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>`}
-            <button class="round small" title="Close" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
+            <button class="round small" title="Close" @click=${() => close()}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
           <div class="pop-body lsheet-body">
             <div class="lsheet-main">
@@ -3610,6 +3698,17 @@ class OverlookShow extends LitElement {
            border-radius: 30px; background: var(--pop); backdrop-filter: blur(30px) saturate(1.4);
            -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
     @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* phone: every sheet rises from below the screen, solid the whole way, and sinks back down
+       when it closes (_closeSheet puts .closing on the scrim); the scrim's shade fades in and out */
+    .phone .scrim { animation: scrim-in 0.3s ease-out; }
+    .phone .scrim > .sheet { animation: sheet-up 0.42s cubic-bezier(0.32, 0.72, 0, 1); }
+    .phone .scrim.closing { animation: scrim-out 0.26s ease-in forwards; pointer-events: none; }
+    .phone .scrim.closing > .sheet { animation: sheet-down 0.26s cubic-bezier(0.55, 0, 0.9, 0.4) forwards; }
+    @keyframes sheet-up { from { transform: translateY(calc(100% + 40px)); } }
+    @keyframes sheet-down { to { transform: translateY(calc(100% + 40px)); } }
+    @keyframes scrim-in { from { background-color: transparent; } }
+    @keyframes scrim-out { to { background-color: transparent; } }
+    @media (prefers-reduced-motion: reduce) { .phone .scrim, .phone .scrim > .sheet { animation: none; } }
     /* bedside night clock: fixed dark red on black in either theme, dim enough for a dark room */
     /* now playing: the speaker's music over the whole screen, same dark ground as the timer */
     .np { --np-hot: var(--warm); --np-on: #1d1206; z-index: 800; background: linear-gradient(165deg, #0b0f18 0%, #121827 100%); color: #f4f6fb;

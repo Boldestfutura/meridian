@@ -278,7 +278,7 @@ function secCam(c, id, insp, tap) {
   const name = e ? e.attributes.friendly_name || id : id;
   const tok = e && e.attributes.access_token;
   const live = tok && !insp && !["unavailable", "unknown"].includes(e.state);
-  return html`<div class="sec-cam ${tap ? "tap" : ""}" @click=${tap || nothing}>${live
+  return html`<div class="sec-cam ${tap ? "tap" : ""}" data-cam=${id} @click=${tap || nothing}>${live
     ? html`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>`
     : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
     <span class="sec-name">${name}</span></div>`;
@@ -291,7 +291,7 @@ export function secSection(c, s) {
   const sec = s.security, insp = (c._st(sec.mode) || {}).state === "on";
   const open = secOpen(c, s.entity);
   const nice = (id) => secName(c, id);
-  const cam = (id) => secCam(c, id, insp, () => openCam(c, id));
+  const cam = (id) => secCam(c, id, insp, (ev) => openCam(c, id, ev.currentTarget));
   // doors and windows first, then inspection mode while it is on, then the cameras side by side
   return html`
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
@@ -460,13 +460,18 @@ function securityRoom(c, x) {
 }
 
 // one camera big, in the same pop-up sheet as everything else
-// one camera big in its own pop-up; opened from the Security pop-up, closing it goes back there
-function openCam(c, id) {
+// one camera big in its own pop-up; opened from the Security pop-up (from = the tapped tile) the
+// sheet morphs into it (c._morph), and closing it goes back there
+function openCam(c, id, from) {
   const e = c._st(id);
   c._camBack = c._pop && c._pop !== "__camera" ? c._pop : null;
-  c._config = Object.assign({}, c._config, { popups: Object.assign({}, c._config.popups, {
-    __camera: { title: (e && e.attributes.friendly_name) || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] } }) });
-  redraw(c, { _pop: "__camera" });
+  const show = () => {
+    c._config = Object.assign({}, c._config, { popups: Object.assign({}, c._config.popups, {
+      __camera: { title: (e && e.attributes.friendly_name) || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] } }) });
+    c._pop = "__camera";
+  };
+  if (from && c._morph) c._morph(from, show, ".sec-cams.one .sec-cam");
+  else { show(); c.requestUpdate(); }
 }
 export const camSection = (c, s) => {
   const insp = (c._st(SECURITY.mode) || {}).state === "on";

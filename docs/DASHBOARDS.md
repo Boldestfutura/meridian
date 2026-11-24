@@ -187,7 +187,18 @@ orange otherwise, with "n open" (or "Inspection") beside the name. Its pop-up is
 `www/tablet.js` (`securityPopup` / `secSection`), not stored in the config: inspection mode while
 on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. Tapping a feed opens
 that camera big in its own pop-up (`openCam`); closing it goes back to the Security pop-up
-(`_camBack`). A new door or window
+(`_camBack`).
+
+## Sheet motion (phone)
+
+Every phone sheet (pop-ups, light sheets, the speaker picker) rises from below the screen with no
+fade (`sheet-up`, 0.42 s) while the scrim's shade fades in, and sinks back down on close: closers go
+through `_closeSheet(apply, now)`, which puts `.closing` on the scrim for 260 ms before the sheet is
+removed (`now` skips it after a swipe, which has already moved the sheet off). Opening a camera from
+the Security pop-up morphs the sheet (`_morph`): its height eases to the new size and the feed grows
+out of the tapped tile (FLIP), seeded with the tile's current frame so it isn't black while the new
+stream connects; closing it runs the same trip backwards and fades the doors and windows back in.
+All of it is skipped with reduced motion. A new door or window
 sensor only has to join the group. `security:` can also be an object that overrides `cameras` or
 `mode`.
 
