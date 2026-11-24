@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.42.1";
+const VERSION = "0.42.2";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1885,7 +1885,7 @@ class OverlookShow extends LitElement {
             <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a) ? html`<div class="media-artist">${this._artist(a)}</div>` : nothing}
           </div>
-          ${card ? (vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing)
+          ${card ? (vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : nothing)
             : e.attributes.supported_features & 128 ? html`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
               <ha-icon icon="mdi:power"></ha-icon></button>` : nothing}
@@ -2088,7 +2088,7 @@ class OverlookShow extends LitElement {
     const step = (d) => () => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + d) * 100) / 100, 0, 1) });
     return html`
       <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
-        ${phone && showVol ? html`<span class="ph-vol">${count(pct)}%</span>` : nothing}
+        ${phone && showVol ? html`<span class="ph-vol">${count(pct, 0, "%")}</span>` : nothing}
         <div class="player-row" @click=${() => { if (this._links()[id]) this._open(id); }}>
           ${!phone && active && this._input(a) ? this._art(a, "small") : html`
           <div class="art small" style=${!phone && pic ? `background-image:url('${pic}')` : ""}>
@@ -2111,7 +2111,7 @@ class OverlookShow extends LitElement {
         ${showVol && !phone ? html`
           <div class="vol vol-pair vol-pct">
             <button class="round small" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <span class="where-vol">${count(pct)}%</span>
+            <span class="where-vol">${count(pct, 0, "%")}</span>
             <button class="round small" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : nothing}
         ${powerTile ? html`
@@ -2626,7 +2626,7 @@ class OverlookShow extends LitElement {
             <span>${sp.name}</span>
             <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
           </button>
-          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing}
+          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : nothing}
         </div>
         ${vol != null ? html`
           <div class="vol ${pair ? "vol-pair" : ""}">
@@ -2992,14 +2992,14 @@ class OverlookShow extends LitElement {
       <div class="thermo">
         <div class="pill-head"><div class="pill-name">Heat pump</div></div>
         <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => { if (this._links()[id]) this._open(id); }}>
-          <span class="hp-temp">${count(a.current_temperature, 1)}${a.current_temperature != null ? "°" : ""}</span>
+          <span class="hp-temp">${count(a.current_temperature, 1, "°")}</span>
           <span class="hp-mode ${mode}">${label}</span>
           ${this._links()[id] ? html`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : nothing}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e, -step)}>
             <ha-icon icon="mdi:minus"></ha-icon></button>
-          <div class="hp-set">${target == null ? "–" : html`${count(Math.round(target / step) * step, step < 1 ? 1 : 0)}°`}</div>
+          <div class="hp-set">${target == null ? "–" : count(Math.round(target / step) * step, step < 1 ? 1 : 0, "°")}</div>
           <button class="hp-step" title="Warmer" @click=${() => this._nudge(e, step)}>
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
@@ -4046,6 +4046,7 @@ class OverlookShow extends LitElement {
     .air-val { justify-self: end; font-family: var(--display); font-weight: 700; font-size: min(58px, 12vh); line-height: 1;
                letter-spacing: -0.03em; }
     meridian-num { font-variant-numeric: tabular-nums; }
+    .cnt { white-space: nowrap; }
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
     .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
     .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
@@ -5925,7 +5926,7 @@ class MeridianLargeTile extends EchoPiece {
             <div class="media-title">${this._title(a) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a) || this._src(a) ? html`<div class="media-artist">${this._artist(a) || this._src(a)}</div>` : nothing}
           </div>
-          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : nothing}
+          ${vol != null ? html`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : nothing}
         </div>
         ${dur ? wave(pos / dur, playing, "mini-track") : html`<div class="mini-track"></div>`}
         <div class="mini-row">

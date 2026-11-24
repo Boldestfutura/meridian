@@ -98,8 +98,9 @@ class MeridianNum extends HTMLElement {
   }
 }
 if (!customElements.get("meridian-num")) customElements.define("meridian-num", MeridianNum);
-export const count = (v, dp = 0) => (v == null || !isFinite(Number(v)) ? "–"
-  : html`<meridian-num .dp=${dp} .value=${Number(v)}></meridian-num>`);
+// unit (°, %) goes inside the same span, so a flex or grid parent keeps it beside the number
+export const count = (v, dp = 0, unit = "") => (v == null || !isFinite(Number(v)) ? "–"
+  : html`<span class="cnt"><meridian-num .dp=${dp} .value=${Number(v)}></meridian-num>${unit}</span>`);
 
 export const TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
@@ -711,7 +712,7 @@ function nowCard(c, p) {
             <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? html`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <b>${count(Math.round(va.volume_level * 100))}%</b>
+            <b>${count(Math.round(va.volume_level * 100), 0, "%")}</b>
             <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : nothing}
         </div>
       </div>

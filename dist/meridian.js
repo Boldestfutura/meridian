@@ -1148,7 +1148,7 @@ var MeridianNum = class extends HTMLElement {
   }
 };
 if (!customElements.get("meridian-num")) customElements.define("meridian-num", MeridianNum);
-var count = (v2, dp = 0) => v2 == null || !isFinite(Number(v2)) ? "\u2013" : Z`<meridian-num .dp=${dp} .value=${Number(v2)}></meridian-num>`;
+var count = (v2, dp = 0, unit = "") => v2 == null || !isFinite(Number(v2)) ? "\u2013" : Z`<span class="cnt"><meridian-num .dp=${dp} .value=${Number(v2)}></meridian-num>${unit}</span>`;
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -1712,7 +1712,7 @@ function nowCard(c2, p2) {
             <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? Z`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <b>${count(Math.round(va.volume_level * 100))}%</b>
+            <b>${count(Math.round(va.volume_level * 100), 0, "%")}</b>
             <button class="round small" @click=${() => step(0.02)}><ha-icon icon="mdi:plus"></ha-icon></button></div>` : J}
         </div>
       </div>
@@ -5463,7 +5463,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.42.1";
+var VERSION = "0.42.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7580,7 +7580,7 @@ var OverlookShow = class extends dt {
             <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a2) ? Z`<div class="media-artist">${this._artist(a2)}</div>` : J}
           </div>
-          ${card ? vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J : e2.attributes.supported_features & 128 ? Z`
+          ${card ? vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : J : e2.attributes.supported_features & 128 ? Z`
             <button class="round small ${off ? "" : "power-on"}" title="Power" @click=${() => mp(off ? "turn_on" : "turn_off")}>
               <ha-icon icon="mdi:power"></ha-icon></button>` : J}
         </div>
@@ -7780,7 +7780,7 @@ var OverlookShow = class extends dt {
     const step = (d2) => () => this._call("media_player", "volume_set", { entity_id: id, volume_level: clamp(Math.round((vol + d2) * 100) / 100, 0, 1) });
     return Z`
       <div class="card player ${phone && pic ? "has-art" : ""} ${phone && showVol ? "has-vol" : ""}" style=${phone && pic ? `--art:url('${pic}')` : ""}>
-        ${phone && showVol ? Z`<span class="ph-vol">${count(pct)}%</span>` : J}
+        ${phone && showVol ? Z`<span class="ph-vol">${count(pct, 0, "%")}</span>` : J}
         <div class="player-row" @click=${() => {
       if (this._links()[id]) this._open(id);
     }}>
@@ -7805,7 +7805,7 @@ var OverlookShow = class extends dt {
         ${showVol && !phone ? Z`
           <div class="vol vol-pair vol-pct">
             <button class="round small" @click=${step(-VOL_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <span class="where-vol">${count(pct)}%</span>
+            <span class="where-vol">${count(pct, 0, "%")}</span>
             <button class="round small" @click=${step(VOL_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : J}
         ${powerTile ? Z`
@@ -8319,7 +8319,7 @@ var OverlookShow = class extends dt {
             <span>${sp.name}</span>
             <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
           </button>
-          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J}
+          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : J}
         </div>
         ${vol != null ? Z`
           <div class="vol ${pair ? "vol-pair" : ""}">
@@ -8700,14 +8700,14 @@ var OverlookShow = class extends dt {
         <div class="hp-now ${this._links()[id] ? "linked" : ""}" @click=${() => {
       if (this._links()[id]) this._open(id);
     }}>
-          <span class="hp-temp">${count(a2.current_temperature, 1)}${a2.current_temperature != null ? "\xB0" : ""}</span>
+          <span class="hp-temp">${count(a2.current_temperature, 1, "\xB0")}</span>
           <span class="hp-mode ${mode}">${label}</span>
           ${this._links()[id] ? Z`<ha-icon class="hp-more" icon="mdi:chevron-right"></ha-icon>` : J}
         </div>
         <div class="hp-target">
           <button class="hp-step" title="Cooler" @click=${() => this._nudge(e2, -step)}>
             <ha-icon icon="mdi:minus"></ha-icon></button>
-          <div class="hp-set">${target == null ? "\u2013" : Z`${count(Math.round(target / step) * step, step < 1 ? 1 : 0)}°`}</div>
+          <div class="hp-set">${target == null ? "\u2013" : count(Math.round(target / step) * step, step < 1 ? 1 : 0, "\xB0")}</div>
           <button class="hp-step" title="Warmer" @click=${() => this._nudge(e2, step)}>
             <ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
@@ -9759,6 +9759,7 @@ var OverlookShow = class extends dt {
     .air-val { justify-self: end; font-family: var(--display); font-weight: 700; font-size: min(58px, 12vh); line-height: 1;
                letter-spacing: -0.03em; }
     meridian-num { font-variant-numeric: tabular-nums; }
+    .cnt { white-space: nowrap; }
     .air-val small { font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
     .air-name { grid-column: 1 / -1; align-self: end; display: flex; flex-direction: column; gap: 2px; font-size: 20px; font-weight: 600; }
     .air-q { font-size: 18px; font-weight: 500; color: var(--c); }
@@ -11736,7 +11737,7 @@ var MeridianLargeTile = class extends EchoPiece {
             <div class="media-title">${this._title(a2) || (off ? "Off" : "Nothing playing")}</div>
             ${this._artist(a2) || this._src(a2) ? Z`<div class="media-artist">${this._artist(a2) || this._src(a2)}</div>` : J}
           </div>
-          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100))}%</span>` : J}
+          ${vol != null ? Z`<span class="where-vol">${count(Math.round(vol * 100), 0, "%")}</span>` : J}
         </div>
         ${dur2 ? wave(pos / dur2, playing, "mini-track") : Z`<div class="mini-track"></div>`}
         <div class="mini-row">
