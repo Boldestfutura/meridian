@@ -302,7 +302,7 @@ function toggle(c, e, s) {
 function battery(c, e) {
   const v = Number(e.state), a = e.attributes;
   const chg = chargingOf(c, e.entity_id) && c._st(chargingOf(c, e.entity_id));
-  const col = v <= 20 ? "#e5484d" : v <= 40 ? "#f39a43" : "#3f8f63";
+  const col = v < 10 ? "#e5484d" : v <= 25 ? "#f39a43" : "#3f8f63";   // red at the 10% alert
   // non-rechargeable sensors: how fast it's falling over the week, so roughly how long is left
   const week = !chg ? hist(c, e.entity_id, 168) : null;
   let left = null;
@@ -317,7 +317,7 @@ function battery(c, e) {
   return html`
     <div class="dt-hero dt-bat" style="--bc:${col}">
       <div class="dt-cell"><i style="width:${Math.max(3, Math.min(100, v))}%"></i></div>
-      <div><b>${isFinite(v) ? `${Math.round(v)}%` : "–"}</b><span>${chg && !["unknown", "unavailable"].includes(chg.state) ? chg.state : v <= 20 ? "Low, replace soon" : "Battery"}</span></div>
+      <div><b>${isFinite(v) ? `${Math.round(v)}%` : "–"}</b><span>${chg && !["unknown", "unavailable"].includes(chg.state) ? chg.state : v < 10 ? "Low, replace soon" : "Battery"}</span></div>
     </div>
     ${rangeTabs(c)}
     ${graph(c, e.entity_id, null, "%", col)}

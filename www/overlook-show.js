@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.41.3";
+const VERSION = "0.41.4";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1801,7 +1801,7 @@ class OverlookShow extends LitElement {
     const on = toggles && e.state === "on";
     const alert = (dom === "binary_sensor" && e.state === "on" && !x.attr)
       || (dom === "update" && e.state === "on")
-      || (e.attributes.device_class === "battery" && Number(e.state) <= 20);
+      || (e.attributes.device_class === "battery" && Number(e.state) < 10);   // same 10% as the alert
     const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
       : dom === "button" ? () => this._call("button", "press", { entity_id: x.entity })
       : (ev) => this._openDetail(x, ev.currentTarget);

@@ -4573,7 +4573,7 @@ function toggle(c2, e2, s2) {
 function battery(c2, e2) {
   const v2 = Number(e2.state), a2 = e2.attributes;
   const chg = chargingOf(c2, e2.entity_id) && c2._st(chargingOf(c2, e2.entity_id));
-  const col = v2 <= 20 ? "#e5484d" : v2 <= 40 ? "#f39a43" : "#3f8f63";
+  const col = v2 < 10 ? "#e5484d" : v2 <= 25 ? "#f39a43" : "#3f8f63";
   const week = !chg ? hist(c2, e2.entity_id, 168) : null;
   let left = null;
   if (week && week.length > 1) {
@@ -4587,7 +4587,7 @@ function battery(c2, e2) {
   return Z`
     <div class="dt-hero dt-bat" style="--bc:${col}">
       <div class="dt-cell"><i style="width:${Math.max(3, Math.min(100, v2))}%"></i></div>
-      <div><b>${isFinite(v2) ? `${Math.round(v2)}%` : "\u2013"}</b><span>${chg && !["unknown", "unavailable"].includes(chg.state) ? chg.state : v2 <= 20 ? "Low, replace soon" : "Battery"}</span></div>
+      <div><b>${isFinite(v2) ? `${Math.round(v2)}%` : "\u2013"}</b><span>${chg && !["unknown", "unavailable"].includes(chg.state) ? chg.state : v2 < 10 ? "Low, replace soon" : "Battery"}</span></div>
     </div>
     ${rangeTabs(c2)}
     ${graph(c2, e2.entity_id, null, "%", col)}
@@ -5439,7 +5439,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.41.3";
+var VERSION = "0.41.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7465,7 +7465,7 @@ var OverlookShow = class extends dt {
     }
     const toggles = ["switch", "automation", "input_boolean", "light", "fan"].includes(dom) && !x3.attr;
     const on = toggles && e2.state === "on";
-    const alert = dom === "binary_sensor" && e2.state === "on" && !x3.attr || dom === "update" && e2.state === "on" || e2.attributes.device_class === "battery" && Number(e2.state) <= 20;
+    const alert = dom === "binary_sensor" && e2.state === "on" && !x3.attr || dom === "update" && e2.state === "on" || e2.attributes.device_class === "battery" && Number(e2.state) < 10;
     const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : dom === "button" ? () => this._call("button", "press", { entity_id: x3.entity }) : (ev) => this._openDetail(x3, ev.currentTarget);
     return Z`
       <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x3.wide ? "wide" : ""}" data-ent=${x3.entity} @click=${tap}>

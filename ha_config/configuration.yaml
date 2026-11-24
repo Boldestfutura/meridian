@@ -13,6 +13,7 @@ script: !include scripts.yaml
 scene: !include scenes.yaml
 template:
   - binary_sensor:
+      # the Battery low pill: the same 13 sensors and 10% as the "Low Battery Alert" automation
       - name: "Any Device Battery Low"
         icon: mdi:battery-alert
         state: >-
@@ -23,8 +24,14 @@ template:
             states('sensor.door_sensor_battery'),
             states('sensor.shortcut_button_battery'),
             states('sensor.dimmer_switch_battery'),
-            states('sensor.master_bedroom_dimmer_battery')
-          ] | select('is_number') | map('float') | select('lt', 5) | list | count > 0 }}
+            states('sensor.master_bedroom_dimmer_battery'),
+            states('sensor.kitchen_living_room_dimmer_switch_battery'),
+            states('sensor.master_bedroom_dimmer_switch_battery'),
+            states('sensor.washing_machine_door_battery'),
+            states('sensor.guest_bedroom_window_battery'),
+            states('sensor.master_bedroom_left_window_battery'),
+            states('sensor.master_bedroom_right_window_battery')
+          ] | select('is_number') | map('float') | select('lt', 10) | list | count > 0 }}
       - name: "Any Plant Needs Water"
         icon: mdi:flower-alert
         state: >-
