@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.41.2";
+const VERSION = "0.41.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -280,6 +280,7 @@ class OverlookShow extends LitElement {
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
     this._growSheets();
+    this._zoomGraph();
     if (changed.has("hass") && this._drag) this._settle();
     // night mode switching on sends the screen home, where it shows the red clock
     if (changed.has("hass") && this._config.night) {
@@ -1485,6 +1486,19 @@ class OverlookShow extends LitElement {
         { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
       sh.parentElement.animate([{ backgroundColor: "transparent" }, {}], { duration: 300, easing: "ease-out" });
     }
+  }
+  // detail pop-ups' 24 hours / 7 days tabs: the new graph starts stretched or squeezed so its last
+  // 24 hours sit where the old graph drew them (the right edge), then eases to its own scale
+  _zoomGraph() {
+    const z = this._dZoom;
+    if (!z || !this.renderRoot) return;
+    const g = this.renderRoot.querySelector(".dt-graph svg");
+    if (!g || Number(g.dataset.h) !== z.to) return;   // still loading: wait for it
+    this._dZoom = null;
+    if (REDUCED() || !g.animate) return;
+    g.style.transformOrigin = "100% 50%";
+    g.animate([{ transform: `scaleX(${z.to / z.from})`, opacity: 0.4 }, { transform: "none", opacity: 1 }],
+      { duration: 520, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
   }
   _shrinkSheet(apply) {
     const all = this.renderRoot ? this.renderRoot.querySelectorAll(".scrim > .sheet") : [];
@@ -3474,6 +3488,11 @@ class OverlookShow extends LitElement {
     .scene.on { background: var(--accent); color: #fff; }
     .scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
     .scene:active, .tile:active { transform: scale(0.98); }
+    /* on/off: colours fade over a quarter second instead of flipping (the press shrink stays quick) */
+    .tile, .mini-scene, .ph-group, .air-tile.control-tile {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.12s; }
+    .tile-ico, .mini-scene ha-icon, .air-tile.control-tile .air-ico, .control-tile .air-q, .tile .muted {
+      transition: background-color 0.25s ease, color 0.25s ease; }
 
     
 
@@ -3679,7 +3698,7 @@ class OverlookShow extends LitElement {
                           -webkit-box-orient: vertical; overflow: hidden; }
     .ph-grid .tile-text .muted { font-size: 12px; }
     .ph-grid .tile-val { font-size: 18px; }
-    .tile-ico.tap { cursor: pointer; transition: transform 0.12s; }
+    .tile-ico.tap { cursor: pointer; transition: transform 0.12s, background-color 0.25s ease, color 0.25s ease; }
     .tile-ico.tap:active { transform: scale(0.9); }
     .light-tile.on { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
     /* plugs, switches and toggles fill like a lit light, in their own accent */
@@ -3777,8 +3796,7 @@ class OverlookShow extends LitElement {
                  padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 8px); }
     .pop { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; gap: 0; padding: 8px 16px 16px;
            border-radius: 30px; background: var(--pop); backdrop-filter: blur(30px) saturate(1.4);
-           -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
-    @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+           -webkit-backdrop-filter: blur(30px) saturate(1.4); }
     /* phone: every sheet rises from below the screen, solid the whole way, and sinks back down
        when it closes (_closeSheet puts .closing on the scrim); the scrim's shade fades in and out */
     .phone .scrim { animation: scrim-in 0.3s ease-out; }
@@ -4215,7 +4233,7 @@ class OverlookShow extends LitElement {
     /* the rows that scroll sideways (quick actions, the recipe shelf) are pan-y too: the swipe code
        scrolls them itself, and hands the drag on to the page once a row reaches its end */
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
-                transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+                transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1); }   /* the sheets' curve */
     .sw-track.dragging { transition: none; }
     .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
     /* no frosted glass on the sliding pages: the cards sit on a plain gradient, so the blur shows
@@ -4405,6 +4423,7 @@ class OverlookOverlay extends OverlookShow {
   }
 
   updated(changed) {
+    this._zoomGraph();
     if (changed.has("hass") && this._drag) this._settle();
     this._lockPage(!!(this._pop || this._light));
   }

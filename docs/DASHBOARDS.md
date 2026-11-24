@@ -238,7 +238,13 @@ point at 20 % size and grows to its place (0.44 s) while the scrim's shade fades
 tap it rises 40 px. `_closeSheet` there shrinks the top sheet back into the same point (0.26 s,
 `_shrinkSheet`) before applying the close. That covers the pop-ups, light sheets and the speaker
 picker, and the tablet's own sheets (player, timer picker, add to dinner, dinner picker), whose
-closers go through `shut()` in `www/tablet.js`. The tablet's centred pop-up CSS no longer pins
+closers go through `shut()` in `www/tablet.js`. The same curve (`cubic-bezier(0.32, 0.72, 0, 1)`) runs the page
+swipe (`.sw-track`, 0.34 s), the Rooms page's chips (`pickRoom` slides the new room in from the
+side of the chip that was tapped, 0.38 s) and the detail pop-ups' 24 hours / 7 days tabs
+(`_zoomGraph`: the new graph starts stretched or squeezed so its last 24 hours sit where the old
+one drew them, then eases to its own scale, 0.52 s; it waits for the history to load). Tiles,
+scene squares, room light buttons and the Echo's control tiles fade their on/off colours over
+0.25 s instead of flipping. The tablet's centred pop-up CSS no longer pins
 `transform: none !important`, which beat the animations (and a swipe-down now drags it first).
 
 A new door or window

@@ -1540,13 +1540,28 @@ var camSection = (c2, s2) => {
   const insp = (c2._st(SECURITY.mode) || {}).state === "on";
   return Z`<div class="sec-cams one">${secCam(c2, s2.entity, insp)}</div>`;
 };
+function pickRoom(c2, name, order) {
+  const cur = c2._tRoom || order[0];
+  if (name === cur) return;
+  const dir = order.indexOf(name) > order.indexOf(cur) ? 1 : -1;
+  redraw(c2, { _tRoom: name });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  c2.updateComplete.then(() => {
+    const el = c2.renderRoot.querySelector(".m-rooms .rm-body");
+    if (el && el.animate) el.animate(
+      [{ transform: `translateX(${dir * 56}px)`, opacity: 0 }, { transform: "none", opacity: 1 }],
+      { duration: 380, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+    );
+  });
+}
 function roomsPage(c2) {
   const rooms = realRooms(c2);
   const secX = (c2._config.status || []).find((x3) => x3.security);
+  const order = [...rooms.map((x3) => x3.name), "__security"];
   const chips = Z`<div class="rm-chips">${rooms.map((x3) => Z`
-        <button class="tab ${x3.name === c2._tRoom || !c2._tRoom && x3 === rooms[0] ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: x3.name })}>
+        <button class="tab ${x3.name === c2._tRoom || !c2._tRoom && x3 === rooms[0] ? "on" : ""}" @click=${() => pickRoom(c2, x3.name, order)}>
           <ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`)}${secX ? Z`
-        <button class="tab ${c2._tRoom === "__security" ? "on" : ""}" @click=${() => redraw(c2, { _tRoom: "__security" })}>
+        <button class="tab ${c2._tRoom === "__security" ? "on" : ""}" @click=${() => pickRoom(c2, "__security", order)}>
           <ha-icon icon=${secX.icon || "mdi:shield-home"}></ha-icon><span>${secX.name || "Security"}</span></button>` : J}</div>`;
   if (secX && c2._tRoom === "__security") return Z`<div class="m-rooms">${chips}${securityRoom(c2, secX)}</div>`;
   const r2 = rooms.find((x3) => x3.name === c2._tRoom) || rooms[0];
@@ -4345,6 +4360,7 @@ var range = (c2) => c2._dRange || 24;
 var rangeTabs = (c2) => Z`
   <div class="dt-tabs">${[[24, "24 hours"], [168, "7 days"]].map(([h2, t3]) => Z`
     <button class=${range(c2) === h2 ? "on" : ""} @click=${() => {
+  if (range(c2) !== h2) c2._dZoom = { from: range(c2), to: h2 };
   c2._dRange = h2;
   c2.requestUpdate();
 }}>${t3}</button>`)}</div>`;
@@ -4371,7 +4387,7 @@ function graph(c2, id, attr, unit, color, hours = range(c2)) {
   const ticks = hours <= 24 ? [0, 6, 12, 18, 24].map((h2) => [t1 - h2 * 36e5, h2 === 0 ? "Now" : `${h2}h`]) : [0, 2, 4, 6].map((dd) => [t1 - dd * 864e5, dd === 0 ? "Today" : new Date(t1 - dd * 864e5).toLocaleDateString(void 0, { weekday: "short" })]);
   return Z`
     <div class="dt-graph" style="--dc:${color || "var(--accent)"}">
-      <svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none">${q`
+      <svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none" data-h=${hours}>${q`
         <path d="${d2} L${W2} ${H2} L${X2(pts[0][0]).toFixed(1)} ${H2} Z" fill="var(--dc)" opacity="0.13"></path>
         <path d=${d2} fill="none" stroke="var(--dc)" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path>`}</svg>
       <div class="dt-ticks">${ticks.reverse().map(([t3, l2]) => Z`<span style="left:${X2(t3) / W2 * 100}%">${l2}</span>`)}</div>
@@ -4699,7 +4715,7 @@ var DETAIL_CSS = o`
   .dt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--card); }
   .dt-tabs button { border: 0; font: inherit; font-size: 14px; font-weight: 600; padding: 8px; border-radius: 10px; background: none; color: var(--muted); }
   .dt-tabs button.on { background: var(--accent-soft); color: var(--accent); }
-  .dt-graph { position: relative; padding: 12px 12px 22px; border-radius: 18px; background: var(--card); }
+  .dt-graph { position: relative; padding: 12px 12px 22px; border-radius: 18px; background: var(--card); overflow: hidden; }
   .dt-graph svg { display: block; width: 100%; height: 120px; }
   .dt-empty { height: 120px; display: grid; place-items: center; color: var(--muted); font-size: 14px; padding: 12px; }
   .dt-ticks { position: absolute; left: 12px; right: 12px; bottom: 4px; height: 14px; }
@@ -5423,7 +5439,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.41.2";
+var VERSION = "0.41.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5769,6 +5785,7 @@ var OverlookShow = class extends dt {
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
     this._growSheets();
+    this._zoomGraph();
     if (changed.has("hass") && this._drag) this._settle();
     if (changed.has("hass") && this._config.night) {
       const n2 = this._night();
@@ -7084,6 +7101,21 @@ var OverlookShow = class extends dt {
       );
       sh.parentElement.animate([{ backgroundColor: "transparent" }, {}], { duration: 300, easing: "ease-out" });
     }
+  }
+  // detail pop-ups' 24 hours / 7 days tabs: the new graph starts stretched or squeezed so its last
+  // 24 hours sit where the old graph drew them (the right edge), then eases to its own scale
+  _zoomGraph() {
+    const z2 = this._dZoom;
+    if (!z2 || !this.renderRoot) return;
+    const g2 = this.renderRoot.querySelector(".dt-graph svg");
+    if (!g2 || Number(g2.dataset.h) !== z2.to) return;
+    this._dZoom = null;
+    if (REDUCED() || !g2.animate) return;
+    g2.style.transformOrigin = "100% 50%";
+    g2.animate(
+      [{ transform: `scaleX(${z2.to / z2.from})`, opacity: 0.4 }, { transform: "none", opacity: 1 }],
+      { duration: 520, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+    );
   }
   _shrinkSheet(apply) {
     const all = this.renderRoot ? this.renderRoot.querySelectorAll(".scrim > .sheet") : [];
@@ -9138,6 +9170,11 @@ var OverlookShow = class extends dt {
     .scene.on { background: var(--accent); color: #fff; }
     .scene.on ha-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
     .scene:active, .tile:active { transform: scale(0.98); }
+    /* on/off: colours fade over a quarter second instead of flipping (the press shrink stays quick) */
+    .tile, .mini-scene, .ph-group, .air-tile.control-tile {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.12s; }
+    .tile-ico, .mini-scene ha-icon, .air-tile.control-tile .air-ico, .control-tile .air-q, .tile .muted {
+      transition: background-color 0.25s ease, color 0.25s ease; }
 
     
 
@@ -9343,7 +9380,7 @@ var OverlookShow = class extends dt {
                           -webkit-box-orient: vertical; overflow: hidden; }
     .ph-grid .tile-text .muted { font-size: 12px; }
     .ph-grid .tile-val { font-size: 18px; }
-    .tile-ico.tap { cursor: pointer; transition: transform 0.12s; }
+    .tile-ico.tap { cursor: pointer; transition: transform 0.12s, background-color 0.25s ease, color 0.25s ease; }
     .tile-ico.tap:active { transform: scale(0.9); }
     .light-tile.on { background: color-mix(in srgb, var(--warm) 14%, var(--card)); }
     /* plugs, switches and toggles fill like a lit light, in their own accent */
@@ -9441,8 +9478,7 @@ var OverlookShow = class extends dt {
                  padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 8px); }
     .pop { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; gap: 0; padding: 8px 16px 16px;
            border-radius: 30px; background: var(--pop); backdrop-filter: blur(30px) saturate(1.4);
-           -webkit-backdrop-filter: blur(30px) saturate(1.4); animation: pop-up 0.22s ease-out; }
-    @keyframes pop-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+           -webkit-backdrop-filter: blur(30px) saturate(1.4); }
     /* phone: every sheet rises from below the screen, solid the whole way, and sinks back down
        when it closes (_closeSheet puts .closing on the scrim); the scrim's shade fades in and out */
     .phone .scrim { animation: scrim-in 0.3s ease-out; }
@@ -9879,7 +9915,7 @@ var OverlookShow = class extends dt {
     /* the rows that scroll sideways (quick actions, the recipe shelf) are pan-y too: the swipe code
        scrolls them itself, and hands the drag on to the page once a row reaches its end */
     .sw-track { display: flex; height: 100%; min-height: 0; touch-action: pan-y; will-change: transform;
-                transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+                transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1); }   /* the sheets' curve */
     .sw-track.dragging { transition: none; }
     .sw-page { flex: none; min-width: 0; padding: 76px 28px 34px; box-sizing: border-box; }
     /* no frosted glass on the sliding pages: the cards sit on a plain gradient, so the blur shows
@@ -10075,6 +10111,7 @@ var OverlookOverlay = class extends OverlookShow {
     loadFonts();
   }
   updated(changed) {
+    this._zoomGraph();
     if (changed.has("hass") && this._drag) this._settle();
     this._lockPage(!!(this._pop || this._light));
   }

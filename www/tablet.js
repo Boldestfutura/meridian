@@ -534,13 +534,28 @@ export const camSection = (c, s) => {
   return html`<div class="sec-cams one">${secCam(c, s.entity, insp)}</div>`;
 };
 
+// switching rooms slides the new one in from the side of the chip that was tapped (the sheets' curve)
+function pickRoom(c, name, order) {
+  const cur = c._tRoom || order[0];
+  if (name === cur) return;
+  const dir = order.indexOf(name) > order.indexOf(cur) ? 1 : -1;
+  redraw(c, { _tRoom: name });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  c.updateComplete.then(() => {
+    const el = c.renderRoot.querySelector(".m-rooms .rm-body");
+    if (el && el.animate) el.animate([{ transform: `translateX(${dir * 56}px)`, opacity: 0 }, { transform: "none", opacity: 1 }],
+      { duration: 380, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+  });
+}
+
 function roomsPage(c) {
   const rooms = realRooms(c);
   const secX = (c._config.status || []).find((x) => x.security);
+  const order = [...rooms.map((x) => x.name), "__security"];
   const chips = html`<div class="rm-chips">${rooms.map((x) => html`
-        <button class="tab ${x.name === c._tRoom || (!c._tRoom && x === rooms[0]) ? "on" : ""}" @click=${() => redraw(c, { _tRoom: x.name })}>
+        <button class="tab ${x.name === c._tRoom || (!c._tRoom && x === rooms[0]) ? "on" : ""}" @click=${() => pickRoom(c, x.name, order)}>
           <ha-icon icon=${x.icon}></ha-icon><span>${x.name}</span></button>`)}${secX ? html`
-        <button class="tab ${c._tRoom === "__security" ? "on" : ""}" @click=${() => redraw(c, { _tRoom: "__security" })}>
+        <button class="tab ${c._tRoom === "__security" ? "on" : ""}" @click=${() => pickRoom(c, "__security", order)}>
           <ha-icon icon=${secX.icon || "mdi:shield-home"}></ha-icon><span>${secX.name || "Security"}</span></button>` : nothing}</div>`;
   if (secX && c._tRoom === "__security") return html`<div class="m-rooms">${chips}${securityRoom(c, secX)}</div>`;
   const r = rooms.find((x) => x.name === c._tRoom) || rooms[0];

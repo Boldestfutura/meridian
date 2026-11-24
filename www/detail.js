@@ -93,7 +93,7 @@ function hist(c, id, hours, attr) {
 const range = (c) => c._dRange || 24;
 const rangeTabs = (c) => html`
   <div class="dt-tabs">${[[24, "24 hours"], [168, "7 days"]].map(([h, t]) => html`
-    <button class=${range(c) === h ? "on" : ""} @click=${() => { c._dRange = h; c.requestUpdate(); }}>${t}</button>`)}</div>`;
+    <button class=${range(c) === h ? "on" : ""} @click=${() => { if (range(c) !== h) c._dZoom = { from: range(c), to: h }; c._dRange = h; c.requestUpdate(); }}>${t}</button>`)}</div>`;
 
 // a line graph of a number over the chosen range, with low, average and high under it
 function graph(c, id, attr, unit, color, hours = range(c)) {
@@ -118,7 +118,7 @@ function graph(c, id, attr, unit, color, hours = range(c)) {
     : [0, 2, 4, 6].map((dd) => [t1 - dd * 86400e3, dd === 0 ? "Today" : new Date(t1 - dd * 86400e3).toLocaleDateString(undefined, { weekday: "short" })]);
   return html`
     <div class="dt-graph" style="--dc:${color || "var(--accent)"}">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${svg`
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" data-h=${hours}>${svg`
         <path d="${d} L${W} ${H} L${X(pts[0][0]).toFixed(1)} ${H} Z" fill="var(--dc)" opacity="0.13"></path>
         <path d=${d} fill="none" stroke="var(--dc)" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path>`}</svg>
       <div class="dt-ticks">${ticks.reverse().map(([t, l]) => html`<span style="left:${(X(t) / W) * 100}%">${l}</span>`)}</div>
@@ -453,7 +453,7 @@ export const DETAIL_CSS = css`
   .dt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--card); }
   .dt-tabs button { border: 0; font: inherit; font-size: 14px; font-weight: 600; padding: 8px; border-radius: 10px; background: none; color: var(--muted); }
   .dt-tabs button.on { background: var(--accent-soft); color: var(--accent); }
-  .dt-graph { position: relative; padding: 12px 12px 22px; border-radius: 18px; background: var(--card); }
+  .dt-graph { position: relative; padding: 12px 12px 22px; border-radius: 18px; background: var(--card); overflow: hidden; }
   .dt-graph svg { display: block; width: 100%; height: 120px; }
   .dt-empty { height: 120px; display: grid; place-items: center; color: var(--muted); font-size: 14px; padding: 12px; }
   .dt-ticks { position: absolute; left: 12px; right: 12px; bottom: 4px; height: 14px; }
