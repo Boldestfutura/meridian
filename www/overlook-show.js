@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.40.5";
+const VERSION = "0.41.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -141,6 +141,11 @@ const WASHER = { entity: "input_select.washing_machine", started: "input_datetim
 const washerOf = (c) => Object.assign({}, WASHER, (c && c.washer) || {});
 const washerPopup = (w) => ({ title: "Washing machine", icon: "mdi:washing-machine", washer: true,
   sections: [{ type: "washer", washer: w }, { type: "graph", entity: w.power, name: "Power", hours: 3 }] });
+
+// where the last finger or click came down, so a big screen's sheet can grow out of it
+let LAST_TAP = null;
+window.addEventListener("pointerdown", (ev) => { LAST_TAP = { x: ev.clientX, y: ev.clientY, t: performance.now() }; }, true);
+const REDUCED = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 class OverlookShow extends LitElement {
   static properties = {
@@ -274,6 +279,7 @@ class OverlookShow extends LitElement {
 
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
+    this._growSheets();
     if (changed.has("hass") && this._drag) this._settle();
     // night mode switching on sends the screen home, where it shows the red clock
     if (changed.has("hass") && this._config.night) {
@@ -1320,7 +1326,11 @@ class OverlookShow extends LitElement {
       this._pop = "__weather";
       return;
     }
-    if (!id || !this._config.popups[id]) { this._moreInfo(entityId); return; }
+    if (!id || !this._config.popups[id]) {
+      if (/^(switch|input_boolean)\./.test(entityId)) this._openDetail({ entity: entityId });
+      else this._moreInfo(entityId);
+      return;
+    }
     fireHaptic("light");
     this._pop = id;
     this._loadHistory(this._config.popups[id]);
@@ -1451,12 +1461,50 @@ class OverlookShow extends LitElement {
   // Phone sheets slide down off the screen before they go (.closing on the scrim, 260 ms);
   // elsewhere, with reduced motion, or after a swipe (now), they go at once.
   _closeSheet(apply, now) {
-    const still = !this._config.phone || now || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!this._config.phone && !now && !REDUCED()) { this._shrinkSheet(apply); return; }
+    const still = !this._config.phone || now || REDUCED();
     if (still) { this._closing = false; apply(); this.requestUpdate(); return; }
     if (this._closing) return;
     this._closing = true;
     this.requestUpdate();
     setTimeout(() => { this._closing = false; apply(); this.requestUpdate(); }, 260);
+  }
+
+  // Kitchen display and Echo: a new sheet grows out of the spot that was tapped (the tile) and
+  // the scrim's shade fades in; closing shrinks it back into the same spot. Runs from updated(),
+  // once per sheet element (a sheet that stays up and changes content is left alone).
+  _growSheets() {
+    if (!this._config || this._config.phone || !this.renderRoot || REDUCED()) return;
+    for (const sh of this.renderRoot.querySelectorAll(".scrim > .sheet")) {
+      if (sh._grown || !sh.animate) continue;
+      sh._grown = true;
+      const r = sh.getBoundingClientRect();
+      const tap = LAST_TAP && performance.now() - LAST_TAP.t < 1500 ? LAST_TAP : null;
+      const o = sh._origin = tap ? { x: tap.x - (r.left + r.width / 2), y: tap.y - (r.top + r.height / 2) } : { x: 0, y: 40 };
+      sh.animate([{ transform: `translate(${o.x}px, ${o.y}px) scale(0.2)`, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: "none", opacity: 1 }],
+        { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+      sh.parentElement.animate([{ backgroundColor: "transparent" }, {}], { duration: 300, easing: "ease-out" });
+    }
+  }
+  _shrinkSheet(apply) {
+    const all = this.renderRoot ? this.renderRoot.querySelectorAll(".scrim > .sheet") : [];
+    const sh = all[all.length - 1];
+    const done = () => { this._closing = false; apply(); this.requestUpdate(); };
+    if (!sh || !sh.animate) { done(); return; }
+    if (this._closing) return;
+    this._closing = true;
+    const o = sh._origin || { x: 0, y: 40 }, scrim = sh.parentElement;
+    scrim.style.pointerEvents = "none";
+    const a = [
+      sh.animate([{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.55 }, { transform: `translate(${o.x}px, ${o.y}px) scale(0.2)`, opacity: 0 }],
+        { duration: 260, easing: "cubic-bezier(0.4, 0, 0.8, 0.5)", fill: "forwards" }),
+      scrim.animate([{}, { backgroundColor: "transparent" }], { duration: 260, easing: "ease-in", fill: "forwards" }),
+    ];
+    setTimeout(() => {
+      done();
+      // if the same sheet stays up (a swap rather than a close), put it back
+      this.updateComplete.then(() => { a.forEach((x) => x.cancel()); scrim.style.pointerEvents = ""; });
+    }, 250);
   }
 
   // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
@@ -1476,7 +1524,13 @@ class OverlookShow extends LitElement {
 
   // slide a sheet up from below the screen again (the CSS animation only runs when it's created)
   _sheetIn(sheet) {
-    if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!sheet || !sheet.animate || REDUCED()) return;
+    if (!this._config.phone) {
+      const o = sheet._origin || { x: 0, y: 40 };
+      sheet.animate([{ transform: `translate(${o.x}px, ${o.y}px) scale(0.2)`, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: "none", opacity: 1 }],
+        { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+      return;
+    }
     sheet.animate([{ transform: "translateY(calc(100% + 40px))" }, { transform: "none" }],
       { duration: 420, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
   }
@@ -2030,15 +2084,29 @@ class OverlookShow extends LitElement {
       </div>`;
   }
 
+  // a plug or switch: like a light tile, the toggle is the quick control and its own pop-up
+  // (www/detail.js) is the rest (phone: the icon toggles, the tile opens; elsewhere tap and hold)
   _switchTile(x) {
     const e = this._st(x.entity);
     if (!e) return nothing;
     const on = e.state === "on";
+    const toggle = () => this._call("homeassistant", "toggle", { entity_id: x.entity });
+    const label = html`<span class="tile-text"><span class="tile-name">${x.name}</span>
+          <span class="muted">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>`;
+    if (this._iconToggles) {
+      return html`
+        <button class="card tile ${on ? "on" : ""}" @click=${() => this._open(x.entity)}>
+          <span class="tile-ico tap" role="button" title=${on ? "Turn off" : "Turn on"}
+                @click=${(ev) => { ev.stopPropagation(); fireHaptic("light"); toggle(); }}><ha-icon icon=${x.icon}></ha-icon></span>
+          ${label}
+        </button>`;
+    }
+    const { down, move, up, click } = this._tapHold(x.entity, toggle, () => this._open(x.entity));
     return html`
-      <button class="card tile ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x.entity })}>
+      <button class="card tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
+              @pointerup=${up} @pointerleave=${up} @pointercancel=${up} @click=${click}>
         <span class="tile-ico"><ha-icon icon=${x.icon}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x.name}</span>
-          <span class="muted">${on ? "On" : e.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+        ${label}
       </button>`;
   }
 
@@ -3944,8 +4012,8 @@ class OverlookShow extends LitElement {
     .bedside .wo-loc { font-size: 16px; }
     /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
     .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
-    .screen:not(.phone) .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
-    @keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* it grows out of the tapped tile instead of fading up (_growSheets) */
+    .screen:not(.phone) .pop { padding-top: 18px; animation: none; }
     .screen:not(.phone) .grabber { display: none; }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
@@ -4317,7 +4385,11 @@ class OverlookPiece extends OverlookShow {
     const sec = (this._config.status || []).find((x) => x.security && x.entity === id);
     if (sec) { overlay(this.hass).openPopup(securityPopup(sec)); return; }
     const p = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
-    if (p) overlay(this.hass).openPopup(p); else overlay(this.hass)._moreInfo(id);
+    if (p) overlay(this.hass).openPopup(p);
+    else if (/^(switch|input_boolean)\./.test(id)) {
+      const c = this._config.entity === id ? this._config : {};
+      overlay(this.hass)._openDetail({ entity: id, name: c.name, icon: c.icon });
+    } else overlay(this.hass)._moreInfo(id);
   }
   getCardSize() { return 1; }
 }
@@ -5544,6 +5616,10 @@ class EchoPiece extends OverlookShow {
     const own = this._config.popup, s = ECHO_SHELL;
     const p = own && (own.sections || []).length ? own : String(id).startsWith("weather.") ? weatherPopup() : null;
     if (s && p) { s.hass = this.hass; s.openPopup(p); return; }
+    if (s && /^(switch|input_boolean)\./.test(id)) {
+      const c = this._config.entity === id ? this._config : {};
+      s.hass = this.hass; s._openDetail({ entity: id, name: c.name, icon: c.icon }); return;
+    }
     this._moreInfo(id);
   }
   _openLight(id) {

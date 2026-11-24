@@ -1075,6 +1075,7 @@ var redraw = (c2, patch) => {
   Object.assign(c2, patch);
   c2.requestUpdate();
 };
+var shut = (c2, patch) => c2._closeSheet(() => Object.assign(c2, patch));
 var num = (c2, id, attr) => {
   const e2 = c2._st(id);
   if (!e2) return null;
@@ -1143,7 +1144,7 @@ function video(c2, a2) {
 function popPlayer(c2) {
   if (!c2._tPop) return J;
   return Z`
-    <div class="scrim" @click=${() => redraw(c2, { _tPop: null })}>
+    <div class="scrim" @click=${() => shut(c2, { _tPop: null })}>
       <div class="sheet card t-pop" @click=${(ev) => ev.stopPropagation()}>${c2._popPlayer(c2._tPop)}</div>
     </div>`;
 }
@@ -1238,7 +1239,7 @@ function timerPick(c2) {
   if (!m2) return J;
   const step = (v2) => v2 < 60 ? 1 : 5;
   const set = (v2) => redraw(c2, { _tTimerPick: Math.max(1, Math.min(TIMER_MAX, v2)) });
-  const close = () => redraw(c2, { _tTimerPick: null });
+  const close = () => shut(c2, { _tTimerPick: null });
   const [n2, u2] = tmLabel(m2);
   return Z`
     <div class="scrim" @click=${close}>
@@ -1260,7 +1261,7 @@ function timerPick(c2) {
           <button class="tm-cancel" @click=${close}>Cancel</button>
           <button class="tm-go" @click=${() => {
     startTimer(c2, m2);
-    redraw(c2, { _tTimerPick: null, _tTimerLast: m2 });
+    shut(c2, { _tTimerPick: null, _tTimerLast: m2 });
   }}>
             <ha-icon icon="mdi:play"></ha-icon>Start</button>
         </div>
@@ -1433,7 +1434,7 @@ function securityRoom(c2, x3) {
   const dw = (id) => {
     const on = (c2._st(id) || {}).state === "on", door = /door/i.test(id);
     const icon2 = door ? on ? "mdi:door-open" : "mdi:door-closed" : on ? "mdi:window-open-variant" : "mdi:window-closed-variant";
-    return x2(Z`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${() => c2._moreInfo(id)}>
+    return x2(Z`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${(ev) => c2._openDetail({ entity: id, name: secName(c2, id), icon: icon2 }, ev.currentTarget)}>
       <span class="tile-ico"><ha-icon icon=${icon2}></ha-icon></span>
       <span class="tile-text"><span class="tile-name">${secName(c2, id)}</span><span class="muted">${on ? "Open" : "Shut"}</span></span></button>`);
   };
@@ -1573,10 +1574,10 @@ function nowCard(c2, p2) {
     entity_id: vid,
     volume_level: Math.min(1, Math.max(0, Math.round(((va.volume_level || 0) + d2) * 100) / 100))
   });
-  const dur = a2.media_duration || 0;
+  const dur2 = a2.media_duration || 0;
   let pos = a2.media_position || 0;
   if (e2.state === "playing" && a2.media_position_updated_at) pos += (Date.now() - new Date(a2.media_position_updated_at).getTime()) / 1e3;
-  pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+  pos = Math.max(0, dur2 ? Math.min(dur2, pos) : pos);
   const t3 = (s2) => `${Math.floor(s2 / 60)}:${String(Math.floor(s2 % 60)).padStart(2, "0")}`;
   const title = v2 ? v2.ep ? v2.ep.t : v2.name : c2._title(a2) || (["off", "standby"].includes(e2.state) ? "Off" : "Nothing playing");
   const sub = v2 ? v2.ep ? `${v2.name} \xB7 ${v2.ep.s ? `Season ${v2.ep.s}, ` : ""}Episode ${v2.ep.e}` : "" : c2._artist(a2) || "";
@@ -1588,7 +1589,7 @@ function nowCard(c2, p2) {
         <div class="md-tag"><ha-icon icon=${p2.icon}></ha-icon>${p2.name}${app ? ` \xB7 ${app}` : ""}${e2.state === "playing" ? Z`<span class="md-on">${bars()}Playing</span>` : J}</div>
         <div class="md-title">${title}</div>
         ${sub ? Z`<div class="md-sub">${sub}</div>` : J}
-        ${dur ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span>${wave(pos / dur, e2.state === "playing", "ctl2-track")}<span>${t3(dur)}</span></div>` : J}
+        ${dur2 ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span>${wave(pos / dur2, e2.state === "playing", "ctl2-track")}<span>${t3(dur2)}</span></div>` : J}
         <div class="md-row">
           <div class="pp-ctrl ctl2-mid">
             <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
@@ -1651,7 +1652,7 @@ function recipeSheet(c2) {
     const k2 = ymd(x3), cur = plan[k2] && L2.recipes[plan[k2]], mine = plan[k2] === id;
     return Z`<button class="sheet-row ${mine ? "on" : ""}" @click=${() => {
       setDinner(c2, k2, mine ? null : id);
-      redraw(c2, { _tAddDay: false });
+      shut(c2, { _tAddDay: false });
     }}>
       <ha-icon icon=${mine ? "mdi:check-circle" : cur ? "mdi:swap-horizontal" : "mdi:plus-circle-outline"}></ha-icon>
       <div class="sheet-text"><div class="sheet-name">${i2 === 0 ? "Tonight" : i2 === 1 ? "Tomorrow" : x3.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}</div>
@@ -1676,7 +1677,7 @@ function recipeSheet(c2) {
       </div>
     </div>
     ${c2._tAddDay ? Z`
-      <div class="scrim" @click=${() => redraw(c2, { _tAddDay: false })}>
+      <div class="scrim" @click=${() => shut(c2, { _tAddDay: false })}>
         <div class="sheet card addday" @click=${(ev) => ev.stopPropagation()}>
           <div class="card-title">Add to dinner</div>
           <div class="addday-body"><div class="pk-h">This week</div>${days.slice(0, sunday + 1).map((x3, i2) => row(x3, i2))}
@@ -1686,7 +1687,7 @@ function recipeSheet(c2) {
 }
 function dayPicker(c2, L2) {
   const k2 = c2._tDay, d2 = /* @__PURE__ */ new Date(`${k2}T12:00`), q2 = (c2._tQ || "").toLowerCase(), plan = c2._tPlan || {};
-  const close = () => redraw(c2, { _tDay: null, _tQ: "" });
+  const close = () => shut(c2, { _tDay: null, _tQ: "" });
   const choose = (id) => {
     setDinner(c2, k2, id);
     close();
@@ -1953,7 +1954,7 @@ var TABLET_CSS = o`
   .tablet .chip.on { background:var(--accent); color:#fff; }
   /* pop-ups open in the middle of the screen, not as a bottom sheet */
   .tablet .pop-scrim { display:grid !important; place-items:center !important; }
-  .tablet .pop-scrim .sheet.pop { position:relative !important; inset:auto !important; transform:none !important; width:760px !important; max-width:none !important;
+  .tablet .pop-scrim .sheet.pop { position:relative !important; inset:auto !important; width:760px !important; max-width:none !important;
     max-height:620px; border-radius:30px !important; margin:0 !important; }
   .tablet .pop-scrim .grabber { display:none; }
 
@@ -4191,6 +4192,7 @@ var kindOf = (e2, x3) => {
   if (dom === "person" || dom === "device_tracker") return "where";
   if (dom === "update") return "update";
   if (dom === "climate") return "climate";
+  if (dom === "switch" || dom === "input_boolean") return "switch";
   if (dom === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(dc)) return "contact";
   if (dc === "battery" && !x3.attr) return "battery";
   if (!isNaN(Number(x3.attr ? e2.attributes[x3.attr] : e2.state))) return "number";
@@ -4222,8 +4224,8 @@ var clock2 = (c2, t3) => {
 };
 var since = (c2, t3) => {
   const m2 = Math.max(0, Math.round((Date.now() - t3) / 6e4));
-  const dur = m2 < 60 ? `${m2} min` : m2 < 1440 ? `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}` : `${Math.round(m2 / 1440)} days`;
-  return `since ${clock2(c2, t3)} \xB7 ${dur}`;
+  const dur2 = m2 < 60 ? `${m2} min` : m2 < 1440 ? `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}` : `${Math.round(m2 / 1440)} days`;
+  return `since ${clock2(c2, t3)} \xB7 ${dur2}`;
 };
 var km = (a2, b2) => {
   const R3 = 6371, r2 = Math.PI / 180;
@@ -4410,31 +4412,71 @@ function update(c2, e2) {
         <i></i><span>${holding ? "Keep holding\u2026" : `Hold to install ${a2.latest_version}`}</span></button>
       <div class="dt-hint">Home Assistant restarts while it installs.</div>` : J}`;
 }
-function contact(c2, e2) {
-  const open = e2.state === "on", dc = e2.attributes.device_class;
-  const door = dc === "door" || dc === "garage_door";
+function onOff(c2, e2) {
   const list = hist(c2, e2.entity_id, 24);
   const t1 = Date.now(), t0 = t1 - 24 * 36e5;
-  let segs = [], opens = 0;
+  const segs = [];
+  let count = 0;
   if (list) {
     const ch = [...list, { t: t1, s: e2.state }];
     ch.forEach((p2, i2) => {
       if (p2.s === "on" && i2 < ch.length - 1) segs.push([Math.max(p2.t, t0), ch[i2 + 1].t]);
-      if (p2.s === "on" && i2 > 0 && ch[i2 - 1].s !== "on") opens++;
+      if (p2.s === "on" && i2 > 0 && ch[i2 - 1].s !== "on") count++;
     });
   }
-  const bat = batteryOf(c2, e2.entity_id), batE = bat && c2._st(bat);
   const recent = (list || []).filter((p2, i2, a2) => i2 > 0 && p2.s !== a2[i2 - 1].s && ["on", "off"].includes(p2.s)).slice(-5).reverse();
+  return {
+    list,
+    segs,
+    count,
+    recent,
+    total: segs.reduce((n2, [a2, b2]) => n2 + (b2 - a2), 0),
+    line: Z`
+      <div class="dt-line">${segs.map(([a2, b2]) => Z`<i style="left:${(a2 - t0) / (t1 - t0) * 100}%;width:${Math.max(0.8, (b2 - a2) / (t1 - t0) * 100)}%"></i>`)}</div>
+      <div class="dt-ticks static"><span>24h ago</span><span>12h</span><span>Now</span></div>`
+  };
+}
+var dur = (ms2) => {
+  const m2 = Math.round(ms2 / 6e4);
+  return m2 < 60 ? `${m2} min` : `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}`;
+};
+function contact(c2, e2) {
+  const open = e2.state === "on", dc = e2.attributes.device_class;
+  const door = dc === "door" || dc === "garage_door";
+  const { list, count: opens, recent, line } = onOff(c2, e2);
+  const bat = batteryOf(c2, e2.entity_id), batE = bat && c2._st(bat);
   return Z`
     <div class="dt-hero dt-contact ${open ? "open" : ""}">
       <ha-icon icon=${door ? open ? "mdi:door-open" : "mdi:door-closed" : open ? "mdi:window-open-variant" : "mdi:window-closed-variant"}></ha-icon>
       <div><b>${open ? "Open" : "Shut"}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
     </div>
     <div class="pop-sub">Last 24 hours${list ? ` \xB7 opened ${opens} time${opens === 1 ? "" : "s"}` : ""}</div>
-    <div class="dt-line">${segs.map(([a2, b2]) => Z`<i style="left:${(a2 - t0) / (t1 - t0) * 100}%;width:${Math.max(0.8, (b2 - a2) / (t1 - t0) * 100)}%"></i>`)}</div>
-    <div class="dt-ticks static"><span>24h ago</span><span>12h</span><span>Now</span></div>
+    ${line}
     ${recent.length ? rows(recent.map((p2) => [p2.s === "on" ? "mdi:arrow-up-bold-outline" : "mdi:arrow-down-bold-outline", p2.s === "on" ? "Opened" : "Shut", clock2(c2, p2.t)])) : J}
     ${batE ? rows([["mdi:battery-outline", "Sensor battery", `${Math.round(Number(batE.state))}%`]]) : J}`;
+}
+function toggle(c2, e2, s2) {
+  const on = e2.state === "on", dead = ["unavailable", "unknown"].includes(e2.state);
+  const { list, count, recent, total, line } = onOff(c2, e2);
+  const sib = sameDevice(c2, e2.entity_id).map((k2) => c2._st(k2));
+  const pw = sib.find((x3) => x3.attributes.device_class === "power");
+  const en = sib.find((x3) => x3.attributes.device_class === "energy");
+  const icon2 = s2.icon || e2.attributes.icon || "mdi:power-plug";
+  return Z`
+    <button class="dt-hero dt-switch ${on ? "on" : ""}" ?disabled=${dead}
+            @click=${() => c2._call("homeassistant", "toggle", { entity_id: e2.entity_id })}>
+      <span class="dt-knob"><ha-icon icon=${icon2}></ha-icon></span>
+      <div><b>${dead ? "Unavailable" : on ? "On" : "Off"}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
+      <i class="dt-sw"><u></u></i>
+    </button>
+    <div class="pop-sub">Last 24 hours${list ? ` \xB7 on for ${dur(total)}${count ? `, switched on ${count} time${count === 1 ? "" : "s"}` : ""}` : ""}</div>
+    ${line}
+    ${pw || en ? rows([
+    pw && ["mdi:flash-outline", "Using now", c2._fmt(pw)],
+    en && ["mdi:lightning-bolt-outline", "Energy", c2._fmt(en)]
+  ]) : J}
+    ${pw ? graph(c2, pw.entity_id, null, " W", "#f39a43", 24) : J}
+    ${recent.length ? rows(recent.map((p2) => [p2.s === "on" ? "mdi:power" : "mdi:power-off", p2.s === "on" ? "Turned on" : "Turned off", clock2(c2, p2.t)])) : J}`;
 }
 function battery(c2, e2) {
   const v2 = Number(e2.state), a2 = e2.attributes;
@@ -4495,7 +4537,7 @@ function detailSection(c2, s2) {
   const e2 = c2._st(s2.entity);
   if (!e2) return Z`<div class="dt-hero dt-num"><b class="txt">Not available</b></div>`;
   const k2 = kindOf(e2, s2);
-  const body = k2 === "where" ? where(c2, e2) : k2 === "update" ? update(c2, e2) : k2 === "climate" ? climate(c2, e2, s2) : k2 === "contact" ? contact(c2, e2) : k2 === "battery" ? battery(c2, e2) : k2 === "number" ? number(c2, e2, s2) : plain(c2, e2);
+  const body = k2 === "where" ? where(c2, e2) : k2 === "update" ? update(c2, e2) : k2 === "climate" ? climate(c2, e2, s2) : k2 === "contact" ? contact(c2, e2) : k2 === "switch" ? toggle(c2, e2, s2) : k2 === "battery" ? battery(c2, e2) : k2 === "number" ? number(c2, e2, s2) : plain(c2, e2);
   return Z`<div class="dt">${body}${moreLink(c2, s2.entity)}</div>`;
 }
 var DETAIL_CSS = o`
@@ -4548,6 +4590,24 @@ var DETAIL_CSS = o`
   .dt-contact.open ha-icon, .dt-contact.open b { color: color-mix(in srgb, var(--warm) 85%, var(--ink)); }
   .dt-contact div, .dt-bat > div:last-child { display: flex; flex-direction: column; }
   .dt-contact b, .dt-bat b { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .dt-switch { display: flex; align-items: center; gap: 14px; padding: 16px; border: 0; width: 100%; text-align: left;
+    font: inherit; color: var(--ink); cursor: pointer; transition: background 0.25s; }
+  .dt-switch:disabled { cursor: default; opacity: 0.6; }
+  .dt-switch > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .dt-switch b { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .dt-switch span { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .dt-knob { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; margin: 0 !important;
+    background: color-mix(in srgb, var(--muted) 14%, transparent); transition: background 0.25s, color 0.25s; }
+  .dt-knob ha-icon { --mdc-icon-size: 28px; color: var(--muted); }
+  .dt-switch.on { background: color-mix(in srgb, var(--warm) 16%, var(--card)); }
+  .dt-switch.on .dt-knob { background: var(--warm); }
+  .dt-switch.on .dt-knob ha-icon { color: #fff; }
+  .dt-sw { position: relative; flex: none; width: 52px; height: 30px; border-radius: 15px;
+    background: color-mix(in srgb, var(--muted) 30%, transparent); transition: background 0.25s; }
+  .dt-sw u { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+  .dt-switch.on .dt-sw { background: var(--warm); }
+  .dt-switch.on .dt-sw u { transform: translateX(22px); }
   .dt-line { position: relative; height: 26px; border-radius: 10px; background: var(--card); overflow: hidden; }
   .dt-line i { position: absolute; top: 4px; bottom: 4px; border-radius: 6px; background: var(--warm); }
   .dt-bat { display: flex; align-items: center; gap: 16px; padding: 16px; }
@@ -5287,7 +5347,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.40.5";
+var VERSION = "0.41.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -5458,6 +5518,11 @@ var washerPopup = (w2) => ({
   washer: true,
   sections: [{ type: "washer", washer: w2 }, { type: "graph", entity: w2.power, name: "Power", hours: 3 }]
 });
+var LAST_TAP = null;
+window.addEventListener("pointerdown", (ev) => {
+  LAST_TAP = { x: ev.clientX, y: ev.clientY, t: performance.now() };
+}, true);
+var REDUCED = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 var OverlookShow = class extends dt {
   static properties = {
     hass: { attribute: false },
@@ -5627,6 +5692,7 @@ var OverlookShow = class extends dt {
   }
   // --- subscriptions: shopping list, forecast, calendar --------------------
   updated(changed) {
+    this._growSheets();
     if (changed.has("hass") && this._drag) this._settle();
     if (changed.has("hass") && this._config.night) {
       const n2 = this._night();
@@ -6211,7 +6277,7 @@ var OverlookShow = class extends dt {
       const txt = this._ckDur(Math.ceil(left - 0.05));
       const pct = total ? Math.max(0, Math.min(100, left / total * 100)) : 0;
       const label = c2.ring === "Timer" ? "Time's up" : ts === "paused" ? "Paused" : "Timer";
-      const toggle = (e2) => {
+      const toggle2 = (e2) => {
         e2.stopPropagation();
         if (ts === "active") this._call("timer", "pause", { entity_id: `timer.${c2.a}_timer` });
         else if (ts === "paused") this._call("timer", "start", { entity_id: `timer.${c2.a}_timer` });
@@ -6223,7 +6289,7 @@ var OverlookShow = class extends dt {
             <div class="ck-label"><ha-icon icon=${c2.ring === "Timer" ? "mdi:bell-ring" : "mdi:timer-outline"}></ha-icon>${label}
               ${total && c2.ring !== "Timer" ? Z`<span class="ck-of">of ${this._ckDur(total)}</span>` : J}</div>
             <div class="ck-digits ${c2.ring === "Timer" ? "ring" : ""} ${ts === "paused" ? "paused" : ""}"
-                 style=${this._ckFit(txt)} @click=${toggle}>${txt}</div>
+                 style=${this._ckFit(txt)} @click=${toggle2}>${txt}</div>
           </div>
           <div class="ck-btns">
             ${btn("Reset", "mdi:restore", reset)}
@@ -6351,10 +6417,10 @@ var OverlookShow = class extends dt {
     const a2 = e2.attributes, id = e2.entity_id, playing = e2.state === "playing";
     const pic = this._pic(a2);
     const col = this._npAccent(pic);
-    const dur = a2.media_duration || 0;
+    const dur2 = a2.media_duration || 0;
     let pos = a2.media_position || 0;
     if (playing && a2.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a2.media_position_updated_at).getTime()) / 1e3;
-    pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+    pos = Math.max(0, dur2 ? Math.min(dur2, pos) : pos);
     const src = String(a2.app_name || a2.source || "").replace(/\s*\(.*\)$/, "").replace(/ Connect$/, "");
     const call = (svc, d2 = {}) => (ev) => {
       ev.stopPropagation();
@@ -6377,9 +6443,9 @@ var OverlookShow = class extends dt {
           </div>
           <div class="np-title mq"><span>${a2.media_title}</span></div>
           <div class="np-artist mq"><span>${a2.media_artist || ""}</span></div>
-          ${dur ? Z`
-            ${wave(pos / dur, playing, "np-track")}
-            <div class="np-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>` : J}
+          ${dur2 ? Z`
+            ${wave(pos / dur2, playing, "np-track")}
+            <div class="np-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur2 - pos)}</span></div>` : J}
           <div class="np-ctl">
             ${b2("mdi:skip-previous", call("media_previous_track"))}
             ${b2(playing ? "mdi:pause" : "mdi:play", call("media_play_pause"), "main")}
@@ -6716,7 +6782,7 @@ var OverlookShow = class extends dt {
     if (!e2) return J;
     const on = e2.state === "on";
     const pct = on ? Math.round((e2.attributes.brightness || 255) / 2.55) : 0;
-    const toggle = () => this._call("light", "toggle", { entity_id: l2.entity });
+    const toggle2 = () => this._call("light", "toggle", { entity_id: l2.entity });
     const label = Z`<span class="tile-text"><span class="tile-name">${l2.name || e2.attributes.friendly_name}</span>
           <span class="muted">${on ? pct >= 100 ? "On" : `On \xB7 ${pct}%` : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>`;
     if (this._iconToggles) {
@@ -6726,12 +6792,12 @@ var OverlookShow = class extends dt {
                 @click=${(ev) => {
         ev.stopPropagation();
         fireHaptic("light");
-        toggle();
+        toggle2();
       }}><ha-icon icon=${l2.icon || "mdi:lightbulb"}></ha-icon></span>
           ${label}
         </button>`;
     }
-    const { down, move, up, click } = this._tapHold(l2.entity, toggle, () => this._openLight(l2.entity));
+    const { down, move, up, click } = this._tapHold(l2.entity, toggle2, () => this._openLight(l2.entity));
     return Z`
       <button class="card tile light-tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
               @pointerup=${up} @pointerleave=${up} @pointercancel=${up}
@@ -6767,7 +6833,8 @@ var OverlookShow = class extends dt {
       return;
     }
     if (!id || !this._config.popups[id]) {
-      this._moreInfo(entityId);
+      if (/^(switch|input_boolean)\./.test(entityId)) this._openDetail({ entity: entityId });
+      else this._moreInfo(entityId);
       return;
     }
     fireHaptic("light");
@@ -6904,7 +6971,11 @@ var OverlookShow = class extends dt {
   // Phone sheets slide down off the screen before they go (.closing on the scrim, 260 ms);
   // elsewhere, with reduced motion, or after a swipe (now), they go at once.
   _closeSheet(apply, now) {
-    const still = !this._config.phone || now || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!this._config.phone && !now && !REDUCED()) {
+      this._shrinkSheet(apply);
+      return;
+    }
+    const still = !this._config.phone || now || REDUCED();
     if (still) {
       this._closing = false;
       apply();
@@ -6919,6 +6990,55 @@ var OverlookShow = class extends dt {
       apply();
       this.requestUpdate();
     }, 260);
+  }
+  // Kitchen display and Echo: a new sheet grows out of the spot that was tapped (the tile) and
+  // the scrim's shade fades in; closing shrinks it back into the same spot. Runs from updated(),
+  // once per sheet element (a sheet that stays up and changes content is left alone).
+  _growSheets() {
+    if (!this._config || this._config.phone || !this.renderRoot || REDUCED()) return;
+    for (const sh of this.renderRoot.querySelectorAll(".scrim > .sheet")) {
+      if (sh._grown || !sh.animate) continue;
+      sh._grown = true;
+      const r2 = sh.getBoundingClientRect();
+      const tap = LAST_TAP && performance.now() - LAST_TAP.t < 1500 ? LAST_TAP : null;
+      const o2 = sh._origin = tap ? { x: tap.x - (r2.left + r2.width / 2), y: tap.y - (r2.top + r2.height / 2) } : { x: 0, y: 40 };
+      sh.animate(
+        [{ transform: `translate(${o2.x}px, ${o2.y}px) scale(0.2)`, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: "none", opacity: 1 }],
+        { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+      );
+      sh.parentElement.animate([{ backgroundColor: "transparent" }, {}], { duration: 300, easing: "ease-out" });
+    }
+  }
+  _shrinkSheet(apply) {
+    const all = this.renderRoot ? this.renderRoot.querySelectorAll(".scrim > .sheet") : [];
+    const sh = all[all.length - 1];
+    const done = () => {
+      this._closing = false;
+      apply();
+      this.requestUpdate();
+    };
+    if (!sh || !sh.animate) {
+      done();
+      return;
+    }
+    if (this._closing) return;
+    this._closing = true;
+    const o2 = sh._origin || { x: 0, y: 40 }, scrim = sh.parentElement;
+    scrim.style.pointerEvents = "none";
+    const a2 = [
+      sh.animate(
+        [{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.55 }, { transform: `translate(${o2.x}px, ${o2.y}px) scale(0.2)`, opacity: 0 }],
+        { duration: 260, easing: "cubic-bezier(0.4, 0, 0.8, 0.5)", fill: "forwards" }
+      ),
+      scrim.animate([{}, { backgroundColor: "transparent" }], { duration: 260, easing: "ease-in", fill: "forwards" })
+    ];
+    setTimeout(() => {
+      done();
+      this.updateComplete.then(() => {
+        a2.forEach((x3) => x3.cancel());
+        scrim.style.pointerEvents = "";
+      });
+    }, 250);
   }
   // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
   _openDetail(x3, from) {
@@ -6939,7 +7059,15 @@ var OverlookShow = class extends dt {
   }
   // slide a sheet up from below the screen again (the CSS animation only runs when it's created)
   _sheetIn(sheet) {
-    if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!sheet || !sheet.animate || REDUCED()) return;
+    if (!this._config.phone) {
+      const o2 = sheet._origin || { x: 0, y: 40 };
+      sheet.animate(
+        [{ transform: `translate(${o2.x}px, ${o2.y}px) scale(0.2)`, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: "none", opacity: 1 }],
+        { duration: 440, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+      );
+      return;
+    }
     sheet.animate(
       [{ transform: "translateY(calc(100% + 40px))" }, { transform: "none" }],
       { duration: 420, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
@@ -7130,7 +7258,7 @@ var OverlookShow = class extends dt {
     const e2 = this._st(w2.entity);
     if (!e2) return J;
     const now = this._now || /* @__PURE__ */ new Date(), st2 = e2.state;
-    const dur = (m2) => m2 < 60 ? `${m2} min` : `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}`;
+    const dur2 = (m2) => m2 < 60 ? `${m2} min` : `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}`;
     const mins = (a2, b2) => Math.max(0, Math.round((b2 - a2) / 6e4));
     const s2 = this._st(w2.started), t0 = s2 ? new Date(s2.state.replace(" ", "T")) : null;
     const hasT0 = t0 && !isNaN(t0);
@@ -7140,12 +7268,12 @@ var OverlookShow = class extends dt {
     let chip, big, sub;
     if (st2 === "running") {
       chip = "Running";
-      big = hasT0 ? dur(mins(t0, now)) : "Running";
+      big = hasT0 ? dur2(mins(t0, now)) : "Running";
       sub = [hasT0 ? `Started ${this._ampm(t0)}` : "", phase].filter(Boolean).join(" \xB7 ");
     } else if (st2 === "done") {
       chip = "Ready to hang out";
-      big = `Finished ${dur(mins(fin, now))} ago`;
-      sub = [`Done at ${this._ampm(fin)}`, hasT0 ? `${dur(mins(t0, fin))} cycle` : ""].filter(Boolean).join(" \xB7 ");
+      big = `Finished ${dur2(mins(fin, now))} ago`;
+      sub = [`Done at ${this._ampm(fin)}`, hasT0 ? `${dur2(mins(t0, fin))} cycle` : ""].filter(Boolean).join(" \xB7 ");
     } else {
       chip = "Empty";
       big = "Nothing in the wash";
@@ -7258,11 +7386,11 @@ var OverlookShow = class extends dt {
     const vol = a2.volume_level, muted = a2.is_volume_muted;
     const mp = (svc, data = {}) => this._call("media_player", svc, Object.assign({ entity_id: id }, data));
     const step = (d2) => () => mp("volume_set", { volume_level: clamp(Math.round((vol + d2) * 100) / 100, 0, 1) });
-    const dur = a2.media_duration || 0;
+    const dur2 = a2.media_duration || 0;
     let pos = a2.media_position || 0;
     if (playing && a2.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a2.media_position_updated_at).getTime()) / 1e3;
-    pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
-    if (playing && dur && !this._ppTick) {
+    pos = Math.max(0, dur2 ? Math.min(dur2, pos) : pos);
+    if (playing && dur2 && !this._ppTick) {
       this._ppTick = setInterval(() => {
         if (!this._pop) {
           clearInterval(this._ppTick);
@@ -7292,10 +7420,10 @@ var OverlookShow = class extends dt {
             <ha-icon icon=${playing ? "mdi:pause" : "mdi:play"}></ha-icon></button>
           <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button>
         </div>
-        ${dur ? Z`
+        ${dur2 ? Z`
           <div class="pp-prog">
-            ${wave(pos / dur, playing, "pp-track")}
-            <div class="pp-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur - pos)}</span></div>
+            ${wave(pos / dur2, playing, "pp-track")}
+            <div class="pp-times"><span>${this._ckDur(pos)}</span><span>-${this._ckDur(dur2 - pos)}</span></div>
           </div>` : J}
         ${vol != null ? Z`
           <div class="pp-vol">
@@ -7524,15 +7652,33 @@ var OverlookShow = class extends dt {
           </div>` : J}
       </div>`;
   }
+  // a plug or switch: like a light tile, the toggle is the quick control and its own pop-up
+  // (www/detail.js) is the rest (phone: the icon toggles, the tile opens; elsewhere tap and hold)
   _switchTile(x3) {
     const e2 = this._st(x3.entity);
     if (!e2) return J;
     const on = e2.state === "on";
+    const toggle2 = () => this._call("homeassistant", "toggle", { entity_id: x3.entity });
+    const label = Z`<span class="tile-text"><span class="tile-name">${x3.name}</span>
+          <span class="muted">${on ? "On" : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>`;
+    if (this._iconToggles) {
+      return Z`
+        <button class="card tile ${on ? "on" : ""}" @click=${() => this._open(x3.entity)}>
+          <span class="tile-ico tap" role="button" title=${on ? "Turn off" : "Turn on"}
+                @click=${(ev) => {
+        ev.stopPropagation();
+        fireHaptic("light");
+        toggle2();
+      }}><ha-icon icon=${x3.icon}></ha-icon></span>
+          ${label}
+        </button>`;
+    }
+    const { down, move, up, click } = this._tapHold(x3.entity, toggle2, () => this._open(x3.entity));
     return Z`
-      <button class="card tile ${on ? "on" : ""}" @click=${() => this._call("homeassistant", "toggle", { entity_id: x3.entity })}>
+      <button class="card tile ${on ? "on" : ""}" @pointerdown=${down} @pointermove=${move}
+              @pointerup=${up} @pointerleave=${up} @pointercancel=${up} @click=${click}>
         <span class="tile-ico"><ha-icon icon=${x3.icon}></ha-icon></span>
-        <span class="tile-text"><span class="tile-name">${x3.name}</span>
-          <span class="muted">${on ? "On" : e2.state === "unavailable" ? "Unavailable" : "Off"}</span></span>
+        ${label}
       </button>`;
   }
   // any other reading: its state as HA formats it; tap for the pop-up or HA's dialog
@@ -9454,8 +9600,8 @@ var OverlookShow = class extends dt {
     .bedside .wo-loc { font-size: 16px; }
     /* on the kitchen display and the computer a pop-up is a centred dialog, not a sheet from the bottom */
     .screen:not(.phone) .pop-scrim { align-items: center; padding: 24px; }
-    .screen:not(.phone) .pop { padding-top: 18px; animation: pop-in 0.18s ease-out; }
-    @keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* it grows out of the tapped tile instead of fading up (_growSheets) */
+    .screen:not(.phone) .pop { padding-top: 18px; animation: none; }
     .screen:not(.phone) .grabber { display: none; }
     .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--track-strong); margin: 0 auto 8px; flex: none; }
     .pop-head { display: flex; align-items: center; gap: 12px; padding: 2px 2px 12px; flex: none; }
@@ -9837,7 +9983,10 @@ var OverlookPiece = class extends OverlookShow {
     }
     const p2 = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
     if (p2) overlay(this.hass).openPopup(p2);
-    else overlay(this.hass)._moreInfo(id);
+    else if (/^(switch|input_boolean)\./.test(id)) {
+      const c2 = this._config.entity === id ? this._config : {};
+      overlay(this.hass)._openDetail({ entity: id, name: c2.name, icon: c2.icon });
+    } else overlay(this.hass)._moreInfo(id);
   }
   getCardSize() {
     return 1;
@@ -11127,6 +11276,12 @@ var EchoPiece = class extends OverlookShow {
       s2.openPopup(p2);
       return;
     }
+    if (s2 && /^(switch|input_boolean)\./.test(id)) {
+      const c2 = this._config.entity === id ? this._config : {};
+      s2.hass = this.hass;
+      s2._openDetail({ entity: id, name: c2.name, icon: c2.icon });
+      return;
+    }
     this._moreInfo(id);
   }
   _openLight(id) {
@@ -11404,10 +11559,10 @@ var MeridianLargeTile = class extends EchoPiece {
     const vol = a2.volume_level, muted = a2.is_volume_muted;
     const mp = (svc, data = {}) => this._call("media_player", svc, Object.assign({ entity_id: id }, data));
     const step = (d2) => () => mp("volume_set", { volume_level: clamp(Math.round((vol + d2) * 100) / 100, 0, 1) });
-    const dur = a2.media_duration || 0;
+    const dur2 = a2.media_duration || 0;
     let pos = a2.media_position || 0;
     if (playing && a2.media_position_updated_at) pos += ((this._npNow || Date.now()) - new Date(a2.media_position_updated_at).getTime()) / 1e3;
-    pos = Math.max(0, dur ? Math.min(dur, pos) : pos);
+    pos = Math.max(0, dur2 ? Math.min(dur2, pos) : pos);
     return Z`
       <div class="pplayer lg-mini ${muted ? "muted-vol" : ""}">
         <div class="pp-top">
@@ -11418,7 +11573,7 @@ var MeridianLargeTile = class extends EchoPiece {
           </div>
           ${vol != null ? Z`<span class="where-vol">${Math.round(vol * 100)}%</span>` : J}
         </div>
-        ${dur ? wave(pos / dur, playing, "mini-track") : Z`<div class="mini-track"></div>`}
+        ${dur2 ? wave(pos / dur2, playing, "mini-track") : Z`<div class="mini-track"></div>`}
         <div class="mini-row">
           <div class="pp-ctrl">
             <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>

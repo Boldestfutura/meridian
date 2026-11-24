@@ -209,10 +209,18 @@ section) and morphs out of the tile into the `.dt-hero` block; closing morphs ba
   graph.
 - **climate**: the heat pump controls (`_thermostat`), humidity, temperature graph.
 - **number** (air, plants): value, a one-word verdict, 24 h / 7 day graph with low, average and high.
+- **switch** (plugs, `switch.*` / `input_boolean.*`): the top block is the on/off button, then a 24 h
+  bar of when it was on, time on and how often it came on, power and energy (and a power graph) if
+  the same device has `power` / `energy` sensors, and the last five changes.
 
 Every one ends with **More in Home Assistant** (closes and opens HA's dialog).
 
-## Sheet motion (phone)
+A switch tile (`_switchTile`) works like a light tile: on the phone the icon toggles and the rest
+of the tile opens the switch pop-up; elsewhere tap toggles and hold opens it. Any `_open` of a
+switch with no pop-up of its own lands there too, instead of HA's more-info (phone pieces, the
+Kitchen Display and the Echo's pieces through the shell).
+
+## Sheet motion
 
 Every phone sheet (pop-ups, light sheets, the speaker picker) rises from below the screen with no
 fade (`sheet-up`, 0.42 s) while the scrim's shade fades in, and sinks back down on close: closers go
@@ -221,14 +229,27 @@ removed (`now` skips it after a swipe, which has already moved the sheet off). O
 the Security pop-up morphs the sheet (`_morph`): its height eases to the new size and the feed grows
 out of the tapped tile (FLIP), seeded with the tile's current frame so it isn't black while the new
 stream connects; closing it runs the same trip backwards and fades the doors and windows back in.
-All of it is skipped with reduced motion. A new door or window
+All of it is skipped with reduced motion.
+
+On the Kitchen Display and the Echo a sheet grows out of where it was tapped instead
+(`_growSheets`, run from `updated()` once per new `.scrim > .sheet`): a capture-phase `pointerdown`
+listener keeps the last tap (`LAST_TAP`), and a sheet that appears within 1.5 s of it starts at that
+point at 20 % size and grows to its place (0.44 s) while the scrim's shade fades in; with no recent
+tap it rises 40 px. `_closeSheet` there shrinks the top sheet back into the same point (0.26 s,
+`_shrinkSheet`) before applying the close. That covers the pop-ups, light sheets and the speaker
+picker, and the tablet's own sheets (player, timer picker, add to dinner, dinner picker), whose
+closers go through `shut()` in `www/tablet.js`. The tablet's centred pop-up CSS no longer pins
+`transform: none !important`, which beat the animations (and a swipe-down now drags it first).
+
+A new door or window
 sensor only has to join the group. `security:` can also be an object that overrides `cameras` or
 `mode`.
 
 On the Kitchen Display the same entry adds a **Security** chip after the rooms on the Rooms page
 (`securityRoom` in `www/tablet.js`): every door and window as scene-sized squares (orange when
-open), then each camera as a light-sized square with its live picture; tapping a camera opens it
-big in a pop-up (`openCam`, pop-up section type `camera`).
+open; tapping one opens its door/window detail pop-up), then each camera as a light-sized square
+with its live picture; tapping a camera opens it big in a pop-up (`openCam`, pop-up section type
+`camera`). Both grow out of the square that was tapped.
 
 ## Count pills
 

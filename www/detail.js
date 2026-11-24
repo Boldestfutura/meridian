@@ -2,7 +2,7 @@
 // air readings, heat pump and doors and windows), in place of HA's more-info dialog. The pop-up
 // morphs out of the tapped tile into the .dt-hero block (c._morph in overlook-show.js) and
 // closes back into it. One pop-up, `__detail`, with one `detail` section whose look follows the
-// entity: where (person, device_tracker), update, climate, contact (door/window), battery, number,
+// entity: where (person, device_tracker), update, climate, contact (door/window), switch (plugs), battery, number,
 // and a plain fallback. History comes from HA's history API into c._dhist["<id>|<hours>"].
 import { html, svg, css, nothing } from "./lit-all.min.js";
 
@@ -19,6 +19,7 @@ const kindOf = (e, x) => {
   if (dom === "person" || dom === "device_tracker") return "where";
   if (dom === "update") return "update";
   if (dom === "climate") return "climate";
+  if (dom === "switch" || dom === "input_boolean") return "switch";
   if (dom === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(dc)) return "contact";
   if (dc === "battery" && !x.attr) return "battery";
   if (!isNaN(Number(x.attr ? e.attributes[x.attr] : e.state))) return "number";
@@ -232,31 +233,70 @@ function update(c, e) {
       <div class="dt-hint">Home Assistant restarts while it installs.</div>` : nothing}`;
 }
 
-function contact(c, e) {
-  const open = e.state === "on", dc = e.attributes.device_class;
-  const door = dc === "door" || dc === "garage_door";
+// the last 24 hours of an on/off entity: the "on" stretches, how often it came on, the time on,
+// and the last few changes
+function onOff(c, e) {
   const list = hist(c, e.entity_id, 24);
   const t1 = Date.now(), t0 = t1 - 24 * 3600e3;
-  let segs = [], opens = 0;
+  const segs = [];
+  let count = 0;
   if (list) {
     const ch = [...list, { t: t1, s: e.state }];
     ch.forEach((p, i) => {
       if (p.s === "on" && i < ch.length - 1) segs.push([Math.max(p.t, t0), ch[i + 1].t]);
-      if (p.s === "on" && i > 0 && ch[i - 1].s !== "on") opens++;
+      if (p.s === "on" && i > 0 && ch[i - 1].s !== "on") count++;
     });
   }
-  const bat = batteryOf(c, e.entity_id), batE = bat && c._st(bat);
   const recent = (list || []).filter((p, i, a) => i > 0 && p.s !== a[i - 1].s && ["on", "off"].includes(p.s)).slice(-5).reverse();
+  return { list, segs, count, recent, total: segs.reduce((n, [a, b]) => n + (b - a), 0),
+    line: html`
+      <div class="dt-line">${segs.map(([a, b]) => html`<i style="left:${((a - t0) / (t1 - t0)) * 100}%;width:${Math.max(0.8, ((b - a) / (t1 - t0)) * 100)}%"></i>`)}</div>
+      <div class="dt-ticks static"><span>24h ago</span><span>12h</span><span>Now</span></div>` };
+}
+const dur = (ms) => {
+  const m = Math.round(ms / 60000);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
+};
+
+function contact(c, e) {
+  const open = e.state === "on", dc = e.attributes.device_class;
+  const door = dc === "door" || dc === "garage_door";
+  const { list, count: opens, recent, line } = onOff(c, e);
+  const bat = batteryOf(c, e.entity_id), batE = bat && c._st(bat);
   return html`
     <div class="dt-hero dt-contact ${open ? "open" : ""}">
       <ha-icon icon=${door ? (open ? "mdi:door-open" : "mdi:door-closed") : (open ? "mdi:window-open-variant" : "mdi:window-closed-variant")}></ha-icon>
       <div><b>${open ? "Open" : "Shut"}</b><span>${since(c, new Date(e.last_changed).getTime())}</span></div>
     </div>
     <div class="pop-sub">Last 24 hours${list ? ` · opened ${opens} time${opens === 1 ? "" : "s"}` : ""}</div>
-    <div class="dt-line">${segs.map(([a, b]) => html`<i style="left:${((a - t0) / (t1 - t0)) * 100}%;width:${Math.max(0.8, ((b - a) / (t1 - t0)) * 100)}%"></i>`)}</div>
-    <div class="dt-ticks static"><span>24h ago</span><span>12h</span><span>Now</span></div>
+    ${line}
     ${recent.length ? rows(recent.map((p) => [p.s === "on" ? "mdi:arrow-up-bold-outline" : "mdi:arrow-down-bold-outline", p.s === "on" ? "Opened" : "Shut", clock(c, p.t)])) : nothing}
     ${batE ? rows([["mdi:battery-outline", "Sensor battery", `${Math.round(Number(batE.state))}%`]]) : nothing}`;
+}
+
+// a plug or switch: the big block is its on/off button; then its day, and power if it measures it
+function toggle(c, e, s) {
+  const on = e.state === "on", dead = ["unavailable", "unknown"].includes(e.state);
+  const { list, count, recent, total, line } = onOff(c, e);
+  const sib = sameDevice(c, e.entity_id).map((k) => c._st(k));
+  const pw = sib.find((x) => x.attributes.device_class === "power");
+  const en = sib.find((x) => x.attributes.device_class === "energy");
+  const icon = s.icon || e.attributes.icon || "mdi:power-plug";
+  return html`
+    <button class="dt-hero dt-switch ${on ? "on" : ""}" ?disabled=${dead}
+            @click=${() => c._call("homeassistant", "toggle", { entity_id: e.entity_id })}>
+      <span class="dt-knob"><ha-icon icon=${icon}></ha-icon></span>
+      <div><b>${dead ? "Unavailable" : on ? "On" : "Off"}</b><span>${since(c, new Date(e.last_changed).getTime())}</span></div>
+      <i class="dt-sw"><u></u></i>
+    </button>
+    <div class="pop-sub">Last 24 hours${list ? ` · on for ${dur(total)}${count ? `, switched on ${count} time${count === 1 ? "" : "s"}` : ""}` : ""}</div>
+    ${line}
+    ${pw || en ? rows([
+      pw && ["mdi:flash-outline", "Using now", c._fmt(pw)],
+      en && ["mdi:lightning-bolt-outline", "Energy", c._fmt(en)],
+    ]) : nothing}
+    ${pw ? graph(c, pw.entity_id, null, " W", "#f39a43", 24) : nothing}
+    ${recent.length ? rows(recent.map((p) => [p.s === "on" ? "mdi:power" : "mdi:power-off", p.s === "on" ? "Turned on" : "Turned off", clock(c, p.t)])) : nothing}`;
 }
 
 function battery(c, e) {
@@ -326,7 +366,7 @@ export function detailSection(c, s) {
   if (!e) return html`<div class="dt-hero dt-num"><b class="txt">Not available</b></div>`;
   const k = kindOf(e, s);
   const body = k === "where" ? where(c, e) : k === "update" ? update(c, e) : k === "climate" ? climate(c, e, s)
-    : k === "contact" ? contact(c, e) : k === "battery" ? battery(c, e) : k === "number" ? number(c, e, s) : plain(c, e);
+    : k === "contact" ? contact(c, e) : k === "switch" ? toggle(c, e, s) : k === "battery" ? battery(c, e) : k === "number" ? number(c, e, s) : plain(c, e);
   return html`<div class="dt">${body}${moreLink(c, s.entity)}</div>`;
 }
 
@@ -380,6 +420,24 @@ export const DETAIL_CSS = css`
   .dt-contact.open ha-icon, .dt-contact.open b { color: color-mix(in srgb, var(--warm) 85%, var(--ink)); }
   .dt-contact div, .dt-bat > div:last-child { display: flex; flex-direction: column; }
   .dt-contact b, .dt-bat b { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .dt-switch { display: flex; align-items: center; gap: 14px; padding: 16px; border: 0; width: 100%; text-align: left;
+    font: inherit; color: var(--ink); cursor: pointer; transition: background 0.25s; }
+  .dt-switch:disabled { cursor: default; opacity: 0.6; }
+  .dt-switch > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .dt-switch b { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .dt-switch span { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .dt-knob { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; margin: 0 !important;
+    background: color-mix(in srgb, var(--muted) 14%, transparent); transition: background 0.25s, color 0.25s; }
+  .dt-knob ha-icon { --mdc-icon-size: 28px; color: var(--muted); }
+  .dt-switch.on { background: color-mix(in srgb, var(--warm) 16%, var(--card)); }
+  .dt-switch.on .dt-knob { background: var(--warm); }
+  .dt-switch.on .dt-knob ha-icon { color: #fff; }
+  .dt-sw { position: relative; flex: none; width: 52px; height: 30px; border-radius: 15px;
+    background: color-mix(in srgb, var(--muted) 30%, transparent); transition: background 0.25s; }
+  .dt-sw u { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+  .dt-switch.on .dt-sw { background: var(--warm); }
+  .dt-switch.on .dt-sw u { transform: translateX(22px); }
   .dt-line { position: relative; height: 26px; border-radius: 10px; background: var(--card); overflow: hidden; }
   .dt-line i { position: absolute; top: 4px; bottom: 4px; border-radius: 6px; background: var(--warm); }
   .dt-bat { display: flex; align-items: center; gap: 16px; padding: 16px; }

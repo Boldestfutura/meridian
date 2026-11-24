@@ -44,6 +44,8 @@ const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : "";
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const redraw = (c, patch) => { Object.assign(c, patch); c.requestUpdate(); };
+// close a sheet: on these screens it shrinks back into the tile it came from (c._closeSheet)
+const shut = (c, patch) => c._closeSheet(() => Object.assign(c, patch));
 const num = (c, id, attr) => {
   const e = c._st(id);
   if (!e) return null;
@@ -122,7 +124,7 @@ function video(c, a) {
 function popPlayer(c) {
   if (!c._tPop) return nothing;
   return html`
-    <div class="scrim" @click=${() => redraw(c, { _tPop: null })}>
+    <div class="scrim" @click=${() => shut(c, { _tPop: null })}>
       <div class="sheet card t-pop" @click=${(ev) => ev.stopPropagation()}>${c._popPlayer(c._tPop)}</div>
     </div>`;
 }
@@ -232,7 +234,7 @@ function timerPick(c) {
   if (!m) return nothing;
   const step = (v) => v < 60 ? 1 : 5;
   const set = (v) => redraw(c, { _tTimerPick: Math.max(1, Math.min(TIMER_MAX, v)) });
-  const close = () => redraw(c, { _tTimerPick: null });
+  const close = () => shut(c, { _tTimerPick: null });
   const [n, u] = tmLabel(m);
   return html`
     <div class="scrim" @click=${close}>
@@ -249,7 +251,7 @@ function timerPick(c) {
         <div class="tm-ticks"><span>1 min</span><span>1 h</span><span>2 h</span><span>3 h</span></div>
         <div class="tm-acts">
           <button class="tm-cancel" @click=${close}>Cancel</button>
-          <button class="tm-go" @click=${() => { startTimer(c, m); redraw(c, { _tTimerPick: null, _tTimerLast: m }); }}>
+          <button class="tm-go" @click=${() => { startTimer(c, m); shut(c, { _tTimerPick: null, _tTimerLast: m }); }}>
             <ha-icon icon="mdi:play"></ha-icon>Start</button>
         </div>
       </div>
@@ -445,7 +447,7 @@ function securityRoom(c, x) {
   const dw = (id) => {
     const on = (c._st(id) || {}).state === "on", door = /door/i.test(id);
     const icon = door ? (on ? "mdi:door-open" : "mdi:door-closed") : (on ? "mdi:window-open-variant" : "mdi:window-closed-variant");
-    return x2(html`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${() => c._moreInfo(id)}>
+    return x2(html`<button class="card tile sec-dw ${on ? "open" : ""}" @click=${(ev) => c._openDetail({ entity: id, name: secName(c, id), icon }, ev.currentTarget)}>
       <span class="tile-ico"><ha-icon icon=${icon}></ha-icon></span>
       <span class="tile-text"><span class="tile-name">${secName(c, id)}</span><span class="muted">${on ? "Open" : "Shut"}</span></span></button>`);
   };
@@ -665,7 +667,7 @@ function recipeSheet(c) {
   for (let i = 0; i < 14; i++) { const x = new Date(t0); x.setDate(t0.getDate() + i); days.push(x); }
   const sunday = (7 - t0.getDay()) % 7;   // the rest of this week, Mon-Sun like the planner row
   const row = (x, i) => { const k = ymd(x), cur = plan[k] && L.recipes[plan[k]], mine = plan[k] === id;
-    return html`<button class="sheet-row ${mine ? "on" : ""}" @click=${() => { setDinner(c, k, mine ? null : id); redraw(c, { _tAddDay: false }); }}>
+    return html`<button class="sheet-row ${mine ? "on" : ""}" @click=${() => { setDinner(c, k, mine ? null : id); shut(c, { _tAddDay: false }); }}>
       <ha-icon icon=${mine ? "mdi:check-circle" : cur ? "mdi:swap-horizontal" : "mdi:plus-circle-outline"}></ha-icon>
       <div class="sheet-text"><div class="sheet-name">${i === 0 ? "Tonight" : i === 1 ? "Tomorrow" : x.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}</div>
         <div class="muted">${mine ? "Planned · tap to remove" : cur ? `Replaces ${cur.n}` : "Nothing planned"}</div></div></button>`; };
@@ -688,7 +690,7 @@ function recipeSheet(c) {
       </div>
     </div>
     ${c._tAddDay ? html`
-      <div class="scrim" @click=${() => redraw(c, { _tAddDay: false })}>
+      <div class="scrim" @click=${() => shut(c, { _tAddDay: false })}>
         <div class="sheet card addday" @click=${(ev) => ev.stopPropagation()}>
           <div class="card-title">Add to dinner</div>
           <div class="addday-body"><div class="pk-h">This week</div>${days.slice(0, sunday + 1).map((x, i) => row(x, i))}
@@ -700,7 +702,7 @@ function recipeSheet(c) {
 // choose a day's dinner: favourites first, then everything A-Z, with a search
 function dayPicker(c, L) {
   const k = c._tDay, d = new Date(`${k}T12:00`), q = (c._tQ || "").toLowerCase(), plan = c._tPlan || {};
-  const close = () => redraw(c, { _tDay: null, _tQ: "" });
+  const close = () => shut(c, { _tDay: null, _tQ: "" });
   const choose = (id) => { setDinner(c, k, id); close(); };
   const all = Object.keys(L.recipes).filter((id) => !L.favorites.includes(id)).sort((a, b) => L.recipes[a].n.localeCompare(L.recipes[b].n));
   const card = (id) => { const r = L.recipes[id];
@@ -949,7 +951,7 @@ export const TABLET_CSS = css`
   .tablet .chip.on { background:var(--accent); color:#fff; }
   /* pop-ups open in the middle of the screen, not as a bottom sheet */
   .tablet .pop-scrim { display:grid !important; place-items:center !important; }
-  .tablet .pop-scrim .sheet.pop { position:relative !important; inset:auto !important; transform:none !important; width:760px !important; max-width:none !important;
+  .tablet .pop-scrim .sheet.pop { position:relative !important; inset:auto !important; width:760px !important; max-width:none !important;
     max-height:620px; border-radius:30px !important; margin:0 !important; }
   .tablet .pop-scrim .grabber { display:none; }
 
