@@ -1050,8 +1050,81 @@ window.litDisableBundleWarning || console.warn("Lit has been loaded from a bundl
 // www/tablet.js
 function wave(frac, playing, cls = "") {
   const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
-  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><u></u><i></i><s></s><b></b></div>`;
+  return Z`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><meridian-wave .on=${playing}></meridian-wave><s></s><b></b></div>`;
 }
+var WAVES = /* @__PURE__ */ new Set();
+var waveRaf = 0;
+var waveLoop = (t3) => {
+  waveRaf = 0;
+  let any = false;
+  for (const w2 of WAVES) if (w2._on) {
+    w2._draw(t3);
+    any = true;
+  }
+  if (any) waveRaf = requestAnimationFrame(waveLoop);
+};
+var MeridianWave = class extends HTMLElement {
+  connectedCallback() {
+    if (!this._path) {
+      const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("aria-hidden", "true");
+      this._path = svg.appendChild(document.createElementNS(NS, "path"));
+      this.appendChild(svg);
+      this._ph = 0;
+    }
+    this._ro = new ResizeObserver(() => {
+      this._lw = 0;
+      this._draw();
+    });
+    this._ro.observe(this);
+    WAVES.add(this);
+    this._kick();
+  }
+  disconnectedCallback() {
+    WAVES.delete(this);
+    if (this._ro) this._ro.disconnect();
+  }
+  set on(v2) {
+    const on = !!v2 && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (on !== this._on) {
+      this._on = on;
+      this._last = null;
+    }
+    this._kick();
+  }
+  get on() {
+    return !!this._on;
+  }
+  _kick() {
+    if (!this.isConnected) return;
+    this._draw();
+    if (this._on && !waveRaf) waveRaf = requestAnimationFrame(waveLoop);
+  }
+  _draw(t3) {
+    const w2 = this.clientWidth, h2 = this.clientHeight;
+    if (!h2 || !this._path) return;
+    if (this._on && t3 != null) {
+      if (this._last != null) this._ph += (t3 - this._last) / 2e3 * Math.PI * 2;
+      this._last = t3;
+    }
+    if (!this._lw) this._lw = parseFloat(getComputedStyle(this._path).strokeWidth) || 4;
+    const lw = this._lw, len = h2 * 2.5, A2 = h2 * 0.183, mid = h2 / 2;
+    const x0 = lw / 2, x1 = Math.max(x0, w2 - lw / 2), ease = len / 2;
+    const sm = (v2) => {
+      const k2 = Math.max(0, Math.min(1, v2 / ease));
+      return k2 * k2 * (3 - 2 * k2);
+    };
+    let d2 = `M${x0.toFixed(1)} ${mid.toFixed(1)}`;
+    for (let x3 = x0 + 2; x3 < x1 + 2; x3 += 2) {
+      const xx = Math.min(x3, x1);
+      const y2 = mid + A2 * sm(xx - x0) * sm(x1 - xx) * Math.sin((xx - x0) / len * Math.PI * 2 - this._ph);
+      d2 += ` L${xx.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+    if (x1 === x0) d2 += ` L${x0.toFixed(1)} ${mid.toFixed(1)}`;
+    this._path.setAttribute("d", d2);
+  }
+};
+if (!customElements.get("meridian-wave")) customElements.define("meridian-wave", MeridianWave);
 var TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
   ["rooms", "Rooms", "mdi:sofa-outline"],
@@ -1570,6 +1643,9 @@ function nowCard(c2, p2) {
   const v2 = p2.entity === c2._config.tablet_tv ? video(c2, a2) : null;
   const pic = v2 && v2.bg || a2.entity_picture, app = a2.app_name || a2.source || "";
   const mp = (svc) => c2._call("media_player", svc, { entity_id: p2.entity });
+  const skip = (svc) => c2._call("media_player", svc, {
+    entity_id: p2.native && a2.source !== "Music Assistant Queue" && c2._st(p2.native) ? p2.native : p2.entity
+  });
   const step = (d2) => c2._call("media_player", "volume_set", {
     entity_id: vid,
     volume_level: Math.min(1, Math.max(0, Math.round(((va.volume_level || 0) + d2) * 100) / 100))
@@ -1592,9 +1668,9 @@ function nowCard(c2, p2) {
         ${dur2 ? Z`<div class="ctl2-prog"><span>${t3(pos)}</span>${wave(pos / dur2, e2.state === "playing", "ctl2-track")}<span>${t3(dur2)}</span></div>` : J}
         <div class="md-row">
           <div class="pp-ctrl ctl2-mid">
-            <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+            <button class="round small" @click=${() => skip("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
             <button class="round play" @click=${() => mp("media_play_pause")}><ha-icon icon=${e2.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
-            <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
+            <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? Z`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <b>${Math.round(va.volume_level * 100)}%</b>
@@ -5347,7 +5423,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.41.1";
+var VERSION = "0.41.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -9735,28 +9811,15 @@ var OverlookShow = class extends dt {
     .pp-vol .round.small { width: 100%; height: 52px; border-radius: 16px; background: var(--card); }
     .pp-vol .round.small ha-icon { --mdc-icon-size: 24px; }
     .pp-prog { display: flex; flex-direction: column; gap: 6px; }
-    /* the wavy playback bar (wave() in tablet.js). The played part is always a wave; it drifts
-       while playing and holds still when paused. The wave is drawn on a strip one wavelength wider
-       than the fill and slid along it (a moving transform costs the GPU nothing). The fill starts
-       one cap radius in, and <u>, a dot the stroke's width, rides up and down with the wave's
-       left end to round it off like the plain track; the right end runs into the playhead <s>. */
-    .wv { --wv-h: 14px; --wv-line: 5px; --wv-len: calc(var(--wv-h) * 2.5); --wv-r: calc(var(--wv-h) * 1.7 / 12);
+    /* the wavy playback bar (wave() in tablet.js). The played part is always a wave, drawn by
+       <meridian-wave> as an SVG line: it drifts while playing, holds still when paused, and eases
+       flat at both ends so its round start never moves and it meets the playhead mid-height. */
+    .wv { --wv-h: 14px; --wv-line: 5px;
           position: relative; display: flex; align-items: center; height: var(--wv-h); }
-    .wv i { flex: none; width: max(0px, calc(var(--f) - var(--wv-r))); margin-left: var(--wv-r); height: 100%;
-            position: relative; overflow: hidden; }
-    .wv i::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--wv-len)); right: 0;
-      background: var(--wv-c, var(--accent)); will-change: transform;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
-              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12' preserveAspectRatio='none'%3E%3Cpath d='M-1 3.8 L0 3.8 C7.5 3.8 7.5 8.2 15 8.2 C22.5 8.2 22.5 3.8 30 3.8 L31 3.8' fill='none' stroke='%23000' stroke-width='3.4'/%3E%3C/svg%3E") 0 50% / var(--wv-len) 100% repeat-x;
-      animation: wv-drift 2s linear infinite paused; }
-    /* 12% over the stroke's width so it also covers the cut end where the wave slopes */
-    .wv u { position: absolute; left: 0; top: 0; width: calc(var(--wv-r) * 2.24); height: calc(var(--wv-r) * 2.24);
-            margin: calc(var(--wv-r) * -0.12);
-            border-radius: 50%; background: var(--wv-c, var(--accent)); animation: wv-cap 2s linear infinite paused; }
-    .wv.on i::before, .wv.on u { animation-play-state: running; }
-    @keyframes wv-drift { to { transform: translateX(var(--wv-len)); } }
-    @keyframes wv-cap { 0% { transform: translateY(calc(var(--wv-h) * 0.1750)); } 5% { transform: translateY(calc(var(--wv-h) * 0.1804)); } 10% { transform: translateY(calc(var(--wv-h) * 0.1986)); } 15% { transform: translateY(calc(var(--wv-h) * 0.2337)); } 20% { transform: translateY(calc(var(--wv-h) * 0.2883)); } 25% { transform: translateY(calc(var(--wv-h) * 0.3583)); } 30% { transform: translateY(calc(var(--wv-h) * 0.4284)); } 35% { transform: translateY(calc(var(--wv-h) * 0.4830)); } 40% { transform: translateY(calc(var(--wv-h) * 0.5180)); } 45% { transform: translateY(calc(var(--wv-h) * 0.5363)); } 50% { transform: translateY(calc(var(--wv-h) * 0.5417)); } 55% { transform: translateY(calc(var(--wv-h) * 0.5363)); } 60% { transform: translateY(calc(var(--wv-h) * 0.5180)); } 65% { transform: translateY(calc(var(--wv-h) * 0.4830)); } 70% { transform: translateY(calc(var(--wv-h) * 0.4284)); } 75% { transform: translateY(calc(var(--wv-h) * 0.3583)); } 80% { transform: translateY(calc(var(--wv-h) * 0.2883)); } 85% { transform: translateY(calc(var(--wv-h) * 0.2337)); } 90% { transform: translateY(calc(var(--wv-h) * 0.1986)); } 95% { transform: translateY(calc(var(--wv-h) * 0.1804)); } 100% { transform: translateY(calc(var(--wv-h) * 0.1750)); } }
-    @media (prefers-reduced-motion: reduce) { .wv i::before, .wv u { animation: none; } }
+    .wv meridian-wave { flex: none; display: block; width: max(0px, var(--f)); height: 100%; }
+    .wv meridian-wave svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .wv meridian-wave path { fill: none; stroke: var(--wv-c, var(--accent)); stroke-width: var(--wv-line);
+                             stroke-linecap: round; stroke-linejoin: round; }
     /* the playhead: an upright line where the wave meets the track, a little taller than the wave */
     .wv s { flex: none; width: 4px; height: calc(var(--wv-h) + 6px); margin: -3px 5px -3px 0; border-radius: 999px;
             background: var(--wv-c, var(--accent)); }

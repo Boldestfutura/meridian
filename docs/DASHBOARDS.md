@@ -272,9 +272,15 @@ returns `image` (the game's art) and `trophies` (Sony's `/trophy/v1/users/me/tro
 
 `wave()` in `www/tablet.js`: the played part is always a wave (it drifts while playing and holds
 still when paused), an upright playhead line (`.wv s`, 4px, a little taller than the wave) marks
-the position, then the plain track. The wave's left end is rounded by `.wv u`, a dot animated on
-the same 2 s cycle (`wv-cap` keyframes, generated from the wave's Bézier) so it rides up and down
-with the drifting wave; the right end runs into the playhead. Both animations pause together.
+the position, then the plain track. The wave is `<meridian-wave>`, an SVG line with round caps
+redrawn every frame while playing (one wavelength every 2 s; a single shared animation-frame
+loop, stopped when nothing plays). It eases flat over half a wavelength at both ends, so its
+round start sits still on the centre line and it meets the playhead mid-height. `--wv-h` sets
+the height (wavelength 2.5×, amplitude 0.18×) and `--wv-line` the stroke.
+
+On the Kitchen Display, next and back go to a player's `native` entity (`tablet_players` in
+`show.py`) whenever its Music Assistant player isn't playing its own queue: MA can't skip a
+Spotify Connect or AirPlay stream ("The command to the player failed").
 
 ## Traps
 

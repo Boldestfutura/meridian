@@ -13,13 +13,66 @@
 // (tools/ha/plex_art.py: Plex's background and logo for what the Apple TV is playing).
 import { html, css, nothing } from "./lit-all.min.js";
 
-// The playback bar: what has played is a sine wave (round-ended by <u>) that drifts while the
-// track plays and holds still when paused, an upright line marks where it's up to, and what is
-// left is a plain line. CSS for .wv is in overlook-show.js.
+// The playback bar: what has played is a sine wave that drifts while the track plays and holds
+// still when paused, an upright line marks where it's up to, and what is left is a plain line.
+// The wave is <meridian-wave>, an SVG line redrawn each frame while playing; it eases flat over
+// half a wavelength at both ends, so its round start stays put on the centre line and it meets
+// the playhead in the middle. CSS for .wv is in overlook-show.js.
 export function wave(frac, playing, cls = "") {
   const pct = Math.max(0, Math.min(1, frac || 0)) * 100;
-  return html`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><u></u><i></i><s></s><b></b></div>`;
+  return html`<div class="wv ${playing ? "on" : ""} ${cls}" style="--f:${pct}%"><meridian-wave .on=${playing}></meridian-wave><s></s><b></b></div>`;
 }
+
+const WAVES = new Set();
+let waveRaf = 0;
+const waveLoop = (t) => {
+  waveRaf = 0;
+  let any = false;
+  for (const w of WAVES) if (w._on) { w._draw(t); any = true; }
+  if (any) waveRaf = requestAnimationFrame(waveLoop);
+};
+class MeridianWave extends HTMLElement {
+  connectedCallback() {
+    if (!this._path) {
+      const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("aria-hidden", "true");
+      this._path = svg.appendChild(document.createElementNS(NS, "path"));
+      this.appendChild(svg);
+      this._ph = 0;
+    }
+    this._ro = new ResizeObserver(() => { this._lw = 0; this._draw(); });
+    this._ro.observe(this);
+    WAVES.add(this);
+    this._kick();
+  }
+  disconnectedCallback() { WAVES.delete(this); if (this._ro) this._ro.disconnect(); }
+  set on(v) {
+    const on = !!v && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (on !== this._on) { this._on = on; this._last = null; }
+    this._kick();
+  }
+  get on() { return !!this._on; }
+  _kick() { if (!this.isConnected) return; this._draw(); if (this._on && !waveRaf) waveRaf = requestAnimationFrame(waveLoop); }
+  _draw(t) {
+    const w = this.clientWidth, h = this.clientHeight;
+    if (!h || !this._path) return;
+    // one wavelength every 2 s; the phase only moves while playing, so a pause freezes the shape
+    if (this._on && t != null) { if (this._last != null) this._ph += ((t - this._last) / 2000) * Math.PI * 2; this._last = t; }
+    if (!this._lw) this._lw = parseFloat(getComputedStyle(this._path).strokeWidth) || 4;
+    const lw = this._lw, len = h * 2.5, A = h * 0.183, mid = h / 2;
+    const x0 = lw / 2, x1 = Math.max(x0, w - lw / 2), ease = len / 2;
+    const sm = (v) => { const k = Math.max(0, Math.min(1, v / ease)); return k * k * (3 - 2 * k); };
+    let d = `M${x0.toFixed(1)} ${mid.toFixed(1)}`;
+    for (let x = x0 + 2; x < x1 + 2; x += 2) {
+      const xx = Math.min(x, x1);
+      const y = mid + A * sm(xx - x0) * sm(x1 - xx) * Math.sin(((xx - x0) / len) * Math.PI * 2 - this._ph);
+      d += ` L${xx.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    if (x1 === x0) d += ` L${x0.toFixed(1)} ${mid.toFixed(1)}`;
+    this._path.setAttribute("d", d);
+  }
+}
+if (!customElements.get("meridian-wave")) customElements.define("meridian-wave", MeridianWave);
 
 export const TABLET_PAGES = [
   ["home", "Home", "mdi:home-variant-outline"],
@@ -587,6 +640,10 @@ function nowCard(c, p) {
   const v = p.entity === c._config.tablet_tv ? video(c, a) : null;
   const pic = (v && v.bg) || a.entity_picture, app = a.app_name || a.source || "";
   const mp = (svc) => c._call("media_player", svc, { entity_id: p.entity });
+  // Music Assistant can only skip its own queue; anything else on the speaker (Spotify Connect,
+  // AirPlay) is skipped through the speaker's own player (`native` in tablet_players)
+  const skip = (svc) => c._call("media_player", svc, {
+    entity_id: p.native && a.source !== "Music Assistant Queue" && c._st(p.native) ? p.native : p.entity });
   const step = (d) => c._call("media_player", "volume_set", { entity_id: vid,
     volume_level: Math.min(1, Math.max(0, Math.round(((va.volume_level || 0) + d) * 100) / 100)) });
   const dur = a.media_duration || 0;
@@ -607,9 +664,9 @@ function nowCard(c, p) {
         ${dur ? html`<div class="ctl2-prog"><span>${t(pos)}</span>${wave(pos / dur, e.state === "playing", "ctl2-track")}<span>${t(dur)}</span></div>` : nothing}
         <div class="md-row">
           <div class="pp-ctrl ctl2-mid">
-            <button class="round small" @click=${() => mp("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+            <button class="round small" @click=${() => skip("media_previous_track")}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
             <button class="round play" @click=${() => mp("media_play_pause")}><ha-icon icon=${e.state === "playing" ? "mdi:pause" : "mdi:play"}></ha-icon></button>
-            <button class="round small" @click=${() => mp("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
+            <button class="round small" @click=${() => skip("media_next_track")}><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
           ${va.volume_level != null ? html`<div class="ctl2-vol">
             <button class="round small" @click=${() => step(-0.02)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <b>${Math.round(va.volume_level * 100)}%</b>
