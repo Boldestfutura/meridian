@@ -251,7 +251,7 @@ newly seen code to Cameron's iPhone (tap opens the listing). Disable that automa
 ## Inspection mode (2026-11-23)
 
 For rental inspections. `automation.inspection_mode` (`ha_config/inspection_mode.json`) arms
-`input_boolean.inspection_today` by voice ("Alexa, we have an inspection today", "inspection
+`input_boolean.inspection_today` by voice ("Okay Nabu, we have an inspection today", "inspection
 mode"; "cancel the inspection" disarms) or from a `calendar.p_c` event with "inspection" in
 its title. On that day, once Cameron and Paget are both away (2 min), or when the inspection
 event starts while they are, `input_boolean.inspection_mode` goes on. On the Kitchen Display and
