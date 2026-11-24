@@ -870,11 +870,6 @@
                     "title": "More",
                     "items": [
                       {
-                        "entity": "switch.living_room_climate_react",
-                        "name": "Climate React",
-                        "icon": "mdi:auto-mode"
-                      },
-                      {
                         "entity": "switch.living_room_timer",
                         "name": "Timer",
                         "icon": "mdi:timer-outline"

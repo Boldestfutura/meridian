@@ -178,8 +178,7 @@ POPUPS = {
         {"type": "choices", "title": "Swing", "entity": CLIMATE, "attr": "swing_mode", "service": "climate.set_swing_mode",
          "field": "swing_mode", "options": [
              ["stopped", "Stopped", "mdi:arrow-collapse-vertical"], ["rangefull", "Full range", "mdi:arrow-expand-vertical"]]},
-        tiles(t("switch.living_room_climate_react", "Climate React", "mdi:auto-mode"),
-              t("switch.living_room_timer", "Timer", "mdi:timer-outline"),
+        tiles(t("switch.living_room_timer", "Timer", "mdi:timer-outline"),
               t("sensor.living_room_timer_end_time", "Timer ends", "mdi:timer-outline", wide=True,
                 when={"entity": "switch.living_room_timer", "state": "on"}),
               t("binary_sensor.living_room_filter_clean_required", "Filter", "mdi:air-filter"),
