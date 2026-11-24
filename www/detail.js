@@ -135,9 +135,10 @@ const rows = (list) => html`<div class="dt-rows">${list.filter(Boolean).map(([ic
   <div class="dt-row"><ha-icon icon=${icon}></ha-icon><span>${k}</span><b>${v}</b></div>`)}</div>`;
 
 // --- the kinds ------------------------------------------------------------------------
-// a map of where someone is, built from OpenStreetMap's tiles around the point, with home marked
-// when it's in view. HA serves its pages with no-referrer and OSM refuses tile requests without a
-// Referer, so the images ask for one themselves. Dark mode inverts the tiles.
+// a map of where someone is, built from Esri's plain grey canvas tiles around the point (light or
+// dark grey with the theme; no labels or shop icons, which the standard OSM style was too busy
+// with), with home marked when it's in view
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
 function map(c, lat, lon, acc) {
   const z = 15, W = 342, H = 190, T = 256, n = 2 ** z;
   const tx = ((lon + 180) / 360) * n;
@@ -158,11 +159,15 @@ function map(c, lat, lon, acc) {
   }
   return html`
     <div class="dt-map">
-      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => html`<img src="https://tile.openstreetmap.org/${z}/${((i % n) + n) % n}/${j}.png"
-        referrerpolicy="strict-origin-when-cross-origin" style="left:${l}px;top:${t}px" alt="" draggable="false">`)}</div>
+      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
+        const zyx = `${z}/${j}/${((i % n) + n) % n}`;
+        return html`<picture style="left:${l}px;top:${t}px">
+          <source media="(prefers-color-scheme: dark)" srcset="${ESRI}/World_Dark_Gray_Base/MapServer/tile/${zyx}">
+          <img src="${ESRI}/World_Light_Gray_Base/MapServer/tile/${zyx}" alt="" draggable="false"></picture>`;
+      })}</div>
       <i class="dt-acc" style="width:${r * 2}px;height:${r * 2}px"></i><i class="dt-pin"></i>
       ${hm ? html`<span class="dt-home" style="left:${(hm[0] / W) * 100}%;top:${(hm[1] / H) * 100}%"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
-      <small class="dt-osm">© OpenStreetMap</small>
+      <small class="dt-osm">Esri, OpenStreetMap</small>
     </div>`;
 }
 
@@ -331,8 +336,8 @@ export const DETAIL_CSS = css`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; }
-  @media (prefers-color-scheme: dark) { .dt-tiles img { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85); } }
+  .dt-tiles picture { position: absolute; width: 256px; height: 256px; }
+  .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
   .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
             background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
   .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;

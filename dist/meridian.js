@@ -4312,6 +4312,7 @@ var moreLink = (c2, id) => Z`
     <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
 var rows = (list) => Z`<div class="dt-rows">${list.filter(Boolean).map(([icon2, k2, v2]) => Z`
   <div class="dt-row"><ha-icon icon=${icon2}></ha-icon><span>${k2}</span><b>${v2}</b></div>`)}</div>`;
+var ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
 function map(c2, lat, lon, acc) {
   const z2 = 15, W2 = 342, H2 = 190, T2 = 256, n2 = 2 ** z2;
   const tx = (lon + 180) / 360 * n2;
@@ -4332,11 +4333,15 @@ function map(c2, lat, lon, acc) {
   }
   return Z`
     <div class="dt-map">
-      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => Z`<img src="https://tile.openstreetmap.org/${z2}/${(i2 % n2 + n2) % n2}/${j2}.png"
-        referrerpolicy="strict-origin-when-cross-origin" style="left:${l2}px;top:${t3}px" alt="" draggable="false">`)}</div>
+      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
+    const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
+    return Z`<picture style="left:${l2}px;top:${t3}px">
+          <source media="(prefers-color-scheme: dark)" srcset="${ESRI}/World_Dark_Gray_Base/MapServer/tile/${zyx}">
+          <img src="${ESRI}/World_Light_Gray_Base/MapServer/tile/${zyx}" alt="" draggable="false"></picture>`;
+  })}</div>
       <i class="dt-acc" style="width:${r2 * 2}px;height:${r2 * 2}px"></i><i class="dt-pin"></i>
       ${hm ? Z`<span class="dt-home" style="left:${hm[0] / W2 * 100}%;top:${hm[1] / H2 * 100}%"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
-      <small class="dt-osm">© OpenStreetMap</small>
+      <small class="dt-osm">Esri, OpenStreetMap</small>
     </div>`;
 }
 function where(c2, e2) {
@@ -4498,8 +4503,8 @@ var DETAIL_CSS = o`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; }
-  @media (prefers-color-scheme: dark) { .dt-tiles img { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85); } }
+  .dt-tiles picture { position: absolute; width: 256px; height: 256px; }
+  .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
   .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
             background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
   .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
@@ -5281,7 +5286,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.40.3";
+var VERSION = "0.40.4";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

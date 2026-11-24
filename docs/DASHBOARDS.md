@@ -196,9 +196,9 @@ HA's more-info: `_openDetail` builds `__detail` from `www/detail.js` (`detailPop
 section) and morphs out of the tile into the `.dt-hero` block; closing morphs back into the tile
 (`_popBack` / `_popReturn`, shared with the camera pop-up). What it shows follows the entity:
 
-- **where** (person, device_tracker): a map built from OpenStreetMap tiles (the `<img>`s set their
-  own `referrerpolicy`, because HA's pages are no-referrer and OSM refuses tile requests without a
-  Referer; inverted in dark mode), the place (zone, or the device's `_geocoded_location` sensor),
+- **where** (person, device_tracker): a map built from Esri's plain grey canvas tiles (Light or Dark
+  Gray Base with the theme, no key needed; the standard OSM style was too busy, CARTO now wants a
+  key, and OSM's own server refuses HA's no-referrer pages), the place (zone, or the device's `_geocoded_location` sensor),
   since when, distance from home, battery and charging (from the same device in `hass.entities`),
   GPS accuracy and last update.
 - **update**: installed → latest, what's new, release notes, and **Hold to install** (1.2 s hold,
