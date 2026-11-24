@@ -14,9 +14,10 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, secPill, secSection, securityPopup, camSection } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
+import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.39.1";
+const VERSION = "0.40.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1362,14 +1363,14 @@ class OverlookShow extends LitElement {
   _popSheet() {
     const p = this._config.popups[this._pop];
     if (!p) return nothing;
-    // a camera opened from the Security pop-up closes back to it, shrinking into its tile;
+    // a camera or a tile's details, opened from another pop-up, close back to it, shrinking into the tile;
     // anything else slides away (now: the sheet has already been swiped off)
     const close = (now) => {
-      const back = this._pop === "__camera" && this._camBack;
-      this._camBack = null;
+      const sub = this._pop === "__camera" || this._pop === "__detail";
+      const back = sub && this._popBack, ret = this._popReturn;
+      this._popBack = this._popReturn = null;
       if (!back) { this._closeSheet(() => { this._pop = null; }, now); return; }
       const sheet = this.renderRoot.querySelector(".pop");
-      const cam = this._config.popups.__camera.sections[0].entity;
       if (now && sheet) {
         // swiped off: put the sheet back and slide the Security pop-up up again
         sheet.style.transition = sheet.style.transform = "";
@@ -1378,8 +1379,7 @@ class OverlookShow extends LitElement {
         this.updateComplete.then(() => this._sheetIn(sheet));
         return;
       }
-      this._morph(sheet && sheet.querySelector(".sec-cam"), () => { this._pop = back; },
-        `.sec-cam.tap[data-cam="${cam}"]`, true);
+      this._morph(sheet && sheet.querySelector(".sec-cams.one .sec-cam, .dt-hero"), () => { this._pop = back; }, ret, true);
     };
     return html`
       <div class="scrim pop-scrim ${this._closing ? "closing" : ""}" @click=${() => close()} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
@@ -1459,6 +1459,21 @@ class OverlookShow extends LitElement {
     setTimeout(() => { this._closing = false; apply(); this.requestUpdate(); }, 260);
   }
 
+  // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
+  _openDetail(x, from) {
+    fireHaptic("light");
+    this._popBack = this._pop && this._pop !== "__detail" ? this._pop : null;
+    this._popReturn = `.ptile[data-ent="${x.entity}"]`;
+    this._dRange = 24;
+    this._dreq = {};
+    const show = () => {
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __detail: detailPopup(this, x) }) });
+      this._pop = "__detail";
+    };
+    if (from && from.closest(".pop")) this._morph(from, show, ".dt-hero");
+    else { show(); this.requestUpdate(); }
+  }
+
   // slide a sheet up from below the screen again (the CSS animation only runs when it's created)
   _sheetIn(sheet) {
     if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -1507,20 +1522,17 @@ class OverlookShow extends LitElement {
     // the tile rides on the sheet's top edge while the height eases, so measure from it
     const dx = f0.left - t1.left, dy = (f0.top - s0.top) - (t1.top - s1.top);
     to.style.zIndex = "2";
+    if (!to.classList.contains("sec-cam"))
+      [...to.children].forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }],
+        { duration: 220, delay: 200, easing: "ease-out", fill: "backwards" }));
     to.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${f0.width / t1.width}, ${f0.height / t1.height})` },
       { transformOrigin: "0 0", transform: "none" }], opt).finished.then(() => { to.style.zIndex = ""; }, () => {});
-    if (back) {
-      sheet.querySelectorAll(".pop-head, .pop-body > *").forEach((el) => {
-        if (el.contains(to)) return;
-        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
-      });
-      sheet.querySelectorAll(".sec-cam").forEach((el) => {
-        if (el !== to) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
-      });
-    } else {
-      sheet.querySelectorAll(".pop-head").forEach((el) =>
-        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 80, easing: "ease-out", fill: "backwards" }));
-    }
+    // everything around the picture or card fades in as it settles (the header a little sooner)
+    const fade = (el, delay) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay, easing: "ease-out", fill: "backwards" });
+    sheet.querySelectorAll(".pop-head").forEach((el) => fade(el, 80));
+    sheet.querySelectorAll(".pop-body > *, .dt > *, .sec-cams > *, .pop-grid > *").forEach((el) => {
+      if (el !== to && !el.contains(to) && !to.contains(el)) fade(el, back ? 140 : 160);
+    });
   }
 
   _popSection(s) {
@@ -1536,6 +1548,7 @@ class OverlookShow extends LitElement {
       case "security": return secSection(this, s);
       case "camera": return camSection(this, s);
       case "game": return this._popGame(s);
+      case "detail": return detailSection(this, s);
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
@@ -1723,9 +1736,9 @@ class OverlookShow extends LitElement {
       || (e.attributes.device_class === "battery" && Number(e.state) <= 20);
     const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x.entity })
       : dom === "button" ? () => this._call("button", "press", { entity_id: x.entity })
-      : () => this._moreInfo(x.entity);
+      : (ev) => this._openDetail(x, ev.currentTarget);
     return html`
-      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x.wide ? "wide" : ""}" @click=${tap}>
+      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x.wide ? "wide" : ""}" data-ent=${x.entity} @click=${tap}>
         <span class="tile-ico"><ha-icon icon=${x.icon || e.attributes.icon || "mdi:information-outline"}></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${x.name}</span><span class="muted">${val}</span></span>
       </button>`;
@@ -2942,7 +2955,7 @@ class OverlookShow extends LitElement {
     input.focus();
   }
 
-  static styles = [WX_CSS, css`
+  static styles = [WX_CSS, DETAIL_CSS, css`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);

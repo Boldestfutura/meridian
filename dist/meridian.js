@@ -1310,16 +1310,16 @@ function homeBubbles(c2) {
   const people = st2.filter((x3) => x3.person).map((x3) => {
     const e2 = c2._st(x3.entity);
     if (!e2) return J;
-    const home = e2.state === "home", where = e2.state === "not_home" ? "Away" : e2.state;
+    const home = e2.state === "home", where2 = e2.state === "not_home" ? "Away" : e2.state;
     return Z`<button class="tab st ${home ? "st-home" : "st-away"}" @click=${() => c2._open(x3.entity)}>
       <ha-icon icon=${home ? "mdi:home-account" : "mdi:account-arrow-right-outline"}></ha-icon>
-      <span>${x3.name}</span><small>${home ? "Home" : where}</small></button>`;
+      <span>${x3.name}</span><small>${home ? "Home" : where2}</small></button>`;
   });
   const washer = c2._washer();
   const low = st2.find((x3) => /battery/.test(x3.entity));
   const lowOn = low && (c2._st(low.entity) || {}).state === (low.when || "on");
   const bats = lowOn ? (((c2._config.popups || {}).battery || {}).sections || []).flatMap((s2) => s2.items || []).map((t3) => ({ name: t3.name, v: num(c2, t3.entity) })).filter((t3) => t3.v != null).sort((a2, b2) => a2.v - b2.v) : [];
-  const battery = !lowOn ? J : Z`<button class="tab st bad" @click=${() => c2._open(low.entity)}>
+  const battery2 = !lowOn ? J : Z`<button class="tab st bad" @click=${() => c2._open(low.entity)}>
       <ha-icon icon=${low.icon}></ha-icon>${bats.length ? Z`<span>${Math.round(bats[0].v)}%</span><small>${bats[0].name}</small>` : Z`<span>${low.name}</span>`}</button>`;
   const alerts = st2.filter((x3) => !x3.person && !x3.weather && x3 !== low).map((x3) => {
     if (x3.security) return secPill(c2, x3);
@@ -1328,7 +1328,7 @@ function homeBubbles(c2) {
     const tap = x3.toggle ? () => c2._call("homeassistant", "toggle", { entity_id: x3.entity }) : () => c2._open(x3.entity);
     return Z`<button class="tab st ${x3.tone || "warn"}" @click=${tap}><ha-icon icon=${x3.icon}></ha-icon><span>${x3.name}</span></button>`;
   });
-  return Z`<div class="status hm-bub">${people}${washer}${battery}${alerts}</div>`;
+  return Z`<div class="status hm-bub">${people}${washer}${battery2}${alerts}</div>`;
 }
 function calendar(c2) {
   const n2 = /* @__PURE__ */ new Date(), DAYS2 = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -1448,7 +1448,8 @@ function securityRoom(c2, x3) {
 }
 function openCam(c2, id, from) {
   const e2 = c2._st(id);
-  c2._camBack = c2._pop && c2._pop !== "__camera" ? c2._pop : null;
+  c2._popBack = c2._pop && c2._pop !== "__camera" ? c2._pop : null;
+  c2._popReturn = `.sec-cam.tap[data-cam="${id}"]`;
   const show = () => {
     c2._config = Object.assign({}, c2._config, { popups: Object.assign({}, c2._config.popups, {
       __camera: { title: e2 && e2.attributes.friendly_name || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] }
@@ -2321,9 +2322,9 @@ function createPip() {
       if (!key.has(Math.floor(x3) + ox + "," + (Math.floor(y2) + oy))) putS(x3 + ox, y2 + oy, I2.OUT);
     for (const [x3, y2, c2] of px) putS(x3, y2, c2);
   }
-  function art(rows, x0, y0, col) {
+  function art(rows2, x0, y0, col) {
     const px = [];
-    rows.forEach((row, j2) => [...row].forEach((ch, i2) => {
+    rows2.forEach((row, j2) => [...row].forEach((ch, i2) => {
       if (ch !== ".") {
         const c2 = col(ch, i2, j2);
         if (c2 != null) px.push([x0 + i2, y0 + j2, c2]);
@@ -4177,6 +4178,401 @@ var WX_CSS = o`
   }
 `;
 
+// www/detail.js
+var AIR = {
+  temperature: (v2) => v2 < 17 ? "Cool" : v2 > 25 ? "Warm" : "Comfortable",
+  humidity: (v2) => v2 < 35 ? "Dry" : v2 > 60 ? "Humid" : "Comfortable",
+  pm25: (v2) => v2 <= 12 ? "Good" : v2 <= 35 ? "Moderate" : "Poor",
+  voc: (v2) => v2 <= 150 ? "Good" : v2 <= 250 ? "Moderate" : "Poor",
+  moisture: (v2) => v2 < 30 ? "Needs water" : v2 > 75 ? "Very wet" : "Good"
+};
+var kindOf = (e2, x3) => {
+  const dom = e2.entity_id.split(".")[0], dc = e2.attributes.device_class || "";
+  if (dom === "person" || dom === "device_tracker") return "where";
+  if (dom === "update") return "update";
+  if (dom === "climate") return "climate";
+  if (dom === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(dc)) return "contact";
+  if (dc === "battery" && !x3.attr) return "battery";
+  if (!isNaN(Number(x3.attr ? e2.attributes[x3.attr] : e2.state))) return "number";
+  return "plain";
+};
+function detailPopup(c2, x3) {
+  const e2 = c2._st(x3.entity);
+  const name = x3.name || e2 && e2.attributes.friendly_name || x3.entity;
+  return {
+    title: name,
+    icon: x3.icon || e2 && e2.attributes.icon || "mdi:information-outline",
+    sections: [{ type: "detail", entity: x3.entity, attr: x3.attr, name, icon: x3.icon }]
+  };
+}
+var ago = (t3) => {
+  const s2 = Math.max(0, (Date.now() - t3) / 1e3);
+  if (s2 < 60) return "just now";
+  if (s2 < 3600) return `${Math.round(s2 / 60)} min ago`;
+  if (s2 < 86400) return `${Math.round(s2 / 3600)} h ago`;
+  const d2 = Math.round(s2 / 86400);
+  return d2 === 1 ? "yesterday" : `${d2} days ago`;
+};
+var clock2 = (c2, t3) => {
+  const d2 = new Date(t3), today = /* @__PURE__ */ new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today - new Date(t3).setHours(0, 0, 0, 0)) / 864e5);
+  const day = days === 0 ? "" : days === 1 ? "Yesterday " : `${d2.toLocaleDateString(void 0, { weekday: "short", day: "numeric", month: "short" })}, `;
+  return day + c2._ampm(d2);
+};
+var since = (c2, t3) => {
+  const m2 = Math.max(0, Math.round((Date.now() - t3) / 6e4));
+  const dur = m2 < 60 ? `${m2} min` : m2 < 1440 ? `${Math.floor(m2 / 60)} h${m2 % 60 ? ` ${m2 % 60} min` : ""}` : `${Math.round(m2 / 1440)} days`;
+  return `since ${clock2(c2, t3)} \xB7 ${dur}`;
+};
+var km = (a2, b2) => {
+  const R3 = 6371, r2 = Math.PI / 180;
+  const dLat = (b2.latitude - a2.latitude) * r2, dLon = (b2.longitude - a2.longitude) * r2;
+  const h2 = Math.sin(dLat / 2) ** 2 + Math.cos(a2.latitude * r2) * Math.cos(b2.latitude * r2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R3 * Math.asin(Math.sqrt(h2));
+};
+var sameDevice = (c2, id) => {
+  const reg = c2.hass.entities || {}, dev = reg[id] && reg[id].device_id;
+  return dev ? Object.keys(reg).filter((k2) => k2 !== id && reg[k2].device_id === dev && c2._st(k2)) : [];
+};
+var batteryOf = (c2, id) => sameDevice(c2, id).find((k2) => {
+  const e2 = c2._st(k2);
+  return e2.attributes.device_class === "battery" && e2.attributes.unit_of_measurement === "%";
+});
+var chargingOf = (c2, id) => sameDevice(c2, id).find((k2) => /_battery_state$/.test(k2));
+var geocodeOf = (c2, id) => sameDevice(c2, id).find((k2) => /_geocoded_location$/.test(k2));
+function hist(c2, id, hours, attr) {
+  const key = `${id}|${hours}|${attr || ""}`;
+  c2._dhist = c2._dhist || {};
+  c2._dreq = c2._dreq || {};
+  if (!c2._dreq[key]) {
+    c2._dreq[key] = true;
+    const start = new Date(Date.now() - hours * 36e5).toISOString();
+    const q2 = `history/period/${start}?filter_entity_id=${id}&end_time=${(/* @__PURE__ */ new Date()).toISOString()}` + (attr ? "&significant_changes_only=0" : "&minimal_response&no_attributes");
+    c2.hass.callApi("GET", q2).then((r2) => {
+      const list = (r2[0] || []).map((h2) => ({
+        t: new Date(h2.last_updated || h2.last_changed).getTime(),
+        s: attr ? (h2.attributes || {})[attr] : h2.state
+      }));
+      c2._dhist = Object.assign({}, c2._dhist, { [key]: list });
+      c2.requestUpdate();
+    }).catch(() => {
+      c2._dhist = Object.assign({}, c2._dhist, { [key]: [] });
+      c2.requestUpdate();
+    });
+  }
+  return c2._dhist[key];
+}
+var range = (c2) => c2._dRange || 24;
+var rangeTabs = (c2) => Z`
+  <div class="dt-tabs">${[[24, "24 hours"], [168, "7 days"]].map(([h2, t3]) => Z`
+    <button class=${range(c2) === h2 ? "on" : ""} @click=${() => {
+  c2._dRange = h2;
+  c2.requestUpdate();
+}}>${t3}</button>`)}</div>`;
+function graph(c2, id, attr, unit, color, hours = range(c2)) {
+  const e2 = c2._st(id);
+  const list = hist(c2, id, hours, attr);
+  if (!list) return Z`<div class="dt-graph dt-empty">Loading…</div>`;
+  const now = Number(attr ? e2.attributes[attr] : e2.state);
+  let pts = list.map((p2) => [p2.t, Number(p2.s)]).filter((p2) => isFinite(p2[1]));
+  if (isFinite(now)) pts.push([Date.now(), now]);
+  if (pts.length < 2) return Z`<div class="dt-graph dt-empty">Not enough history yet</div>`;
+  const W2 = 340, H2 = 120, t0 = Date.now() - hours * 36e5, t1 = Date.now();
+  const vals = pts.map((p2) => p2[1]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const avg = vals.reduce((a2, b2) => a2 + b2, 0) / vals.length;
+  const pad = Math.max((hi - lo) * 0.15, unit === "%" ? 2 : 0.5);
+  const yl = lo - pad, yh = hi + pad;
+  const X2 = (t3) => (Math.max(t3, t0) - t0) / (t1 - t0) * W2, Y2 = (v2) => H2 - (v2 - yl) / (yh - yl) * H2;
+  let d2 = `M${X2(pts[0][0]).toFixed(1)} ${Y2(pts[0][1]).toFixed(1)}`;
+  pts.forEach((p2, i2) => {
+    if (i2) d2 += ` L${X2(p2[0]).toFixed(1)} ${Y2(pts[i2 - 1][1]).toFixed(1)} L${X2(p2[0]).toFixed(1)} ${Y2(p2[1]).toFixed(1)}`;
+  });
+  const f2 = (v2) => `${Math.round(v2 * 10) / 10}${unit}`;
+  const ticks = hours <= 24 ? [0, 6, 12, 18, 24].map((h2) => [t1 - h2 * 36e5, h2 === 0 ? "Now" : `${h2}h`]) : [0, 2, 4, 6].map((dd) => [t1 - dd * 864e5, dd === 0 ? "Today" : new Date(t1 - dd * 864e5).toLocaleDateString(void 0, { weekday: "short" })]);
+  return Z`
+    <div class="dt-graph" style="--dc:${color || "var(--accent)"}">
+      <svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none">${q`
+        <path d="${d2} L${W2} ${H2} L${X2(pts[0][0]).toFixed(1)} ${H2} Z" fill="var(--dc)" opacity="0.13"></path>
+        <path d=${d2} fill="none" stroke="var(--dc)" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path>`}</svg>
+      <div class="dt-ticks">${ticks.reverse().map(([t3, l2]) => Z`<span style="left:${X2(t3) / W2 * 100}%">${l2}</span>`)}</div>
+    </div>
+    <div class="dt-stats">
+      <div><small>Low</small><b>${f2(lo)}</b></div><div><small>Average</small><b>${f2(avg)}</b></div><div><small>High</small><b>${f2(hi)}</b></div>
+    </div>`;
+}
+var moreLink = (c2, id) => Z`
+  <button class="dt-more" @click=${() => {
+  c2._pop = null;
+  c2._popBack = c2._popReturn = null;
+  c2.requestUpdate();
+  c2._moreInfo(id);
+}}><ha-icon icon="mdi:tune-variant"></ha-icon><span>More in Home Assistant</span>
+    <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
+var rows = (list) => Z`<div class="dt-rows">${list.filter(Boolean).map(([icon2, k2, v2]) => Z`
+  <div class="dt-row"><ha-icon icon=${icon2}></ha-icon><span>${k2}</span><b>${v2}</b></div>`)}</div>`;
+function map(c2, lat, lon, acc) {
+  const z2 = 15, W2 = 342, H2 = 190, T2 = 256, n2 = 2 ** z2;
+  const tx = (lon + 180) / 360 * n2;
+  const ty = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n2;
+  const tiles = [];
+  for (let i2 = Math.floor(tx - W2 / 2 / T2); i2 <= Math.floor(tx + W2 / 2 / T2); i2++)
+    for (let j2 = Math.floor(ty - H2 / 2 / T2); j2 <= Math.floor(ty + H2 / 2 / T2); j2++)
+      tiles.push([i2, j2, (i2 - tx) * T2 + W2 / 2, (j2 - ty) * T2 + H2 / 2]);
+  const mpp = 156543.03 * Math.cos(lat * Math.PI / 180) / n2;
+  const r2 = Math.max(10, (acc || 0) / mpp);
+  const home = c2._st("zone.home");
+  let hm = null;
+  if (home && home.attributes.latitude != null) {
+    const hx = (home.attributes.longitude + 180) / 360 * n2, hlat = home.attributes.latitude * Math.PI / 180;
+    const hy = (1 - Math.log(Math.tan(hlat) + 1 / Math.cos(hlat)) / Math.PI) / 2 * n2;
+    const px = (hx - tx) * T2 + W2 / 2, py = (hy - ty) * T2 + H2 / 2;
+    if (px > 12 && px < W2 - 12 && py > 12 && py < H2 - 12 && Math.hypot(px - W2 / 2, py - H2 / 2) > 18) hm = [px, py];
+  }
+  return Z`
+    <div class="dt-map">
+      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => Z`<img src="https://tile.openstreetmap.org/${z2}/${(i2 % n2 + n2) % n2}/${j2}.png"
+        referrerpolicy="strict-origin-when-cross-origin" style="left:${l2}px;top:${t3}px" alt="" draggable="false">`)}</div>
+      <i class="dt-acc" style="width:${r2 * 2}px;height:${r2 * 2}px"></i><i class="dt-pin"></i>
+      ${hm ? Z`<span class="dt-home" style="left:${hm[0] / W2 * 100}%;top:${hm[1] / H2 * 100}%"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
+      <small class="dt-osm">© OpenStreetMap</small>
+    </div>`;
+}
+function where(c2, e2) {
+  const a2 = e2.attributes, dom = e2.entity_id.split(".")[0];
+  const dev = dom === "person" ? a2.source : e2.entity_id;
+  const de = c2._st(dev) || e2;
+  const lat = a2.latitude ?? de.attributes.latitude, lon = a2.longitude ?? de.attributes.longitude;
+  const home = c2._st("zone.home");
+  const st2 = e2.state;
+  const geo = dev && geocodeOf(c2, dev) && c2._st(geocodeOf(c2, dev));
+  const addr = geo && !["unknown", "unavailable"].includes(geo.state) ? geo.state.split(",").slice(0, 2).join(",") : null;
+  const place = st2 === "home" ? "Home" : st2 === "not_home" ? addr || "Away" : st2 === "unknown" ? "Unknown" : st2;
+  const dist = lat != null && home && st2 !== "home" ? km({ latitude: lat, longitude: lon }, home.attributes) : null;
+  const bat = dev && batteryOf(c2, dev), batE = bat && c2._st(bat), chg = dev && chargingOf(c2, dev) && c2._st(chargingOf(c2, dev));
+  const lvl = batE ? Number(batE.state) : de.attributes.battery_level;
+  return Z`
+    <div class="dt-hero dt-where">
+      ${lat != null ? map(c2, lat, lon, a2.gps_accuracy ?? de.attributes.gps_accuracy) : Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
+      <div class="dt-place"><b>${place}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
+    </div>
+    ${rows([
+    dist != null && ["mdi:home-import-outline", "From home", dist < 1 ? `${Math.round(dist * 1e3)} m` : `${dist.toFixed(1)} km`],
+    addr && st2 !== "not_home" && ["mdi:map-marker-outline", "Address", addr],
+    lvl != null && isFinite(lvl) && ["mdi:battery-outline", "Battery", `${Math.round(lvl)}%${chg && chg.state !== "unknown" ? ` \xB7 ${chg.state.replace("Not Charging", "not charging").toLowerCase()}` : ""}`],
+    (a2.gps_accuracy ?? de.attributes.gps_accuracy) != null && ["mdi:crosshairs-gps", "Accuracy", `\xB1${Math.round(a2.gps_accuracy ?? de.attributes.gps_accuracy)} m`],
+    ["mdi:update", "Last update", ago(new Date(de.last_updated).getTime())]
+  ])}`;
+}
+function update(c2, e2) {
+  const a2 = e2.attributes, avail = e2.state === "on", busy = a2.in_progress;
+  const holding = c2._dHold === e2.entity_id;
+  const start = (ev) => {
+    ev.preventDefault();
+    c2._dHold = e2.entity_id;
+    c2.requestUpdate();
+    clearTimeout(c2._dHoldT);
+    c2._dHoldT = setTimeout(() => {
+      if (c2._dHold !== e2.entity_id) return;
+      c2._dHold = null;
+      c2._call("update", "install", { entity_id: e2.entity_id });
+      c2.requestUpdate();
+    }, 1200);
+  };
+  const stop = () => {
+    if (c2._dHold) {
+      c2._dHold = null;
+      clearTimeout(c2._dHoldT);
+      c2.requestUpdate();
+    }
+  };
+  const summary = (a2.release_summary || "").replace(/<[^>]+>/g, "").trim();
+  return Z`
+    <div class="dt-hero dt-upd ${avail ? "avail" : ""}">
+      <span class="dt-chip">${busy ? "Installing\u2026" : avail ? "Update available" : "Up to date"}</span>
+      <div class="dt-vers"><span>${a2.installed_version || "\u2013"}</span>${avail ? Z`<ha-icon icon="mdi:arrow-right"></ha-icon><b>${a2.latest_version}</b>` : J}</div>
+      <small>${a2.title || ""}</small>
+      ${busy && a2.update_percentage != null ? Z`<div class="dt-bar"><i style="width:${a2.update_percentage}%"></i></div>` : J}
+    </div>
+    ${summary ? Z`<div class="pop-sub">What's new</div><div class="dt-notes">${summary}</div>` : J}
+    ${a2.release_url ? Z`<a class="dt-more" href=${a2.release_url} target="_blank" rel="noreferrer"><ha-icon icon="mdi:text-box-outline"></ha-icon>
+      <span>Release notes</span><ha-icon icon="mdi:open-in-new"></ha-icon></a>` : J}
+    ${avail && !busy ? Z`
+      <button class="dt-install ${holding ? "holding" : ""}" @pointerdown=${start} @pointerup=${stop} @pointerleave=${stop} @pointercancel=${stop}
+        @contextmenu=${(ev) => ev.preventDefault()}>
+        <i></i><span>${holding ? "Keep holding\u2026" : `Hold to install ${a2.latest_version}`}</span></button>
+      <div class="dt-hint">Home Assistant restarts while it installs.</div>` : J}`;
+}
+function contact(c2, e2) {
+  const open = e2.state === "on", dc = e2.attributes.device_class;
+  const door = dc === "door" || dc === "garage_door";
+  const list = hist(c2, e2.entity_id, 24);
+  const t1 = Date.now(), t0 = t1 - 24 * 36e5;
+  let segs = [], opens = 0;
+  if (list) {
+    const ch = [...list, { t: t1, s: e2.state }];
+    ch.forEach((p2, i2) => {
+      if (p2.s === "on" && i2 < ch.length - 1) segs.push([Math.max(p2.t, t0), ch[i2 + 1].t]);
+      if (p2.s === "on" && i2 > 0 && ch[i2 - 1].s !== "on") opens++;
+    });
+  }
+  const bat = batteryOf(c2, e2.entity_id), batE = bat && c2._st(bat);
+  const recent = (list || []).filter((p2, i2, a2) => i2 > 0 && p2.s !== a2[i2 - 1].s && ["on", "off"].includes(p2.s)).slice(-5).reverse();
+  return Z`
+    <div class="dt-hero dt-contact ${open ? "open" : ""}">
+      <ha-icon icon=${door ? open ? "mdi:door-open" : "mdi:door-closed" : open ? "mdi:window-open-variant" : "mdi:window-closed-variant"}></ha-icon>
+      <div><b>${open ? "Open" : "Shut"}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
+    </div>
+    <div class="pop-sub">Last 24 hours${list ? ` \xB7 opened ${opens} time${opens === 1 ? "" : "s"}` : ""}</div>
+    <div class="dt-line">${segs.map(([a2, b2]) => Z`<i style="left:${(a2 - t0) / (t1 - t0) * 100}%;width:${Math.max(0.8, (b2 - a2) / (t1 - t0) * 100)}%"></i>`)}</div>
+    <div class="dt-ticks static"><span>24h ago</span><span>12h</span><span>Now</span></div>
+    ${recent.length ? rows(recent.map((p2) => [p2.s === "on" ? "mdi:arrow-up-bold-outline" : "mdi:arrow-down-bold-outline", p2.s === "on" ? "Opened" : "Shut", clock2(c2, p2.t)])) : J}
+    ${batE ? rows([["mdi:battery-outline", "Sensor battery", `${Math.round(Number(batE.state))}%`]]) : J}`;
+}
+function battery(c2, e2) {
+  const v2 = Number(e2.state), a2 = e2.attributes;
+  const chg = chargingOf(c2, e2.entity_id) && c2._st(chargingOf(c2, e2.entity_id));
+  const col = v2 <= 20 ? "#e5484d" : v2 <= 40 ? "#f39a43" : "#3f8f63";
+  const week = !chg ? hist(c2, e2.entity_id, 168) : null;
+  let left = null;
+  if (week && week.length > 1) {
+    const first = week.find((p2) => isFinite(Number(p2.s)));
+    if (first) {
+      const days = (Date.now() - first.t) / 864e5, drop = Number(first.s) - v2;
+      if (days > 2 && drop > 0.5) left = v2 / (drop / days);
+    }
+  }
+  const leftTxt = left == null ? null : left > 120 ? "Months" : left > 21 ? `About ${Math.round(left / 7)} weeks` : `About ${Math.round(left)} days`;
+  return Z`
+    <div class="dt-hero dt-bat" style="--bc:${col}">
+      <div class="dt-cell"><i style="width:${Math.max(3, Math.min(100, v2))}%"></i></div>
+      <div><b>${isFinite(v2) ? `${Math.round(v2)}%` : "\u2013"}</b><span>${chg && !["unknown", "unavailable"].includes(chg.state) ? chg.state : v2 <= 20 ? "Low, replace soon" : "Battery"}</span></div>
+    </div>
+    ${rangeTabs(c2)}
+    ${graph(c2, e2.entity_id, null, "%", col)}
+    ${rows([
+    leftTxt && ["mdi:timer-sand", "Lasts", `${leftTxt} at this rate`],
+    a2.battery_size && ["mdi:battery-unknown", "Takes", `${a2.battery_quantity ? `${a2.battery_quantity} \xD7 ` : ""}${a2.battery_size}`],
+    ["mdi:update", "Last report", ago(new Date(e2.last_updated).getTime())]
+  ])}`;
+}
+function number(c2, e2, s2) {
+  const a2 = e2.attributes, attr = s2.attr;
+  const v2 = Number(attr ? a2[attr] : e2.state);
+  const unit = attr ? /temp/.test(attr) ? "\xB0" : /humid/.test(attr) ? "%" : "" : a2.unit_of_measurement === "\xB0C" ? "\xB0" : a2.unit_of_measurement === "%" ? "%" : a2.unit_of_measurement ? ` ${a2.unit_of_measurement}` : "";
+  const id = e2.entity_id, dc = a2.device_class || "";
+  const which = /pm2_5|pm25/.test(id) ? "pm25" : /voc/.test(id) ? "voc" : /moisture|soil.*humid/.test(id) || dc === "moisture" ? "moisture" : dc === "temperature" || attr === "current_temperature" ? "temperature" : dc === "humidity" || attr === "current_humidity" ? "humidity" : null;
+  const verdict = which && isFinite(v2) ? AIR[which](v2) : null;
+  const col = which === "temperature" ? "#f39a43" : which === "humidity" || which === "moisture" ? "#3f86f2" : which === "pm25" ? "#3f8f63" : which === "voc" ? "#1fb39b" : "var(--accent)";
+  return Z`
+    <div class="dt-hero dt-num" style="--dc:${col}">
+      <b>${isFinite(v2) ? Math.round(v2 * 10) / 10 : "\u2013"}<em>${unit.trim()}</em></b>
+      <span>${verdict || ""}</span><small>Updated ${ago(new Date(e2.last_updated).getTime())}</small>
+    </div>
+    ${rangeTabs(c2)}
+    ${graph(c2, id, attr, unit.trim() === "%" ? "%" : unit.trim() === "\xB0" ? "\xB0" : "", col)}`;
+}
+function climate(c2, e2, s2) {
+  const a2 = e2.attributes;
+  return Z`
+    <div class="dt-hero dt-thermo">${c2._thermostat(e2.entity_id)}</div>
+    ${a2.current_humidity != null ? rows([["mdi:water-percent", "Humidity", `${Math.round(a2.current_humidity)}%`]]) : J}
+    ${rangeTabs(c2)}
+    ${graph(c2, e2.entity_id, s2.attr || "current_temperature", s2.attr === "current_humidity" ? "%" : "\xB0", s2.attr === "current_humidity" ? "#3f86f2" : "#f39a43")}`;
+}
+function plain(c2, e2) {
+  return Z`
+    <div class="dt-hero dt-num"><b class="txt">${c2._fmt(e2)}</b><small>Changed ${ago(new Date(e2.last_changed).getTime())}</small></div>`;
+}
+function detailSection(c2, s2) {
+  const e2 = c2._st(s2.entity);
+  if (!e2) return Z`<div class="dt-hero dt-num"><b class="txt">Not available</b></div>`;
+  const k2 = kindOf(e2, s2);
+  const body = k2 === "where" ? where(c2, e2) : k2 === "update" ? update(c2, e2) : k2 === "climate" ? climate(c2, e2, s2) : k2 === "contact" ? contact(c2, e2) : k2 === "battery" ? battery(c2, e2) : k2 === "number" ? number(c2, e2, s2) : plain(c2, e2);
+  return Z`<div class="dt">${body}${moreLink(c2, s2.entity)}</div>`;
+}
+var DETAIL_CSS = o`
+  .dt { display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
+  .dt-hero { border-radius: 22px; background: var(--card); overflow: hidden; }
+  .dt-where { display: flex; flex-direction: column; }
+  .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
+  .dt-tiles { position: absolute; inset: 0; }
+  .dt-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; }
+  @media (prefers-color-scheme: dark) { .dt-tiles img { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85); } }
+  .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
+            background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+  .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+             background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
+  .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
+  .dt-nomap { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
+  .dt-place { display: flex; flex-direction: column; padding: 12px 16px 14px; }
+  .dt-place b { font-size: 22px; font-weight: 700; line-height: 1.2; }
+  .dt-place span, .dt-contact span, .dt-bat span { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .dt-rows { display: flex; flex-direction: column; border-radius: 18px; background: var(--card); padding: 4px 14px; }
+  .dt-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; font-size: 15px; }
+  .dt-row + .dt-row { border-top: 1px solid var(--track); }
+  .dt-row ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+  .dt-row b { font-weight: 600; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+  .dt-more { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 18px;
+             background: var(--card); color: var(--ink); font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; text-align: left; }
+  .dt-more ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+  .dt-upd { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .dt-upd.avail { background: color-mix(in srgb, #e5484d 12%, var(--card)); }
+  .dt-chip { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .dt-upd.avail .dt-chip { background: color-mix(in srgb, #e5484d 18%, var(--card)); color: #e5484d; }
+  .dt-vers { display: flex; align-items: center; gap: 8px; font-size: 26px; font-weight: 700; }
+  .dt-vers span { color: var(--muted); font-weight: 600; } .dt-vers ha-icon { color: var(--muted); }
+  .dt-upd small { font-size: 13px; color: var(--muted); }
+  .dt-bar, .dt-cell { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
+  .dt-bar i { display: block; height: 100%; background: var(--accent); }
+  .dt-notes { font-size: 14px; line-height: 1.45; padding: 12px 14px; border-radius: 18px; background: var(--card); white-space: pre-line;
+              max-height: 180px; overflow: auto; }
+  .dt-install { position: relative; overflow: hidden; height: 54px; border-radius: 18px; border: 0; font: inherit; font-size: 16px; font-weight: 700;
+                color: #fff; background: #e5484d; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .dt-install i { position: absolute; inset: 0; width: 0; background: rgba(255, 255, 255, 0.28); }
+  .dt-install.holding i { width: 100%; transition: width 1.2s linear; }
+  .dt-install span { position: relative; }
+  .dt-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: -4px; }
+  .dt-contact { display: flex; align-items: center; gap: 14px; padding: 16px; }
+  .dt-contact ha-icon { --mdc-icon-size: 40px; color: #3f8f63; }
+  .dt-contact.open { background: color-mix(in srgb, var(--warm) 16%, var(--card)); }
+  .dt-contact.open ha-icon, .dt-contact.open b { color: color-mix(in srgb, var(--warm) 85%, var(--ink)); }
+  .dt-contact div, .dt-bat > div:last-child { display: flex; flex-direction: column; }
+  .dt-contact b, .dt-bat b { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .dt-line { position: relative; height: 26px; border-radius: 10px; background: var(--card); overflow: hidden; }
+  .dt-line i { position: absolute; top: 4px; bottom: 4px; border-radius: 6px; background: var(--warm); }
+  .dt-bat { display: flex; align-items: center; gap: 16px; padding: 16px; }
+  .dt-cell { width: 92px; height: 40px; border-radius: 10px; padding: 4px; position: relative; flex: none; background: var(--track); overflow: visible; }
+  .dt-cell::after { content: ""; position: absolute; right: -6px; top: 13px; width: 4px; height: 14px; border-radius: 0 3px 3px 0; background: var(--track); }
+  .dt-cell i { display: block; height: 100%; border-radius: 6px; background: var(--bc); }
+  .dt-num { display: flex; flex-direction: column; padding: 16px; }
+  .dt-num b { font-size: 46px; font-weight: 700; line-height: 1; color: color-mix(in srgb, var(--dc, var(--accent)) 80%, var(--ink)); }
+  .dt-num b.txt { font-size: 28px; color: var(--ink); }
+  .dt-num em { font-style: normal; font-size: 24px; margin-left: 2px; }
+  .dt-num span { font-size: 16px; font-weight: 600; margin-top: 6px; }
+  .dt-num small { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .dt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--card); }
+  .dt-tabs button { border: 0; font: inherit; font-size: 14px; font-weight: 600; padding: 8px; border-radius: 10px; background: none; color: var(--muted); }
+  .dt-tabs button.on { background: var(--accent-soft); color: var(--accent); }
+  .dt-graph { position: relative; padding: 12px 12px 22px; border-radius: 18px; background: var(--card); }
+  .dt-graph svg { display: block; width: 100%; height: 120px; }
+  .dt-empty { height: 120px; display: grid; place-items: center; color: var(--muted); font-size: 14px; padding: 12px; }
+  .dt-ticks { position: absolute; left: 12px; right: 12px; bottom: 4px; height: 14px; }
+  .dt-ticks span { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .dt-ticks span:first-child { transform: none; } .dt-ticks span:last-child { transform: translateX(-100%); }
+  .dt-ticks.static { position: static; display: flex; justify-content: space-between; height: auto; margin-top: -6px; }
+  .dt-ticks.static span { position: static; transform: none; }
+  .dt-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dt-stats div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 16px; background: var(--card); }
+  .dt-stats small { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .dt-stats b { font-size: 18px; font-weight: 700; }
+  .dt-thermo { padding: 14px; }
+  .dt-thermo .thermo { padding: 0; background: none; box-shadow: none; }
+`;
+
 // www/weather-page.js
 var DEFAULTS = {
   name: "South Melbourne",
@@ -4223,7 +4619,7 @@ var POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW"
 var bearing = (b2) => typeof b2 === "number" ? b2 : POINTS.indexOf(String(b2 || "").toUpperCase()) * 22.5;
 var DAY2 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var hourLabel2 = (d2) => `${d2.getHours() % 12 || 12}${d2.getHours() < 12 ? "am" : "pm"}`;
-var clock2 = (d2) => `${d2.getHours() % 12 || 12}:${String(d2.getMinutes()).padStart(2, "0")} ${d2.getHours() < 12 ? "am" : "pm"}`;
+var clock3 = (d2) => `${d2.getHours() % 12 || 12}:${String(d2.getMinutes()).padStart(2, "0")} ${d2.getHours() < 12 ? "am" : "pm"}`;
 var num3 = (v2) => {
   const n2 = parseFloat(v2);
   return isFinite(n2) ? n2 : null;
@@ -4513,7 +4909,7 @@ var MeridianWeather = class extends dt {
       <div class="card map"><div class="mapbox">
         <div class="tiles" style="transform:translate(${-(px - x0 * 256)}px, ${-(py - y0 * 256)}px)">${base}${radar}${labels}</div>
         <div class="home"></div>
-        ${f2 ? Z`<div class="stamp">${clock2(new Date(f2.time * 1e3))}</div>` : J}
+        ${f2 ? Z`<div class="stamp">${clock3(new Date(f2.time * 1e3))}</div>` : J}
         <div class="credit">Esri, HERE, Garmin · RainViewer</div>
       </div></div>`;
   }
@@ -4551,7 +4947,7 @@ var MeridianWeather = class extends dt {
       return Z`<a class="card row warn ${major ? "major" : ""}" href="https://www.bom.gov.au/products/${prod}.shtml" target="_blank" rel="noreferrer">
         <span class="ico"><ha-icon icon="mdi:alert"></ha-icon></span>
         <span class="txt"><b>${w2.short_title || w2.title}</b>
-          <small>${w2.title}${until ? Z` Until ${DAY2[until.getDay()]} ${clock2(until)}.` : J}</small></span>
+          <small>${w2.title}${until ? Z` Until ${DAY2[until.getDay()]} ${clock3(until)}.` : J}</small></span>
         <ha-icon class="go" icon="mdi:chevron-right"></ha-icon></a>`;
     });
   }
@@ -4595,7 +4991,7 @@ var MeridianWeather = class extends dt {
       <div class="card hours-card">
       <div class="hint">${tab === "rain" ? "Chance and amount" : tab === "wind" ? "Speed and gusts, km/h" : "Temperature, \xB0C"}</div>
       <div class="hours">${items.map((it2, i2) => {
-      if (it2.kind === "s") return Z`<div class="hr sun"><span>${clock2(it2.d).replace(" ", "")}</span>
+      if (it2.kind === "s") return Z`<div class="hr sun"><span>${clock3(it2.d).replace(" ", "")}</span>
           <ha-icon class="sunico" icon=${it2.what === "Sunset" ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up"}></ha-icon><b>${it2.what}</b></div>`;
       const f2 = it2.f, p2 = f2.precipitation_probability || 0, cls = i2 === 0 ? "hr now" : "hr";
       if (tab === "rain") return Z`<div class=${cls}><span>${it2.label}</span>
@@ -4642,7 +5038,7 @@ var MeridianWeather = class extends dt {
     const dirS = this._st(`sensor.${this._config.observations}_wind_direction`), dir = dirS ? dirS.state : "";
     const hum = this._obs("humidity"), dew = this._obs("dew_point");
     const det = (this._st(this._config.detail) || { attributes: {} }).attributes, pres = num3(det.pressure);
-    const rain9 = this._obs("rain_since_9am"), range = this._fc("rain_amount_range"), chance = this._fc("rain_chance");
+    const rain9 = this._obs("rain_since_9am"), range2 = this._fc("rain_amount_range"), chance = this._fc("rain_chance");
     const m2 = moon(), fire = this._fc("fire_danger");
     const dayFrac = (d2) => (d2.getHours() * 60 + d2.getMinutes()) / 1440;
     const r0 = rise ? dayFrac(rise) : 0.25, s0 = set ? dayFrac(set) : 0.83, nf = dayFrac(now);
@@ -4658,14 +5054,14 @@ var MeridianWeather = class extends dt {
       ${tile("mdi:weather-sunny-alert", "UV index", Z`
         <div class="tv">${uv ?? "\u2013"}<small>${uvCat || ""}</small></div>
         <div class="uvbar"><u style="left:${Math.min(100, (uv || 0) / 11 * 100)}%"></u></div>
-        <div class="tn">${uvS && uvE ? `Sun protection ${clock2(new Date(uvS))} to ${clock2(new Date(uvE))}.` : "Today's peak."}</div>`)}
+        <div class="tn">${uvS && uvE ? `Sun protection ${clock3(new Date(uvS))} to ${clock3(new Date(uvE))}.` : "Today's peak."}</div>`)}
       ${tile(nextSet ? "mdi:weather-sunset-down" : "mdi:weather-sunset-up", nextSet ? "Sunset" : "Sunrise", Z`
-        <div class="tv">${next ? clock2(next) : "\u2013"}</div>
+        <div class="tv">${next ? clock3(next) : "\u2013"}</div>
         <div class="arc"><svg class="sunarc" viewBox="0 0 100 40" preserveAspectRatio="none">
           <path d=${path} fill="none" stroke="var(--track-strong)" stroke-width="1.4" vector-effect="non-scaling-stroke"></path>
           <line x1="0" x2="100" y1="30" y2="30" stroke="var(--track)" stroke-width="1" vector-effect="non-scaling-stroke"></line></svg>
         <i class="sundot" style="left:${nf * 100}%;top:${sunY / 40 * 100}%"></i></div>
-        <div class="tn">${nextSet ? rise ? `Sunrise ${clock2(rise)}` : "" : set ? `Sunset ${clock2(set)}` : ""}</div>`, "sun")}
+        <div class="tn">${nextSet ? rise ? `Sunrise ${clock3(rise)}` : "" : set ? `Sunset ${clock3(set)}` : ""}</div>`, "sun")}
       ${tile("mdi:thermometer", "Feels like", Z`
         <div class="tv">${round2(feels)}°<small>Actual ${round2(temp)}°</small></div>
         <div class="tn">${feels != null && temp != null ? temp - feels >= 2 ? "Wind is making it feel cooler." : feels - temp >= 2 ? "Humidity is making it feel warmer." : "Close to the actual temperature." : ""}</div>`)}
@@ -4683,7 +5079,7 @@ var MeridianWeather = class extends dt {
           </svg></div>`)}
       ${tile("mdi:water", "Rain", Z`
         <div class="tv">${rain9 ?? "\u2013"}<small>mm ${this._away ? "expected today" : "since 9 am"}</small></div>
-        <div class="tn">${range ? `${range} mm expected today${chance ? `, ${chance}% chance` : ""}.` : chance ? `${chance}% chance today.` : ""}</div>`)}
+        <div class="tn">${range2 ? `${range2} mm expected today${chance ? `, ${chance}% chance` : ""}.` : chance ? `${chance}% chance today.` : ""}</div>`)}
       ${tile("mdi:water-percent", "Humidity", Z`
         <div class="tv">${round2(hum)}%</div>
         <div class="meter"><i style="width:${Math.min(100, hum || 0)}%"></i></div>
@@ -4885,7 +5281,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.39.1";
+var VERSION = "0.40.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -4947,7 +5343,7 @@ var WEATHER = {
   "hail": ["mdi:weather-hail", "Hail", "#8fb6e8"],
   "exceptional": ["mdi:alert-circle-outline", "Warning", "#e2574c"]
 };
-var AIR = {
+var AIR2 = {
   temperature: ["Temperature", "#e0a63c", (v2) => v2 < 17 ? "Cool" : v2 > 25 ? "Warm" : "Comfortable"],
   humidity: ["Humidity", "#5a7ea8", (v2) => v2 < 35 ? "Dry" : v2 > 60 ? "Humid" : "Comfortable"],
   pm2_5: ["Fine dust (PM2.5)", "#3f8f63", (v2) => v2 <= 12 ? "Good" : v2 <= 35 ? "Moderate" : "Poor"],
@@ -6178,9 +6574,9 @@ var OverlookShow = class extends dt {
     const a2 = w2 && w2.alert && this._st(w2.alert);
     if (!a2 || a2.state !== "on" || !this.hass || this._night()) return J;
     const e2 = this._st(w2.entity);
-    const since = e2 && e2.state === "done" ? new Date(e2.last_changed) : null;
-    const min = since ? Math.max(0, Math.floor((this._now - since) / 6e4)) : null;
-    const ago = min == null ? "" : min < 60 ? `Finished ${min} min ago` : `Finished ${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""} ago`;
+    const since2 = e2 && e2.state === "done" ? new Date(e2.last_changed) : null;
+    const min = since2 ? Math.max(0, Math.floor((this._now - since2) / 6e4)) : null;
+    const ago2 = min == null ? "" : min < 60 ? `Finished ${min} min ago` : `Finished ${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""} ago`;
     const dismiss = (ev) => {
       ev.stopPropagation();
       this._call("input_boolean", "turn_off", { entity_id: w2.alert });
@@ -6204,7 +6600,7 @@ var OverlookShow = class extends dt {
         </div>
         <div class="wa-text">
           <div class="wa-title">The washing's still in there</div>
-          ${ago ? Z`<div class="wa-sub">${ago}</div>` : J}
+          ${ago2 ? Z`<div class="wa-sub">${ago2}</div>` : J}
         </div>
         <button class="wa-btn" @click=${dismiss}><ha-icon icon="mdi:check"></ha-icon>Got it</button>
       </div>`;
@@ -6377,32 +6773,32 @@ var OverlookShow = class extends dt {
     const graphs = p2.sections.filter((s2) => s2.type === "graph" || s2.type === "multigraph");
     if (!graphs.length) return;
     const series = graphs.flatMap((s2) => s2.series || [{ entity: s2.entity }]);
-    const plain = [...new Set(series.filter((x3) => !x3.attr).map((x3) => x3.entity))];
+    const plain2 = [...new Set(series.filter((x3) => !x3.attr).map((x3) => x3.entity))];
     const withAttr = [...new Set(series.filter((x3) => x3.attr).map((x3) => x3.entity))];
     const hours = Math.max(...graphs.map((s2) => s2.hours || 168));
     const start = new Date(Date.now() - hours * 3600 * 1e3).toISOString();
     const q2 = (ids, extra) => this.hass.callApi("GET", `history/period/${start}?filter_entity_id=${ids.join(",")}&end_time=${(/* @__PURE__ */ new Date()).toISOString()}${extra}`);
     try {
       const [r1, r2] = await Promise.all([
-        plain.length ? q2(plain, "&minimal_response&no_attributes") : [],
+        plain2.length ? q2(plain2, "&minimal_response&no_attributes") : [],
         withAttr.length ? q2(withAttr, "&significant_changes_only=0") : []
       ]);
-      const hist = Object.assign({}, this._hist);
+      const hist2 = Object.assign({}, this._hist);
       r1.forEach((list) => {
         if (!list.length) return;
-        hist[list[0].entity_id] = list.map((x3) => [new Date(x3.last_changed).getTime(), Number(x3.state)]).filter((x3) => !isNaN(x3[1]));
+        hist2[list[0].entity_id] = list.map((x3) => [new Date(x3.last_changed).getTime(), Number(x3.state)]).filter((x3) => !isNaN(x3[1]));
       });
       r2.forEach((list) => {
         if (!list.length) return;
         const id = list[0].entity_id;
         series.filter((x3) => x3.entity === id && x3.attr).forEach((x3) => {
-          hist[`${id}|${x3.attr}`] = list.map((h2) => [
+          hist2[`${id}|${x3.attr}`] = list.map((h2) => [
             new Date(h2.last_updated || h2.last_changed).getTime(),
             Number((h2.attributes || {})[x3.attr])
           ]).filter((h2) => !isNaN(h2[1]));
         });
       });
-      this._hist = hist;
+      this._hist = hist2;
     } catch (e2) {
       console.warn("overlook-show: history", e2);
     }
@@ -6411,8 +6807,9 @@ var OverlookShow = class extends dt {
     const p2 = this._config.popups[this._pop];
     if (!p2) return J;
     const close = (now) => {
-      const back = this._pop === "__camera" && this._camBack;
-      this._camBack = null;
+      const sub = this._pop === "__camera" || this._pop === "__detail";
+      const back = sub && this._popBack, ret = this._popReturn;
+      this._popBack = this._popReturn = null;
       if (!back) {
         this._closeSheet(() => {
           this._pop = null;
@@ -6420,7 +6817,6 @@ var OverlookShow = class extends dt {
         return;
       }
       const sheet = this.renderRoot.querySelector(".pop");
-      const cam = this._config.popups.__camera.sections[0].entity;
       if (now && sheet) {
         sheet.style.transition = sheet.style.transform = "";
         if (sheet.parentElement) sheet.parentElement.style.opacity = "";
@@ -6428,14 +6824,9 @@ var OverlookShow = class extends dt {
         this.updateComplete.then(() => this._sheetIn(sheet));
         return;
       }
-      this._morph(
-        sheet && sheet.querySelector(".sec-cam"),
-        () => {
-          this._pop = back;
-        },
-        `.sec-cam.tap[data-cam="${cam}"]`,
-        true
-      );
+      this._morph(sheet && sheet.querySelector(".sec-cams.one .sec-cam, .dt-hero"), () => {
+        this._pop = back;
+      }, ret, true);
     };
     return Z`
       <div class="scrim pop-scrim ${this._closing ? "closing" : ""}" @click=${() => close()} @touchmove=${(ev) => {
@@ -6523,6 +6914,23 @@ var OverlookShow = class extends dt {
       this.requestUpdate();
     }, 260);
   }
+  // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
+  _openDetail(x3, from) {
+    fireHaptic("light");
+    this._popBack = this._pop && this._pop !== "__detail" ? this._pop : null;
+    this._popReturn = `.ptile[data-ent="${x3.entity}"]`;
+    this._dRange = 24;
+    this._dreq = {};
+    const show = () => {
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __detail: detailPopup(this, x3) }) });
+      this._pop = "__detail";
+    };
+    if (from && from.closest(".pop")) this._morph(from, show, ".dt-hero");
+    else {
+      show();
+      this.requestUpdate();
+    }
+  }
   // slide a sheet up from below the screen again (the CSS animation only runs when it's created)
   _sheetIn(sheet) {
     if (!sheet || !sheet.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -6582,6 +6990,11 @@ var OverlookShow = class extends dt {
     }
     const dx = f0.left - t1.left, dy = f0.top - s0.top - (t1.top - s1.top);
     to.style.zIndex = "2";
+    if (!to.classList.contains("sec-cam"))
+      [...to.children].forEach((el) => el.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 220, delay: 200, easing: "ease-out", fill: "backwards" }
+      ));
     to.animate([
       { transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${f0.width / t1.width}, ${f0.height / t1.height})` },
       { transformOrigin: "0 0", transform: "none" }
@@ -6589,17 +7002,11 @@ var OverlookShow = class extends dt {
       to.style.zIndex = "";
     }, () => {
     });
-    if (back) {
-      sheet.querySelectorAll(".pop-head, .pop-body > *").forEach((el) => {
-        if (el.contains(to)) return;
-        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
-      });
-      sheet.querySelectorAll(".sec-cam").forEach((el) => {
-        if (el !== to) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: "ease-out", fill: "backwards" });
-      });
-    } else {
-      sheet.querySelectorAll(".pop-head").forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 80, easing: "ease-out", fill: "backwards" }));
-    }
+    const fade = (el, delay) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay, easing: "ease-out", fill: "backwards" });
+    sheet.querySelectorAll(".pop-head").forEach((el) => fade(el, 80));
+    sheet.querySelectorAll(".pop-body > *, .dt > *, .sec-cams > *, .pop-grid > *").forEach((el) => {
+      if (el !== to && !el.contains(to) && !to.contains(el)) fade(el, back ? 140 : 160);
+    });
   }
   _popSection(s2) {
     if (s2.when) {
@@ -6619,6 +7026,8 @@ var OverlookShow = class extends dt {
         return camSection(this, s2);
       case "game":
         return this._popGame(s2);
+      case "detail":
+        return detailSection(this, s2);
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":
@@ -6679,8 +7088,8 @@ var OverlookShow = class extends dt {
       if (!last || isNaN(last)) return "Not played yet";
       const today = /* @__PURE__ */ new Date();
       today.setHours(0, 0, 0, 0);
-      const ago = Math.round((today - new Date(last).setHours(0, 0, 0, 0)) / 864e5);
-      const day = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : ago < 7 ? last.toLocaleDateString(void 0, { weekday: "long" }) : last.toLocaleDateString(void 0, { day: "numeric", month: "short" });
+      const ago2 = Math.round((today - new Date(last).setHours(0, 0, 0, 0)) / 864e5);
+      const day = ago2 === 0 ? "Today" : ago2 === 1 ? "Yesterday" : ago2 < 7 ? last.toLocaleDateString(void 0, { weekday: "long" }) : last.toLocaleDateString(void 0, { day: "numeric", month: "short" });
       return `${day}, ${this._ampm(last)}`;
     })();
     const max = Math.max(1, ...days.map((x3) => x3.h));
@@ -6815,9 +7224,9 @@ var OverlookShow = class extends dt {
     const toggles = ["switch", "automation", "input_boolean", "light", "fan"].includes(dom) && !x3.attr;
     const on = toggles && e2.state === "on";
     const alert = dom === "binary_sensor" && e2.state === "on" && !x3.attr || dom === "update" && e2.state === "on" || e2.attributes.device_class === "battery" && Number(e2.state) <= 20;
-    const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : dom === "button" ? () => this._call("button", "press", { entity_id: x3.entity }) : () => this._moreInfo(x3.entity);
+    const tap = toggles ? () => this._call("homeassistant", "toggle", { entity_id: x3.entity }) : dom === "button" ? () => this._call("button", "press", { entity_id: x3.entity }) : (ev) => this._openDetail(x3, ev.currentTarget);
     return Z`
-      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x3.wide ? "wide" : ""}" @click=${tap}>
+      <button class="ptile ${on ? "on" : ""} ${alert ? "alert" : ""} ${x3.wide ? "wide" : ""}" data-ent=${x3.entity} @click=${tap}>
         <span class="tile-ico"><ha-icon icon=${x3.icon || e2.attributes.icon || "mdi:information-outline"}></ha-icon></span>
         <span class="tile-text"><span class="tile-name">${x3.name}</span><span class="muted">${val}</span></span>
       </button>`;
@@ -8050,7 +8459,7 @@ var OverlookShow = class extends dt {
     input.value = "";
     input.focus();
   }
-  static styles = [WX_CSS, o`
+  static styles = [WX_CSS, DETAIL_CSS, o`
     :host {
       --bg: linear-gradient(165deg, #f4f7fd 0%, #e4ecf9 100%);
       --card: rgba(255, 255, 255, 0.78);
@@ -9854,8 +10263,8 @@ var OverlookFavourites = class extends OverlookPiece {
   _rank() {
     const c2 = this._config, hide = new Set(c2.hidden || []), seen = /* @__PURE__ */ new Set();
     const reg = this.hass.entities || {};
-    const plain = (id) => !(reg[id] && (reg[id].hidden || reg[id].entity_category));
-    const ok = (id) => id && !hide.has(id) && !seen.has(id) && FAV_DOMAINS.has(id.split(".")[0]) && this._st(id) && plain(id);
+    const plain2 = (id) => !(reg[id] && (reg[id].hidden || reg[id].entity_category));
+    const ok = (id) => id && !hide.has(id) && !seen.has(id) && FAV_DOMAINS.has(id.split(".")[0]) && this._st(id) && plain2(id);
     const pinned = (c2.pinned || []).filter((id) => ok(id) && seen.add(id));
     const rest = (this._predicted || []).filter((id) => ok(id) && seen.add(id));
     const list = [...pinned, ...rest].slice(0, Math.max(pinned.length, c2.count || 8));
@@ -10798,7 +11207,7 @@ var MeridianLargeSensor = class extends EchoPiece {
   _body() {
     const x3 = this._config, e2 = x3.entity && this._st(x3.entity);
     if (!e2) return this._missing(x3.name || x3.entity || "Pick a sensor");
-    const k2 = Object.keys(AIR).find((n2) => x3.entity.includes(n2)), air = AIR[k2];
+    const k2 = Object.keys(AIR2).find((n2) => x3.entity.includes(n2)), air = AIR2[k2];
     const label = x3.name || air && air[0] || e2.attributes.friendly_name || x3.entity;
     const colour = x3.color && x3.color !== "auto" ? SWATCH[x3.color] || x3.color : air ? air[1] : SWATCH.grey;
     const verdict = air ? air[2] : () => "";
@@ -10910,8 +11319,8 @@ var MeridianLargeTile = class extends EchoPiece {
     return { weather: 2, media_small: 2, room: 6 }[this._kindOf()] || 4;
   }
   getGridOptions() {
-    const rows = this.getCardSize();
-    return { columns: 12, rows, min_columns: 6, min_rows: Math.min(rows, 4) };
+    const rows2 = this.getCardSize();
+    return { columns: 12, rows: rows2, min_columns: 6, min_rows: Math.min(rows2, 4) };
   }
   // a speaker's playback bar ticks once a second while it plays
   connectedCallback() {

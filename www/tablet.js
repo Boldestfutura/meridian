@@ -464,7 +464,8 @@ function securityRoom(c, x) {
 // sheet morphs into it (c._morph), and closing it goes back there
 function openCam(c, id, from) {
   const e = c._st(id);
-  c._camBack = c._pop && c._pop !== "__camera" ? c._pop : null;
+  c._popBack = c._pop && c._pop !== "__camera" ? c._pop : null;
+  c._popReturn = `.sec-cam.tap[data-cam="${id}"]`;
   const show = () => {
     c._config = Object.assign({}, c._config, { popups: Object.assign({}, c._config.popups, {
       __camera: { title: (e && e.attributes.friendly_name) || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] } }) });

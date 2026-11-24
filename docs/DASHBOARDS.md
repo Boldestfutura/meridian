@@ -189,6 +189,29 @@ on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. T
 that camera big in its own pop-up (`openCam`); closing it goes back to the Security pop-up
 (`_camBack`).
 
+## Detail pop-ups (tiles inside pop-ups)
+
+A tile in any pop-up that isn't a toggle, button or number stepper opens its own pop-up instead of
+HA's more-info: `_openDetail` builds `__detail` from `www/detail.js` (`detailPopup`, one `detail`
+section) and morphs out of the tile into the `.dt-hero` block; closing morphs back into the tile
+(`_popBack` / `_popReturn`, shared with the camera pop-up). What it shows follows the entity:
+
+- **where** (person, device_tracker): a map built from OpenStreetMap tiles (the `<img>`s set their
+  own `referrerpolicy`, because HA's pages are no-referrer and OSM refuses tile requests without a
+  Referer; inverted in dark mode), the place (zone, or the device's `_geocoded_location` sensor),
+  since when, distance from home, battery and charging (from the same device in `hass.entities`),
+  GPS accuracy and last update.
+- **update**: installed → latest, what's new, release notes, and **Hold to install** (1.2 s hold,
+  then `update.install`).
+- **contact** (door/window): open or shut since when, a 24 h bar of when it was open, the last five
+  changes and the sensor's battery.
+- **battery**: level, charging state or roughly how long it lasts at this week's rate, battery type,
+  graph.
+- **climate**: the heat pump controls (`_thermostat`), humidity, temperature graph.
+- **number** (air, plants): value, a one-word verdict, 24 h / 7 day graph with low, average and high.
+
+Every one ends with **More in Home Assistant** (closes and opens HA's dialog).
+
 ## Sheet motion (phone)
 
 Every phone sheet (pop-ups, light sheets, the speaker picker) rises from below the screen with no
