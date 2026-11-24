@@ -128,7 +128,7 @@ function graph(c, id, attr, unit, color, hours = range(c)) {
 }
 
 const moreLink = (c, id) => html`
-  <button class="dt-more" @click=${() => { c._pop = null; c._popBack = c._popReturn = null; c.requestUpdate(); c._moreInfo(id); }}><ha-icon icon="mdi:tune-variant"></ha-icon><span>More in Home Assistant</span>
+  <button class="dt-more" @click=${() => { c._popBack = c._popReturn = null; c._closeSheet(() => { c._pop = null; }); c._moreInfo(id); }}><ha-icon icon="mdi:tune-variant"></ha-icon><span>More in Home Assistant</span>
     <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
 
 const rows = (list) => html`<div class="dt-rows">${list.filter(Boolean).map(([icon, k, v]) => html`

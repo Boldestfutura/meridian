@@ -4304,9 +4304,10 @@ function graph(c2, id, attr, unit, color, hours = range(c2)) {
 }
 var moreLink = (c2, id) => Z`
   <button class="dt-more" @click=${() => {
-  c2._pop = null;
   c2._popBack = c2._popReturn = null;
-  c2.requestUpdate();
+  c2._closeSheet(() => {
+    c2._pop = null;
+  });
   c2._moreInfo(id);
 }}><ha-icon icon="mdi:tune-variant"></ha-icon><span>More in Home Assistant</span>
     <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
@@ -5286,7 +5287,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.40.4";
+var VERSION = "0.40.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -8146,7 +8147,7 @@ var OverlookShow = class extends dt {
       if (performance.now() - (this._lightAt || 0) > 700) close();
     };
     const full = () => {
-      this._light = null;
+      close();
       this._moreInfo(id);
     };
     const room = !!this._lightRoom;

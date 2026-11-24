@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.40.4";
+const VERSION = "0.40.5";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -2647,7 +2647,7 @@ class OverlookShow extends LitElement {
     const close = (now) => this._closeSheet(() => { this._light = null; }, now);
     // the lift that ends the hold arrives as a click on the scrim: don't let it close the sheet it opened
     const scrimClose = () => { if (performance.now() - (this._lightAt || 0) > 700) close(); };
-    const full = () => { this._light = null; this._moreInfo(id); };
+    const full = () => { close(); this._moreInfo(id); };
     const room = !!this._lightRoom;   // a room heading's hold: just the one slider and power
     const state = e.state === "unavailable" ? "Unavailable" : lit ? (dims ? `${pct}%` : "On") : "Off";
     return html`
