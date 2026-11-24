@@ -16,7 +16,7 @@ import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.37.9";
+const VERSION = "0.38.0";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1362,7 +1362,12 @@ class OverlookShow extends LitElement {
   _popSheet() {
     const p = this._config.popups[this._pop];
     if (!p) return nothing;
-    const close = () => { this._pop = null; };
+    // a camera opened from the Security pop-up closes back to it
+    const close = () => {
+      const back = this._pop === "__camera" && this._camBack;
+      this._camBack = null;
+      this._pop = back || null;
+    };
     return html`
       <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => { if (ev.target === ev.currentTarget) ev.preventDefault(); }}>
         <div class="sheet pop" @click=${(ev) => ev.stopPropagation()}
@@ -3262,6 +3267,7 @@ class OverlookShow extends LitElement {
     .sec-cams.one .sec-name { display: none; }
     .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
                background: #000; }
+    .sec-cam.tap { cursor: pointer; }
     .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .sec-off { height: 100%; background: color-mix(in srgb, var(--ink) 8%, var(--card)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
                color: var(--muted); font-size: 13px; font-weight: 600; }

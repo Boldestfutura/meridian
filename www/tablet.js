@@ -272,12 +272,13 @@ export function secPill(c, x) {
       ? html`<small>${n} open</small>` : insp ? html`<small>Inspection</small>` : nothing}</button>`;
 }
 // one camera's live feed (HA's MJPEG proxy), or why there is none
-function secCam(c, id, insp) {
+// tap: what tapping the feed does (the Security pop-up opens that camera on its own)
+function secCam(c, id, insp, tap) {
   const e = c._st(id);
   const name = e ? e.attributes.friendly_name || id : id;
   const tok = e && e.attributes.access_token;
   const live = tok && !insp && !["unavailable", "unknown"].includes(e.state);
-  return html`<div class="sec-cam">${live
+  return html`<div class="sec-cam ${tap ? "tap" : ""}" @click=${tap || nothing}>${live
     ? html`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>`
     : html`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
     <span class="sec-name">${name}</span></div>`;
@@ -290,7 +291,7 @@ export function secSection(c, s) {
   const sec = s.security, insp = (c._st(sec.mode) || {}).state === "on";
   const open = secOpen(c, s.entity);
   const nice = (id) => secName(c, id);
-  const cam = (id) => secCam(c, id, insp);
+  const cam = (id) => secCam(c, id, insp, () => openCam(c, id));
   // doors and windows first, then inspection mode while it is on, then the cameras side by side
   return html`
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
@@ -459,8 +460,10 @@ function securityRoom(c, x) {
 }
 
 // one camera big, in the same pop-up sheet as everything else
+// one camera big in its own pop-up; opened from the Security pop-up, closing it goes back there
 function openCam(c, id) {
   const e = c._st(id);
+  c._camBack = c._pop && c._pop !== "__camera" ? c._pop : null;
   c._config = Object.assign({}, c._config, { popups: Object.assign({}, c._config.popups, {
     __camera: { title: (e && e.attributes.friendly_name) || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] } }) });
   redraw(c, { _pop: "__camera" });

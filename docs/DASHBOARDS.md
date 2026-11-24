@@ -185,7 +185,9 @@ in their live config) is always shown. Its entity is the `binary_sensor.doors_an
 the pill is green while every member is shut and `input_boolean.inspection_mode` is off, and
 orange otherwise, with "n open" (or "Inspection") beside the name. Its pop-up is built in
 `www/tablet.js` (`securityPopup` / `secSection`), not stored in the config: inspection mode while
-on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. A new door or window
+on, both Frigate camera feeds (`/api/camera_proxy_stream`), then what is open. Tapping a feed opens
+that camera big in its own pop-up (`openCam`); closing it goes back to the Security pop-up
+(`_camBack`). A new door or window
 sensor only has to join the group. `security:` can also be an object that overrides `cameras` or
 `mode`.
 

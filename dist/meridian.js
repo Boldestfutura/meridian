@@ -1280,12 +1280,12 @@ function secPill(c2, x3) {
   return Z`<button class="tab st sec ${n2 || insp ? "warn" : "ok"}" @click=${() => c2._open(x3.entity)}>
     <ha-icon icon=${x3.icon || "mdi:shield-home"}></ha-icon><span>${x3.name || "Security"}</span>${n2 ? Z`<small>${n2} open</small>` : insp ? Z`<small>Inspection</small>` : J}</button>`;
 }
-function secCam(c2, id, insp) {
+function secCam(c2, id, insp, tap) {
   const e2 = c2._st(id);
   const name = e2 ? e2.attributes.friendly_name || id : id;
   const tok = e2 && e2.attributes.access_token;
   const live2 = tok && !insp && !["unavailable", "unknown"].includes(e2.state);
-  return Z`<div class="sec-cam">${live2 ? Z`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>` : Z`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
+  return Z`<div class="sec-cam ${tap ? "tap" : ""}" @click=${tap || J}>${live2 ? Z`<img src=${`/api/camera_proxy_stream/${id}?token=${tok}`} alt=${name}>` : Z`<div class="sec-off"><ha-icon icon="mdi:cctv-off"></ha-icon>${insp ? "Off for the inspection" : "Camera offline"}</div>`}
     <span class="sec-name">${name}</span></div>`;
 }
 var secName = (c2, id) => (((c2._st(id) || {}).attributes || {}).friendly_name || id).replace(/ sensor$/i, "").replace(/^master bedroom /i, "Bedroom ").replace(/^guest bedroom /i, "Guest ");
@@ -1293,7 +1293,7 @@ function secSection(c2, s2) {
   const sec2 = s2.security, insp = (c2._st(sec2.mode) || {}).state === "on";
   const open = secOpen(c2, s2.entity);
   const nice = (id) => secName(c2, id);
-  const cam = (id) => secCam(c2, id, insp);
+  const cam = (id) => secCam(c2, id, insp, () => openCam(c2, id));
   return Z`
     <div class="pop-sub">${open.length ? `Open now (${open.length})` : "Doors & windows"}</div>
     ${open.length ? Z`<div class="pop-grid">${open.map((id) => c2._popTile({
@@ -1448,6 +1448,7 @@ function securityRoom(c2, x3) {
 }
 function openCam(c2, id) {
   const e2 = c2._st(id);
+  c2._camBack = c2._pop && c2._pop !== "__camera" ? c2._pop : null;
   c2._config = Object.assign({}, c2._config, { popups: Object.assign({}, c2._config.popups, {
     __camera: { title: e2 && e2.attributes.friendly_name || id, icon: "mdi:cctv", sections: [{ type: "camera", entity: id }] }
   }) });
@@ -4877,7 +4878,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.37.9";
+var VERSION = "0.38.0";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6403,7 +6404,9 @@ var OverlookShow = class extends dt {
     const p2 = this._config.popups[this._pop];
     if (!p2) return J;
     const close = () => {
-      this._pop = null;
+      const back = this._pop === "__camera" && this._camBack;
+      this._camBack = null;
+      this._pop = back || null;
     };
     return Z`
       <div class="scrim pop-scrim" @click=${close} @touchmove=${(ev) => {
@@ -8334,6 +8337,7 @@ var OverlookShow = class extends dt {
     .sec-cams.one .sec-name { display: none; }
     .sec-cam { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; overflow: hidden;
                background: #000; }
+    .sec-cam.tap { cursor: pointer; }
     .sec-cam img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .sec-off { height: 100%; background: color-mix(in srgb, var(--ink) 8%, var(--card)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
                color: var(--muted); font-size: 13px; font-weight: 600; }
