@@ -4632,7 +4632,7 @@ var MeridianPeopleMap = class extends HTMLElement {
     const lo = [Math.min(...pts.map((p2) => p2[0])), Math.min(...pts.map((p2) => p2[1]))];
     const hi = [Math.max(...pts.map((p2) => p2[0])), Math.max(...pts.map((p2) => p2[1]))];
     m2.resize();
-    m2.fitBounds([lo, hi], { padding: { top: 50, bottom: 40, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
+    m2.fitBounds([lo, hi], { padding: { top: 36, bottom: 64, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
   }
 };
 if (!customElements.get("meridian-people-map")) customElements.define("meridian-people-map", MeridianPeopleMap);
@@ -5887,7 +5887,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.44.1";
+var VERSION = "0.44.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

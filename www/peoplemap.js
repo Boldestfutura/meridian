@@ -134,7 +134,7 @@ class MeridianPeopleMap extends HTMLElement {
     const lo = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))];
     const hi = [Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
     m.resize();
-    m.fitBounds([lo, hi], { padding: { top: 50, bottom: 40, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
+    m.fitBounds([lo, hi], { padding: { top: 36, bottom: 64, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
   }
 }
 if (!customElements.get("meridian-people-map")) customElements.define("meridian-people-map", MeridianPeopleMap);
