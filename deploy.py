@@ -19,6 +19,7 @@ TOKEN_FILE = os.environ.get("HA_TOKEN_FILE", "~/.config/ha/token")
 
 TARGETS = {           # name -> (url_path, title, icon)
     "show":     ("ha-show",     "Kitchen Show", "mdi:tablet-dashboard"),
+    "echo":     ("master-bedroom-echo-show", "Master Bedroom Echo Show", "mdi:bed-king-outline"),
 }
 
 
@@ -60,6 +61,8 @@ def connect():
 
 
 def build(name):
+    if name == "echo":                        # the bedroom Echo's card lives beside the kitchen's
+        return __import__("show").build_echo()
     return __import__(name).build()
 
 

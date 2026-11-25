@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.42.2";
+const VERSION = "0.43.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -519,7 +519,7 @@ class OverlookShow extends LitElement {
     const sw = this._swipePages();
     if (sw && page !== "photos" && !sw.includes(page)) {
       page = { climate: "rooms", controls: "rooms", music: "media" }[page] || "home";
-      if (!sw.includes(page)) page = sw[0];
+      if (!sw.includes(page)) page = sw.includes("home") ? "home" : sw[0];
     }
     this._picker = false;
     this._scenes = false;

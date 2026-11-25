@@ -209,6 +209,51 @@ CARD.update({
 })
 
 
+# the bedroom Echo (master-bedroom-echo-show): the same card as one room's screen (www/tablet.js
+# bedMain/bedClimate/bedMedia), swiping Climate | Main | Media. Idle, photos and the night clock
+# are Kiosk Satellite's screensaver, as on the kitchen display.
+_bedroom = next(r for r in CARD["rooms"] if r["name"] == "Bedroom")
+ECHO = {
+    "type": "custom:overlook-show",
+    "weather": "weather.forecast_home",
+    "idle": 300,
+    "tablet": True,
+    "swipe": ["climate", "home", "media"],
+    "room": "Bedroom",
+    "rooms": [_bedroom],
+    "climate": "climate.living_room",
+    "room_scenes": [
+        {"entity": "input_boolean.bedroom_night_mode", "name": "Sleep Sounds", "icon": "mdi:waves"},
+        {"entity": "switch.tp_link_power_strip_6e3f_dehumidifier", "name": "Dehumidifier", "icon": "mdi:air-humidifier"},
+        {"entity": "climate.living_room", "name": "Heat pump"},
+        {"entity": "script.goodnight", "name": "Goodnight", "icon": "mdi:power-sleep"},
+    ],
+    "room_player": "media_player.bedroom_echo",
+    "tablet_players": [{"entity": "media_player.bedroom_echo", "name": "Bedroom Echo", "icon": "mdi:speaker-wireless"}],
+    # the playlists play here
+    "speakers": [{"name": "Bedroom Echo", "icon": "mdi:speaker-wireless", "entities": ["media_player.bedroom_echo"],
+                  "ma": "media_player.bedroom_echo", "auto": True}],
+    "playlists": "sensor.tablet_playlists",
+    "calendars": [{"entity": "calendar.p_c", "color": "#e5484d"}],
+    "voice": "bedroom",
+    "voice_satellite": "assist_satellite.bedroom_echo_assist_satellite",
+    "clock": "bedroom",                       # voice timers and alarms, full screen
+    "nowplaying": "media_player.bedroom_echo",
+    "nowplaying_return": 40,
+    "washer": CARD["washer"],
+    "warnings": True,
+    "morning": True,
+    "scheme": "sun.sun",
+}
+
+
+def build_echo():
+    from showphone import POPUPS, LINKS
+    card = dict(ECHO, popups=POPUPS, links=LINKS)
+    return {"title": "Master Bedroom Echo Show",
+            "views": [{"title": "Show", "path": "show", "type": "panel", "cards": [card]}]}
+
+
 def build():
     # the phone's reading pills and pop-ups; showphone imports this module, so not at the top
     from showphone import STATUS_AIR, POPUPS, LINKS

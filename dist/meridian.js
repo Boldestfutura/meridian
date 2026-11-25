@@ -1428,9 +1428,8 @@ function homeBubbles(c2) {
   });
   return Z`<div class="status hm-bub">${people}${washer}${battery2}${alerts}</div>`;
 }
-function calendar(c2) {
-  const n2 = /* @__PURE__ */ new Date(), DAYS2 = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function agendaItems(c2) {
+  const n2 = /* @__PURE__ */ new Date();
   const tom = new Date(n2);
   tom.setDate(n2.getDate() + 1);
   const dayName = (d2) => {
@@ -1448,10 +1447,16 @@ function calendar(c2) {
     const time = e2.start.dateTime ? `${c2._ampm(s2)} \u2013 ${c2._ampm(c2._d(e2.end))}` : "All day";
     out.push(Z`<div class="td-ev" style="--c:${e2.colour || EV_COLOURS[k2++ % EV_COLOURS.length]}"><small>${time}</small><b>${e2.summary}</b></div>`);
   }
+  return out.length ? out : Z`<div class="muted">Nothing in the next week.</div>`;
+}
+function calendar(c2) {
+  const n2 = /* @__PURE__ */ new Date(), DAYS2 = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const out = agendaItems(c2);
   return Z`
     <div class="card rm-card hm-cal">
       <div class="td-date"><div class="td-dm">${DAYS2[n2.getDay()]} <span>${MON[n2.getMonth()]}</span></div><div class="td-n">${n2.getDate()}</div></div>
-      <div class="cl-list">${out.length ? out : Z`<div class="muted">Nothing in the next week.</div>`}</div>
+      <div class="cl-list">${out}</div>
     </div>`;
 }
 function homePage(c2) {
@@ -1741,6 +1746,93 @@ function mediaPage(c2) {
       </div>
     </div>`;
 }
+var myRoom = (c2) => (c2._config.rooms || []).find((r2) => r2.name === c2._config.room) || {};
+function hpTile(c2) {
+  const id = c2._config.climate, e2 = id && c2._st(id);
+  if (!e2) return J;
+  const a2 = e2.attributes, on = !["off", "unavailable"].includes(e2.state);
+  return Z`
+    <button class="card tile ${on ? "on" : ""}" @click=${() => redraw(c2, { _tHp: true })}>
+      <span class="tile-ico"><ha-icon icon="mdi:air-conditioner"></ha-icon></span>
+      <span class="tile-text"><span class="tile-name">Heat pump</span>
+        <span class="muted">${cap(e2.state === "heat_cool" ? "auto" : e2.state)}${a2.temperature != null ? ` \xB7 ${a2.temperature}\xB0` : ""}</span></span>
+    </button>`;
+}
+function roomTile(c2, x3) {
+  const d2 = x3.entity.split(".")[0];
+  if (d2 === "climate") return hpTile(c2);
+  if (d2 === "light") return c2._lightTile(x3);
+  if (d2 === "switch") return c2._switchTile(x3);
+  return c2._sceneBtn(x3, true);
+}
+function bedMain(c2) {
+  const r2 = myRoom(c2), n2 = /* @__PURE__ */ new Date(), h2 = n2.getHours();
+  const greet = h2 < 5 ? "Good night" : h2 < 12 ? "Good morning" : h2 < 17 ? "Good afternoon" : "Good evening";
+  const DAYS2 = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"], MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const lights = (r2.group ? [{ entity: r2.group, name: `All ${r2.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r2.lights || []);
+  const on = (r2.lights || []).filter((l2) => (c2._st(l2.entity) || {}).state === "on").length;
+  const scenes = (c2._config.room_scenes || []).filter((x3) => c2._st(x3.entity));
+  return Z`
+    <div class="m-rooms m-bed m-bmain">
+      <div class="rm-chips"><div class="pg-hi">${greet}</div></div>
+      <div class="rm-body">
+        <button class="card rm-card bd-date" @click=${() => redraw(c2, { _tAgenda: true })}>
+          <span class="td-dm">${DAYS2[n2.getDay()]} <span>${MON[n2.getMonth()]}</span></span><span class="td-n">${n2.getDate()}</span></button>
+        <div class="rm-main">
+          ${sec("Lights", Z`<span class="rm-count">${on} on</span>`, lights.map((l2) => x2(c2._lightTile(l2))))}
+          ${sec("Scenes", J, scenes.map((x3) => x2(roomTile(c2, x3))))}
+        </div>
+      </div>
+    </div>`;
+}
+function bedClimate(c2) {
+  const r2 = myRoom(c2), air = roomAir(r2);
+  const row = (t3) => Z`<div class="piece rw"><div class="ph-grid one">${t3}</div></div>`;
+  const rows2 = [...(r2.switches || []).map((s2) => row(c2._switchTile(s2))), row(hpTile(c2))];
+  return Z`
+    <div class="m-rooms m-bed m-bclim">
+      <div class="rm-chips"><div class="pg-hi">Climate</div></div>
+      <div class="rm-body">
+        <div class="rm-main">
+          <div class="card rm-card rm-clim"><div class="rm-air n${air.length}">${air.map((x3) => airTile(c2, x3))}</div></div>
+          <div class="bd-rows">${rows2}</div>
+        </div>
+      </div>
+    </div>`;
+}
+function bedMedia(c2) {
+  const id = c2._config.room_player, p2 = players(c2).find((x3) => x3.entity === id) || players(c2)[0];
+  const pl = c2._playlists();
+  return Z`
+    <div class="m-rooms m-bed m-bmedia">
+      <div class="rm-chips"><div class="pg-hi">${c2._config.room} media</div></div>
+      <div class="rm-body">
+        <div class="rm-main">${p2 ? nowCard(c2, p2) : J}</div>
+        <div class="rm-side">${pl === J ? J : Z`<div class="rm-sec md-pl">${pl}</div>`}</div>
+      </div>
+    </div>`;
+}
+function bedSheets(c2) {
+  if (!c2._config.room) return J;
+  const hp = c2._config.climate;
+  return Z`
+    ${c2._tHp && c2._st(hp) ? Z`
+      <div class="scrim" @click=${() => shut(c2, { _tHp: null })}>
+        <div class="sheet card bd-hp" @click=${(ev) => {
+    ev.stopPropagation();
+    if (ev.target.closest && ev.target.closest(".hp-now.linked")) Object.assign(c2, { _tHp: null });
+  }}>
+          <div class="card ph-hp hm-hp">${c2._thermostat(hp)}</div></div>
+      </div>` : J}
+    ${c2._tAgenda ? Z`
+      <div class="scrim" @click=${() => shut(c2, { _tAgenda: null })}>
+        <div class="sheet card bd-agenda" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">What's on<button class="round small" aria-label="Close" @click=${() => shut(c2, { _tAgenda: null })}>
+            <ha-icon icon="mdi:close"></ha-icon></button></div>
+          <div class="cl-list">${agendaItems(c2)}</div>
+        </div>
+      </div>` : J}`;
+}
 var cleanStep = (s2) => {
   const m2 = String(s2).match(/^\*\*(.+?):?\*\*\s*(.*)$/s);
   if (!m2) return s2;
@@ -1885,6 +1977,7 @@ function recipesPage(c2) {
 }
 function tabletPage(c2, page = c2._page) {
   ensureFeeds(c2);
+  if (c2._config.room) return page === "climate" ? bedClimate(c2) : page === "media" ? bedMedia(c2) : bedMain(c2);
   switch (page) {
     case "rooms":
       return roomsPage(c2);
@@ -1899,7 +1992,7 @@ function tabletPage(c2, page = c2._page) {
   }
 }
 function tabletSheets(c2) {
-  return Z`${popPlayer(c2)}${timerPick(c2)}${c2._tDay && c2._lib && !c2._lib.error ? dayPicker(c2, c2._lib) : J}`;
+  return Z`${popPlayer(c2)}${timerPick(c2)}${bedSheets(c2)}${c2._tDay && c2._lib && !c2._lib.error ? dayPicker(c2, c2._lib) : J}`;
 }
 var TABLET_CSS = o`
   /* main: built from the rooms pieces below */
@@ -2164,6 +2257,42 @@ var TABLET_CSS = o`
     .tablet .rc2 .air-name, .tablet .rm-air .air-name, .tablet .rc2-grid.n2 .air-name { font-size:12px; }
     .tablet .rc2 .air-q, .tablet .rm-air .air-q, .tablet .rc2-grid.n2 .air-q { font-size:11px; }
   }
+  /* one room's screen (room: ...): the Echo's 788x394 */
+  .tablet .m-bed { gap:10px; height:calc(100% + 58px); }
+  .tablet .m-bed .pg-hi { height:40px; }
+  .tablet .m-bmain .rm-body { grid-template-columns:240px minmax(0,1fr); }
+  .tablet .bd-date { border:0; font:inherit; color:var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:0; }
+  .tablet .bd-date .td-dm { font-size:28px; white-space:nowrap; } .tablet .bd-date .td-n { font-size:118px; }
+  .tablet .m-bmain .rm-main { overflow:hidden; gap:10px; }
+  .tablet .m-bmain .rm-sec { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .tablet .m-bmain .rm-h { min-height:27px; }
+  .tablet .m-bmain .rm-grid { flex:1; min-height:0; grid-template-columns:repeat(4, minmax(0,1fr)); grid-auto-rows:1fr; }
+  .tablet .m-bmain .rt { aspect-ratio:auto; height:100%; }
+  .tablet .m-bed .tile-name { white-space:normal; line-height:1.15; }
+  .tablet .m-bmain .piece .ph-grid.x2 .tile-name { font-size:14px; letter-spacing:-0.01em; }
+  .tablet .m-bmain .piece .ph-grid.x2 > .tile { padding-left:12px; padding-right:12px; }
+  .tablet .m-bclim .rm-body { grid-template-columns:minmax(0,1fr); }
+  .tablet .m-bclim .rm-main { overflow:hidden; gap:10px; }
+  .tablet .m-bclim .rm-clim { flex:1; min-height:0; }
+  .tablet .m-bclim .rm-air { grid-template-columns:repeat(4, minmax(0,1fr)); grid-template-rows:1fr; }
+  .tablet .m-bclim .air-val { font-size:40px; } .tablet .m-bclim .air-name { font-size:15px; } .tablet .m-bclim .air-q { font-size:14px; }
+  .tablet .bd-rows { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .tablet .bd-rows .rw { height:58px; }
+  .tablet .m-bmedia .rm-body { grid-template-columns:minmax(0,1fr) 214px; }
+  .tablet .m-bmedia .rm-main { overflow:hidden; }
+  .tablet .m-bmedia .md-now { flex:1; min-height:0; grid-template-columns:108px minmax(0,1fr); gap:12px; padding:12px; align-items:center; }
+  .tablet .m-bmedia .md-art { width:108px; height:108px; }
+  .tablet .m-bmedia .md-title { font-size:26px; }
+  .tablet .m-bmedia .md-row .round { border-radius:16px; } .tablet .m-bmedia .md-row .round:not(.play) { background:var(--inset); }
+  .tablet .m-bmedia .md-row .round.play { border-radius:22px; }
+  .tablet .m-bmedia .md-pl { flex:1; display:flex; flex-direction:column; gap:6px; min-height:0; }
+  .tablet .m-bmedia .pl-row { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:10px; overflow:hidden; }
+  .tablet .m-bmedia .pl { width:100%; height:auto; aspect-ratio:auto; min-height:0; }
+  .tablet .m-bmedia .pl:nth-child(n+5) { display:none; }
+  .tablet .sheet.bd-hp { width:min(560px, 92vw); padding:0; background:none; box-shadow:none; }
+  .tablet .sheet.bd-agenda { width:min(560px, 92vw); max-height:86vh; display:flex; flex-direction:column; gap:8px; }
+  .tablet .bd-agenda .card-title { display:flex; align-items:center; justify-content:space-between; }
+  .tablet .bd-agenda .cl-list { overflow-y:auto; scrollbar-width:none; min-height:0; }
+
 `;
 
 // www/pip.js
@@ -5463,7 +5592,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.42.2";
+var VERSION = "0.43.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -6090,7 +6219,7 @@ var OverlookShow = class extends dt {
     const sw = this._swipePages();
     if (sw && page !== "photos" && !sw.includes(page)) {
       page = { climate: "rooms", controls: "rooms", music: "media" }[page] || "home";
-      if (!sw.includes(page)) page = sw[0];
+      if (!sw.includes(page)) page = sw.includes("home") ? "home" : sw[0];
     }
     this._picker = false;
     this._scenes = false;

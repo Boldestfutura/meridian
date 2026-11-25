@@ -17,16 +17,16 @@ More screenshots in the [README](../README.md).
 | file | what it is |
 |---|---|
 | `www/overlook-show.js` | the source: the Show card and the Meridian cards in one file |
-| `www/tablet.js` | the Kitchen Show's pages (Home, Rooms, Climate, Media, Recipes) and their CSS, all under `.tablet`; imported by `overlook-show.js` |
+| `www/tablet.js` | the Kitchen Show's pages (Home, Rooms, Climate, Media, Recipes) and their CSS, all under `.tablet`; imported by `overlook-show.js`. With `room: "Bedroom"` the same card is that one room's screen instead (the bedroom Echo): Climate \| Main \| Media (`bedClimate`, `bedMain`, `bedMedia`) |
 | `www/weather.js` | the weather pop-up, imported by `overlook-show.js`: any tap on a `weather.*` entity without a pop-up of its own opens it (Kitchen Show Outside tile, Echo weather tiles; a status entry with `weather: true` makes a weather pill). Also the full-screen warning alert: room-screen option `warnings: true`, raised by `input_boolean.weather_warning_alert` (automation `weather_warning_notify`), Got it clears it everywhere, hidden in a dark room. And the morning forecast: option `morning: true`, raised by `input_boolean.morning_forecast` (automation `weather_morning_forecast`, 6 to 10 am while someone's home; `morning: {always: true}` shows it regardless and drops Close, used by the hidden `kitchen-weather/weather` and `echo-weather/weather` dashboards, the KS morning screensavers; `morning: {always: true, sky: true}` draws the animated sky behind it from `www/sky.js`, the `<meridian-sky>` element, picking sunny/partly/cloudy/rain/storm/fog/windy/cold/frost/heat/smoke from the BoM descriptor and temperatures): today's high and low, rain, UV, wind and the day's temperatures. Data: the BoM integration and `sensor.rain_next_hour` |
 | `dist/meridian.js` | Meridian cards, built from the source by `deploy.py`; what HACS installs. Commit it |
 | `www/lit-all.min.js` | Lit, vendored (no CDN) |
 | `www/weather-page.js` | `meridian-weather`, the full weather page on the Weather dashboard (`ha-weather`, in the sidebar; the iPhone weather widget opens it): next-hour rain, hourly with Conditions/Rain/Wind, 8 days, RainViewer radar over Esri's dark grey map, detail tiles. Away from home (the viewer's HA person more than 50 km from zone.home) it shows Open-Meteo for where they are, named from the phone's geocoded-location sensor. Hides HA's header (back while editing) and has its own menu button. Imported by `overlook-show.js` |
 | `www/weather/*.svg` | weather icons, drawn by `tools/weather_icons.py` (edit that, not the SVGs) |
 | `www/fonts/ember.css` | `@font-face` rules for Amazon Ember. The font files live only on HA in `/config/www/fonts/amazon-ember/` (README, Fonts). The card loads the same faces itself (`FONT_FACES`) |
-| `show.py` | Kitchen Show (`ha-show`): `VERSION`, and `CARD`: rooms, scenes, status pills, calendars, recipes, and the tablet's own keys (`tablet_tv`, `tablet_players`, `tablet_quick`, `scheme`) |
+| `show.py` | Kitchen Show (`ha-show`) and, in `ECHO`, the bedroom Echo (`master-bedroom-echo-show`, `./deploy.py echo`): `VERSION`, and `CARD`: rooms, scenes, status pills, calendars, recipes, and the tablet's own keys (`tablet_tv`, `tablet_players`, `tablet_quick`, `scheme`) |
 | `showphone.py` | the phone's data, no dashboard of its own: rooms and scenes (`ROOMS`, `SCENES`), the reading pills (`STATUS_AIR`), the pop-ups (`POPUPS`) and which tap opens which (`LINKS`). `show.py` reads it |
-| `dashboards/*.json` | the Phone Show, Computer Show, Master Bedroom Echo Show, Weather and Boox, edited in HA's own editor, as HA holds them. Never edit these here: change HA, then pull |
+| `dashboards/*.json` | the Phone Show, Computer Show, Weather and Boox (plus a copy of the Echo's, which show.py writes), edited in HA's own editor, as HA holds them. Never edit these here: change HA, then pull |
 | `tools/live_sync.py` | keeps the repo and HA in lock step (below) |
 | `tools/norish_sync.py` | copies Norish recipes into HA every 30 min (systemd timer on luna) |
 | `tools/ha/norish_fav.py` | the recipe heart button, runs on HA |
@@ -85,11 +85,10 @@ other dashboard is built from Meridian cards in HA's editor, from the same JS fi
    version and rewrites the Kitchen Show. ha-show holds no UI edits, so its config
    lives in the Python. Run `python3 tools/live_sync.py` first: if HA's ha-show has a change
    the Python lacks, deploy would undo it.
-4. **Reload the devices that keep the page open.** The Echo needs its View Assist Companion
-   app restarted (`docs/tasks/echo-show-bedroom.md`). The Kitchen Display (Kiosk Satellite) reloads with `button.kitchen_display_restart_app`.
+4. **Reload the devices that keep the page open.** Both screens run Kiosk Satellite: `button.kitchen_display_restart_app` and `button.bedroom_echo_restart_app` (or KS's `restartApp` command).
 5. Check **every** dashboard, even if you only meant to change one. They share the file:
    - Kitchen Show `/ha-show/show` at 1280x800 and 1024x600 (the compact layout), every page
-   - Master Bedroom Echo Show `/master-bedroom-echo-show/controls` at 788x394, every view (since 0.33.0 it swipes between views with page dots, no dock) (Meridian screen cards, edited in HA, not by deploy.py)
+   - Master Bedroom Echo Show `/master-bedroom-echo-show/show` at 788x394: Climate, Main, Media, the date's What's on sheet and the heat pump sheet (the Show card with `room: Bedroom`, written by `./deploy.py echo` since 0.43.0)
    - Computer Show `/ha-show-computer/home` at 1920x1080, sidebar open (Meridian cards, edited in HA, not by deploy.py)
    - Phone Show `/ha-show-native/home` at 390 wide
 
@@ -313,3 +312,24 @@ Spotify Connect or AirPlay stream ("The command to the player failed").
 - **Screenshots for this public repo use placeholders.** The calendar, shopping list and photo
   are faked in the page before capture, and HA's sidebar is cropped off (it shows the
   signed-in user's picture).
+
+## The bedroom Echo (room screen)
+
+Since 0.43.0 the Echo runs the kitchen's card as one room's screen: `ECHO` in `show.py`, saved by
+`./deploy.py echo` to `master-bedroom-echo-show` (one panel view, `show`; Kiosk Satellite's start URL
+points at it). `room: "Bedroom"` swaps the strip's pages for three built from the kitchen's pieces,
+swiping Climate | Main | Media:
+
+- **Main:** the date (tap: What's on, the kitchen calendar's list as a sheet) beside the room's
+  lights (with the "n on" count; All Bedroom is the all-off) and `room_scenes`. Lights and Scenes
+  stretch to the date card's height. A `room_scenes` entry can be a light, a switch, a
+  script/scene/input_boolean, or a `climate.*`, which is the Heat pump tile.
+- **Climate:** the room's four readings large (tap for the 24-hour graph), then its switches and the
+  Heat pump tile.
+- **Media:** `room_player` only, the kitchen's now playing card with squircle buttons, and the first
+  four playlists (they play on the room's `speakers`).
+- **Heat pump tile:** opens the kitchen's heat pump card as a sheet; its › opens fan speed and swing.
+
+Idle, photos and the night clock are Kiosk Satellite's screensaver, as on the kitchen. The native
+Meridian Echo views this replaced are backed up in
+`~/.config/ha/master-bedroom-echo-show.before-room-screen-2026-11-25.json`.

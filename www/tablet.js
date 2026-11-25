@@ -418,9 +418,9 @@ function homeBubbles(c) {
 }
 
 // the next week, grouped by day
-function calendar(c) {
-  const n = new Date(), DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+// what's on over the next week, a heading per day: the kitchen's calendar list and the room screen's agenda
+function agendaItems(c) {
+  const n = new Date();
   const tom = new Date(n); tom.setDate(n.getDate() + 1);
   // every day gets its weekday and date; today and tomorrow say so first
   const dayName = (d) => { const full = d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" });
@@ -433,10 +433,17 @@ function calendar(c) {
     const time = e.start.dateTime ? `${c._ampm(s)} – ${c._ampm(c._d(e.end))}` : "All day";
     out.push(html`<div class="td-ev" style="--c:${e.colour || EV_COLOURS[k++ % EV_COLOURS.length]}"><small>${time}</small><b>${e.summary}</b></div>`);
   }
+  return out.length ? out : html`<div class="muted">Nothing in the next week.</div>`;
+}
+
+function calendar(c) {
+  const n = new Date(), DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const out = agendaItems(c);
   return html`
     <div class="card rm-card hm-cal">
       <div class="td-date"><div class="td-dm">${DAYS[n.getDay()]} <span>${MON[n.getMonth()]}</span></div><div class="td-n">${n.getDate()}</div></div>
-      <div class="cl-list">${out.length ? out : html`<div class="muted">Nothing in the next week.</div>`}</div>
+      <div class="cl-list">${out}</div>
     </div>`;
 }
 
@@ -745,6 +752,107 @@ function mediaPage(c) {
     </div>`;
 }
 
+// ---------------------------------------------------------------- one room's screen (the bedroom Echo)
+
+// `room: "Bedroom"` turns the strip into that room's own screen: Climate | Main | Media, built from
+// the same pieces as the kitchen's pages. Main is the date (tap for what's on) beside the room's
+// lights and `room_scenes`; Climate is the room's readings, its switches and the heat pump; Media is
+// `room_player` with the playlists. The heat pump tile opens the kitchen's heat pump card as a sheet.
+const myRoom = (c) => (c._config.rooms || []).find((r) => r.name === c._config.room) || {};
+
+function hpTile(c) {
+  const id = c._config.climate, e = id && c._st(id);
+  if (!e) return nothing;
+  const a = e.attributes, on = !["off", "unavailable"].includes(e.state);
+  return html`
+    <button class="card tile ${on ? "on" : ""}" @click=${() => redraw(c, { _tHp: true })}>
+      <span class="tile-ico"><ha-icon icon="mdi:air-conditioner"></ha-icon></span>
+      <span class="tile-text"><span class="tile-name">Heat pump</span>
+        <span class="muted">${cap(e.state === "heat_cool" ? "auto" : e.state)}${a.temperature != null ? ` · ${a.temperature}°` : ""}</span></span>
+    </button>`;
+}
+
+// a room scene entry: a light, a switch, the heat pump ("climate"), or a script/scene/input_boolean
+function roomTile(c, x) {
+  const d = x.entity.split(".")[0];
+  if (d === "climate") return hpTile(c);
+  if (d === "light") return c._lightTile(x);
+  if (d === "switch") return c._switchTile(x);
+  return c._sceneBtn(x, true);
+}
+
+function bedMain(c) {
+  const r = myRoom(c), n = new Date(), h = n.getHours();
+  const greet = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"], MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const lights = (r.group ? [{ entity: r.group, name: `All ${r.name}`, icon: "mdi:lightbulb-group" }] : []).concat(r.lights || []);
+  const on = (r.lights || []).filter((l) => (c._st(l.entity) || {}).state === "on").length;
+  const scenes = (c._config.room_scenes || []).filter((x) => c._st(x.entity));
+  return html`
+    <div class="m-rooms m-bed m-bmain">
+      <div class="rm-chips"><div class="pg-hi">${greet}</div></div>
+      <div class="rm-body">
+        <button class="card rm-card bd-date" @click=${() => redraw(c, { _tAgenda: true })}>
+          <span class="td-dm">${DAYS[n.getDay()]} <span>${MON[n.getMonth()]}</span></span><span class="td-n">${n.getDate()}</span></button>
+        <div class="rm-main">
+          ${sec("Lights", html`<span class="rm-count">${on} on</span>`, lights.map((l) => x2(c._lightTile(l))))}
+          ${sec("Scenes", nothing, scenes.map((x) => x2(roomTile(c, x))))}
+        </div>
+      </div>
+    </div>`;
+}
+
+function bedClimate(c) {
+  const r = myRoom(c), air = roomAir(r);
+  const row = (t) => html`<div class="piece rw"><div class="ph-grid one">${t}</div></div>`;
+  const rows = [...(r.switches || []).map((s) => row(c._switchTile(s))), row(hpTile(c))];
+  return html`
+    <div class="m-rooms m-bed m-bclim">
+      <div class="rm-chips"><div class="pg-hi">Climate</div></div>
+      <div class="rm-body">
+        <div class="rm-main">
+          <div class="card rm-card rm-clim"><div class="rm-air n${air.length}">${air.map((x) => airTile(c, x))}</div></div>
+          <div class="bd-rows">${rows}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bedMedia(c) {
+  const id = c._config.room_player, p = players(c).find((x) => x.entity === id) || players(c)[0];
+  const pl = c._playlists();
+  return html`
+    <div class="m-rooms m-bed m-bmedia">
+      <div class="rm-chips"><div class="pg-hi">${c._config.room} media</div></div>
+      <div class="rm-body">
+        <div class="rm-main">${p ? nowCard(c, p) : nothing}</div>
+        <div class="rm-side">${pl === nothing ? nothing : html`<div class="rm-sec md-pl">${pl}</div>`}</div>
+      </div>
+    </div>`;
+}
+
+// the room screen's two sheets: the heat pump card, and what's on (the kitchen calendar's list)
+function bedSheets(c) {
+  if (!c._config.room) return nothing;
+  const hp = c._config.climate;
+  return html`
+    ${c._tHp && c._st(hp) ? html`
+      <div class="scrim" @click=${() => shut(c, { _tHp: null })}>
+        <div class="sheet card bd-hp" @click=${(ev) => { ev.stopPropagation();
+          // the reading's chevron opens fan speed and swing in place of this
+          if (ev.target.closest && ev.target.closest(".hp-now.linked")) Object.assign(c, { _tHp: null }); }}>
+          <div class="card ph-hp hm-hp">${c._thermostat(hp)}</div></div>
+      </div>` : nothing}
+    ${c._tAgenda ? html`
+      <div class="scrim" @click=${() => shut(c, { _tAgenda: null })}>
+        <div class="sheet card bd-agenda" @click=${(ev) => ev.stopPropagation()}>
+          <div class="card-title">What's on<button class="round small" aria-label="Close" @click=${() => shut(c, { _tAgenda: null })}>
+            <ha-icon icon="mdi:close"></ha-icon></button></div>
+          <div class="cl-list">${agendaItems(c)}</div>
+        </div>
+      </div>` : nothing}`;
+}
+
 // ---------------------------------------------------------------- Recipes
 
 // Norish imports some methods as "**Heading:** the same text again"; keep just the text
@@ -866,6 +974,7 @@ function recipesPage(c) {
 
 export function tabletPage(c, page = c._page) {
   ensureFeeds(c);
+  if (c._config.room) return page === "climate" ? bedClimate(c) : page === "media" ? bedMedia(c) : bedMain(c);
   switch (page) {
     case "rooms": return roomsPage(c);
     case "climate": return climatePage(c);
@@ -879,7 +988,7 @@ export function tabletPage(c, page = c._page) {
 // would slide with it and cover the whole strip. So the pages leave their sheets out and the card
 // draws them here, once, over the screen.
 export function tabletSheets(c) {
-  return html`${popPlayer(c)}${timerPick(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
+  return html`${popPlayer(c)}${timerPick(c)}${bedSheets(c)}${c._tDay && c._lib && !c._lib.error ? dayPicker(c, c._lib) : nothing}`;
 }
 
 // everything under .tablet, so the other screens built from this card are untouched
@@ -1146,4 +1255,40 @@ export const TABLET_CSS = css`
     .tablet .rc2 .air-name, .tablet .rm-air .air-name, .tablet .rc2-grid.n2 .air-name { font-size:12px; }
     .tablet .rc2 .air-q, .tablet .rm-air .air-q, .tablet .rc2-grid.n2 .air-q { font-size:11px; }
   }
+  /* one room's screen (room: ...): the Echo's 788x394 */
+  .tablet .m-bed { gap:10px; height:calc(100% + 58px); }
+  .tablet .m-bed .pg-hi { height:40px; }
+  .tablet .m-bmain .rm-body { grid-template-columns:240px minmax(0,1fr); }
+  .tablet .bd-date { border:0; font:inherit; color:var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:0; }
+  .tablet .bd-date .td-dm { font-size:28px; white-space:nowrap; } .tablet .bd-date .td-n { font-size:118px; }
+  .tablet .m-bmain .rm-main { overflow:hidden; gap:10px; }
+  .tablet .m-bmain .rm-sec { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .tablet .m-bmain .rm-h { min-height:27px; }
+  .tablet .m-bmain .rm-grid { flex:1; min-height:0; grid-template-columns:repeat(4, minmax(0,1fr)); grid-auto-rows:1fr; }
+  .tablet .m-bmain .rt { aspect-ratio:auto; height:100%; }
+  .tablet .m-bed .tile-name { white-space:normal; line-height:1.15; }
+  .tablet .m-bmain .piece .ph-grid.x2 .tile-name { font-size:14px; letter-spacing:-0.01em; }
+  .tablet .m-bmain .piece .ph-grid.x2 > .tile { padding-left:12px; padding-right:12px; }
+  .tablet .m-bclim .rm-body { grid-template-columns:minmax(0,1fr); }
+  .tablet .m-bclim .rm-main { overflow:hidden; gap:10px; }
+  .tablet .m-bclim .rm-clim { flex:1; min-height:0; }
+  .tablet .m-bclim .rm-air { grid-template-columns:repeat(4, minmax(0,1fr)); grid-template-rows:1fr; }
+  .tablet .m-bclim .air-val { font-size:40px; } .tablet .m-bclim .air-name { font-size:15px; } .tablet .m-bclim .air-q { font-size:14px; }
+  .tablet .bd-rows { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .tablet .bd-rows .rw { height:58px; }
+  .tablet .m-bmedia .rm-body { grid-template-columns:minmax(0,1fr) 214px; }
+  .tablet .m-bmedia .rm-main { overflow:hidden; }
+  .tablet .m-bmedia .md-now { flex:1; min-height:0; grid-template-columns:108px minmax(0,1fr); gap:12px; padding:12px; align-items:center; }
+  .tablet .m-bmedia .md-art { width:108px; height:108px; }
+  .tablet .m-bmedia .md-title { font-size:26px; }
+  .tablet .m-bmedia .md-row .round { border-radius:16px; } .tablet .m-bmedia .md-row .round:not(.play) { background:var(--inset); }
+  .tablet .m-bmedia .md-row .round.play { border-radius:22px; }
+  .tablet .m-bmedia .md-pl { flex:1; display:flex; flex-direction:column; gap:6px; min-height:0; }
+  .tablet .m-bmedia .pl-row { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:10px; overflow:hidden; }
+  .tablet .m-bmedia .pl { width:100%; height:auto; aspect-ratio:auto; min-height:0; }
+  .tablet .m-bmedia .pl:nth-child(n+5) { display:none; }
+  .tablet .sheet.bd-hp { width:min(560px, 92vw); padding:0; background:none; box-shadow:none; }
+  .tablet .sheet.bd-agenda { width:min(560px, 92vw); max-height:86vh; display:flex; flex-direction:column; gap:8px; }
+  .tablet .bd-agenda .card-title { display:flex; align-items:center; justify-content:space-between; }
+  .tablet .bd-agenda .cl-list { overflow-y:auto; scrollbar-width:none; min-height:0; }
+
 `;
