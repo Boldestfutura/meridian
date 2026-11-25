@@ -173,6 +173,67 @@ function map(c, lat, lon, acc) {
     </div>`;
 }
 
+// Everyone on one map (the person pop-ups): the zoom fits all the people who have a position plus home,
+// each person is a pin with their picture (or initial) and name. Positions are pixel offsets from the
+// centre, so the map fills whatever width the pop-up has.
+const mx = (lon, n) => ((lon + 180) / 360) * n;
+const my = (lat, n) => { const r = (lat * Math.PI) / 180; return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n; };
+const PIN_COLOURS = ["var(--accent)", "#d6409f", "#3f8f63", "#f39a43"];
+export function peopleMap(c, s) {
+  const H = s.height || 230, W = 900, T = 256, PAD = 46;
+  const ppl = (s.people || []).map((id) => c._st(id)).filter((e) => e && e.attributes.latitude != null);
+  if (!ppl.length) return html`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off"></ha-icon>No locations</div>`;
+  const home = c._st("zone.home");
+  const pts = ppl.map((e) => [e.attributes.latitude, e.attributes.longitude]);
+  const hp = home && home.attributes.latitude != null ? [home.attributes.latitude, home.attributes.longitude] : null;
+  if (hp) pts.push(hp);
+  // the biggest zoom (≤16) where everything fits a 320 px wide box less the padding
+  let z = 16;
+  for (; z > 3; z--) {
+    const n = 2 ** z, xs = pts.map((p) => mx(p[1], n) * T), ys = pts.map((p) => my(p[0], n) * T);
+    if (Math.max(...xs) - Math.min(...xs) <= 320 - PAD * 2 && Math.max(...ys) - Math.min(...ys) <= H - PAD * 2) break;
+  }
+  const n = 2 ** z, xs = pts.map((p) => mx(p[1], n)), ys = pts.map((p) => my(p[0], n));
+  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+  const at = (lat, lon) => [(mx(lon, n) - cx) * T, (my(lat, n) - cy) * T];
+  const tiles = [];
+  for (let i = Math.floor(cx - W / 2 / T); i <= Math.floor(cx + W / 2 / T); i++)
+    for (let j = Math.floor(cy - H / 2 / T); j <= Math.floor(cy + H / 2 / T); j++)
+      tiles.push([i, j, (i - cx) * T, (j - cy) * T]);
+  const hm = hp ? at(hp[0], hp[1]) : null;
+  // people on the same spot (both home) sit side by side instead of on top of each other
+  const pins = ppl.map((e) => ({ e, p: at(e.attributes.latitude, e.attributes.longitude) }));
+  pins.forEach((a, i) => {
+    const near = pins.filter((b, k) => k < i && Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1]) < 30).length;
+    if (near) a.p = [a.p[0] + near * 34, a.p[1]];
+  });
+  if (pins.length > 1 && pins.every((b) => Math.hypot(b.p[0] - pins[0].p[0], b.p[1] - pins[0].p[1]) < 80)) {
+    const mid = pins.reduce((t, b) => t + b.p[0], 0) / pins.length;   // a pinned-together group is centred on the spot
+    const shift = pins[0].p[0] - mid; pins.forEach((b) => { b.p = [b.p[0] + shift, b.p[1]]; });
+  }
+  // the card's own scheme (it can follow sun.sun rather than the device), else the device's
+  const sch = c.getAttribute("scheme");
+  const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
+  const pos = ([x, y]) => `left:calc(50% + ${x}px);top:calc(50% + ${y}px)`;
+  return html`
+    <div class="dt-map pm-map" style="height:${H}px">
+      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
+        const zyx = `${z}/${j}/${((i % n) + n) % n}`;
+        return html`<img style="${pos([l, t])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
+      })}</div>
+      ${hm && !pins.some((b) => Math.hypot(b.p[0] - hm[0], b.p[1] - hm[1]) < 60)
+        ? html`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
+      ${pins.map(({ e, p }, i) => {
+        const name = e.attributes.friendly_name || e.entity_id.split(".")[1], pic = e.attributes.entity_picture;
+        return html`<span class="pm-pin" style="${pos(p)};--pin:${PIN_COLOURS[i % PIN_COLOURS.length]}">
+          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name[0]}${e.state === "home"
+            ? html`<em><ha-icon icon="mdi:home"></ha-icon></em>` : nothing}</i><b>${name}</b></span>`;
+      })}
+      <small class="dt-osm">Esri, OpenStreetMap</small>
+    </div>`;
+}
+
 function where(c, e) {
   const a = e.attributes, dom = e.entity_id.split(".")[0];
   const dev = dom === "person" ? a.source : e.entity_id;
@@ -386,6 +447,15 @@ export const DETAIL_CSS = css`
   .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
+  .pm-map { border-radius: 22px; }
+  .pm-map .dt-tiles img { position: absolute; }
+  .pm-pin { position: absolute; transform: translate(-50%, -21px); display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
+  .pm-pin i { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover; position: relative;
+              display: grid; place-items: center; color: #fff; font: 700 16px/1 inherit; font-style: normal; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+  .pm-pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+               background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
+  .pm-pin b { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
+              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; }
   .dt-nomap { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
   .dt-place { display: flex; flex-direction: column; padding: 12px 16px 14px; }
   .dt-place b { font-size: 22px; font-weight: 700; line-height: 1.2; }

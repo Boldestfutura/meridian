@@ -2914,7 +2914,7 @@ function createPip() {
         put(x3 + 2, ey + 3, I2.BLUSH);
       }
     };
-    const my = ey + 5;
+    const my2 = ey + 5;
     if (st2 === "happy" || st2 === "music") {
       eyes((x3, y2) => {
         put(x3 - 1, y2 + 1, I2.EYE);
@@ -2923,10 +2923,10 @@ function createPip() {
         put(x3 + 2, y2 + 1, I2.EYE);
       });
       blush();
-      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my, I2.MOUTH);
-      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
-      put(cx - 1, my + 2, I2.MOUTH);
-      put(cx, my + 2, I2.MOUTH);
+      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my2, I2.MOUTH);
+      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my2 + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
+      put(cx - 1, my2 + 2, I2.MOUTH);
+      put(cx, my2 + 2, I2.MOUTH);
     } else if (st2 === "sleepy") {
       eyes((x3, y2) => {
         put(x3 - 1, y2 + 1, I2.EYE);
@@ -2935,11 +2935,11 @@ function createPip() {
         put(x3 + 2, y2 + 1, I2.EYE);
       });
       const o2 = breathe > 0 ? 1 : 0;
-      put(cx - 1, my, I2.MOUTH);
-      put(cx, my, I2.MOUTH);
+      put(cx - 1, my2, I2.MOUTH);
+      put(cx, my2, I2.MOUTH);
       if (o2) {
-        put(cx - 1, my + 1, I2.MOUTH);
-        put(cx, my + 1, I2.MOUTH);
+        put(cx - 1, my2 + 1, I2.MOUTH);
+        put(cx, my2 + 1, I2.MOUTH);
       }
     } else if (st2 === "stuffy") {
       eyes((x3, y2, s2) => {
@@ -2948,7 +2948,7 @@ function createPip() {
         put(x3 + b2, y2 + 1, I2.EYE);
         put(x3 + a2, y2 + 2, I2.EYE);
       });
-      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + (x3 & 1), I2.MOUTH);
+      for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my2 + (x3 & 1), I2.MOUTH);
     } else if (st2 === "sad") {
       eyes((x3, y2, s2) => {
         for (let j2 = 0; j2 < 3; j2++) for (let i2 = 0; i2 < 2; i2++) put(x3 + i2, y2 + j2, I2.EYE);
@@ -2963,13 +2963,13 @@ function createPip() {
         put(cx - 7, ey + 2 + ph * 7, I2.DROPL);
       }
       const w2 = t3 % 1.3 < 0.65 ? 0 : 1;
-      put(cx - 2, my + 1, I2.MOUTH);
-      put(cx - 1, my + w2 * 0, I2.MOUTH);
-      put(cx, my, I2.MOUTH);
-      put(cx + 1, my + 1, I2.MOUTH);
+      put(cx - 2, my2 + 1, I2.MOUTH);
+      put(cx - 1, my2 + w2 * 0, I2.MOUTH);
+      put(cx, my2, I2.MOUTH);
+      put(cx + 1, my2 + 1, I2.MOUTH);
       if (w2) {
-        put(cx - 3, my + 2, I2.MOUTH);
-        put(cx + 2, my + 2, I2.MOUTH);
+        put(cx - 3, my2 + 2, I2.MOUTH);
+        put(cx + 2, my2 + 2, I2.MOUTH);
       }
     } else if (st2 === "angry") {
       eyes((x3, y2, s2) => {
@@ -2985,12 +2985,12 @@ function createPip() {
         if (i2 && i2 < 3) put(x0 + i2, ey + 4, I2.BLUSH);
       }
       const w2 = Math.floor(t3 * 8) & 1;
-      put(cx - 3, my + 2, I2.MOUTH);
-      put(cx - 2, my + 1, I2.MOUTH);
-      put(cx - 1, my + w2, I2.MOUTH);
-      put(cx, my + 1 - w2, I2.MOUTH);
-      put(cx + 1, my + 1, I2.MOUTH);
-      put(cx + 2, my + 2, I2.MOUTH);
+      put(cx - 3, my2 + 2, I2.MOUTH);
+      put(cx - 2, my2 + 1, I2.MOUTH);
+      put(cx - 1, my2 + w2, I2.MOUTH);
+      put(cx, my2 + 1 - w2, I2.MOUTH);
+      put(cx + 1, my2 + 1, I2.MOUTH);
+      put(cx + 2, my2 + 2, I2.MOUTH);
     } else if (st2 === "dizzy") {
       const R3 = [[2, 0], [2, 1], [1, 2], [0, 2], [-1, 2], [-2, 1], [-2, 0], [-2, -1], [-1, -2], [0, -2], [1, -2], [2, -1]];
       eyes((x3, y2, s2) => {
@@ -3002,7 +3002,7 @@ function createPip() {
         put(ox + Math.round(a2 / 2), oy + Math.round(b2 / 2), I2.EYE);
         put(ox, oy, I2.EYE);
       });
-      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my + 1 + Math.round(Math.sin(x3 * 1.4 + t3 * 6) * 0.8), I2.MOUTH);
+      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my2 + 1 + Math.round(Math.sin(x3 * 1.4 + t3 * 6) * 0.8), I2.MOUTH);
     } else if (st2 === "error") {
       eyes((x3, y2) => {
         put(x3 - 1, y2, I2.EYE);
@@ -3011,7 +3011,7 @@ function createPip() {
         put(x3 + 1, y2, I2.EYE);
         put(x3 - 1, y2 + 2, I2.EYE);
       });
-      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my + (x3 & 1), I2.MOUTH);
+      for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my2 + (x3 & 1), I2.MOUTH);
     } else {
       const big = st2 === "listening" || st2 === "guests";
       eyes((x3, y2) => {
@@ -3033,72 +3033,72 @@ function createPip() {
       if (st2 === "cold") for (const x3 of [cx - 9, cx + 7]) put(x3, ey + 3, I2.SCARF);
       if (st2 === "speaking") {
         const h2 = Math.round(talk * 3);
-        if (h2 === 0) for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, I2.MOUTH);
+        if (h2 === 0) for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my2 + 1, I2.MOUTH);
         else for (let j2 = 0; j2 <= h2; j2++) for (let x3 = -2; x3 <= 1; x3++) {
           if ((j2 === 0 || j2 === h2) && (x3 === -2 || x3 === 1)) continue;
-          put(cx + x3, my + j2, j2 === h2 && h2 >= 2 && (x3 === -1 || x3 === 0) ? I2.TONGUE : I2.MOUTH);
+          put(cx + x3, my2 + j2, j2 === h2 && h2 >= 2 && (x3 === -1 || x3 === 0) ? I2.TONGUE : I2.MOUTH);
         }
       } else if (st2 === "listening") {
-        put(cx - 1, my, I2.MOUTH);
-        put(cx, my, I2.MOUTH);
-        put(cx - 1, my + 1, I2.MOUTH);
-        put(cx, my + 1, I2.MOUTH);
+        put(cx - 1, my2, I2.MOUTH);
+        put(cx, my2, I2.MOUTH);
+        put(cx - 1, my2 + 1, I2.MOUTH);
+        put(cx, my2 + 1, I2.MOUTH);
       } else if (st2 === "thinking") {
-        put(cx, my, I2.MOUTH);
-        put(cx + 1, my, I2.MOUTH);
-        put(cx + 2, my - 1, I2.MOUTH);
+        put(cx, my2, I2.MOUTH);
+        put(cx + 1, my2, I2.MOUTH);
+        put(cx + 2, my2 - 1, I2.MOUTH);
       } else if (st2 === "hot") {
         const pant = Math.sin(t3 * 10) > 0 ? 1 : 0;
-        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my, I2.MOUTH);
-        put(cx - 2, my + 1, I2.MOUTH);
-        put(cx + 1, my + 1, I2.MOUTH);
-        put(cx - 1, my + 1, I2.TONGUE);
-        put(cx, my + 1, I2.TONGUE);
-        put(cx - 1, my + 2, I2.TONGUE);
-        put(cx, my + 2, I2.TONGUE);
+        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my2, I2.MOUTH);
+        put(cx - 2, my2 + 1, I2.MOUTH);
+        put(cx + 1, my2 + 1, I2.MOUTH);
+        put(cx - 1, my2 + 1, I2.TONGUE);
+        put(cx, my2 + 1, I2.TONGUE);
+        put(cx - 1, my2 + 2, I2.TONGUE);
+        put(cx, my2 + 2, I2.TONGUE);
         if (pant) {
-          put(cx - 1, my + 3, I2.TONGUE);
-          put(cx, my + 3, I2.TONGUE);
+          put(cx - 1, my2 + 3, I2.TONGUE);
+          put(cx, my2 + 3, I2.TONGUE);
         }
       } else if (st2 === "cold") {
         const ph = Math.floor(t3 * 12) & 1;
-        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my + (x3 + ph & 1), I2.MOUTH);
+        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my2 + (x3 + ph & 1), I2.MOUTH);
       } else if (st2 === "hungry") {
-        for (let j2 = 0; j2 <= 2; j2++) for (let x3 = -1; x3 <= 0; x3++) put(cx + x3, my + j2, I2.MOUTH);
-        put(cx - 2, my + 1, I2.MOUTH);
-        put(cx + 1, my + 1, I2.MOUTH);
-        if (t3 % 2 < 1.3) put(cx + 1, my + 3, I2.DROPL);
+        for (let j2 = 0; j2 <= 2; j2++) for (let x3 = -1; x3 <= 0; x3++) put(cx + x3, my2 + j2, I2.MOUTH);
+        put(cx - 2, my2 + 1, I2.MOUTH);
+        put(cx + 1, my2 + 1, I2.MOUTH);
+        if (t3 % 2 < 1.3) put(cx + 1, my2 + 3, I2.DROPL);
       } else if (st2 === "guests") {
-        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my, I2.MOUTH);
-        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
+        for (let x3 = -3; x3 <= 2; x3++) put(cx + x3, my2, I2.MOUTH);
+        for (let x3 = -2; x3 <= 1; x3++) put(cx + x3, my2 + 1, x3 === -1 || x3 === 0 ? I2.TONGUE : I2.MOUTH);
       } else if (st2 === "thirsty") {
-        put(cx - 2, my + 1, I2.MOUTH);
-        put(cx - 1, my, I2.MOUTH);
-        put(cx, my, I2.MOUTH);
-        put(cx + 1, my + 1, I2.MOUTH);
+        put(cx - 2, my2 + 1, I2.MOUTH);
+        put(cx - 1, my2, I2.MOUTH);
+        put(cx, my2, I2.MOUTH);
+        put(cx + 1, my2 + 1, I2.MOUTH);
       } else if (st2 === "tv") {
         const ph = t3 % 3.4 / 3.4, chew = ph > 0.3 && ph < 0.75;
         if (chew && Math.floor(t3 * 7) & 1) {
-          put(cx - 1, my, I2.MOUTH);
-          put(cx, my, I2.MOUTH);
-          put(cx - 1, my + 1, I2.MOUTH);
-          put(cx, my + 1, I2.MOUTH);
+          put(cx - 1, my2, I2.MOUTH);
+          put(cx, my2, I2.MOUTH);
+          put(cx - 1, my2 + 1, I2.MOUTH);
+          put(cx, my2 + 1, I2.MOUTH);
         } else if (chew) {
-          put(cx - 2, my + 1, I2.MOUTH);
-          put(cx - 1, my + 1, I2.MOUTH);
-          put(cx, my + 1, I2.MOUTH);
-          put(cx + 1, my + 1, I2.MOUTH);
+          put(cx - 2, my2 + 1, I2.MOUTH);
+          put(cx - 1, my2 + 1, I2.MOUTH);
+          put(cx, my2 + 1, I2.MOUTH);
+          put(cx + 1, my2 + 1, I2.MOUTH);
         } else {
-          put(cx - 2, my, I2.MOUTH);
-          put(cx - 1, my + 1, I2.MOUTH);
-          put(cx, my + 1, I2.MOUTH);
-          put(cx + 1, my, I2.MOUTH);
+          put(cx - 2, my2, I2.MOUTH);
+          put(cx - 1, my2 + 1, I2.MOUTH);
+          put(cx, my2 + 1, I2.MOUTH);
+          put(cx + 1, my2, I2.MOUTH);
         }
       } else {
-        put(cx - 2, my, I2.MOUTH);
-        put(cx - 1, my + 1, I2.MOUTH);
-        put(cx, my + 1, I2.MOUTH);
-        put(cx + 1, my, I2.MOUTH);
+        put(cx - 2, my2, I2.MOUTH);
+        put(cx - 1, my2 + 1, I2.MOUTH);
+        put(cx, my2 + 1, I2.MOUTH);
+        put(cx + 1, my2, I2.MOUTH);
       }
     }
     if (st2 === "cold") {
@@ -3248,7 +3248,7 @@ function createPip() {
       }
       const c2 = t3 % 2.6 / 2.6;
       if (c2 < 0.4) {
-        const px = cx - 4 - c2 * 22, py = my + 1 - c2 * 6;
+        const px = cx - 4 - c2 * 22, py = my2 + 1 - c2 * 6;
         for (const [a2, b2] of [[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [-1, 1]]) putBg(px + a2, py + b2, I2.CLOUD);
       }
     }
@@ -4592,6 +4592,64 @@ function map(c2, lat, lon, acc) {
       <small class="dt-osm">Esri, OpenStreetMap</small>
     </div>`;
 }
+var mx = (lon, n2) => (lon + 180) / 360 * n2;
+var my = (lat, n2) => {
+  const r2 = lat * Math.PI / 180;
+  return (1 - Math.log(Math.tan(r2) + 1 / Math.cos(r2)) / Math.PI) / 2 * n2;
+};
+var PIN_COLOURS = ["var(--accent)", "#d6409f", "#3f8f63", "#f39a43"];
+function peopleMap(c2, s2) {
+  const H2 = s2.height || 230, W2 = 900, T2 = 256, PAD = 46;
+  const ppl = (s2.people || []).map((id) => c2._st(id)).filter((e2) => e2 && e2.attributes.latitude != null);
+  if (!ppl.length) return Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off"></ha-icon>No locations</div>`;
+  const home = c2._st("zone.home");
+  const pts = ppl.map((e2) => [e2.attributes.latitude, e2.attributes.longitude]);
+  const hp = home && home.attributes.latitude != null ? [home.attributes.latitude, home.attributes.longitude] : null;
+  if (hp) pts.push(hp);
+  let z2 = 16;
+  for (; z2 > 3; z2--) {
+    const n3 = 2 ** z2, xs3 = pts.map((p2) => mx(p2[1], n3) * T2), ys3 = pts.map((p2) => my(p2[0], n3) * T2);
+    if (Math.max(...xs3) - Math.min(...xs3) <= 320 - PAD * 2 && Math.max(...ys3) - Math.min(...ys3) <= H2 - PAD * 2) break;
+  }
+  const n2 = 2 ** z2, xs2 = pts.map((p2) => mx(p2[1], n2)), ys2 = pts.map((p2) => my(p2[0], n2));
+  const cx = (Math.max(...xs2) + Math.min(...xs2)) / 2, cy = (Math.max(...ys2) + Math.min(...ys2)) / 2;
+  const at2 = (lat, lon) => [(mx(lon, n2) - cx) * T2, (my(lat, n2) - cy) * T2];
+  const tiles = [];
+  for (let i2 = Math.floor(cx - W2 / 2 / T2); i2 <= Math.floor(cx + W2 / 2 / T2); i2++)
+    for (let j2 = Math.floor(cy - H2 / 2 / T2); j2 <= Math.floor(cy + H2 / 2 / T2); j2++)
+      tiles.push([i2, j2, (i2 - cx) * T2, (j2 - cy) * T2]);
+  const hm = hp ? at2(hp[0], hp[1]) : null;
+  const pins = ppl.map((e2) => ({ e: e2, p: at2(e2.attributes.latitude, e2.attributes.longitude) }));
+  pins.forEach((a2, i2) => {
+    const near = pins.filter((b2, k2) => k2 < i2 && Math.hypot(b2.p[0] - a2.p[0], b2.p[1] - a2.p[1]) < 30).length;
+    if (near) a2.p = [a2.p[0] + near * 34, a2.p[1]];
+  });
+  if (pins.length > 1 && pins.every((b2) => Math.hypot(b2.p[0] - pins[0].p[0], b2.p[1] - pins[0].p[1]) < 80)) {
+    const mid = pins.reduce((t3, b2) => t3 + b2.p[0], 0) / pins.length;
+    const shift = pins[0].p[0] - mid;
+    pins.forEach((b2) => {
+      b2.p = [b2.p[0] + shift, b2.p[1]];
+    });
+  }
+  const sch = c2.getAttribute("scheme");
+  const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
+  const pos = ([x3, y2]) => `left:calc(50% + ${x3}px);top:calc(50% + ${y2}px)`;
+  return Z`
+    <div class="dt-map pm-map" style="height:${H2}px">
+      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
+    const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
+    return Z`<img style="${pos([l2, t3])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
+  })}</div>
+      ${hm && !pins.some((b2) => Math.hypot(b2.p[0] - hm[0], b2.p[1] - hm[1]) < 60) ? Z`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
+      ${pins.map(({ e: e2, p: p2 }, i2) => {
+    const name = e2.attributes.friendly_name || e2.entity_id.split(".")[1], pic = e2.attributes.entity_picture;
+    return Z`<span class="pm-pin" style="${pos(p2)};--pin:${PIN_COLOURS[i2 % PIN_COLOURS.length]}">
+          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name[0]}${e2.state === "home" ? Z`<em><ha-icon icon="mdi:home"></ha-icon></em>` : J}</i><b>${name}</b></span>`;
+  })}
+      <small class="dt-osm">Esri, OpenStreetMap</small>
+    </div>`;
+}
 function where(c2, e2) {
   const a2 = e2.attributes, dom = e2.entity_id.split(".")[0];
   const dev = dom === "person" ? a2.source : e2.entity_id;
@@ -4800,6 +4858,15 @@ var DETAIL_CSS = o`
   .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
+  .pm-map { border-radius: 22px; }
+  .pm-map .dt-tiles img { position: absolute; }
+  .pm-pin { position: absolute; transform: translate(-50%, -21px); display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
+  .pm-pin i { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover; position: relative;
+              display: grid; place-items: center; color: #fff; font: 700 16px/1 inherit; font-style: normal; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+  .pm-pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+               background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
+  .pm-pin b { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
+              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; }
   .dt-nomap { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
   .dt-place { display: flex; flex-direction: column; padding: 12px 16px 14px; }
   .dt-place b { font-size: 22px; font-weight: 700; line-height: 1.2; }
@@ -5592,7 +5659,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.43.3";
+var VERSION = "0.43.5";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7461,6 +7528,8 @@ var OverlookShow = class extends dt {
         return this._popGame(s2);
       case "detail":
         return detailSection(this, s2);
+      case "people_map":
+        return Z`${head}${peopleMap(this, s2)}`;
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":

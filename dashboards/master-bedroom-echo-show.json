@@ -556,6 +556,13 @@
               "icon": "mdi:account",
               "sections": [
                 {
+                  "type": "people_map",
+                  "people": [
+                    "person.cameron",
+                    "person.paget"
+                  ]
+                },
+                {
                   "type": "tiles",
                   "title": null,
                   "items": [
@@ -597,6 +604,13 @@
               "title": "Paget",
               "icon": "mdi:account",
               "sections": [
+                {
+                  "type": "people_map",
+                  "people": [
+                    "person.cameron",
+                    "person.paget"
+                  ]
+                },
                 {
                   "type": "tiles",
                   "title": null,
