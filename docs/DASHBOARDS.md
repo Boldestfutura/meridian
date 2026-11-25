@@ -330,6 +330,7 @@ swiping Climate | Main | Media:
   four playlists (they play on the room's `speakers`).
 - **Heat pump tile:** opens the kitchen's heat pump card as a sheet; its › opens fan speed and swing.
 
-Idle, photos and the night clock are Kiosk Satellite's screensaver, as on the kitchen. The native
+Idle, photos and the night clock are Kiosk Satellite's screensaver, and full-screen now playing is its
+Sendspin player (`sendspin.fullscreen`, split with the queue), as on the kitchen. The native
 Meridian Echo views this replaced are backed up in
 `~/.config/ha/master-bedroom-echo-show.before-room-screen-2026-11-25.json`.

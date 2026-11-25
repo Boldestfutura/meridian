@@ -211,7 +211,7 @@ CARD.update({
 
 # the bedroom Echo (master-bedroom-echo-show): the same card as one room's screen (www/tablet.js
 # bedMain/bedClimate/bedMedia), swiping Climate | Main | Media. Idle, photos and the night clock
-# are Kiosk Satellite's screensaver, as on the kitchen display.
+# are Kiosk Satellite's screensaver, and full-screen now playing is its Sendspin player, as on the kitchen display.
 _bedroom = next(r for r in CARD["rooms"] if r["name"] == "Bedroom")
 ECHO = {
     "type": "custom:overlook-show",
@@ -238,8 +238,7 @@ ECHO = {
     "voice": "bedroom",
     "voice_satellite": "assist_satellite.bedroom_echo_assist_satellite",
     "clock": "bedroom",                       # voice timers and alarms, full screen
-    "nowplaying": "media_player.bedroom_echo",
-    "nowplaying_return": 40,
+    # full-screen now playing is Kiosk Satellite's (sendspin.fullscreen, split with the queue), as on the kitchen
     "washer": CARD["washer"],
     "warnings": True,
     "morning": True,

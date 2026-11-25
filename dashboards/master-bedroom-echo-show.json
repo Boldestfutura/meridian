@@ -172,8 +172,6 @@
           "voice": "bedroom",
           "voice_satellite": "assist_satellite.bedroom_echo_assist_satellite",
           "clock": "bedroom",
-          "nowplaying": "media_player.bedroom_echo",
-          "nowplaying_return": 40,
           "washer": {
             "entity": "input_select.washing_machine",
             "started": "input_datetime.washing_machine_started",
