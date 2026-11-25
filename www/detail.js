@@ -6,6 +6,7 @@
 // and a plain fallback. History comes from HA's history API into c._dhist["<id>|<hours>"].
 import { html, svg, css, nothing } from "./lit-all.min.js";
 import { count } from "./tablet.js";
+import "./peoplemap.js";
 
 const AIR = {
   temperature: (v) => (v < 17 ? "Cool" : v > 25 ? "Warm" : "Comfortable"),
@@ -202,7 +203,7 @@ export function peopleMap(c, s) {
       tiles.push([i, j, (i - cx) * T, (j - cy) * T]);
   const hm = hp ? at(hp[0], hp[1]) : null;
   // people on the same spot (both home) sit side by side instead of on top of each other
-  const pins = ppl.map((e) => ({ e, p: at(e.attributes.latitude, e.attributes.longitude) }));
+  const pins = ppl.map((e) => { const p = at(e.attributes.latitude, e.attributes.longitude); return { e, p, x0: p[0] }; });
   pins.forEach((a, i) => {
     const near = pins.filter((b, k) => k < i && Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1]) < 30).length;
     if (near) a.p = [a.p[0] + near * 34, a.p[1]];
@@ -216,22 +217,27 @@ export function peopleMap(c, s) {
   const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
   const pos = ([x, y]) => `left:calc(50% + ${x}px);top:calc(50% + ${y}px)`;
-  return html`
+  const showHome = !!hm && !pins.some((b) => Math.hypot(b.p[0] - hm[0], b.p[1] - hm[1]) < 60);
+  const name = (e) => e.attributes.friendly_name || e.entity_id.split(".")[1];
+  // the Meridian-coloured vector map (www/peoplemap.js) draws over this raster one once it is ready
+  const data = { dark, home: hp, showHome, pins: pins.map(({ e, p, x0 }, i) => ({
+    lat: e.attributes.latitude, lon: e.attributes.longitude, name: name(e), pic: e.attributes.entity_picture || null,
+    colour: PIN_COLOURS[i % PIN_COLOURS.length], home: e.state === "home", dx: Math.round(p[0] - x0) })) };
+  return html`<meridian-people-map style="height:${H}px" .data=${data}>
     <div class="dt-map pm-map" style="height:${H}px">
       <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
         const zyx = `${z}/${j}/${((i % n) + n) % n}`;
         return html`<img style="${pos([l, t])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
       })}</div>
-      ${hm && !pins.some((b) => Math.hypot(b.p[0] - hm[0], b.p[1] - hm[1]) < 60)
-        ? html`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
+      ${showHome ? html`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
       ${pins.map(({ e, p }, i) => {
-        const name = e.attributes.friendly_name || e.entity_id.split(".")[1], pic = e.attributes.entity_picture;
+        const pic = e.attributes.entity_picture;
         return html`<span class="pm-pin" style="${pos(p)};--pin:${PIN_COLOURS[i % PIN_COLOURS.length]}">
-          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name[0]}${e.state === "home"
-            ? html`<em><ha-icon icon="mdi:home"></ha-icon></em>` : nothing}</i><b>${name}</b></span>`;
+          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name(e)[0]}${e.state === "home"
+            ? html`<em><ha-icon icon="mdi:home"></ha-icon></em>` : nothing}</i><b>${name(e)}</b></span>`;
       })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div>`;
+    </div></meridian-people-map>`;
 }
 
 function where(c, e) {

@@ -4423,6 +4423,220 @@ var WX_CSS = o`
   }
 `;
 
+// www/peoplemap.js
+var GL_JS = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
+var TILES = "https://tiles.openfreemap.org";
+var glLoad = null;
+function loadGL() {
+  if (window.maplibregl) return Promise.resolve(window.maplibregl);
+  return glLoad || (glLoad = new Promise((ok, no) => {
+    const s2 = document.createElement("script");
+    s2.src = GL_JS;
+    s2.onload = () => window.maplibregl ? ok(window.maplibregl) : no(new Error("no maplibregl"));
+    s2.onerror = (e2) => {
+      glLoad = null;
+      s2.remove();
+      no(e2);
+    };
+    document.head.appendChild(s2);
+  }));
+}
+function meridianStyle(dark) {
+  const P2 = dark ? {
+    bg: "#131a29",
+    res: "#151d2d",
+    park: "#16271f",
+    wood: "#172a22",
+    water: "#1b2c52",
+    building: "#1a2335",
+    minor: "#222c40",
+    major: "#2b3750",
+    motor: "#34477a",
+    rail: "#2a3346",
+    label: "#8e99b0",
+    halo: "#131a29",
+    wlabel: "#6b9bff"
+  } : {
+    bg: "#eaf0f9",
+    res: "#e4ebf6",
+    park: "#d8ebdf",
+    wood: "#d3e7da",
+    water: "#b9cff5",
+    building: "#dbe3f0",
+    minor: "#ffffff",
+    major: "#ffffff",
+    motor: "#c9d8f8",
+    rail: "#cfd8e8",
+    label: "#6c7891",
+    halo: "#eaf0f9",
+    wlabel: "#1d5cf0"
+  };
+  const w2 = (a2, b2) => ["interpolate", ["exponential", 1.5], ["zoom"], 10, a2, 18, b2];
+  const road = (id, classes, color, width, minz) => ({
+    id,
+    type: "line",
+    source: "omt",
+    "source-layer": "transportation",
+    minzoom: minz || 0,
+    filter: ["in", ["get", "class"], ["literal", classes]],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": color, "line-width": width }
+  });
+  return {
+    version: 8,
+    glyphs: TILES + "/fonts/{fontstack}/{range}.pbf",
+    sources: { omt: { type: "vector", url: TILES + "/planet" } },
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": P2.bg } },
+      { id: "res", type: "fill", source: "omt", "source-layer": "landuse", filter: ["==", ["get", "class"], "residential"], paint: { "fill-color": P2.res } },
+      { id: "wood", type: "fill", source: "omt", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "grass"]]], paint: { "fill-color": P2.wood } },
+      { id: "park", type: "fill", source: "omt", "source-layer": "park", paint: { "fill-color": P2.park } },
+      { id: "water", type: "fill", source: "omt", "source-layer": "water", paint: { "fill-color": P2.water } },
+      { id: "waterway", type: "line", source: "omt", "source-layer": "waterway", paint: { "line-color": P2.water, "line-width": w2(0.5, 4) } },
+      { id: "building", type: "fill", source: "omt", "source-layer": "building", minzoom: 14, paint: { "fill-color": P2.building } },
+      { id: "rail", type: "line", source: "omt", "source-layer": "transportation", filter: ["==", ["get", "class"], "rail"], paint: { "line-color": P2.rail, "line-width": w2(0.5, 2) } },
+      road("minor", ["minor", "service"], P2.minor, w2(0.4, 8), 12),
+      road("major", ["secondary", "tertiary"], P2.major, w2(0.8, 12)),
+      road("trunk", ["primary", "trunk"], P2.major, w2(1.2, 15)),
+      road("motorway", ["motorway"], P2.motor, w2(1.5, 16)),
+      {
+        id: "water-name",
+        type: "symbol",
+        source: "omt",
+        "source-layer": "water_name",
+        layout: { "text-field": ["get", "name:latin"], "text-font": ["Noto Sans Italic"], "text-size": 11 },
+        paint: { "text-color": P2.wlabel, "text-halo-color": P2.halo, "text-halo-width": 1.2, "text-opacity": 0.8 }
+      },
+      {
+        id: "road-name",
+        type: "symbol",
+        source: "omt",
+        "source-layer": "transportation_name",
+        minzoom: 13,
+        filter: ["in", ["get", "class"], ["literal", ["primary", "secondary", "trunk", "tertiary"]]],
+        layout: { "symbol-placement": "line", "text-field": ["get", "name:latin"], "text-font": ["Noto Sans Regular"], "text-size": 10 },
+        paint: { "text-color": P2.label, "text-halo-color": P2.halo, "text-halo-width": 1.2 }
+      },
+      {
+        id: "place",
+        type: "symbol",
+        source: "omt",
+        "source-layer": "place",
+        filter: ["in", ["get", "class"], ["literal", ["suburb", "neighbourhood", "town", "village", "city"]]],
+        layout: { "text-field": ["upcase", ["get", "name:latin"]], "text-font": ["Noto Sans Bold"], "text-size": 10, "text-letter-spacing": 0.08 },
+        paint: { "text-color": P2.label, "text-halo-color": P2.halo, "text-halo-width": 1.5 }
+      }
+    ]
+  };
+}
+var CSS2 = `
+  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; }
+  #gl { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
+  :host([ready]) #gl { opacity: 1; }
+  :host([ready]) slot { visibility: hidden; }
+  .maplibregl-canvas { position: absolute; left: 0; top: 0; }
+  .maplibregl-marker { position: absolute; left: 0; top: 0; will-change: transform; }
+  .pin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .pin i { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover;
+           display: grid; place-items: center; color: #fff; font: 700 16px/1 var(--body, system-ui); font-style: normal;
+           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
+  .pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+            background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
+  .pin b { font: 700 11px/1.3 var(--body, system-ui); padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
+           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; backdrop-filter: blur(8px); }
+  .home { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #3f8f63;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
+  .credit { position: absolute; right: 8px; bottom: 5px; font: 9px/1.4 var(--body, system-ui); color: var(--muted); opacity: 0.8; }
+`;
+var MeridianPeopleMap = class extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML = `<style>${CSS2}</style><slot></slot><div id="gl"></div>`;
+  }
+  set data(d2) {
+    this._d = d2;
+    this._draw();
+  }
+  connectedCallback() {
+    this._draw();
+  }
+  disconnectedCallback() {
+    if (this._map) {
+      this._map.remove();
+      this._map = null;
+      this._key = null;
+      this.removeAttribute("ready");
+    }
+  }
+  async _draw() {
+    if (!this._d || !this.isConnected) return;
+    if (!this._map) {
+      if (this._loading) return;
+      this._loading = true;
+      try {
+        const gl2 = await loadGL();
+        if (!this.isConnected || this._map) return;
+        const box = this.shadowRoot.getElementById("gl");
+        this._dark = this._d.dark;
+        this._map = new gl2.Map({
+          container: box,
+          style: meridianStyle(this._dark),
+          interactive: false,
+          attributionControl: false,
+          fadeDuration: 0
+        });
+        this._map.once("idle", () => this.setAttribute("ready", ""));
+        this._map.on("error", (e2) => console.debug("meridian map:", e2 && e2.error && e2.error.message));
+        const cr = document.createElement("small");
+        cr.className = "credit";
+        cr.textContent = "OpenFreeMap \xA9 OpenMapTiles \xA9 OpenStreetMap";
+        box.appendChild(cr);
+      } catch (e2) {
+        console.warn("meridian map: no vector map, keeping the raster one", e2);
+        return;
+      } finally {
+        this._loading = false;
+      }
+    }
+    const d2 = this._d, m2 = this._map, gl = window.maplibregl;
+    const key = JSON.stringify(d2);
+    if (key === this._key) return;
+    this._key = key;
+    if (d2.dark !== this._dark) {
+      this._dark = d2.dark;
+      m2.setStyle(meridianStyle(d2.dark));
+    }
+    (this._marks || []).forEach((x3) => x3.remove());
+    this._marks = d2.pins.map((p2) => {
+      const el = document.createElement("span"), i2 = document.createElement("i"), b2 = document.createElement("b");
+      el.className = "pin";
+      el.style.setProperty("--pin", p2.colour);
+      if (p2.pic) i2.style.backgroundImage = `url("${p2.pic}")`;
+      else i2.textContent = p2.name[0] || "";
+      if (p2.home) {
+        const em = document.createElement("em");
+        em.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
+        i2.appendChild(em);
+      }
+      b2.textContent = p2.name;
+      el.append(i2, b2);
+      return new gl.Marker({ element: el, anchor: "top", offset: [p2.dx || 0, -21] }).setLngLat([p2.lon, p2.lat]).addTo(m2);
+    });
+    if (d2.home && d2.showHome) {
+      const el = document.createElement("span");
+      el.className = "home";
+      el.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
+      this._marks.push(new gl.Marker({ element: el }).setLngLat([d2.home[1], d2.home[0]]).addTo(m2));
+    }
+    const pts = d2.pins.map((p2) => [p2.lon, p2.lat]).concat(d2.home ? [[d2.home[1], d2.home[0]]] : []);
+    const lo = [Math.min(...pts.map((p2) => p2[0])), Math.min(...pts.map((p2) => p2[1]))];
+    const hi = [Math.max(...pts.map((p2) => p2[0])), Math.max(...pts.map((p2) => p2[1]))];
+    m2.resize();
+    m2.fitBounds([lo, hi], { padding: { top: 50, bottom: 40, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
+  }
+};
+if (!customElements.get("meridian-people-map")) customElements.define("meridian-people-map", MeridianPeopleMap);
+
 // www/detail.js
 var AIR = {
   temperature: (v2) => v2 < 17 ? "Cool" : v2 > 25 ? "Warm" : "Comfortable",
@@ -4619,7 +4833,10 @@ function peopleMap(c2, s2) {
     for (let j2 = Math.floor(cy - H2 / 2 / T2); j2 <= Math.floor(cy + H2 / 2 / T2); j2++)
       tiles.push([i2, j2, (i2 - cx) * T2, (j2 - cy) * T2]);
   const hm = hp ? at2(hp[0], hp[1]) : null;
-  const pins = ppl.map((e2) => ({ e: e2, p: at2(e2.attributes.latitude, e2.attributes.longitude) }));
+  const pins = ppl.map((e2) => {
+    const p2 = at2(e2.attributes.latitude, e2.attributes.longitude);
+    return { e: e2, p: p2, x0: p2[0] };
+  });
   pins.forEach((a2, i2) => {
     const near = pins.filter((b2, k2) => k2 < i2 && Math.hypot(b2.p[0] - a2.p[0], b2.p[1] - a2.p[1]) < 30).length;
     if (near) a2.p = [a2.p[0] + near * 34, a2.p[1]];
@@ -4635,20 +4852,31 @@ function peopleMap(c2, s2) {
   const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
   const pos = ([x3, y2]) => `left:calc(50% + ${x3}px);top:calc(50% + ${y2}px)`;
-  return Z`
+  const showHome = !!hm && !pins.some((b2) => Math.hypot(b2.p[0] - hm[0], b2.p[1] - hm[1]) < 60);
+  const name = (e2) => e2.attributes.friendly_name || e2.entity_id.split(".")[1];
+  const data = { dark, home: hp, showHome, pins: pins.map(({ e: e2, p: p2, x0 }, i2) => ({
+    lat: e2.attributes.latitude,
+    lon: e2.attributes.longitude,
+    name: name(e2),
+    pic: e2.attributes.entity_picture || null,
+    colour: PIN_COLOURS[i2 % PIN_COLOURS.length],
+    home: e2.state === "home",
+    dx: Math.round(p2[0] - x0)
+  })) };
+  return Z`<meridian-people-map style="height:${H2}px" .data=${data}>
     <div class="dt-map pm-map" style="height:${H2}px">
       <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
     const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
     return Z`<img style="${pos([l2, t3])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
   })}</div>
-      ${hm && !pins.some((b2) => Math.hypot(b2.p[0] - hm[0], b2.p[1] - hm[1]) < 60) ? Z`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
+      ${showHome ? Z`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
       ${pins.map(({ e: e2, p: p2 }, i2) => {
-    const name = e2.attributes.friendly_name || e2.entity_id.split(".")[1], pic = e2.attributes.entity_picture;
+    const pic = e2.attributes.entity_picture;
     return Z`<span class="pm-pin" style="${pos(p2)};--pin:${PIN_COLOURS[i2 % PIN_COLOURS.length]}">
-          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name[0]}${e2.state === "home" ? Z`<em><ha-icon icon="mdi:home"></ha-icon></em>` : J}</i><b>${name}</b></span>`;
+          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name(e2)[0]}${e2.state === "home" ? Z`<em><ha-icon icon="mdi:home"></ha-icon></em>` : J}</i><b>${name(e2)}</b></span>`;
   })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div>`;
+    </div></meridian-people-map>`;
 }
 function where(c2, e2) {
   const a2 = e2.attributes, dom = e2.entity_id.split(".")[0];
@@ -5659,7 +5887,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.43.5";
+var VERSION = "0.44.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
