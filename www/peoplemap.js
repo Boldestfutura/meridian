@@ -60,10 +60,14 @@ export function meridianStyle(dark) {
 }
 
 const CSS = `
-  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; }
+  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; background: #eaf0f9; }
+  :host([dark]) { background: #131a29; }
   #gl { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
   :host([ready]) #gl { opacity: 1; }
-  :host([ready]) slot { visibility: hidden; }
+  /* the grey raster map inside is only the fallback: hidden unless the vector map can't draw */
+  slot { visibility: hidden; }
+  :host([fallback]) slot { visibility: visible; }
+  :host([fallback]) #gl { display: none; }
   .maplibregl-canvas { position: absolute; left: 0; top: 0; }
   .maplibregl-marker { position: absolute; left: 0; top: 0; will-change: transform; }
   .pin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -86,9 +90,14 @@ class MeridianPeopleMap extends HTMLElement {
     this.attachShadow({ mode: "open" }).innerHTML =
       `<style>${CSS}</style><slot></slot><div id="gl"></div>`;
   }
-  set data(d) { this._d = d; this._draw(); }
-  connectedCallback() { this._draw(); }
+  set data(d) { this._d = d; this.toggleAttribute("dark", !!d.dark); this._draw(); }
+  connectedCallback() {
+    this._draw();
+    clearTimeout(this._late);
+    this._late = setTimeout(() => { if (!this.hasAttribute("ready")) this.setAttribute("fallback", ""); }, 8000);
+  }
   disconnectedCallback() {
+    clearTimeout(this._late);
     if (this._map) { this._map.remove(); this._map = null; this._key = null; this.removeAttribute("ready"); }
   }
   async _draw() {
@@ -103,12 +112,12 @@ class MeridianPeopleMap extends HTMLElement {
         this._dark = this._d.dark;
         this._map = new gl.Map({ container: box, style: meridianStyle(this._dark), interactive: false,
                                  attributionControl: false, fadeDuration: 0 });
-        this._map.once("idle", () => this.setAttribute("ready", ""));
+        this._map.once("idle", () => { this.removeAttribute("fallback"); this.setAttribute("ready", ""); });
         this._map.on("error", (e) => console.debug("meridian map:", e && e.error && e.error.message));
         const cr = document.createElement("small");
         cr.className = "credit"; cr.textContent = "OpenFreeMap © OpenMapTiles © OpenStreetMap";
         box.appendChild(cr);
-      } catch (e) { console.warn("meridian map: no vector map, keeping the raster one", e); return; }
+      } catch (e) { console.warn("meridian map: no vector map, showing the raster one", e); this.setAttribute("fallback", ""); return; }
       finally { this._loading = false; }
     }
     const d = this._d, m = this._map, gl = window.maplibregl;

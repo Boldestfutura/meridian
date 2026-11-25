@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, peopleMap, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.44.2";
+const VERSION = "0.45.1";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1358,11 +1358,7 @@ class OverlookShow extends LitElement {
       this._pop = "__weather";
       return;
     }
-    if (!id || !this._config.popups[id]) {
-      if (/^(switch|input_boolean)\./.test(entityId)) this._openDetail({ entity: entityId });
-      else this._moreInfo(entityId);
-      return;
-    }
+    if (!id || !this._config.popups[id]) { this._fallbackOpen({ entity: entityId }); return; }
     fireHaptic("light");
     this._pop = id;
     this._loadHistory(this._config.popups[id]);
@@ -1550,6 +1546,24 @@ class OverlookShow extends LitElement {
       // if the same sheet stays up (a swap rather than a close), put it back
       this.updateComplete.then(() => { a.forEach((x) => x.cancel()); scrim.style.pointerEvents = ""; });
     }, 250);
+  }
+
+  // nothing set up for this entity: still a Meridian pop-up (a light's sheet, a player, or the
+  // detail pop-up with its "More in Home Assistant" link), never HA's own more-info dialog
+  _fallbackOpen(x) {
+    const id = x.entity, dom = id.split(".")[0];
+    if (dom === "light") { this._openLight(id); return; }
+    if (dom === "media_player") {
+      const e = this._st(id);
+      fireHaptic("light");
+      const p = { title: x.name || (e && e.attributes.friendly_name) || id, icon: x.icon || "mdi:speaker",
+                  sections: [{ type: "player", entity: id }] };
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __player: p }) });
+      this._light = null;
+      this._pop = "__player";
+      return;
+    }
+    this._openDetail(x);
   }
 
   // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
@@ -4425,11 +4439,9 @@ class OverlookPiece extends OverlookShow {
     const sec = (this._config.status || []).find((x) => x.security && x.entity === id);
     if (sec) { overlay(this.hass).openPopup(securityPopup(sec)); return; }
     const p = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
-    if (p) overlay(this.hass).openPopup(p);
-    else if (/^(switch|input_boolean)\./.test(id)) {
-      const c = this._config.entity === id ? this._config : {};
-      overlay(this.hass)._openDetail({ entity: id, name: c.name, icon: c.icon });
-    } else overlay(this.hass)._moreInfo(id);
+    if (p) { overlay(this.hass).openPopup(p); return; }
+    const c = this._config.entity === id ? this._config : {};
+    overlay(this.hass)._fallbackOpen({ entity: id, name: c.name, icon: c.icon });
   }
   getCardSize() { return 1; }
 }
@@ -5653,20 +5665,19 @@ class EchoPiece extends OverlookShow {
     }
   }
 
-  // a pop-up set on the card opens in the shell; without one, HA's details
+  // a pop-up set on the card, else Meridian's fallback: in the shell on the Echo, in Meridian's
+  // overlay anywhere else
   _open(id) {
-    const own = this._config.popup, s = ECHO_SHELL;
+    const own = this._config.popup, sh = ECHO_SHELL || overlay(this.hass);
     const p = own && (own.sections || []).length ? own : String(id).startsWith("weather.") ? weatherPopup() : null;
-    if (s && p) { s.hass = this.hass; s.openPopup(p); return; }
-    if (s && /^(switch|input_boolean)\./.test(id)) {
-      const c = this._config.entity === id ? this._config : {};
-      s.hass = this.hass; s._openDetail({ entity: id, name: c.name, icon: c.icon }); return;
-    }
-    this._moreInfo(id);
+    sh.hass = this.hass;
+    if (p) { sh.openPopup(p); return; }
+    const c = this._config.entity === id ? this._config : {};
+    sh._fallbackOpen({ entity: id, name: c.name, icon: c.icon });
   }
   _openLight(id) {
     const s = ECHO_SHELL;
-    if (s) { s.hass = this.hass; s._openLight(id); } else this._moreInfo(id);
+    if (s) { s.hass = this.hass; s._openLight(id); } else overlay(this.hass).openLight(id, this._config.name);
   }
 
   _missing(what) {

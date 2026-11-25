@@ -142,38 +142,6 @@ const rows = (list) => html`<div class="dt-rows">${list.filter(Boolean).map(([ic
 // dark grey with the theme; no labels or shop icons, which the standard OSM style was too busy
 // with), with home marked when it's in view
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
-function map(c, lat, lon, acc) {
-  const z = 15, W = 342, H = 190, T = 256, n = 2 ** z;
-  const tx = ((lon + 180) / 360) * n;
-  const ty = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * n;
-  const tiles = [];
-  for (let i = Math.floor(tx - W / 2 / T); i <= Math.floor(tx + W / 2 / T); i++)
-    for (let j = Math.floor(ty - H / 2 / T); j <= Math.floor(ty + H / 2 / T); j++)
-      tiles.push([i, j, (i - tx) * T + W / 2, (j - ty) * T + H / 2]);
-  const mpp = (156543.03 * Math.cos((lat * Math.PI) / 180)) / n;   // metres per pixel
-  const r = Math.max(10, (acc || 0) / mpp);
-  const home = c._st("zone.home");
-  let hm = null;
-  if (home && home.attributes.latitude != null) {
-    const hx = ((home.attributes.longitude + 180) / 360) * n, hlat = (home.attributes.latitude * Math.PI) / 180;
-    const hy = ((1 - Math.log(Math.tan(hlat) + 1 / Math.cos(hlat)) / Math.PI) / 2) * n;
-    const px = (hx - tx) * T + W / 2, py = (hy - ty) * T + H / 2;
-    if (px > 12 && px < W - 12 && py > 12 && py < H - 12 && Math.hypot(px - W / 2, py - H / 2) > 18) hm = [px, py];
-  }
-  return html`
-    <div class="dt-map">
-      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
-        const zyx = `${z}/${j}/${((i % n) + n) % n}`;
-        return html`<picture style="left:${l}px;top:${t}px">
-          <source media="(prefers-color-scheme: dark)" srcset="${ESRI}/World_Dark_Gray_Base/MapServer/tile/${zyx}">
-          <img src="${ESRI}/World_Light_Gray_Base/MapServer/tile/${zyx}" alt="" draggable="false"></picture>`;
-      })}</div>
-      <i class="dt-acc" style="width:${r * 2}px;height:${r * 2}px"></i><i class="dt-pin"></i>
-      ${hm ? html`<span class="dt-home" style="left:${(hm[0] / W) * 100}%;top:${(hm[1] / H) * 100}%"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
-      <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div>`;
-}
-
 // Everyone on one map (the person pop-ups): the zoom fits all the people who have a position plus home,
 // each person is a pin with their picture (or initial) and name. Positions are pixel offsets from the
 // centre, so the map fills whatever width the pop-up has.
@@ -223,8 +191,9 @@ export function peopleMap(c, s) {
   const data = { dark, home: hp, showHome, pins: pins.map(({ e, p, x0 }, i) => ({
     lat: e.attributes.latitude, lon: e.attributes.longitude, name: name(e), pic: e.attributes.entity_picture || null,
     colour: PIN_COLOURS[i % PIN_COLOURS.length], home: e.state === "home", dx: Math.round(p[0] - x0) })) };
-  return html`<meridian-people-map style="height:${H}px" .data=${data}>
-    <div class="dt-map pm-map" style="height:${H}px">
+  const r = s.flat ? "border-radius:0;" : "";
+  return html`<meridian-people-map style="${r}height:${H}px" .data=${data}>
+    <div class="dt-map pm-map" style="${r}height:${H}px">
       <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
         const zyx = `${z}/${j}/${((i % n) + n) % n}`;
         return html`<img style="${pos([l, t])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
@@ -238,6 +207,13 @@ export function peopleMap(c, s) {
       })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
     </div></meridian-people-map>`;
+}
+
+// a person's Location map shows everyone who has a position (in a fixed order, so each keeps
+// their colour); a phone or watch shows just that device
+function mapped(c, e, dev) {
+  if (!e.entity_id.startsWith("person.")) return [e.entity_id];
+  return Object.keys(c.hass.states).filter((id) => id.startsWith("person.") && c._st(id).attributes.latitude != null).sort();
 }
 
 function where(c, e) {
@@ -255,7 +231,7 @@ function where(c, e) {
   const lvl = batE ? Number(batE.state) : de.attributes.battery_level;
   return html`
     <div class="dt-hero dt-where">
-      ${lat != null ? map(c, lat, lon, a.gps_accuracy ?? de.attributes.gps_accuracy)
+      ${lat != null ? peopleMap(c, { people: mapped(c, e, dev), height: 210, flat: true })
         : html`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
       <div class="dt-place"><b>${place}</b><span>${since(c, new Date(e.last_changed).getTime())}</span></div>
     </div>
@@ -444,12 +420,7 @@ export const DETAIL_CSS = css`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles picture { position: absolute; width: 256px; height: 256px; }
   .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
-  .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
-            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
-  .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
-            background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
   .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }

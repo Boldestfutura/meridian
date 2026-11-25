@@ -4530,10 +4530,14 @@ function meridianStyle(dark) {
   };
 }
 var CSS2 = `
-  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; }
+  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; background: #eaf0f9; }
+  :host([dark]) { background: #131a29; }
   #gl { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
   :host([ready]) #gl { opacity: 1; }
-  :host([ready]) slot { visibility: hidden; }
+  /* the grey raster map inside is only the fallback: hidden unless the vector map can't draw */
+  slot { visibility: hidden; }
+  :host([fallback]) slot { visibility: visible; }
+  :host([fallback]) #gl { display: none; }
   .maplibregl-canvas { position: absolute; left: 0; top: 0; }
   .maplibregl-marker { position: absolute; left: 0; top: 0; will-change: transform; }
   .pin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -4555,12 +4559,18 @@ var MeridianPeopleMap = class extends HTMLElement {
   }
   set data(d2) {
     this._d = d2;
+    this.toggleAttribute("dark", !!d2.dark);
     this._draw();
   }
   connectedCallback() {
     this._draw();
+    clearTimeout(this._late);
+    this._late = setTimeout(() => {
+      if (!this.hasAttribute("ready")) this.setAttribute("fallback", "");
+    }, 8e3);
   }
   disconnectedCallback() {
+    clearTimeout(this._late);
     if (this._map) {
       this._map.remove();
       this._map = null;
@@ -4585,14 +4595,18 @@ var MeridianPeopleMap = class extends HTMLElement {
           attributionControl: false,
           fadeDuration: 0
         });
-        this._map.once("idle", () => this.setAttribute("ready", ""));
+        this._map.once("idle", () => {
+          this.removeAttribute("fallback");
+          this.setAttribute("ready", "");
+        });
         this._map.on("error", (e2) => console.debug("meridian map:", e2 && e2.error && e2.error.message));
         const cr = document.createElement("small");
         cr.className = "credit";
         cr.textContent = "OpenFreeMap \xA9 OpenMapTiles \xA9 OpenStreetMap";
         box.appendChild(cr);
       } catch (e2) {
-        console.warn("meridian map: no vector map, keeping the raster one", e2);
+        console.warn("meridian map: no vector map, showing the raster one", e2);
+        this.setAttribute("fallback", "");
         return;
       } finally {
         this._loading = false;
@@ -4775,37 +4789,6 @@ var moreLink = (c2, id) => Z`
 var rows = (list) => Z`<div class="dt-rows">${list.filter(Boolean).map(([icon2, k2, v2]) => Z`
   <div class="dt-row"><ha-icon icon=${icon2}></ha-icon><span>${k2}</span><b>${v2}</b></div>`)}</div>`;
 var ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
-function map(c2, lat, lon, acc) {
-  const z2 = 15, W2 = 342, H2 = 190, T2 = 256, n2 = 2 ** z2;
-  const tx = (lon + 180) / 360 * n2;
-  const ty = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n2;
-  const tiles = [];
-  for (let i2 = Math.floor(tx - W2 / 2 / T2); i2 <= Math.floor(tx + W2 / 2 / T2); i2++)
-    for (let j2 = Math.floor(ty - H2 / 2 / T2); j2 <= Math.floor(ty + H2 / 2 / T2); j2++)
-      tiles.push([i2, j2, (i2 - tx) * T2 + W2 / 2, (j2 - ty) * T2 + H2 / 2]);
-  const mpp = 156543.03 * Math.cos(lat * Math.PI / 180) / n2;
-  const r2 = Math.max(10, (acc || 0) / mpp);
-  const home = c2._st("zone.home");
-  let hm = null;
-  if (home && home.attributes.latitude != null) {
-    const hx = (home.attributes.longitude + 180) / 360 * n2, hlat = home.attributes.latitude * Math.PI / 180;
-    const hy = (1 - Math.log(Math.tan(hlat) + 1 / Math.cos(hlat)) / Math.PI) / 2 * n2;
-    const px = (hx - tx) * T2 + W2 / 2, py = (hy - ty) * T2 + H2 / 2;
-    if (px > 12 && px < W2 - 12 && py > 12 && py < H2 - 12 && Math.hypot(px - W2 / 2, py - H2 / 2) > 18) hm = [px, py];
-  }
-  return Z`
-    <div class="dt-map">
-      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
-    const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
-    return Z`<picture style="left:${l2}px;top:${t3}px">
-          <source media="(prefers-color-scheme: dark)" srcset="${ESRI}/World_Dark_Gray_Base/MapServer/tile/${zyx}">
-          <img src="${ESRI}/World_Light_Gray_Base/MapServer/tile/${zyx}" alt="" draggable="false"></picture>`;
-  })}</div>
-      <i class="dt-acc" style="width:${r2 * 2}px;height:${r2 * 2}px"></i><i class="dt-pin"></i>
-      ${hm ? Z`<span class="dt-home" style="left:${hm[0] / W2 * 100}%;top:${hm[1] / H2 * 100}%"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
-      <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div>`;
-}
 var mx = (lon, n2) => (lon + 180) / 360 * n2;
 var my = (lat, n2) => {
   const r2 = lat * Math.PI / 180;
@@ -4863,8 +4846,9 @@ function peopleMap(c2, s2) {
     home: e2.state === "home",
     dx: Math.round(p2[0] - x0)
   })) };
-  return Z`<meridian-people-map style="height:${H2}px" .data=${data}>
-    <div class="dt-map pm-map" style="height:${H2}px">
+  const r2 = s2.flat ? "border-radius:0;" : "";
+  return Z`<meridian-people-map style="${r2}height:${H2}px" .data=${data}>
+    <div class="dt-map pm-map" style="${r2}height:${H2}px">
       <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
     const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
     return Z`<img style="${pos([l2, t3])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
@@ -4877,6 +4861,10 @@ function peopleMap(c2, s2) {
   })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
     </div></meridian-people-map>`;
+}
+function mapped(c2, e2, dev) {
+  if (!e2.entity_id.startsWith("person.")) return [e2.entity_id];
+  return Object.keys(c2.hass.states).filter((id) => id.startsWith("person.") && c2._st(id).attributes.latitude != null).sort();
 }
 function where(c2, e2) {
   const a2 = e2.attributes, dom = e2.entity_id.split(".")[0];
@@ -4893,7 +4881,7 @@ function where(c2, e2) {
   const lvl = batE ? Number(batE.state) : de.attributes.battery_level;
   return Z`
     <div class="dt-hero dt-where">
-      ${lat != null ? map(c2, lat, lon, a2.gps_accuracy ?? de.attributes.gps_accuracy) : Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
+      ${lat != null ? peopleMap(c2, { people: mapped(c2, e2, dev), height: 210, flat: true }) : Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
       <div class="dt-place"><b>${place}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
     </div>
     ${rows([
@@ -5077,12 +5065,7 @@ var DETAIL_CSS = o`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles picture { position: absolute; width: 256px; height: 256px; }
   .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
-  .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
-            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
-  .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
-            background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
   .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
@@ -5887,7 +5870,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.44.2";
+var VERSION = "0.45.1";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7412,8 +7395,7 @@ var OverlookShow = class extends dt {
       return;
     }
     if (!id || !this._config.popups[id]) {
-      if (/^(switch|input_boolean)\./.test(entityId)) this._openDetail({ entity: entityId });
-      else this._moreInfo(entityId);
+      this._fallbackOpen({ entity: entityId });
       return;
     }
     fireHaptic("light");
@@ -7633,6 +7615,29 @@ var OverlookShow = class extends dt {
         scrim.style.pointerEvents = "";
       });
     }, 250);
+  }
+  // nothing set up for this entity: still a Meridian pop-up (a light's sheet, a player, or the
+  // detail pop-up with its "More in Home Assistant" link), never HA's own more-info dialog
+  _fallbackOpen(x3) {
+    const id = x3.entity, dom = id.split(".")[0];
+    if (dom === "light") {
+      this._openLight(id);
+      return;
+    }
+    if (dom === "media_player") {
+      const e2 = this._st(id);
+      fireHaptic("light");
+      const p2 = {
+        title: x3.name || e2 && e2.attributes.friendly_name || id,
+        icon: x3.icon || "mdi:speaker",
+        sections: [{ type: "player", entity: id }]
+      };
+      this._config = Object.assign({}, this._config, { popups: Object.assign({}, this._config.popups, { __player: p2 }) });
+      this._light = null;
+      this._pop = "__player";
+      return;
+    }
+    this._openDetail(x3);
   }
   // a tile's own pop-up (www/detail.js), morphing out of the tile; closing goes back into it
   _openDetail(x3, from) {
@@ -10572,11 +10577,12 @@ var OverlookPiece = class extends OverlookShow {
       return;
     }
     const p2 = this._ownPopups()[id] || (String(id).startsWith("weather.") ? weatherPopup() : null);
-    if (p2) overlay(this.hass).openPopup(p2);
-    else if (/^(switch|input_boolean)\./.test(id)) {
-      const c2 = this._config.entity === id ? this._config : {};
-      overlay(this.hass)._openDetail({ entity: id, name: c2.name, icon: c2.icon });
-    } else overlay(this.hass)._moreInfo(id);
+    if (p2) {
+      overlay(this.hass).openPopup(p2);
+      return;
+    }
+    const c2 = this._config.entity === id ? this._config : {};
+    overlay(this.hass)._fallbackOpen({ entity: id, name: c2.name, icon: c2.icon });
   }
   getCardSize() {
     return 1;
@@ -11859,29 +11865,25 @@ var EchoPiece = class extends OverlookShow {
       }
     }
   }
-  // a pop-up set on the card opens in the shell; without one, HA's details
+  // a pop-up set on the card, else Meridian's fallback: in the shell on the Echo, in Meridian's
+  // overlay anywhere else
   _open(id) {
-    const own = this._config.popup, s2 = ECHO_SHELL;
+    const own = this._config.popup, sh = ECHO_SHELL || overlay(this.hass);
     const p2 = own && (own.sections || []).length ? own : String(id).startsWith("weather.") ? weatherPopup() : null;
-    if (s2 && p2) {
-      s2.hass = this.hass;
-      s2.openPopup(p2);
+    sh.hass = this.hass;
+    if (p2) {
+      sh.openPopup(p2);
       return;
     }
-    if (s2 && /^(switch|input_boolean)\./.test(id)) {
-      const c2 = this._config.entity === id ? this._config : {};
-      s2.hass = this.hass;
-      s2._openDetail({ entity: id, name: c2.name, icon: c2.icon });
-      return;
-    }
-    this._moreInfo(id);
+    const c2 = this._config.entity === id ? this._config : {};
+    sh._fallbackOpen({ entity: id, name: c2.name, icon: c2.icon });
   }
   _openLight(id) {
     const s2 = ECHO_SHELL;
     if (s2) {
       s2.hass = this.hass;
       s2._openLight(id);
-    } else this._moreInfo(id);
+    } else overlay(this.hass).openLight(id, this._config.name);
   }
   _missing(what) {
     return Z`<div class="card air-tile control-tile"><span class="air-name">${what}<span class="air-q">Not found</span></span></div>`;

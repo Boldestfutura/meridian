@@ -120,9 +120,6 @@ ATV_APPS = [("TV", "mdi:television-classic"), ("YouTube", "mdi:youtube"), ("Plex
             ("Photos", "mdi:image-multiple"), ("Fitness", "mdi:run"), ("Arcade", "mdi:gamepad-variant"),
             ("App\u00a0Store", "mdi:apps"), ("Search", "mdi:magnify"), ("Settings", "mdi:cog")]
 
-# both of us on one map, at the top of each person pop-up (www/detail.js peopleMap)
-PEOPLE_MAP = {"type": "people_map", "people": ["person.cameron", "person.paget"]}
-
 POPUPS = {
     "temperature": air_popup("temperature", "Temperature", "mdi:thermometer",
                              "sensor.air_quality_monitor_temperature", "sensor.air_quality_monitor_temperature_2",
@@ -138,13 +135,13 @@ POPUPS = {
                        "sensor.air_quality_monitor_pm2_5", "sensor.air_quality_monitor_pm2_5_2"),
     "voc": air_popup("voc", "VOC", "mdi:air-filter",
                      "sensor.air_quality_monitor_voc_index", "sensor.air_quality_monitor_voc_index_2"),
-    "cameron": {"title": "Cameron", "icon": "mdi:account", "sections": [PEOPLE_MAP, tiles(
+    "cameron": {"title": "Cameron", "icon": "mdi:account", "sections": [tiles(
         t("person.cameron", "Location", "mdi:map-marker"), t("device_tracker.iphone", "iPhone", "mdi:cellphone"),
         t("device_tracker.camerons_ipad_pro", "iPad Pro", "mdi:tablet"),
         t("device_tracker.camerons_iphone_apple_watch", "Watch", "mdi:watch"),
         t("sensor.iphone_battery_level", "iPhone battery", "mdi:battery"),
         t("sensor.camerons_ipad_pro_battery_level", "iPad battery", "mdi:battery"))]},
-    "paget": {"title": "Paget", "icon": "mdi:account", "sections": [PEOPLE_MAP, tiles(
+    "paget": {"title": "Paget", "icon": "mdi:account", "sections": [tiles(
         t("person.paget", "Location", "mdi:map-marker"), t("device_tracker.paget_s_iphone", "iPhone", "mdi:cellphone"),
         t("sensor.paget_s_iphone_battery_level", "iPhone battery", "mdi:battery"),
         t("sensor.paget_s_ipad_battery_level", "iPad battery", "mdi:battery"))]},

@@ -161,7 +161,12 @@ change in HA, pull and commit; after any change here, deploy, then check. Pull n
 - **A phone pop-up:** add a sheet to `POPUPS` in `showphone.py`. Its sections are `tiles`,
   `choices`, `player`, `graph` (one entity) or `multigraph` (several `series`, each with its own
   colour, or one averaged line with `average: true`; `valid: [min, max]` drops impossible readings). Then add `LINKS[entity] = "<popup id>"` so tapping that
-  entity opens it. Anything without a link opens HA's normal more-info.
+  entity opens it. Anything without a link still gets a Meridian pop-up, never HA's own dialog
+  (`_fallbackOpen`): a light opens its sheet, a speaker a player, anything else the detail pop-up
+  (www/detail.js). Only its "More in Home Assistant" button, and the light sheet's, go to HA.
+  A person's or phone's Location detail draws its map in Meridian's colours (www/peoplemap.js,
+  MapLibre + OpenFreeMap vector tiles); the grey Esri map inside it shows only if that can't load.
+  The Boox dashboard is the one exception: plain HA buttons and more-info, for the e-ink screen.
 - **A weather icon:** edit `tools/weather_icons.py`, run it, and bump the `?v=` on the icon
   URL in `_wxIcon` so screens fetch the new files.
 
