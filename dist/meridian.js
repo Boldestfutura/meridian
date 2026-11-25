@@ -4423,7 +4423,7 @@ var WX_CSS = o`
   }
 `;
 
-// www/peoplemap.js
+// www/locationmap.js
 var GL_JS = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
 var TILES = "https://tiles.openfreemap.org";
 var glLoad = null;
@@ -4530,7 +4530,7 @@ function meridianStyle(dark) {
   };
 }
 var CSS2 = `
-  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; background: #eaf0f9; }
+  :host { display: block; position: relative; overflow: hidden; background: #eaf0f9; }
   :host([dark]) { background: #131a29; }
   #gl { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
   :host([ready]) #gl { opacity: 1; }
@@ -4540,19 +4540,15 @@ var CSS2 = `
   :host([fallback]) #gl { display: none; }
   .maplibregl-canvas { position: absolute; left: 0; top: 0; }
   .maplibregl-marker { position: absolute; left: 0; top: 0; will-change: transform; }
-  .pin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .pin i { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover;
-           display: grid; place-items: center; color: #fff; font: 700 16px/1 var(--body, system-ui); font-style: normal;
-           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
-  .pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
-            background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
-  .pin b { font: 700 11px/1.3 var(--body, system-ui); padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
-           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; backdrop-filter: blur(8px); }
+  .acc { border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, transparent);
+         border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); box-sizing: border-box; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid #fff;
+         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
   .home { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #3f8f63;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .credit { position: absolute; right: 8px; bottom: 5px; font: 9px/1.4 var(--body, system-ui); color: var(--muted); opacity: 0.8; }
 `;
-var MeridianPeopleMap = class extends HTMLElement {
+var MeridianLocationMap = class extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" }).innerHTML = `<style>${CSS2}</style><slot></slot><div id="gl"></div>`;
@@ -4593,7 +4589,9 @@ var MeridianPeopleMap = class extends HTMLElement {
           style: meridianStyle(this._dark),
           interactive: false,
           attributionControl: false,
-          fadeDuration: 0
+          fadeDuration: 0,
+          center: [this._d.lon, this._d.lat],
+          zoom: 14
         });
         this._map.once("idle", () => {
           this.removeAttribute("fallback");
@@ -4620,36 +4618,28 @@ var MeridianPeopleMap = class extends HTMLElement {
       this._dark = d2.dark;
       m2.setStyle(meridianStyle(d2.dark));
     }
-    (this._marks || []).forEach((x3) => x3.remove());
-    this._marks = d2.pins.map((p2) => {
-      const el = document.createElement("span"), i2 = document.createElement("i"), b2 = document.createElement("b");
-      el.className = "pin";
-      el.style.setProperty("--pin", p2.colour);
-      if (p2.pic) i2.style.backgroundImage = `url("${p2.pic}")`;
-      else i2.textContent = p2.name[0] || "";
-      if (p2.home) {
-        const em = document.createElement("em");
-        em.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
-        i2.appendChild(em);
-      }
-      b2.textContent = p2.name;
-      el.append(i2, b2);
-      return new gl.Marker({ element: el, anchor: "top", offset: [p2.dx || 0, -21] }).setLngLat([p2.lon, p2.lat]).addTo(m2);
-    });
-    if (d2.home && d2.showHome) {
-      const el = document.createElement("span");
-      el.className = "home";
-      el.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
-      this._marks.push(new gl.Marker({ element: el }).setLngLat([d2.home[1], d2.home[0]]).addTo(m2));
-    }
-    const pts = d2.pins.map((p2) => [p2.lon, p2.lat]).concat(d2.home ? [[d2.home[1], d2.home[0]]] : []);
-    const lo = [Math.min(...pts.map((p2) => p2[0])), Math.min(...pts.map((p2) => p2[1]))];
-    const hi = [Math.max(...pts.map((p2) => p2[0])), Math.max(...pts.map((p2) => p2[1]))];
     m2.resize();
-    m2.fitBounds([lo, hi], { padding: { top: 36, bottom: 64, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
+    m2.jumpTo({ center: [d2.lon, d2.lat], zoom: 14 });
+    (this._marks || []).forEach((x3) => x3.remove());
+    const mark = (cls, ll, size) => {
+      const el = document.createElement("span");
+      el.className = cls;
+      if (size) {
+        el.style.width = el.style.height = `${size}px`;
+      }
+      if (cls === "home") el.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
+      return new gl.Marker({ element: el }).setLngLat(ll).addTo(m2);
+    };
+    const mpp = 40075016686e-3 * Math.cos(d2.lat * Math.PI / 180) / (512 * 2 ** 14);
+    this._marks = [];
+    if (d2.home) {
+      const a2 = m2.project([d2.lon, d2.lat]), b2 = m2.project([d2.home[1], d2.home[0]]);
+      if (Math.hypot(a2.x - b2.x, a2.y - b2.y) > 18) this._marks.push(mark("home", [d2.home[1], d2.home[0]]));
+    }
+    this._marks.push(mark("acc", [d2.lon, d2.lat], 2 * Math.max(10, d2.acc / mpp)), mark("dot", [d2.lon, d2.lat]));
   }
 };
-if (!customElements.get("meridian-people-map")) customElements.define("meridian-people-map", MeridianPeopleMap);
+if (!customElements.get("meridian-location-map")) customElements.define("meridian-location-map", MeridianLocationMap);
 
 // www/detail.js
 var AIR = {
@@ -4794,77 +4784,30 @@ var my = (lat, n2) => {
   const r2 = lat * Math.PI / 180;
   return (1 - Math.log(Math.tan(r2) + 1 / Math.cos(r2)) / Math.PI) / 2 * n2;
 };
-var PIN_COLOURS = ["var(--accent)", "#d6409f", "#3f8f63", "#f39a43"];
-function peopleMap(c2, s2) {
-  const H2 = s2.height || 230, W2 = 900, T2 = 256, PAD = 46;
-  const ppl = (s2.people || []).map((id) => c2._st(id)).filter((e2) => e2 && e2.attributes.latitude != null);
-  if (!ppl.length) return Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off"></ha-icon>No locations</div>`;
-  const home = c2._st("zone.home");
-  const pts = ppl.map((e2) => [e2.attributes.latitude, e2.attributes.longitude]);
-  const hp = home && home.attributes.latitude != null ? [home.attributes.latitude, home.attributes.longitude] : null;
-  if (hp) pts.push(hp);
-  let z2 = 16;
-  for (; z2 > 3; z2--) {
-    const n3 = 2 ** z2, xs3 = pts.map((p2) => mx(p2[1], n3) * T2), ys3 = pts.map((p2) => my(p2[0], n3) * T2);
-    if (Math.max(...xs3) - Math.min(...xs3) <= 320 - PAD * 2 && Math.max(...ys3) - Math.min(...ys3) <= H2 - PAD * 2) break;
-  }
-  const n2 = 2 ** z2, xs2 = pts.map((p2) => mx(p2[1], n2)), ys2 = pts.map((p2) => my(p2[0], n2));
-  const cx = (Math.max(...xs2) + Math.min(...xs2)) / 2, cy = (Math.max(...ys2) + Math.min(...ys2)) / 2;
-  const at2 = (lat, lon) => [(mx(lon, n2) - cx) * T2, (my(lat, n2) - cy) * T2];
+function locMap(c2, lat, lon, acc) {
+  const z2 = 15, H2 = 210, W2 = 900, T2 = 256, n2 = 2 ** z2, cx = mx(lon, n2), cy = my(lat, n2);
   const tiles = [];
   for (let i2 = Math.floor(cx - W2 / 2 / T2); i2 <= Math.floor(cx + W2 / 2 / T2); i2++)
     for (let j2 = Math.floor(cy - H2 / 2 / T2); j2 <= Math.floor(cy + H2 / 2 / T2); j2++)
       tiles.push([i2, j2, (i2 - cx) * T2, (j2 - cy) * T2]);
-  const hm = hp ? at2(hp[0], hp[1]) : null;
-  const pins = ppl.map((e2) => {
-    const p2 = at2(e2.attributes.latitude, e2.attributes.longitude);
-    return { e: e2, p: p2, x0: p2[0] };
-  });
-  pins.forEach((a2, i2) => {
-    const near = pins.filter((b2, k2) => k2 < i2 && Math.hypot(b2.p[0] - a2.p[0], b2.p[1] - a2.p[1]) < 30).length;
-    if (near) a2.p = [a2.p[0] + near * 34, a2.p[1]];
-  });
-  if (pins.length > 1 && pins.every((b2) => Math.hypot(b2.p[0] - pins[0].p[0], b2.p[1] - pins[0].p[1]) < 80)) {
-    const mid = pins.reduce((t3, b2) => t3 + b2.p[0], 0) / pins.length;
-    const shift = pins[0].p[0] - mid;
-    pins.forEach((b2) => {
-      b2.p = [b2.p[0] + shift, b2.p[1]];
-    });
-  }
+  const mpp = 156543.03 * Math.cos(lat * Math.PI / 180) / n2;
+  const r2 = Math.max(10, (acc || 0) / mpp);
+  const home = c2._st("zone.home"), ha = home && home.attributes;
+  const hm = ha && ha.latitude != null ? [(mx(ha.longitude, n2) - cx) * T2, (my(ha.latitude, n2) - cy) * T2] : null;
+  const showHome = hm && Math.abs(hm[1]) < H2 / 2 - 12 && Math.hypot(hm[0], hm[1]) > 18;
   const sch = c2.getAttribute("scheme");
   const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
   const pos = ([x3, y2]) => `left:calc(50% + ${x3}px);top:calc(50% + ${y2}px)`;
-  const showHome = !!hm && !pins.some((b2) => Math.hypot(b2.p[0] - hm[0], b2.p[1] - hm[1]) < 60);
-  const name = (e2) => e2.attributes.friendly_name || e2.entity_id.split(".")[1];
-  const data = { dark, home: hp, showHome, pins: pins.map(({ e: e2, p: p2, x0 }, i2) => ({
-    lat: e2.attributes.latitude,
-    lon: e2.attributes.longitude,
-    name: name(e2),
-    pic: e2.attributes.entity_picture || null,
-    colour: PIN_COLOURS[i2 % PIN_COLOURS.length],
-    home: e2.state === "home",
-    dx: Math.round(p2[0] - x0)
-  })) };
-  const r2 = s2.flat ? "border-radius:0;" : "";
-  return Z`<meridian-people-map style="${r2}height:${H2}px" .data=${data}>
-    <div class="dt-map pm-map" style="${r2}height:${H2}px">
-      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => {
-    const zyx = `${z2}/${j2}/${(i2 % n2 + n2) % n2}`;
-    return Z`<img style="${pos([l2, t3])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
-  })}</div>
+  const data = { dark, lat, lon, acc: acc || 0, home: ha && ha.latitude != null ? [ha.latitude, ha.longitude] : null };
+  return Z`<meridian-location-map style="height:${H2}px" .data=${data}>
+    <div class="dt-map" style="height:${H2}px">
+      <div class="dt-tiles">${tiles.map(([i2, j2, l2, t3]) => Z`<img style="${pos([l2, t3])}"
+        src="${ESRI}/${base}/MapServer/tile/${z2}/${j2}/${(i2 % n2 + n2) % n2}" alt="" draggable="false">`)}</div>
+      <i class="dt-acc" style="width:${r2 * 2}px;height:${r2 * 2}px"></i><i class="dt-pin"></i>
       ${showHome ? Z`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : J}
-      ${pins.map(({ e: e2, p: p2 }, i2) => {
-    const pic = e2.attributes.entity_picture;
-    return Z`<span class="pm-pin" style="${pos(p2)};--pin:${PIN_COLOURS[i2 % PIN_COLOURS.length]}">
-          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name(e2)[0]}${e2.state === "home" ? Z`<em><ha-icon icon="mdi:home"></ha-icon></em>` : J}</i><b>${name(e2)}</b></span>`;
-  })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div></meridian-people-map>`;
-}
-function mapped(c2, e2, dev) {
-  if (!e2.entity_id.startsWith("person.")) return [e2.entity_id];
-  return Object.keys(c2.hass.states).filter((id) => id.startsWith("person.") && c2._st(id).attributes.latitude != null).sort();
+    </div></meridian-location-map>`;
 }
 function where(c2, e2) {
   const a2 = e2.attributes, dom = e2.entity_id.split(".")[0];
@@ -4881,7 +4824,7 @@ function where(c2, e2) {
   const lvl = batE ? Number(batE.state) : de.attributes.battery_level;
   return Z`
     <div class="dt-hero dt-where">
-      ${lat != null ? peopleMap(c2, { people: mapped(c2, e2, dev), height: 210, flat: true }) : Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
+      ${lat != null ? locMap(c2, lat, lon, a2.gps_accuracy ?? de.attributes.gps_accuracy) : Z`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
       <div class="dt-place"><b>${place}</b><span>${since(c2, new Date(e2.last_changed).getTime())}</span></div>
     </div>
     ${rows([
@@ -5065,19 +5008,14 @@ var DETAIL_CSS = o`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
-  .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
+            background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+  .dt-tiles img { position: absolute; display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
+  .dt-home { position: absolute; z-index: 1; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
-  .pm-map { border-radius: 22px; }
-  .pm-map .dt-tiles img { position: absolute; }
-  .pm-pin { position: absolute; transform: translate(-50%, -21px); display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
-  .pm-pin i { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover; position: relative;
-              display: grid; place-items: center; color: #fff; font: 700 16px/1 inherit; font-style: normal; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
-  .pm-pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
-               background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
-  .pm-pin b { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
-              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; }
   .dt-nomap { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
   .dt-place { display: flex; flex-direction: column; padding: 12px 16px 14px; }
   .dt-place b { font-size: 22px; font-weight: 700; line-height: 1.2; }
@@ -5870,7 +5808,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.45.1";
+var VERSION = "0.45.2";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {
@@ -7761,8 +7699,6 @@ var OverlookShow = class extends dt {
         return this._popGame(s2);
       case "detail":
         return detailSection(this, s2);
-      case "people_map":
-        return Z`${head}${peopleMap(this, s2)}`;
       case "graph":
         return Z`${head}${this._popGraph(s2)}`;
       case "multigraph":

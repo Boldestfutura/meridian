@@ -1,7 +1,8 @@
-// The person pop-ups' map in Meridian's own colours: MapLibre GL drawing OpenFreeMap's vector tiles
-// (OpenMapTiles schema, free, no key) with the style below. MapLibre loads from unpkg the first time a
-// map opens. The grey raster map peopleMap() (www/detail.js) puts inside the element shows until this
-// one has drawn, and stays if WebGL or the network isn't there.
+// The location detail's map in Meridian's own colours: MapLibre GL drawing OpenFreeMap's vector tiles
+// (OpenMapTiles schema, free, no key) with the style below, the spot as a blue dot with its GPS
+// accuracy around it. MapLibre loads from unpkg the first time a map opens. While it draws the box is
+// plain Meridian ground; the grey raster map locMap() (www/detail.js) puts inside the element only
+// shows if WebGL or the network isn't there.
 const GL_JS = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
 const TILES = "https://tiles.openfreemap.org";
 let glLoad = null;
@@ -60,7 +61,7 @@ export function meridianStyle(dark) {
 }
 
 const CSS = `
-  :host { display: block; position: relative; border-radius: 22px; overflow: hidden; background: #eaf0f9; }
+  :host { display: block; position: relative; overflow: hidden; background: #eaf0f9; }
   :host([dark]) { background: #131a29; }
   #gl { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
   :host([ready]) #gl { opacity: 1; }
@@ -70,25 +71,20 @@ const CSS = `
   :host([fallback]) #gl { display: none; }
   .maplibregl-canvas { position: absolute; left: 0; top: 0; }
   .maplibregl-marker { position: absolute; left: 0; top: 0; will-change: transform; }
-  .pin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .pin i { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover;
-           display: grid; place-items: center; color: #fff; font: 700 16px/1 var(--body, system-ui); font-style: normal;
-           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
-  .pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
-            background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
-  .pin b { font: 700 11px/1.3 var(--body, system-ui); padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
-           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; backdrop-filter: blur(8px); }
+  .acc { border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, transparent);
+         border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); box-sizing: border-box; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid #fff;
+         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
   .home { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #3f8f63;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .credit { position: absolute; right: 8px; bottom: 5px; font: 9px/1.4 var(--body, system-ui); color: var(--muted); opacity: 0.8; }
 `;
 
-// data: { dark, pins: [{ lat, lon, name, pic, colour, home, dx }], home: [lat, lon] | null, showHome }
-class MeridianPeopleMap extends HTMLElement {
+// data: { dark, lat, lon, acc (metres), home: [lat, lon] | null }
+class MeridianLocationMap extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: "open" }).innerHTML =
-      `<style>${CSS}</style><slot></slot><div id="gl"></div>`;
+    this.attachShadow({ mode: "open" }).innerHTML = `<style>${CSS}</style><slot></slot><div id="gl"></div>`;
   }
   set data(d) { this._d = d; this.toggleAttribute("dark", !!d.dark); this._draw(); }
   connectedCallback() {
@@ -111,7 +107,7 @@ class MeridianPeopleMap extends HTMLElement {
         const box = this.shadowRoot.getElementById("gl");
         this._dark = this._d.dark;
         this._map = new gl.Map({ container: box, style: meridianStyle(this._dark), interactive: false,
-                                 attributionControl: false, fadeDuration: 0 });
+                                 attributionControl: false, fadeDuration: 0, center: [this._d.lon, this._d.lat], zoom: 14 });
         this._map.once("idle", () => { this.removeAttribute("fallback"); this.setAttribute("ready", ""); });
         this._map.on("error", (e) => console.debug("meridian map:", e && e.error && e.error.message));
         const cr = document.createElement("small");
@@ -125,25 +121,24 @@ class MeridianPeopleMap extends HTMLElement {
     if (key === this._key) return;
     this._key = key;
     if (d.dark !== this._dark) { this._dark = d.dark; m.setStyle(meridianStyle(d.dark)); }
-    (this._marks || []).forEach((x) => x.remove());
-    this._marks = d.pins.map((p) => {
-      const el = document.createElement("span"), i = document.createElement("i"), b = document.createElement("b");
-      el.className = "pin"; el.style.setProperty("--pin", p.colour);
-      if (p.pic) i.style.backgroundImage = `url("${p.pic}")`; else i.textContent = p.name[0] || "";
-      if (p.home) { const em = document.createElement("em"); em.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`; i.appendChild(em); }
-      b.textContent = p.name; el.append(i, b);
-      return new gl.Marker({ element: el, anchor: "top", offset: [p.dx || 0, -21] }).setLngLat([p.lon, p.lat]).addTo(m);
-    });
-    if (d.home && d.showHome) {
-      const el = document.createElement("span");
-      el.className = "home"; el.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
-      this._marks.push(new gl.Marker({ element: el }).setLngLat([d.home[1], d.home[0]]).addTo(m));
-    }
-    const pts = d.pins.map((p) => [p.lon, p.lat]).concat(d.home ? [[d.home[1], d.home[0]]] : []);
-    const lo = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))];
-    const hi = [Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
     m.resize();
-    m.fitBounds([lo, hi], { padding: { top: 36, bottom: 64, left: 70, right: 70 }, maxZoom: 15.5, animate: false });
+    m.jumpTo({ center: [d.lon, d.lat], zoom: 14 });
+    (this._marks || []).forEach((x) => x.remove());
+    const mark = (cls, ll, size) => {
+      const el = document.createElement("span");
+      el.className = cls;
+      if (size) { el.style.width = el.style.height = `${size}px`; }
+      if (cls === "home") el.innerHTML = `<ha-icon icon="mdi:home"></ha-icon>`;
+      return new gl.Marker({ element: el }).setLngLat(ll).addTo(m);
+    };
+    // MapLibre's world is 512 px wide at zoom 0, so its 14 frames like the raster tiles' 15
+    const mpp = (40075016.686 * Math.cos((d.lat * Math.PI) / 180)) / (512 * 2 ** 14);
+    this._marks = [];
+    if (d.home) {   // not when it would sit under the dot (they're home)
+      const a = m.project([d.lon, d.lat]), b = m.project([d.home[1], d.home[0]]);
+      if (Math.hypot(a.x - b.x, a.y - b.y) > 18) this._marks.push(mark("home", [d.home[1], d.home[0]]));
+    }
+    this._marks.push(mark("acc", [d.lon, d.lat], 2 * Math.max(10, d.acc / mpp)), mark("dot", [d.lon, d.lat]));
   }
 }
-if (!customElements.get("meridian-people-map")) customElements.define("meridian-people-map", MeridianPeopleMap);
+if (!customElements.get("meridian-location-map")) customElements.define("meridian-location-map", MeridianLocationMap);

@@ -6,7 +6,7 @@
 // and a plain fallback. History comes from HA's history API into c._dhist["<id>|<hours>"].
 import { html, svg, css, nothing } from "./lit-all.min.js";
 import { count } from "./tablet.js";
-import "./peoplemap.js";
+import "./locationmap.js";
 
 const AIR = {
   temperature: (v) => (v < 17 ? "Cool" : v > 25 ? "Warm" : "Comfortable"),
@@ -142,78 +142,37 @@ const rows = (list) => html`<div class="dt-rows">${list.filter(Boolean).map(([ic
 // dark grey with the theme; no labels or shop icons, which the standard OSM style was too busy
 // with), with home marked when it's in view
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
-// Everyone on one map (the person pop-ups): the zoom fits all the people who have a position plus home,
-// each person is a pin with their picture (or initial) and name. Positions are pixel offsets from the
-// centre, so the map fills whatever width the pop-up has.
+// A location detail's map: the spot as a blue dot with its GPS accuracy around it, home when it
+// is in view. The Meridian-coloured vector map (www/locationmap.js) draws it; the grey Esri tiles
+// here are its fallback, kept hidden unless that can't load. Positions are pixel offsets from the
+// centre, so the fallback fills whatever width the pop-up has.
 const mx = (lon, n) => ((lon + 180) / 360) * n;
 const my = (lat, n) => { const r = (lat * Math.PI) / 180; return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n; };
-const PIN_COLOURS = ["var(--accent)", "#d6409f", "#3f8f63", "#f39a43"];
-export function peopleMap(c, s) {
-  const H = s.height || 230, W = 900, T = 256, PAD = 46;
-  const ppl = (s.people || []).map((id) => c._st(id)).filter((e) => e && e.attributes.latitude != null);
-  if (!ppl.length) return html`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off"></ha-icon>No locations</div>`;
-  const home = c._st("zone.home");
-  const pts = ppl.map((e) => [e.attributes.latitude, e.attributes.longitude]);
-  const hp = home && home.attributes.latitude != null ? [home.attributes.latitude, home.attributes.longitude] : null;
-  if (hp) pts.push(hp);
-  // the biggest zoom (≤16) where everything fits a 320 px wide box less the padding
-  let z = 16;
-  for (; z > 3; z--) {
-    const n = 2 ** z, xs = pts.map((p) => mx(p[1], n) * T), ys = pts.map((p) => my(p[0], n) * T);
-    if (Math.max(...xs) - Math.min(...xs) <= 320 - PAD * 2 && Math.max(...ys) - Math.min(...ys) <= H - PAD * 2) break;
-  }
-  const n = 2 ** z, xs = pts.map((p) => mx(p[1], n)), ys = pts.map((p) => my(p[0], n));
-  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-  const at = (lat, lon) => [(mx(lon, n) - cx) * T, (my(lat, n) - cy) * T];
+function locMap(c, lat, lon, acc) {
+  const z = 15, H = 210, W = 900, T = 256, n = 2 ** z, cx = mx(lon, n), cy = my(lat, n);
   const tiles = [];
   for (let i = Math.floor(cx - W / 2 / T); i <= Math.floor(cx + W / 2 / T); i++)
     for (let j = Math.floor(cy - H / 2 / T); j <= Math.floor(cy + H / 2 / T); j++)
       tiles.push([i, j, (i - cx) * T, (j - cy) * T]);
-  const hm = hp ? at(hp[0], hp[1]) : null;
-  // people on the same spot (both home) sit side by side instead of on top of each other
-  const pins = ppl.map((e) => { const p = at(e.attributes.latitude, e.attributes.longitude); return { e, p, x0: p[0] }; });
-  pins.forEach((a, i) => {
-    const near = pins.filter((b, k) => k < i && Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1]) < 30).length;
-    if (near) a.p = [a.p[0] + near * 34, a.p[1]];
-  });
-  if (pins.length > 1 && pins.every((b) => Math.hypot(b.p[0] - pins[0].p[0], b.p[1] - pins[0].p[1]) < 80)) {
-    const mid = pins.reduce((t, b) => t + b.p[0], 0) / pins.length;   // a pinned-together group is centred on the spot
-    const shift = pins[0].p[0] - mid; pins.forEach((b) => { b.p = [b.p[0] + shift, b.p[1]]; });
-  }
+  const mpp = (156543.03 * Math.cos((lat * Math.PI) / 180)) / n;   // metres per pixel
+  const r = Math.max(10, (acc || 0) / mpp);
+  const home = c._st("zone.home"), ha = home && home.attributes;
+  const hm = ha && ha.latitude != null ? [(mx(ha.longitude, n) - cx) * T, (my(ha.latitude, n) - cy) * T] : null;
+  const showHome = hm && Math.abs(hm[1]) < H / 2 - 12 && Math.hypot(hm[0], hm[1]) > 18;
   // the card's own scheme (it can follow sun.sun rather than the device), else the device's
   const sch = c.getAttribute("scheme");
   const dark = sch ? sch === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const base = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
   const pos = ([x, y]) => `left:calc(50% + ${x}px);top:calc(50% + ${y}px)`;
-  const showHome = !!hm && !pins.some((b) => Math.hypot(b.p[0] - hm[0], b.p[1] - hm[1]) < 60);
-  const name = (e) => e.attributes.friendly_name || e.entity_id.split(".")[1];
-  // the Meridian-coloured vector map (www/peoplemap.js) draws over this raster one once it is ready
-  const data = { dark, home: hp, showHome, pins: pins.map(({ e, p, x0 }, i) => ({
-    lat: e.attributes.latitude, lon: e.attributes.longitude, name: name(e), pic: e.attributes.entity_picture || null,
-    colour: PIN_COLOURS[i % PIN_COLOURS.length], home: e.state === "home", dx: Math.round(p[0] - x0) })) };
-  const r = s.flat ? "border-radius:0;" : "";
-  return html`<meridian-people-map style="${r}height:${H}px" .data=${data}>
-    <div class="dt-map pm-map" style="${r}height:${H}px">
-      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => {
-        const zyx = `${z}/${j}/${((i % n) + n) % n}`;
-        return html`<img style="${pos([l, t])}" src="${ESRI}/${base}/MapServer/tile/${zyx}" alt="" draggable="false">`;
-      })}</div>
+  const data = { dark, lat, lon, acc: acc || 0, home: ha && ha.latitude != null ? [ha.latitude, ha.longitude] : null };
+  return html`<meridian-location-map style="height:${H}px" .data=${data}>
+    <div class="dt-map" style="height:${H}px">
+      <div class="dt-tiles">${tiles.map(([i, j, l, t]) => html`<img style="${pos([l, t])}"
+        src="${ESRI}/${base}/MapServer/tile/${z}/${j}/${((i % n) + n) % n}" alt="" draggable="false">`)}</div>
+      <i class="dt-acc" style="width:${r * 2}px;height:${r * 2}px"></i><i class="dt-pin"></i>
       ${showHome ? html`<span class="dt-home" style="${pos(hm)}"><ha-icon icon="mdi:home"></ha-icon></span>` : nothing}
-      ${pins.map(({ e, p }, i) => {
-        const pic = e.attributes.entity_picture;
-        return html`<span class="pm-pin" style="${pos(p)};--pin:${PIN_COLOURS[i % PIN_COLOURS.length]}">
-          <i style=${pic ? `background-image:url(${pic})` : ""}>${pic ? "" : name(e)[0]}${e.state === "home"
-            ? html`<em><ha-icon icon="mdi:home"></ha-icon></em>` : nothing}</i><b>${name(e)}</b></span>`;
-      })}
       <small class="dt-osm">Esri, OpenStreetMap</small>
-    </div></meridian-people-map>`;
-}
-
-// a person's Location map shows everyone who has a position (in a fixed order, so each keeps
-// their colour); a phone or watch shows just that device
-function mapped(c, e, dev) {
-  if (!e.entity_id.startsWith("person.")) return [e.entity_id];
-  return Object.keys(c.hass.states).filter((id) => id.startsWith("person.") && c._st(id).attributes.latitude != null).sort();
+    </div></meridian-location-map>`;
 }
 
 function where(c, e) {
@@ -231,7 +190,7 @@ function where(c, e) {
   const lvl = batE ? Number(batE.state) : de.attributes.battery_level;
   return html`
     <div class="dt-hero dt-where">
-      ${lat != null ? peopleMap(c, { people: mapped(c, e, dev), height: 210, flat: true })
+      ${lat != null ? locMap(c, lat, lon, a.gps_accuracy ?? de.attributes.gps_accuracy)
         : html`<div class="dt-nomap"><ha-icon icon="mdi:map-marker-off-outline"></ha-icon>No location reported</div>`}
       <div class="dt-place"><b>${place}</b><span>${since(c, new Date(e.last_changed).getTime())}</span></div>
     </div>
@@ -420,19 +379,14 @@ export const DETAIL_CSS = css`
   .dt-where { display: flex; flex-direction: column; }
   .dt-map { position: relative; height: 190px; overflow: hidden; background: #dde3ea; }
   .dt-tiles { position: absolute; inset: 0; }
-  .dt-tiles img { display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
-  .dt-home { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  .dt-acc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .dt-pin { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
+            background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+  .dt-tiles img { position: absolute; display: block; width: 256px; height: 256px; max-width: none; user-select: none; }
+  .dt-home { position: absolute; z-index: 1; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
              background: #fff; color: #3f8f63; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); --mdc-icon-size: 16px; }
   .dt-osm { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: #333; background: rgba(255, 255, 255, 0.7); padding: 1px 4px; border-radius: 4px; }
-  .pm-map { border-radius: 22px; }
-  .pm-map .dt-tiles img { position: absolute; }
-  .pm-pin { position: absolute; transform: translate(-50%, -21px); display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
-  .pm-pin i { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--pin) center / cover; position: relative;
-              display: grid; place-items: center; color: #fff; font: 700 16px/1 inherit; font-style: normal; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
-  .pm-pin em { position: absolute; right: -7px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
-               background: #fff; color: #3f8f63; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); --mdc-icon-size: 12px; }
-  .pm-pin b { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--ink);
-              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); white-space: nowrap; }
   .dt-nomap { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
   .dt-place { display: flex; flex-direction: column; padding: 12px 16px 14px; }
   .dt-place b { font-size: 22px; font-weight: 700; line-height: 1.2; }

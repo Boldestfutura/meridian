@@ -164,8 +164,9 @@ change in HA, pull and commit; after any change here, deploy, then check. Pull n
   entity opens it. Anything without a link still gets a Meridian pop-up, never HA's own dialog
   (`_fallbackOpen`): a light opens its sheet, a speaker a player, anything else the detail pop-up
   (www/detail.js). Only its "More in Home Assistant" button, and the light sheet's, go to HA.
-  A person's or phone's Location detail draws its map in Meridian's colours (www/peoplemap.js,
-  MapLibre + OpenFreeMap vector tiles); the grey Esri map inside it shows only if that can't load.
+  A person's or phone's Location detail draws its map in Meridian's colours (www/locationmap.js,
+  MapLibre + OpenFreeMap vector tiles): that one spot as a blue dot with its GPS accuracy, home
+  when in view. The grey Esri map inside it shows only if that can't load.
   The Boox dashboard is the one exception: plain HA buttons and more-info, for the e-ink screen.
 - **A weather icon:** edit `tools/weather_icons.py`, run it, and bump the `?v=` on the icon
   URL in `_wxIcon` so screens fetch the new files.

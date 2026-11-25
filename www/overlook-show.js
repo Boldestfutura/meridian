@@ -14,10 +14,10 @@ import { LitElement, html, css, svg, nothing, keyed } from "./lit-all.min.js";
 import { TABLET_PAGES, tabletPage, tabletSheets, TABLET_CSS, wave, count, secPill, secSection, securityPopup, camSection } from "./tablet.js";
 import { createPip, shakeDetector } from "./pip.js";
 import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./weather.js";
-import { detailPopup, detailSection, peopleMap, DETAIL_CSS } from "./detail.js";
+import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.45.1";
+const VERSION = "0.45.2";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
@@ -1662,7 +1662,6 @@ class OverlookShow extends LitElement {
       case "camera": return camSection(this, s);
       case "game": return this._popGame(s);
       case "detail": return detailSection(this, s);
-      case "people_map": return html`${head}${peopleMap(this, s)}`;
       case "graph": return html`${head}${this._popGraph(s)}`;
       case "multigraph": return html`${head}${this._popMultiGraph(s)}`;
       case "choices": return html`${head}${this._popChoices(s)}`;
