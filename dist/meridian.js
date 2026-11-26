@@ -3608,6 +3608,11 @@ var MeridianSky = class extends HTMLElement {
     this._flashV = 0;
     this._nextBolt = 2;
     this._bolt = null;
+    this.hit = ".mf-tile, .mf-hours";
+    this._rects = [];
+    this._rectsAt = -1;
+    this._spl = [];
+    this._drips = [];
   }
   set mode(m2) {
     this._mode = SKY[m2] ? m2 : "cloudy";
@@ -3682,12 +3687,36 @@ var MeridianSky = class extends HTMLElement {
   // everything on the 2D canvas, sized to the screen; the mist and frost are painted once
   _particles() {
     const W2 = this._W, H2 = this._H, s2 = this._s;
-    this._streaks = [...Array(Math.round(380 * s2))].map(() => ({ x: R2() * W2 * 1.15, y: R2() * H2, l: (14 + R2() * 22) * s2, v: (900 + R2() * 700) * s2, a: 0.12 + R2() * 0.3 }));
+    this._streaks = [...Array(Math.round(300 * s2))].map(() => ({ x: R2() * W2 * 1.15, y: R2() * H2, l: (28 + R2() * 34) * s2, v: (900 + R2() * 700) * s2, a: 0.32 + R2() * 0.4, h: R2() < 0.4 }));
     this._beads = [...Array(Math.round(150 * s2))].map(() => ({ x: R2() * W2, y: R2() * H2, r: (1.5 + R2() * R2() * 5) * s2, v: 0 }));
     this._gusts = [...Array(24)].map(() => ({ x: R2() * W2, y: R2() * H2, l: (120 + R2() * 260) * s2, v: (500 + R2() * 500) * s2, a: 0.1 + R2() * 0.18 }));
     this._ash = [...Array(Math.round(70 * s2 + 10))].map(() => ({ x: R2() * W2, y: R2() * H2, r: (0.8 + R2() * 1.8) * s2, vx: (8 + R2() * 14) * s2, vy: (4 + R2() * 8) * s2, p: R2() * 6 }));
     this._mist = null;
     this._frost = null;
+    this._spl = [];
+    this._drips = [];
+    this._rectsAt = -1;
+  }
+  // where the tiles are, relative to the sky, measured every half second (they move with the layout)
+  _tiles(t3) {
+    if (t3 - this._rectsAt < 0.5) return this._rects;
+    this._rectsAt = t3;
+    const host = this.getBoundingClientRect(), par = this.parentNode;
+    this._rects = !par || !this.hit ? [] : [...par.querySelectorAll(this.hit)].map((el) => {
+      const r2 = el.getBoundingClientRect(), rad = Math.min(r2.height / 2, parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0);
+      return { l: r2.left - host.left, t: r2.top - host.top, r: r2.right - host.left, b: r2.bottom - host.top, rad, next: R2() * 1.5 };
+    }).filter((r2) => r2.r - r2.l > 20 && r2.b - r2.t > 10);
+    return this._rects;
+  }
+  // a drop landing: a little crown and a few droplets thrown up and out
+  _splash(x3, y2, big) {
+    if (this._spl.length > 120) return;
+    const s2 = this._s, n2 = big ? 4 : 2 + (R2() < 0.4 ? 1 : 0);
+    this._spl.push({ crown: 1, x: x3, y: y2, w: (big ? 14 : 9) * s2, life: 0, max: 0.28 });
+    for (let i2 = 0; i2 < n2; i2++) {
+      const dir = R2() < 0.5 ? -1 : 1;
+      this._spl.push({ x: x3, y: y2 - 1, vx: dir * (40 + R2() * 120) * s2, vy: -(110 + R2() * (big ? 220 : 150)) * s2, r: (1.1 + R2() * 1.3) * s2, life: 0, max: 0.45 + R2() * 0.25 });
+    }
   }
   _paintMist() {
     const W2 = this._W, H2 = this._H, s2 = this._s, c2 = document.createElement("canvas");
@@ -3866,22 +3895,74 @@ var MeridianSky = class extends HTMLElement {
     }
     if (cur.rain > 0.02) {
       const n2 = Math.floor(this._streaks.length * Math.min(1, cur.rain / 1.5)), sl = 0.18 + cur.wind * 0.3;
+      const rects = this._tiles(t3), ra = Math.min(1, cur.rain), col = cur.night ? "190,205,235" : "236,242,252";
       g2.lineCap = "round";
-      g2.lineWidth = 1.5 * s2 + 0.3;
       for (let i2 = 0; i2 < n2; i2++) {
-        const d2 = this._streaks[i2];
+        const d2 = this._streaks[i2], py = d2.y;
         d2.y += d2.v * dt2;
         d2.x -= d2.v * dt2 * sl;
+        if (d2.h) for (const r2 of rects) {
+          if (py <= r2.t && d2.y > r2.t && d2.x > r2.l + r2.rad * 0.5 && d2.x < r2.r - r2.rad * 0.5) {
+            this._splash(d2.x, r2.t, d2.l > 50 * s2);
+            d2.y = -30 - R2() * 40;
+            d2.x = R2() * W2 * 1.15;
+            break;
+          }
+        }
         if (d2.y > H2 + 20) {
           d2.y = -30;
           d2.x = R2() * W2 * 1.15;
         }
         if (d2.x < -40) d2.x += W2 * 1.15;
-        g2.strokeStyle = `rgba(${cur.night ? "190,205,235" : "230,238,250"},${(d2.a * Math.min(1, cur.rain)).toFixed(3)})`;
+        const x22 = d2.x + d2.l * sl, y2 = d2.y - d2.l, a2 = d2.a * ra;
+        g2.lineWidth = 2.6 * s2 + 1.4;
+        g2.strokeStyle = `rgba(20,32,55,${(a2 * 0.22).toFixed(3)})`;
         g2.beginPath();
         g2.moveTo(d2.x, d2.y);
-        g2.lineTo(d2.x + d2.l * sl, d2.y - d2.l);
+        g2.lineTo(x22, y2);
         g2.stroke();
+        g2.lineWidth = 2.2 * s2 + 0.6;
+        g2.strokeStyle = `rgba(${col},${a2.toFixed(3)})`;
+        g2.beginPath();
+        g2.moveTo(d2.x, d2.y);
+        g2.lineTo(x22, y2);
+        g2.stroke();
+      }
+      for (const r2 of rects) {
+        r2.next -= dt2 * ra;
+        if (r2.next <= 0 && this._drips.length < 24) {
+          r2.next = (0.5 + R2() * 1.4) / Math.max(0.6, cur.rain);
+          this._drips.push({ x: r2.l + r2.rad + R2() * (r2.r - r2.l - 2 * r2.rad), y: r2.b, from: r2, hang: 0.45 + R2() * 0.6, vy: 0, r: (3 + R2() * 2) * s2 });
+        }
+      }
+      for (let i2 = this._drips.length - 1; i2 >= 0; i2--) {
+        const q2 = this._drips[i2];
+        if (q2.hang > 0) {
+          q2.hang -= dt2;
+        } else {
+          const py = q2.y;
+          q2.vy += 1400 * s2 * dt2;
+          q2.y += q2.vy * dt2;
+          let gone = q2.y > H2 + 10;
+          for (const r2 of rects) if (r2 !== q2.from && py <= r2.t && q2.y > r2.t && q2.x > r2.l && q2.x < r2.r) {
+            this._splash(q2.x, r2.t, false);
+            gone = true;
+            break;
+          }
+          if (gone) {
+            this._drips.splice(i2, 1);
+            continue;
+          }
+        }
+        const grow = q2.hang > 0 ? Math.min(1, 1.2 - q2.hang) : 1, rr = q2.r * (0.55 + 0.45 * grow), stretch = q2.hang > 0 ? 1.25 : 1 + Math.min(1.6, q2.vy / (600 * s2));
+        g2.fillStyle = `rgba(20,32,55,${(0.3 * ra).toFixed(3)})`;
+        g2.beginPath();
+        g2.ellipse(q2.x, q2.y + rr * 0.2, rr + 1, (rr + 1) * stretch, 0, 0, 7);
+        g2.fill();
+        g2.fillStyle = `rgba(${col},${(0.9 * ra).toFixed(3)})`;
+        g2.beginPath();
+        g2.ellipse(q2.x, q2.y, rr, rr * stretch, 0, 0, 7);
+        g2.fill();
       }
       const al = Math.min(1, cur.rain), nb = Math.floor(this._beads.length * al);
       for (let i2 = 0; i2 < nb; i2++) {
@@ -3909,6 +3990,38 @@ var MeridianSky = class extends HTMLElement {
         g2.fillStyle = gr;
         g2.beginPath();
         g2.arc(b2.x, b2.y, b2.r, 0, 7);
+        g2.fill();
+      }
+    }
+    if (this._spl.length) {
+      const col = cur.night ? "200,212,238" : "240,245,255";
+      for (let i2 = this._spl.length - 1; i2 >= 0; i2--) {
+        const p2 = this._spl[i2];
+        p2.life += dt2;
+        if (p2.life >= p2.max) {
+          this._spl.splice(i2, 1);
+          continue;
+        }
+        const f2 = 1 - p2.life / p2.max;
+        if (p2.crown) {
+          const w2 = p2.w * (0.4 + 0.9 * (1 - f2));
+          g2.lineWidth = 1.6 * s2 + 0.4;
+          g2.strokeStyle = `rgba(${col},${(0.85 * f2).toFixed(3)})`;
+          g2.beginPath();
+          g2.ellipse(p2.x, p2.y, w2, w2 * 0.32, 0, Math.PI, 2 * Math.PI);
+          g2.stroke();
+          continue;
+        }
+        p2.vy += 900 * s2 * dt2;
+        p2.x += p2.vx * dt2;
+        p2.y += p2.vy * dt2;
+        g2.fillStyle = `rgba(20,32,55,${(0.25 * f2).toFixed(3)})`;
+        g2.beginPath();
+        g2.arc(p2.x, p2.y, p2.r + 0.9, 0, 7);
+        g2.fill();
+        g2.fillStyle = `rgba(${col},${(0.95 * f2).toFixed(3)})`;
+        g2.beginPath();
+        g2.arc(p2.x, p2.y, p2.r, 0, 7);
         g2.fill();
       }
     }
@@ -5808,7 +5921,7 @@ var MeridianWeather = class extends dt {
 };
 
 // www/overlook-show.js
-var VERSION = "0.45.2";
+var VERSION = "0.45.3";
 var BUILD = false ? "all" : "phone";
 var ALIASES = typeof MERIDIAN_ALIASES === "undefined" ? true : MERIDIAN_ALIASES;
 var define = (tag, cls) => {

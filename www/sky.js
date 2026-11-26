@@ -3,6 +3,8 @@
 // SKY below and `.night` to true after dark. The sky is a WebGL shader drawn at a third of the
 // screen and softened, which is what keeps it cheap on the Kitchen Display and the Echo Show 5;
 // rain, drops on the glass, gusts, frost, mist, ash and lightning go on a 2D canvas over it.
+// Some of the rain lands on the card's tiles (the elements beside it matching `.hit`, by default
+// the forecast tiles and the hourly strip): it splashes on their tops and drips off their bottoms.
 // It runs at up to 30 fps, stops while the page is hidden, and eases between skies when the
 // mode changes.
 
@@ -90,6 +92,7 @@ class MeridianSky extends HTMLElement {
     this._sky = root.querySelector(".sky"); this._fx = root.querySelector(".fx"); this._flash = root.querySelector(".flash");
     this._mode = "cloudy"; this._night = false; this._cur = null;
     this._flashV = 0; this._nextBolt = 2; this._bolt = null;
+    this.hit = ".mf-tile, .mf-hours"; this._rects = []; this._rectsAt = -1; this._spl = []; this._drips = [];
   }
   set mode(m) { this._mode = SKY[m] ? m : "cloudy"; }
   get mode() { return this._mode; }
@@ -137,11 +140,34 @@ class MeridianSky extends HTMLElement {
   // everything on the 2D canvas, sized to the screen; the mist and frost are painted once
   _particles() {
     const W = this._W, H = this._H, s = this._s;
-    this._streaks = [...Array(Math.round(380 * s))].map(() => ({ x: R() * W * 1.15, y: R() * H, l: (14 + R() * 22) * s, v: (900 + R() * 700) * s, a: .12 + R() * .3 }));
+    this._streaks = [...Array(Math.round(300 * s))].map(() => ({ x: R() * W * 1.15, y: R() * H, l: (28 + R() * 34) * s, v: (900 + R() * 700) * s, a: .32 + R() * .4, h: R() < .4 }));
     this._beads = [...Array(Math.round(150 * s))].map(() => ({ x: R() * W, y: R() * H, r: (1.5 + R() * R() * 5) * s, v: 0 }));
     this._gusts = [...Array(24)].map(() => ({ x: R() * W, y: R() * H, l: (120 + R() * 260) * s, v: (500 + R() * 500) * s, a: .1 + R() * .18 }));
     this._ash = [...Array(Math.round(70 * s + 10))].map(() => ({ x: R() * W, y: R() * H, r: (.8 + R() * 1.8) * s, vx: (8 + R() * 14) * s, vy: (4 + R() * 8) * s, p: R() * 6 }));
     this._mist = null; this._frost = null;   // painted the first time they're needed
+    this._spl = []; this._drips = []; this._rectsAt = -1;
+  }
+
+  // where the tiles are, relative to the sky, measured every half second (they move with the layout)
+  _tiles(t) {
+    if (t - this._rectsAt < .5) return this._rects;
+    this._rectsAt = t;
+    const host = this.getBoundingClientRect(), par = this.parentNode;
+    this._rects = !par || !this.hit ? [] : [...par.querySelectorAll(this.hit)].map((el) => {
+      const r = el.getBoundingClientRect(), rad = Math.min(r.height / 2, parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0);
+      return { l: r.left - host.left, t: r.top - host.top, r: r.right - host.left, b: r.bottom - host.top, rad, next: R() * 1.5 };
+    }).filter((r) => r.r - r.l > 20 && r.b - r.t > 10);
+    return this._rects;
+  }
+  // a drop landing: a little crown and a few droplets thrown up and out
+  _splash(x, y, big) {
+    if (this._spl.length > 120) return;
+    const s = this._s, n = big ? 4 : 2 + (R() < .4 ? 1 : 0);
+    this._spl.push({ crown: 1, x, y, w: (big ? 14 : 9) * s, life: 0, max: .28 });
+    for (let i = 0; i < n; i++) {
+      const dir = R() < .5 ? -1 : 1;
+      this._spl.push({ x, y: y - 1, vx: dir * (40 + R() * 120) * s, vy: -(110 + R() * (big ? 220 : 150)) * s, r: (1.1 + R() * 1.3) * s, life: 0, max: .45 + R() * .25 });
+    }
   }
   _paintMist() {
     const W = this._W, H = this._H, s = this._s, c = document.createElement("canvas"); c.width = W; c.height = H; const m = c.getContext("2d");
@@ -257,12 +283,41 @@ class MeridianSky extends HTMLElement {
     }
     if (cur.rain > .02) {
       const n = Math.floor(this._streaks.length * Math.min(1, cur.rain / 1.5)), sl = .18 + cur.wind * .3;
-      g.lineCap = "round"; g.lineWidth = 1.5 * s + .3;
+      const rects = this._tiles(t), ra = Math.min(1, cur.rain), col = cur.night ? "190,205,235" : "236,242,252";
+      g.lineCap = "round";
       for (let i = 0; i < n; i++) {
-        const d = this._streaks[i]; d.y += d.v * dt; d.x -= d.v * dt * sl;
+        const d = this._streaks[i], py = d.y; d.y += d.v * dt; d.x -= d.v * dt * sl;
+        if (d.h) for (const r of rects) {   // landed on top of a tile: splash, start again at the top
+          if (py <= r.t && d.y > r.t && d.x > r.l + r.rad * .5 && d.x < r.r - r.rad * .5) {
+            this._splash(d.x, r.t, d.l > 50 * s); d.y = -30 - R() * 40; d.x = R() * W * 1.15; break;
+          }
+        }
         if (d.y > H + 20) { d.y = -30; d.x = R() * W * 1.15; } if (d.x < -40) d.x += W * 1.15;
-        g.strokeStyle = `rgba(${cur.night ? "190,205,235" : "230,238,250"},${(d.a * Math.min(1, cur.rain)).toFixed(3)})`;
-        g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x + d.l * sl, d.y - d.l); g.stroke();
+        const x2 = d.x + d.l * sl, y2 = d.y - d.l, a = d.a * ra;
+        g.lineWidth = 2.6 * s + 1.4; g.strokeStyle = `rgba(20,32,55,${(a * .22).toFixed(3)})`;   // faint dark edge, so it shows on light tiles too
+        g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(x2, y2); g.stroke();
+        g.lineWidth = 2.2 * s + .6; g.strokeStyle = `rgba(${col},${a.toFixed(3)})`;
+        g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(x2, y2); g.stroke();
+      }
+      // water gathers under each tile and drips off its bottom edge
+      for (const r of rects) {
+        r.next -= dt * ra;
+        if (r.next <= 0 && this._drips.length < 24) {
+          r.next = (.5 + R() * 1.4) / Math.max(.6, cur.rain);
+          this._drips.push({ x: r.l + r.rad + R() * (r.r - r.l - 2 * r.rad), y: r.b, from: r, hang: .45 + R() * .6, vy: 0, r: (3 + R() * 2) * s });
+        }
+      }
+      for (let i = this._drips.length - 1; i >= 0; i--) {
+        const q = this._drips[i];
+        if (q.hang > 0) { q.hang -= dt; } else {
+          const py = q.y; q.vy += 1400 * s * dt; q.y += q.vy * dt;
+          let gone = q.y > H + 10;
+          for (const r of rects) if (r !== q.from && py <= r.t && q.y > r.t && q.x > r.l && q.x < r.r) { this._splash(q.x, r.t, false); gone = true; break; }
+          if (gone) { this._drips.splice(i, 1); continue; }
+        }
+        const grow = q.hang > 0 ? Math.min(1, 1.2 - q.hang) : 1, rr = q.r * (.55 + .45 * grow), stretch = q.hang > 0 ? 1.25 : 1 + Math.min(1.6, q.vy / (600 * s));
+        g.fillStyle = `rgba(20,32,55,${(.3 * ra).toFixed(3)})`; g.beginPath(); g.ellipse(q.x, q.y + rr * .2, rr + 1, (rr + 1) * stretch, 0, 0, 7); g.fill();
+        g.fillStyle = `rgba(${col},${(.9 * ra).toFixed(3)})`; g.beginPath(); g.ellipse(q.x, q.y, rr, rr * stretch, 0, 0, 7); g.fill();
       }
       // drops on the glass: they sit, and now and then a big one runs down
       const al = Math.min(1, cur.rain), nb = Math.floor(this._beads.length * al);
@@ -274,6 +329,23 @@ class MeridianSky extends HTMLElement {
         const gr = g.createRadialGradient(b.x - b.r * .3, b.y - b.r * .3, 0, b.x, b.y, b.r);
         gr.addColorStop(0, `rgba(255,255,255,${.75 * al})`); gr.addColorStop(.45, `rgba(200,215,235,${.25 * al})`); gr.addColorStop(1, `rgba(20,30,50,${.35 * al})`);
         g.fillStyle = gr; g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7); g.fill();
+      }
+    }
+    if (this._spl.length) {
+      const col = cur.night ? "200,212,238" : "240,245,255";
+      for (let i = this._spl.length - 1; i >= 0; i--) {
+        const p = this._spl[i]; p.life += dt;
+        if (p.life >= p.max) { this._spl.splice(i, 1); continue; }
+        const f = 1 - p.life / p.max;
+        if (p.crown) {   // a flat ring that opens out and fades
+          const w = p.w * (.4 + .9 * (1 - f));
+          g.lineWidth = 1.6 * s + .4; g.strokeStyle = `rgba(${col},${(.85 * f).toFixed(3)})`;
+          g.beginPath(); g.ellipse(p.x, p.y, w, w * .32, 0, Math.PI, 2 * Math.PI); g.stroke();
+          continue;
+        }
+        p.vy += 900 * s * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        g.fillStyle = `rgba(20,32,55,${(.25 * f).toFixed(3)})`; g.beginPath(); g.arc(p.x, p.y, p.r + .9, 0, 7); g.fill();
+        g.fillStyle = `rgba(${col},${(.95 * f).toFixed(3)})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
       }
     }
     if (cur.wind > .4) {

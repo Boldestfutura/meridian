@@ -17,7 +17,7 @@ import { weatherPopup, wxSection, wxPill, wxAlert, wxMorning, WX_CSS } from "./w
 import { detailPopup, detailSection, DETAIL_CSS } from "./detail.js";
 import { MeridianWeather } from "./weather-page.js";
 
-const VERSION = "0.45.2";
+const VERSION = "0.45.3";
 // Two builds come out of this one file (deploy.py): the room screens' full-screen card
 // (overlook-show) and the HACS phone cards (dist/meridian.js, meridian-*). esbuild sets
 // MERIDIAN_BUILD to "show" or "phone"; served as it is, the file registers everything.
