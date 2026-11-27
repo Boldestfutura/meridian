@@ -196,6 +196,7 @@ POPUPS = {
               t("switch.living_room_amp_crossfade", "Crossfade", "mdi:shuffle-variant"),
               t("switch.living_room_amp_subwoofer_enabled", "Subwoofer", "mdi:speaker-wireless"),
               t("switch.living_room_amp_surround_enabled", "Surround", "mdi:surround-sound"),
+              t("switch.living_room_amp_tv_autoplay", "TV autoplay", "mdi:television-play"),
               t("number.living_room_amp_bass", "Bass", "mdi:music-clef-bass"),
               t("number.living_room_amp_treble", "Treble", "mdi:music-clef-treble"),
               t("sensor.living_room_amp_audio_input_format", "Input", "mdi:audio-input-rca"), title="Sound")),
