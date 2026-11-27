@@ -995,7 +995,13 @@
                       "entity": "switch.living_room_amp_surround_enabled",
                       "name": "Surround",
                       "icon": "mdi:surround-sound"
-                    },
+                    }
+                  ]
+                },
+                {
+                  "type": "tiles",
+                  "title": "EQ",
+                  "items": [
                     {
                       "entity": "number.living_room_amp_bass",
                       "name": "Bass",

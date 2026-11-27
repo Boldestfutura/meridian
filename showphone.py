@@ -197,9 +197,9 @@ POPUPS = {
               t("switch.living_room_amp_loudness", "Loudness", "mdi:volume-vibrate"),
               t("switch.living_room_amp_crossfade", "Crossfade", "mdi:shuffle-variant"),
               t("switch.living_room_amp_subwoofer_enabled", "Subwoofer", "mdi:speaker-wireless"),
-              t("switch.living_room_amp_surround_enabled", "Surround", "mdi:surround-sound"),
-              t("number.living_room_amp_bass", "Bass", "mdi:music-clef-bass"),
-              t("number.living_room_amp_treble", "Treble", "mdi:music-clef-treble"), title="Sound")),
+              t("switch.living_room_amp_surround_enabled", "Surround", "mdi:surround-sound"), title="Sound"),
+        tiles(t("number.living_room_amp_bass", "Bass", "mdi:music-clef-bass"),
+              t("number.living_room_amp_treble", "Treble", "mdi:music-clef-treble"), title="EQ")),
     "appletv": {"title": "Apple TV", "icon": "mdi:television", "sections": [
         {"type": "player", "entity": ATV},
         {"type": "choices", "title": "Apps", "entity": ATV, "attr": "source", "service": "media_player.select_source",
