@@ -987,6 +987,11 @@
                       "icon": "mdi:surround-sound"
                     },
                     {
+                      "entity": "switch.living_room_amp_tv_autoplay",
+                      "name": "TV autoplay",
+                      "icon": "mdi:television-play"
+                    },
+                    {
                       "entity": "number.living_room_amp_bass",
                       "name": "Bass",
                       "icon": "mdi:music-clef-bass"
