@@ -1099,6 +1099,16 @@
                         "icon": "mdi:weather-night"
                       },
                       {
+                        "entity": "switch.living_room_amp_tv_autoplay",
+                        "name": "TV autoplay",
+                        "icon": "mdi:television-play"
+                      },
+                      {
+                        "entity": "sensor.living_room_amp_audio_input_format",
+                        "name": "Input",
+                        "icon": "mdi:audio-input-rca"
+                      },
+                      {
                         "entity": "switch.living_room_amp_loudness",
                         "name": "Loudness",
                         "icon": "mdi:volume-vibrate"
@@ -1119,11 +1129,6 @@
                         "icon": "mdi:surround-sound"
                       },
                       {
-                        "entity": "switch.living_room_amp_tv_autoplay",
-                        "name": "TV autoplay",
-                        "icon": "mdi:television-play"
-                      },
-                      {
                         "entity": "number.living_room_amp_bass",
                         "name": "Bass",
                         "icon": "mdi:music-clef-bass"
@@ -1132,11 +1137,6 @@
                         "entity": "number.living_room_amp_treble",
                         "name": "Treble",
                         "icon": "mdi:music-clef-treble"
-                      },
-                      {
-                        "entity": "sensor.living_room_amp_audio_input_format",
-                        "name": "Input",
-                        "icon": "mdi:audio-input-rca"
                       }
                     ]
                   }
